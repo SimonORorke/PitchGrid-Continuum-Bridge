@@ -1,0 +1,29 @@
+import { FilledButton, MagicVerticalBox, MagicWindow, MagicText } from "@vivi/magic.slint";
+
+export component AppWindow inherits MagicWindow {
+    width: 400px;
+    height: 300px;
+    title: window_title;
+
+    in-out property<int> counter: 42;
+    in property <string> window_title;
+    callback request-increase-value();
+
+    MagicVerticalBox {
+        MagicText {
+            text: "Counter: \{root.counter}";
+        }
+
+        FilledButton {
+            text: "Increase value";
+
+            clicked => {
+                root.request-increase-value();
+            }
+        }
+    }
+}
+
+export global Globals {
+    out property<image> icon: @image-url("images/Midi port black on red 512.png");
+}
