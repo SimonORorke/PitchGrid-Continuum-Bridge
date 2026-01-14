@@ -15,24 +15,28 @@ export component MainWindow inherits MagicWindow {
 
     in property <string> window_title;
 
-    MagicHorizontalBox {
+    GridLayout {
+        spacing: 5px;
         Image {
             source: Globals.icon;
             width: 50px; height: 50px;
         }
         MagicText {
             text: "Input:";
-            height: 50px;
-            vertical_alignment: center;
+            vertical-alignment: center;
         }
-        ComboBox {
-            model: [
-                { text: "First" },
-                { text: "Second" },
-                { text: "Third" }
-            ];
-            current_index: 0;
-            height: 50px;
+        VerticalLayout {
+            padding-right: 10px;
+            padding-top: 10px;
+            ComboBox {
+                model: [
+                    { text: "First" },
+                    { text: "Second" },
+                    { text: "Third" }
+                ];
+                current-index: 0;
+                height: 30px;
+            }
         }
     }
 }
