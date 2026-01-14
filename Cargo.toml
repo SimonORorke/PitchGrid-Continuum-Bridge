@@ -1,5 +1,5 @@
 [package]
-name = "vivi_test"
+name = "pitchgrid_continuum"
 version = "0.1.0"
 authors = ["Simon O'Rorke"]
 edition = "2024"
@@ -8,6 +8,8 @@ build = "build.rs"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+midir = "0.10.3"
+midly = "0.5.3"
 slint = "1.14.1"
 
 [build-dependencies]
