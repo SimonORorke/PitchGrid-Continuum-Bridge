@@ -8,8 +8,9 @@ import {
 } from "@vivi/magic.slint";
 
 export component MainWindow inherits MagicWindow {
-    width: 400px;
-    height: 300px;
+    min-width: 400px; // Min is also initial
+    min-height: 200px; // Min is also initial
+    max-height: 600px; // Min does not work if max not set.
     title: window_title;
     icon: Globals.icon;
 
