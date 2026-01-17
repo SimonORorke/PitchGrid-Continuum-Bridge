@@ -14,7 +14,8 @@ export component MainWindow inherits MagicWindow {
     title: window_title;
     icon: Globals.icon;
 
-    in property <[string]> midi_inputs;
+    in-out property midi_input_index <=> midi-inputs-combo.current-index;
+    in property midi_inputs <=> midi-inputs-combo.model;
     in property <string> window_title;
     
     callback midi_input_changed(index: int);
@@ -32,12 +33,12 @@ export component MainWindow inherits MagicWindow {
         VerticalLayout {
             padding-right: 10px;
             padding-top: 10px;
-            ComboBox {
-                model: [
-                    { text: "First" },
-                    { text: "Second" },
-                    { text: "Third" }
-                ];
+            midi-inputs-combo := ComboBox {
+//                model: [
+//                    { text: "First" },
+//                    { text: "Second" },
+//                    { text: "Third" }
+//                ];
                 current-index: 0;
                 changed current-index => {
                     root.midi_input_changed(self.current-index)
