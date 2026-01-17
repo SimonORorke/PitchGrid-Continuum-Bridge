@@ -14,7 +14,10 @@ export component MainWindow inherits MagicWindow {
     title: window_title;
     icon: Globals.icon;
 
+    in property <[string]> midi_inputs;
     in property <string> window_title;
+    
+    callback midi_input_changed(index: int);
 
     GridLayout {
         spacing: 5px;
@@ -23,7 +26,7 @@ export component MainWindow inherits MagicWindow {
             width: 50px; height: 50px;
         }
         MagicText {
-            text: "Input:";
+            text: "MIDI Input:";
             vertical-alignment: center;
         }
         VerticalLayout {
@@ -36,6 +39,9 @@ export component MainWindow inherits MagicWindow {
                     { text: "Third" }
                 ];
                 current-index: 0;
+                changed current-index => {
+                    root.midi_input_changed(self.current-index)
+                }
                 height: 30px;
             }
         }
