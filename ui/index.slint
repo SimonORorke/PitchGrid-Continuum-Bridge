@@ -1,23 +1,20 @@
 import {
     ComboBox,
-    FilledButton,
-    MagicHorizontalBox,
-    MagicVerticalBox,
     MagicText,
     MagicWindow
 } from "@vivi/magic.slint";
 
 export component MainWindow inherits MagicWindow {
-    min-width: 400px; // Min is also initial
+    min-width: 500px; // Min is also initial
     min-height: 200px; // Min is also initial
     max-height: 600px; // Min does not work if max not set.
     title: window_title;
     icon: Globals.icon;
 
-    in property midi_inputs_model <=> midi-inputs-combo.model;
+    in property midi_outputs_model <=> midi-outputs-combo.model;
     in property <string> window_title;
     
-    callback midi_input_changed(index: int);
+    callback midi_output_changed(index: int);
 
     GridLayout {
         spacing: 5px;
@@ -26,16 +23,16 @@ export component MainWindow inherits MagicWindow {
             width: 50px; height: 50px;
         }
         MagicText {
-            text: "MIDI Input:";
+            text: "MIDI Output:";
             vertical-alignment: center;
         }
         VerticalLayout {
             padding-right: 10px;
             padding-top: 10px;
-            midi-inputs-combo := ComboBox {
+            midi-outputs-combo := ComboBox {
                 current-index: 0;
                 changed current-index => {
-                    root.midi_input_changed(self.current-index)
+                    root.midi_output_changed(self.current-index)
                 }
                 height: 30px;
             }
