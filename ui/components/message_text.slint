@@ -8,17 +8,16 @@ export enum MessageType {
 }
 
 export component MessageText inherits MagicText {
-    in property <MessageType> message-type;
+    in property <MessageType> message_type;
 
-    color: get-color();
+    color: get_color();
 
-    function get-color() -> color {
-        let catppuccin_palette = Palette.color-scheme == ColorScheme.light
+    function get_color() -> color {
+        let catppuccin_palette = Palette.color_scheme == ColorScheme.light
             ? Catppuccin.latte
             : Catppuccin.macchiato;
-        return catppuccin_palette.blue;
-//        return Palette.color_scheme == ColorScheme.light
-//            ? Catppuccin.latte.blue
-//            : Catppuccin.macchiato.blue;
+        return root.message_type == MessageType.Error
+            ? catppuccin_palette.red
+            : catppuccin_palette.blue;
     }
 }

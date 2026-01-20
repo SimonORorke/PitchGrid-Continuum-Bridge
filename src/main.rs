@@ -39,6 +39,10 @@ fn main() {
     let midi_outputs_model = MidiInputsModel(midi_output_items);
     let midi_outputs_model = Rc::new(midi_outputs_model);
     main_window.set_midi_outputs_model(slint::ModelRc::from(midi_outputs_model.clone()));
+    main_window.invoke_show_message(
+        "This crate is the main entry point for embedding user interfaces.".into(),
+        MessageType::Error);
+        // MessageType::Info);
 
     main_window.on_midi_output_changed(move |index: i32| {
         if index >= 0 {

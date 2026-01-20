@@ -13,22 +13,22 @@ export component MainWindow inherits MagicWindow {
     title: window_title;
     icon: Globals.icon;
 
-    in property midi_outputs_model <=> midi-outputs-combo.model;
+    in property midi_outputs_model <=> midi_outputs_combo.model;
     in property <string> window_title;
     
     callback midi_output_changed(index: int);
     callback refresh_midi_outputs();
 
     public function show_message(message: string, message_type: MessageType) {
-        message-text.text = message;
-        message-text.message-type = message_type;
+        message_text.text = message;
+        message_text.message_type = message_type;
     }
 
     GridLayout {
         HorizontalLayout {
             row: 0;
             VerticalLayout {
-                padding-right: 5px;
+                padding_right: 5px;
                 Image {
                     source: Globals.icon;
                     width: 50px; height: 50px;
@@ -36,24 +36,24 @@ export component MainWindow inherits MagicWindow {
             }
             MagicText {
                 text: "MIDI Output:";
-                vertical-alignment: center;
+                vertical_alignment: center;
                 width: 100px;
             }
             VerticalLayout {
-                padding-left: 5px;
-                padding-top: 10px;
-                padding-right: 10px;
-                midi-outputs-combo := ComboBox {
-                    current-index: 0;
-                    changed current-index => {
-                        root.midi_output_changed(self.current-index)
+                padding_left: 5px;
+                padding_top: 10px;
+                padding_right: 10px;
+                midi_outputs_combo := ComboBox {
+                    current_index: 0;
+                    changed current_index => {
+                        root.midi_output_changed(self.current_index)
                     }
                     height: 30px;
                     width: 280px;
                 }
             }
             VerticalLayout {
-                padding-top: 10px;
+                padding_top: 10px;
                 OutlineButton {
                     text: "Refresh Ports";
                     clicked => {
@@ -66,14 +66,12 @@ export component MainWindow inherits MagicWindow {
         }
         HorizontalLayout {
             row: 1;
-            padding-top: 105px;
+            padding_top: 105px;
             Rectangle {
                 width: root.width;
                 height: 50px;
-                message-text := MessageText {
-//                    text: "This crate is the main entry point for embedding user interfaces.";
-//                    color: blue;
-                    vertical-alignment: center;
+                message_text := MessageText {
+                    vertical_alignment: center;
                 }
             }
         }
@@ -81,5 +79,5 @@ export component MainWindow inherits MagicWindow {
 }
 
 global Globals {
-    out property<image> icon: @image-url("images/Midi port black on red 512.png");
+    out property<image> icon: @image_url("images/Midi port black on red 512.png");
 }
