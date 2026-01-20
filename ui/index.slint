@@ -5,6 +5,8 @@ import {
     OutlineButton,
 } from "@vivi/magic.slint";
 
+import { MessageText, MessageType } from "components/message_text.slint";
+
 export component MainWindow inherits MagicWindow {
     width: 600px;
     height: 200px;
@@ -17,10 +19,16 @@ export component MainWindow inherits MagicWindow {
     callback midi_output_changed(index: int);
     callback refresh_midi_outputs();
 
+    public function show_message(message: string, message_type: MessageType) {
+        message-text.text = message;
+        message-text.message-type = message_type;
+    }
+
     GridLayout {
-        spacing: 5px;
-        Row {
+        HorizontalLayout {
+            row: 0;
             VerticalLayout {
+                padding-right: 5px;
                 Image {
                     source: Globals.icon;
                     width: 50px; height: 50px;
@@ -32,8 +40,9 @@ export component MainWindow inherits MagicWindow {
                 width: 100px;
             }
             VerticalLayout {
+                padding-left: 5px;
                 padding-top: 10px;
-                padding-right: 5px;
+                padding-right: 10px;
                 midi-outputs-combo := ComboBox {
                     current-index: 0;
                     changed current-index => {
@@ -52,6 +61,19 @@ export component MainWindow inherits MagicWindow {
                     }
                     height: 30px;
                     width: 140px;
+                }
+            }
+        }
+        HorizontalLayout {
+            row: 1;
+            padding-top: 105px;
+            Rectangle {
+                width: root.width;
+                height: 50px;
+                message-text := MessageText {
+//                    text: "This crate is the main entry point for embedding user interfaces.";
+//                    color: blue;
+                    vertical-alignment: center;
                 }
             }
         }

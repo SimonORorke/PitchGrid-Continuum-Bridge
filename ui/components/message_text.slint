@@ -1,0 +1,24 @@
+﻿import { Palette } from "std-widgets.slint";
+import { MagicText } from "@vivi/magic.slint";
+import { Catppuccin, CatppuccinPalette } from "../styling.slint";
+
+export enum MessageType {
+    Error,
+    Info
+}
+
+export component MessageText inherits MagicText {
+    in property <MessageType> message-type;
+
+    color: get-color();
+
+    function get-color() -> color {
+        let catppuccin_palette = Palette.color-scheme == ColorScheme.light
+            ? Catppuccin.latte
+            : Catppuccin.macchiato;
+        return catppuccin_palette.blue;
+//        return Palette.color_scheme == ColorScheme.light
+//            ? Catppuccin.latte.blue
+//            : Catppuccin.macchiato.blue;
+    }
+}
