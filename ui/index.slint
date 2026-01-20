@@ -1,13 +1,13 @@
 import {
     ComboBox,
     MagicText,
-    MagicWindow
+    MagicWindow,
+    OutlineButton,
 } from "@vivi/magic.slint";
 
 export component MainWindow inherits MagicWindow {
-    min-width: 500px; // Min is also initial
-    min-height: 200px; // Min is also initial
-    max-height: 600px; // Min does not work if max not set.
+    width: 600px;
+    height: 200px;
     title: window_title;
     icon: Globals.icon;
 
@@ -15,26 +15,44 @@ export component MainWindow inherits MagicWindow {
     in property <string> window_title;
     
     callback midi_output_changed(index: int);
+    callback refresh_midi_outputs();
 
     GridLayout {
         spacing: 5px;
-        Image {
-            source: Globals.icon;
-            width: 50px; height: 50px;
-        }
-        MagicText {
-            text: "MIDI Output:";
-            vertical-alignment: center;
-        }
-        VerticalLayout {
-            padding-right: 10px;
-            padding-top: 10px;
-            midi-outputs-combo := ComboBox {
-                current-index: 0;
-                changed current-index => {
-                    root.midi_output_changed(self.current-index)
+        Row {
+            VerticalLayout {
+                Image {
+                    source: Globals.icon;
+                    width: 50px; height: 50px;
                 }
-                height: 30px;
+            }
+            MagicText {
+                text: "MIDI Output:";
+                vertical-alignment: center;
+                width: 100px;
+            }
+            VerticalLayout {
+                padding-top: 10px;
+                padding-right: 5px;
+                midi-outputs-combo := ComboBox {
+                    current-index: 0;
+                    changed current-index => {
+                        root.midi_output_changed(self.current-index)
+                    }
+                    height: 30px;
+                    width: 280px;
+                }
+            }
+            VerticalLayout {
+                padding-top: 10px;
+                OutlineButton {
+                    text: "Refresh Ports";
+                    clicked => {
+                        root.refresh_midi_outputs()
+                    }
+                    height: 30px;
+                    width: 140px;
+                }
             }
         }
     }
