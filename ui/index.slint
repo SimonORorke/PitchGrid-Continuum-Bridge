@@ -13,11 +13,11 @@ export component MainWindow inherits MagicWindow {
     title: window_title;
     icon: Globals.icon;
 
-    in property midi_outputs_model <=> midi_outputs_combo.model;
+    in property output_ports_model <=> output_ports_combo.model;
     in property <string> window_title;
     
-    callback midi_output_changed(index: int);
-    callback refresh_midi_outputs();
+    callback output_port_changed(index: int);
+    callback refresh_output_ports();
 
     public function show_message(message: string, message_type: MessageType) {
         message_text.text = message;
@@ -43,10 +43,10 @@ export component MainWindow inherits MagicWindow {
                 padding_left: 5px;
                 padding_top: 10px;
                 padding_right: 10px;
-                midi_outputs_combo := ComboBox {
+                output_ports_combo := ComboBox {
                     current_index: 0;
                     changed current_index => {
-                        root.midi_output_changed(self.current_index)
+                        root.output_port_changed(self.current_index)
                     }
                     height: 30px;
                     width: 280px;
@@ -57,7 +57,7 @@ export component MainWindow inherits MagicWindow {
                 OutlineButton {
                     text: "Refresh Ports";
                     clicked => {
-                        root.refresh_midi_outputs()
+                        root.refresh_output_ports()
                     }
                     height: 30px;
                     width: 140px;
@@ -79,5 +79,5 @@ export component MainWindow inherits MagicWindow {
 }
 
 global Globals {
-    out property<image> icon: @image_url("images/Midi port black on red 512.png");
+    out property<image> icon: @image-url("images/Midi port black on red 512.png");
 }

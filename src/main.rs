@@ -10,9 +10,9 @@ use slint::Weak;
 use midi::MidiManager;
 slint::include_modules!();
 
-struct MidiInputsModel(Vec<ComboBoxItem>);
+struct OutputPortsModel(Vec<ComboBoxItem>);
 
-impl slint::Model for MidiInputsModel {
+impl slint::Model for OutputPortsModel {
     type Data = ComboBoxItem;
     fn row_count(&self) -> usize {
         self.0.len()
@@ -26,33 +26,34 @@ impl slint::Model for MidiInputsModel {
 }
 
 lazy_static! {
-    static ref MIDI_MANAGER: MidiManager = MidiManager::new();
-    static ref MIDI_OUTPUT_NAMES: Mutex<Vec<String>> = Mutex::new(Vec::new());
+    static ref MIDI_MANAGER: Mutex<MidiManager> = Mutex::new(MidiManager::new());
 }
 
 fn main() {
     let main_window = MainWindow::new().unwrap();
     main_window.set_window_title("PitchGrid-Continuum Companion".into());
-    set_midi_output_names(&main_window);
-
+    set_output_ports(&main_window);
     let mut main_window_weak = main_window.as_weak();
-    main_window.on_midi_output_changed(move |index: i32| {
-        on_midi_output_changed(main_window_weak.clone(), index);
+    on_output_port_changed(main_window_weak, 0);
+
+    main_window_weak = main_window.as_weak();
+    main_window.on_output_port_changed(move |index: i32| {
+        on_output_port_changed(main_window_weak.clone(), index);
     });
 
     main_window_weak = main_window.as_weak();
-    main_window.on_refresh_midi_outputs(move || {
-        refresh_midi_output_names(main_window_weak.clone());
+    main_window.on_refresh_output_ports(move || {
+        refresh_output_ports(main_window_weak.clone());
     });
 
     main_window.run().unwrap();
 }
 
-fn on_midi_output_changed(main_window_weak: Weak<MainWindow>, index: i32) {
-    let midi_output_names = MIDI_OUTPUT_NAMES.lock().unwrap().clone();
+fn on_output_port_changed(main_window_weak: Weak<MainWindow>, index: i32) {
+    let output_port_names = MIDI_MANAGER.lock().unwrap().get_output_port_names();
     if index >= 0 {
         if let Some(main_window) = main_window_weak.upgrade() {
-            if let Some(name) = midi_output_names.get(index as usize) {
+            if let Some(name) = output_port_names.get(index as usize) {
                 let message = format!("MIDI output changed to {name}");
                 main_window.invoke_show_message(message.into(), MessageType::Info);
             }
@@ -60,21 +61,19 @@ fn on_midi_output_changed(main_window_weak: Weak<MainWindow>, index: i32) {
     }
 }
 
-fn refresh_midi_output_names(main_window_weak: Weak<MainWindow>) {
+fn refresh_output_ports(main_window_weak: Weak<MainWindow>) {
     if let Some(main_window) = main_window_weak.upgrade() {
-        set_midi_output_names(&main_window);
+        set_output_ports(&main_window);
         main_window.invoke_show_message("Refreshed MIDI outputs".into(), MessageType::Info);
     }
 }
-fn set_midi_output_names(main_window: &MainWindow) {
-    let mut midi_output_names = MIDI_OUTPUT_NAMES.lock().unwrap();
-    midi_output_names.clear();
-    midi_output_names.extend(MIDI_MANAGER.get_midi_output_names().iter().cloned());
-    let midi_output_items: Vec<ComboBoxItem> = midi_output_names
+fn set_output_ports(main_window: &MainWindow) {
+    let output_port_names = MIDI_MANAGER.lock().unwrap().get_output_port_names();
+    let output_port_items: Vec<ComboBoxItem> = output_port_names
         .iter()
         .map(|text| ComboBoxItem { text: text.into() })
         .collect();
-    let midi_outputs_model = MidiInputsModel(midi_output_items);
-    let midi_outputs_model = Rc::new(midi_outputs_model);
-    main_window.set_midi_outputs_model(slint::ModelRc::from(midi_outputs_model.clone()));
+    let output_ports_model = OutputPortsModel(output_port_items);
+    let output_ports_model = Rc::new(output_ports_model);
+    main_window.set_output_ports_model(slint::ModelRc::from(output_ports_model.clone()));
 }
