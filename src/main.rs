@@ -4,7 +4,7 @@
 mod midi;
 
 use std::rc::Rc;
-use std::sync::Arc;
+use std::sync::Mutex;
 use lazy_static::lazy_static;
 use slint::Weak;
 use midi::MidiManager;
@@ -27,27 +27,31 @@ impl slint::Model for MidiInputsModel {
 
 lazy_static! {
     static ref MIDI_MANAGER: MidiManager = MidiManager::new();
-    static ref MIDI_OUTPUT_NAMES: Arc<Vec<String>> = Arc::new(Vec::new());
+    static ref MIDI_OUTPUT_NAMES: Mutex<Vec<String>> = Mutex::new(Vec::new());
 }
 
 fn main() {
     let main_window = MainWindow::new().unwrap();
     main_window.set_window_title("PitchGrid-Continuum Companion".into());
-
-    let midi_output_names = set_midi_output_names(&main_window);
+    set_midi_output_names(&main_window);
 
     let main_window_weak = main_window.as_weak();
     main_window.on_midi_output_changed(move |index: i32| {
-        on_midi_output_changed(midi_output_names.clone(), main_window_weak.clone(), index);
+        on_midi_output_changed(main_window_weak.clone(), index);
     });
 
+    let main_window_weak2 = main_window.as_weak();
     main_window.on_refresh_midi_outputs(move || {
+        if let Some(window) = main_window_weak2.upgrade() {
+            refresh_midi_output_names(&window);
+        }
     });
 
     main_window.run().unwrap();
 }
 
-fn on_midi_output_changed(midi_output_names: Rc<Vec<String>>, main_window_weak: Weak<MainWindow>, index: i32) {
+fn on_midi_output_changed(main_window_weak: Weak<MainWindow>, index: i32) {
+    let midi_output_names = MIDI_OUTPUT_NAMES.lock().unwrap().clone();
     if index >= 0 {
         if let Some(main_window) = main_window_weak.upgrade() {
             if let Some(name) = midi_output_names.get(index as usize) {
@@ -58,8 +62,15 @@ fn on_midi_output_changed(midi_output_names: Rc<Vec<String>>, main_window_weak: 
     }
 }
 
-fn set_midi_output_names(main_window: &MainWindow) -> Rc<Vec<String>> {
-    let midi_output_names = Rc::new(MIDI_MANAGER.get_midi_output_names());
+fn refresh_midi_output_names(main_window: &MainWindow) {
+    set_midi_output_names(main_window);
+    main_window.invoke_show_message("Refreshed MIDI outputs".into(), MessageType::Info);
+}
+
+fn set_midi_output_names(main_window: &MainWindow) {
+    let mut midi_output_names = MIDI_OUTPUT_NAMES.lock().unwrap();
+    midi_output_names.clear();
+    midi_output_names.extend(MIDI_MANAGER.get_midi_output_names().iter().cloned());
     let midi_output_items: Vec<ComboBoxItem> = midi_output_names
         .iter()
         .map(|text| ComboBoxItem { text: text.into() })
@@ -67,5 +78,4 @@ fn set_midi_output_names(main_window: &MainWindow) -> Rc<Vec<String>> {
     let midi_outputs_model = MidiInputsModel(midi_output_items);
     let midi_outputs_model = Rc::new(midi_outputs_model);
     main_window.set_midi_outputs_model(slint::ModelRc::from(midi_outputs_model.clone()));
-    midi_output_names
 }
