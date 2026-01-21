@@ -35,16 +35,14 @@ fn main() {
     main_window.set_window_title("PitchGrid-Continuum Companion".into());
     set_midi_output_names(&main_window);
 
-    let main_window_weak = main_window.as_weak();
+    let mut main_window_weak = main_window.as_weak();
     main_window.on_midi_output_changed(move |index: i32| {
         on_midi_output_changed(main_window_weak.clone(), index);
     });
 
-    let main_window_weak2 = main_window.as_weak();
+    main_window_weak = main_window.as_weak();
     main_window.on_refresh_midi_outputs(move || {
-        if let Some(window) = main_window_weak2.upgrade() {
-            refresh_midi_output_names(&window);
-        }
+        refresh_midi_output_names(main_window_weak.clone());
     });
 
     main_window.run().unwrap();
@@ -62,11 +60,12 @@ fn on_midi_output_changed(main_window_weak: Weak<MainWindow>, index: i32) {
     }
 }
 
-fn refresh_midi_output_names(main_window: &MainWindow) {
-    set_midi_output_names(main_window);
-    main_window.invoke_show_message("Refreshed MIDI outputs".into(), MessageType::Info);
+fn refresh_midi_output_names(main_window_weak: Weak<MainWindow>) {
+    if let Some(main_window) = main_window_weak.upgrade() {
+        set_midi_output_names(&main_window);
+        main_window.invoke_show_message("Refreshed MIDI outputs".into(), MessageType::Info);
+    }
 }
-
 fn set_midi_output_names(main_window: &MainWindow) {
     let mut midi_output_names = MIDI_OUTPUT_NAMES.lock().unwrap();
     midi_output_names.clear();
