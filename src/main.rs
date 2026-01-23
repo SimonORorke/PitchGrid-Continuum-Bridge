@@ -34,7 +34,7 @@ fn main() {
     main_window.set_window_title("PitchGrid-Continuum Companion".into());
     set_output_ports(&main_window);
     let mut main_window_weak = main_window.as_weak();
-    on_output_port_changed(main_window_weak, 0);
+    //on_output_port_changed(main_window_weak, 0);
 
     main_window_weak = main_window.as_weak();
     main_window.on_output_port_changed(move |index: i32| {
@@ -50,13 +50,21 @@ fn main() {
 }
 
 fn on_output_port_changed(main_window_weak: Weak<MainWindow>, index: i32) {
-    let output_port_names = MIDI_MANAGER.lock().unwrap().get_output_port_names();
-    if index >= 0 {
-        if let Some(main_window) = main_window_weak.upgrade() {
-            if let Some(name) = output_port_names.get(index as usize) {
-                let message = format!("MIDI output changed to {name}");
-                main_window.invoke_show_message(message.into(), MessageType::Info);
+    if index < 0 {
+        return;
+    }
+    let index = index as usize;
+    if let Some(main_window) = main_window_weak.upgrade() {
+        let mut midi_manager = MIDI_MANAGER.lock().unwrap();
+        let output_port_names = midi_manager.get_output_port_names();
+        if let Some(name) = output_port_names.get(index) {
+            if MIDI_MANAGER.lock().is_ok() {
+                // midi_manager.connect_to_output_port(index);
             }
+            // let mut midi_manager = MIDI_MANAGER.lock().unwrap();
+            // midi_manager.connect_to_output_port(index);
+            let message = format!("Connected to MIDI output port {name}");
+            main_window.invoke_show_message(message.into(), MessageType::Info);
         }
     }
 }
@@ -68,7 +76,8 @@ fn refresh_output_ports(main_window_weak: Weak<MainWindow>) {
     }
 }
 fn set_output_ports(main_window: &MainWindow) {
-    let output_port_names = MIDI_MANAGER.lock().unwrap().get_output_port_names();
+    let mut midi_manager = MIDI_MANAGER.lock().unwrap();
+    let output_port_names = midi_manager.get_output_port_names();
     let output_port_items: Vec<ComboBoxItem> = output_port_names
         .iter()
         .map(|text| ComboBoxItem { text: text.into() })
