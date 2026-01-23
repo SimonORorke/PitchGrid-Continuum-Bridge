@@ -9,6 +9,13 @@ use slint::Weak;
 use midi::MidiManager;
 slint::include_modules!();
 
+/// 'Rc<RefCell<MidiManager>>' gives **shared ownership** ('Rc')
+/// + **interior mutability** ('RefCell'), so multiple closures can mutate
+/// the same manager safely (single-threaded UI context).
+/// If you later move MIDI work off the UI thread, you’ll want 'Arc<Mutex<_>>' instead.
+/// But for Slint’s typical single-threaded event loop, 'Rc<RefCell<_>>' is the right fix.
+type SharedMidiManager = Rc<RefCell<MidiManager>>;
+
 struct OutputPortsModel(Vec<ComboBoxItem>);
 
 impl slint::Model for OutputPortsModel {
@@ -28,25 +35,20 @@ fn main() {
     let main_window = MainWindow::new().unwrap();
     main_window.set_window_title("PitchGrid-Continuum Companion".into());
 
-    // 'Rc<RefCell<MidiManager>>' gives **shared ownership** ('Rc')
-    // + **interior mutability** (`RefCell`), so multiple closures can mutate
-    // the same manager safely (single-threaded UI context).
-    // If you later move MIDI work off the UI thread, you’ll want 'Arc<Mutex<_>>' instead.
-    // But for Slint’s typical single-threaded event loop, 'Rc<RefCell<_>>' is the right fix.
-    let midi_manager = Rc::new(RefCell::new(MidiManager::new()));
-    set_output_ports(&main_window, &midi_manager);
+    let midi: SharedMidiManager = Rc::new(RefCell::new(MidiManager::new()));
+    set_output_ports(&main_window, &midi);
 
     let main_window_weak = main_window.as_weak();
-    on_output_port_changed(main_window_weak, &midi_manager, 0);
+    on_output_port_changed(main_window_weak, &midi, 0);
 
     let main_window_weak = main_window.as_weak();
-    let midi_manager_for_output_change = Rc::clone(&midi_manager);
+    let midi_manager_for_output_change: SharedMidiManager = Rc::clone(&midi);
     main_window.on_output_port_changed(move |index: i32| {
         on_output_port_changed(main_window_weak.clone(), &midi_manager_for_output_change, index);
     });
 
     let main_window_weak = main_window.as_weak();
-    let midi_manager_for_refresh = Rc::clone(&midi_manager);
+    let midi_manager_for_refresh: SharedMidiManager = Rc::clone(&midi);
     main_window.on_refresh_output_ports(move || {
         refresh_output_ports(main_window_weak.clone(), &midi_manager_for_refresh);
     });
@@ -56,7 +58,7 @@ fn main() {
 
 fn on_output_port_changed(
     main_window_weak: Weak<MainWindow>,
-    midi_manager: &Rc<RefCell<MidiManager>>,
+    midi: &SharedMidiManager,
     index: i32,
 ) {
     if index < 0 {
@@ -65,7 +67,7 @@ fn on_output_port_changed(
     let index = index as usize;
 
     if let Some(main_window) = main_window_weak.upgrade() {
-        let mut mm = midi_manager.borrow_mut();
+        let mut mm = midi.borrow_mut();
         let output_port_names = mm.get_output_port_names();
         if let Some(name) = output_port_names.get(index) {
             mm.connect_to_output_port(index);
@@ -76,16 +78,16 @@ fn on_output_port_changed(
 }
 
 fn refresh_output_ports(
-    main_window_weak: Weak<MainWindow>, midi_manager: &Rc<RefCell<MidiManager>>) {
+    main_window_weak: Weak<MainWindow>, midi: &SharedMidiManager) {
     if let Some(main_window) = main_window_weak.upgrade() {
-        set_output_ports(&main_window, midi_manager);
+        set_output_ports(&main_window, midi);
         main_window.invoke_show_message("Refreshed MIDI outputs".into(), MessageType::Info);
     }
 }
 
 fn set_output_ports(
-    main_window: &MainWindow, midi_manager: &Rc<RefCell<MidiManager>>) {
-    let output_port_names = midi_manager.borrow_mut().get_output_port_names();
+    main_window: &MainWindow, midi: &SharedMidiManager) {
+    let output_port_names = midi.borrow_mut().get_output_port_names();
     let output_port_items: Vec<ComboBoxItem> = output_port_names
         .iter()
         .map(|text| ComboBoxItem { text: text.into() })
