@@ -4,8 +4,6 @@
 mod midi;
 
 use std::rc::Rc;
-use std::sync::Mutex;
-use lazy_static::lazy_static;
 use slint::Weak;
 use midi::MidiManager;
 slint::include_modules!();
@@ -25,58 +23,58 @@ impl slint::Model for OutputPortsModel {
     }
 }
 
-lazy_static! {
-    static ref MIDI_MANAGER: Mutex<MidiManager> = Mutex::new(MidiManager::new());
-}
-
 fn main() {
     let main_window = MainWindow::new().unwrap();
     main_window.set_window_title("PitchGrid-Continuum Companion".into());
-    set_output_ports(&main_window);
+    let mut midi_manager = MidiManager::new();
+    set_output_ports(&main_window, &mut midi_manager);
+
     let mut main_window_weak = main_window.as_weak();
-    //on_output_port_changed(main_window_weak, 0);
+    on_output_port_changed(main_window_weak, &mut midi_manager, 0);
 
     main_window_weak = main_window.as_weak();
     main_window.on_output_port_changed(move |index: i32| {
-        on_output_port_changed(main_window_weak.clone(), index);
+        on_output_port_changed(main_window_weak.clone(), &mut midi_manager, index);
     });
 
     main_window_weak = main_window.as_weak();
     main_window.on_refresh_output_ports(move || {
-        refresh_output_ports(main_window_weak.clone());
+        refresh_output_ports(main_window_weak.clone(), &mut midi_manager);
     });
 
     main_window.run().unwrap();
 }
 
-fn on_output_port_changed(main_window_weak: Weak<MainWindow>, index: i32) {
+fn on_output_port_changed(
+    main_window_weak: Weak<MainWindow>, midi_manager: &mut MidiManager, index: i32) {
     if index < 0 {
         return;
     }
     let index = index as usize;
     if let Some(main_window) = main_window_weak.upgrade() {
-        let mut midi_manager = MIDI_MANAGER.lock().unwrap();
         let output_port_names = midi_manager.get_output_port_names();
         if let Some(name) = output_port_names.get(index) {
-            if MIDI_MANAGER.lock().is_ok() {
-                // midi_manager.connect_to_output_port(index);
-            }
-            // let mut midi_manager = MIDI_MANAGER.lock().unwrap();
-            // midi_manager.connect_to_output_port(index);
+            midi_manager.connect_to_output_port(index);
             let message = format!("Connected to MIDI output port {name}");
             main_window.invoke_show_message(message.into(), MessageType::Info);
         }
     }
 }
 
-fn refresh_output_ports(main_window_weak: Weak<MainWindow>) {
+fn refresh_output_ports(main_window_weak: Weak<MainWindow>, midi_manager: &mut MidiManager) {
     if let Some(main_window) = main_window_weak.upgrade() {
-        set_output_ports(&main_window);
+        set_output_ports(&main_window, midi_manager);
         main_window.invoke_show_message("Refreshed MIDI outputs".into(), MessageType::Info);
     }
 }
-fn set_output_ports(main_window: &MainWindow) {
-    let mut midi_manager = MIDI_MANAGER.lock().unwrap();
+// fn refresh_output_ports(main_window_weak: Weak<MainWindow>) {
+//     if let Some(main_window) = main_window_weak.upgrade() {
+//         set_output_ports(&main_window);
+//         main_window.invoke_show_message("Refreshed MIDI outputs".into(), MessageType::Info);
+//     }
+// }
+
+fn set_output_ports(main_window: &MainWindow, midi_manager: &mut MidiManager) {
     let output_port_names = midi_manager.get_output_port_names();
     let output_port_items: Vec<ComboBoxItem> = output_port_names
         .iter()

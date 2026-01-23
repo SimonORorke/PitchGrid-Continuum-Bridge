@@ -3438,7 +3438,6 @@ dependencies = [
 name = "pitchgrid_continuum"
 version = "0.1.0"
 dependencies = [
- "lazy_static",
  "midir",
  "midly",
  "slint",
