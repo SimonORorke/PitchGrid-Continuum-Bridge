@@ -57,12 +57,18 @@ fn main() {
     main_window.run().unwrap();
 }
 
+fn with_main_window(main_window_weak: Weak<MainWindow>, f: impl FnOnce(&MainWindow)) {
+    if let Some(main_window) = main_window_weak.upgrade() {
+        f(&main_window);
+    }
+}
+
 fn on_output_port_changed(
     main_window_weak: Weak<MainWindow>,
     midi: &SharedMidiManager,
     index: usize,
 ) {
-    if let Some(main_window) = main_window_weak.upgrade() {
+    with_main_window(main_window_weak, |main_window| {
         let mut midi_manager = midi.borrow_mut();
         let output_port_names = midi_manager.get_output_port_names();
         if let Some(name) = output_port_names.get(index) {
@@ -70,15 +76,15 @@ fn on_output_port_changed(
             let message = format!("Connected to MIDI output port {name}");
             main_window.invoke_show_message(message.into(), MessageType::Info);
         }
-    }
+    });
 }
 
 fn refresh_output_ports(
     main_window_weak: Weak<MainWindow>, midi: &SharedMidiManager) {
-    if let Some(main_window) = main_window_weak.upgrade() {
+    with_main_window(main_window_weak, |main_window| {
         set_output_ports(&main_window, midi);
         main_window.invoke_show_message("Refreshed MIDI outputs".into(), MessageType::Info);
-    }
+    });
 }
 
 fn set_output_ports(
