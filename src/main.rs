@@ -31,16 +31,25 @@ impl slint::Model for OutputPortsModel {
     }
 }
 
+const WINDOW_TITLE: &str = "PitchGrid-Continuum Companion";
+const MSG_REFRESHED_OUTPUTS: &str = "Refreshed MIDI outputs";
+
 fn main() {
     let main_window = MainWindow::new().unwrap();
-    main_window.set_window_title("PitchGrid-Continuum Companion".into());
+    main_window.set_window_title(WINDOW_TITLE.into());
 
     let midi: SharedMidiManager = Rc::new(RefCell::new(MidiManager::new()));
     set_output_ports(&main_window, &midi);
 
-    let main_window_weak = main_window.as_weak();
-    on_output_port_changed(main_window_weak, &midi, 0);
+    init_midi_ui_handlers(&main_window, Rc::clone(&midi));
 
+    // Select first output by default (if available).
+    on_output_port_changed(main_window.as_weak(), &midi, 0);
+
+    main_window.run().unwrap();
+}
+
+fn init_midi_ui_handlers(main_window: &MainWindow, midi: SharedMidiManager) {
     let main_window_weak = main_window.as_weak();
     let midi_for_output_change: SharedMidiManager = Rc::clone(&midi);
     main_window.on_output_port_changed(move |index: i32| {
@@ -53,9 +62,8 @@ fn main() {
     main_window.on_refresh_output_ports(move || {
         refresh_output_ports(main_window_weak.clone(), &midi_for_refresh);
     });
-
-    main_window.run().unwrap();
 }
+
 
 fn with_main_window(main_window_weak: Weak<MainWindow>, f: impl FnOnce(&MainWindow)) {
     if let Some(main_window) = main_window_weak.upgrade() {
@@ -83,7 +91,7 @@ fn refresh_output_ports(
     main_window_weak: Weak<MainWindow>, midi: &SharedMidiManager) {
     with_main_window(main_window_weak, |main_window| {
         set_output_ports(&main_window, midi);
-        main_window.invoke_show_message("Refreshed MIDI outputs".into(), MessageType::Info);
+        main_window.invoke_show_message(MSG_REFRESHED_OUTPUTS.into(), MessageType::Info);
     });
 }
 
