@@ -53,7 +53,7 @@ fn init_midi_ui_handlers(main_window: &MainWindow, midi: SharedMidiManager) {
     let window_weak = main_window.as_weak();
 
     {
-        let midi = Rc::clone(&midi);
+        let midi: SharedMidiManager = Rc::clone(&midi);
         let window_weak = window_weak.clone();
         main_window.on_output_port_changed(move |index: i32| {
             on_output_port_changed(window_weak.clone(), &midi, index as usize);
@@ -61,7 +61,7 @@ fn init_midi_ui_handlers(main_window: &MainWindow, midi: SharedMidiManager) {
     }
 
     {
-        let midi = Rc::clone(&midi);
+        let midi: SharedMidiManager = Rc::clone(&midi);
         let window_weak = window_weak.clone();
         main_window.on_refresh_output_ports(move || {
             refresh_output_ports(window_weak.clone(), &midi);
@@ -86,8 +86,7 @@ fn on_output_port_changed(
         let output_port_names = midi_manager.get_output_port_names();
         if let Some(name) = output_port_names.get(index) {
             midi_manager.connect_to_output_port(index);
-            let message = format!("Connected to MIDI output port {name}");
-            main_window.invoke_show_message(message.into(), MessageType::Info);
+            show_info(main_window, format!("Connected to MIDI output port {name}"));
         }
     });
 }
@@ -96,7 +95,7 @@ fn refresh_output_ports(
     main_window_weak: Weak<MainWindow>, midi: &SharedMidiManager) {
     with_main_window(main_window_weak, |main_window| {
         set_output_ports(&main_window, midi);
-        main_window.invoke_show_message(MSG_REFRESHED_OUTPUTS.into(), MessageType::Info);
+        show_info(main_window, MSG_REFRESHED_OUTPUTS);
     });
 }
 
@@ -111,4 +110,8 @@ fn set_output_ports(
 
     let model = Rc::new(OutputPortsModel(output_port_items));
     main_window.set_output_ports_model(slint::ModelRc::from(model));
+}
+
+fn show_info(main_window: &MainWindow, message: impl Into<slint::SharedString>) {
+    main_window.invoke_show_message(message.into(), MessageType::Info);
 }
