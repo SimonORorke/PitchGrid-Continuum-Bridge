@@ -12,6 +12,7 @@ export component MainWindow inherits MagicWindow {
     height: 200px;
     title: window_title;
     icon: Globals.icon;
+    forward-focus: output_ports_combo;
 
     in property output_ports_model <=> output_ports_combo.model;
     in property <string> window_title;
