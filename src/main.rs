@@ -5,7 +5,7 @@ mod midi;
 
 use std::cell::RefCell;
 use std::rc::Rc;
-use slint::Weak;
+use slint::{SharedString, Weak};
 use midi::MidiManager;
 slint::include_modules!();
 
@@ -112,6 +112,6 @@ fn set_output_ports(
     main_window.set_output_ports_model(slint::ModelRc::from(model));
 }
 
-fn show_info(main_window: &MainWindow, message: impl Into<slint::SharedString>) {
+fn show_info(main_window: &MainWindow, message: impl Into<SharedString>) {
     main_window.invoke_show_message(message.into(), MessageType::Info);
 }
