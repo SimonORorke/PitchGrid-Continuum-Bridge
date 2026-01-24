@@ -50,18 +50,23 @@ fn main() {
 }
 
 fn init_midi_ui_handlers(main_window: &MainWindow, midi: SharedMidiManager) {
-    let main_window_weak = main_window.as_weak();
-    let midi_for_output_change: SharedMidiManager = Rc::clone(&midi);
-    main_window.on_output_port_changed(move |index: i32| {
-        on_output_port_changed(
-            main_window_weak.clone(), &midi_for_output_change, index as usize);
-    });
+    let window_weak = main_window.as_weak();
 
-    let main_window_weak = main_window.as_weak();
-    let midi_for_refresh: SharedMidiManager = Rc::clone(&midi);
-    main_window.on_refresh_output_ports(move || {
-        refresh_output_ports(main_window_weak.clone(), &midi_for_refresh);
-    });
+    {
+        let midi = Rc::clone(&midi);
+        let window_weak = window_weak.clone();
+        main_window.on_output_port_changed(move |index: i32| {
+            on_output_port_changed(window_weak.clone(), &midi, index as usize);
+        });
+    }
+
+    {
+        let midi = Rc::clone(&midi);
+        let window_weak = window_weak.clone();
+        main_window.on_refresh_output_ports(move || {
+            refresh_output_ports(window_weak.clone(), &midi);
+        });
+    }
 }
 
 
