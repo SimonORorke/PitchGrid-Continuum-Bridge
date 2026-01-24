@@ -97,12 +97,13 @@ fn refresh_output_ports(
 
 fn set_output_ports(
     main_window: &MainWindow, midi: &SharedMidiManager) {
-    let output_port_names = midi.borrow_mut().get_output_port_names();
-    let output_port_items: Vec<ComboBoxItem> = output_port_names
-        .iter()
+    let output_port_items: Vec<ComboBoxItem> = midi
+        .borrow_mut()
+        .get_output_port_names()
+        .into_iter()
         .map(|text| ComboBoxItem { text: text.into() })
         .collect();
-    let output_ports_model = OutputPortsModel(output_port_items);
-    let output_ports_model = Rc::new(output_ports_model);
-    main_window.set_output_ports_model(slint::ModelRc::from(output_ports_model.clone()));
+
+    let model = Rc::new(OutputPortsModel(output_port_items));
+    main_window.set_output_ports_model(slint::ModelRc::from(model));
 }
