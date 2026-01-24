@@ -44,7 +44,7 @@ fn main() {
     init_midi_ui_handlers(&main_window, Rc::clone(&midi));
 
     // Select first output by default (if available).
-    on_output_port_changed(main_window.as_weak(), &midi, 0);
+    on_output_port_changed(main_window.as_weak(), &midi);
 
     main_window.run().unwrap();
 }
@@ -55,8 +55,8 @@ fn init_midi_ui_handlers(main_window: &MainWindow, midi: SharedMidiManager) {
     {
         let midi: SharedMidiManager = Rc::clone(&midi);
         let window_weak = window_weak.clone();
-        main_window.on_output_port_changed(move |index: i32| {
-            on_output_port_changed(window_weak.clone(), &midi, index as usize);
+        main_window.on_output_port_changed(move || {
+            on_output_port_changed(window_weak.clone(), &midi);
         });
     }
 
@@ -76,14 +76,11 @@ fn with_main_window(main_window_weak: Weak<MainWindow>, f: impl FnOnce(&MainWind
     }
 }
 
-fn on_output_port_changed(
-    main_window_weak: Weak<MainWindow>,
-    midi: &SharedMidiManager,
-    index: usize,
-) {
+fn on_output_port_changed(main_window_weak: Weak<MainWindow>, midi: &SharedMidiManager) {
     with_main_window(main_window_weak, |main_window| {
         let mut midi_manager = midi.borrow_mut();
         let output_port_names = midi_manager.get_output_port_names();
+        let index = main_window.get_selected_output_port_index() as usize;
         if let Some(name) = output_port_names.get(index) {
             midi_manager.connect_to_output_port(index);
             show_info(main_window, format!("Connected to MIDI output port {name}"));
