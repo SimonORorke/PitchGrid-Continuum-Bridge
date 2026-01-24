@@ -42,15 +42,15 @@ fn main() {
     on_output_port_changed(main_window_weak, &midi, 0);
 
     let main_window_weak = main_window.as_weak();
-    let midi_manager_for_output_change: SharedMidiManager = Rc::clone(&midi);
+    let midi_for_output_change: SharedMidiManager = Rc::clone(&midi);
     main_window.on_output_port_changed(move |index: i32| {
-        on_output_port_changed(main_window_weak.clone(), &midi_manager_for_output_change, index);
+        on_output_port_changed(main_window_weak.clone(), &midi_for_output_change, index);
     });
 
     let main_window_weak = main_window.as_weak();
-    let midi_manager_for_refresh: SharedMidiManager = Rc::clone(&midi);
+    let midi_for_refresh: SharedMidiManager = Rc::clone(&midi);
     main_window.on_refresh_output_ports(move || {
-        refresh_output_ports(main_window_weak.clone(), &midi_manager_for_refresh);
+        refresh_output_ports(main_window_weak.clone(), &midi_for_refresh);
     });
 
     main_window.run().unwrap();
@@ -67,10 +67,10 @@ fn on_output_port_changed(
     let index = index as usize;
 
     if let Some(main_window) = main_window_weak.upgrade() {
-        let mut mm = midi.borrow_mut();
-        let output_port_names = mm.get_output_port_names();
+        let mut midi_manager = midi.borrow_mut();
+        let output_port_names = midi_manager.get_output_port_names();
         if let Some(name) = output_port_names.get(index) {
-            mm.connect_to_output_port(index);
+            midi_manager.connect_to_output_port(index);
             let message = format!("Connected to MIDI output port {name}");
             main_window.invoke_show_message(message.into(), MessageType::Info);
         }
