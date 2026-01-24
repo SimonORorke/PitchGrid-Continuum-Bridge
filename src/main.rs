@@ -44,7 +44,8 @@ fn main() {
     let main_window_weak = main_window.as_weak();
     let midi_for_output_change: SharedMidiManager = Rc::clone(&midi);
     main_window.on_output_port_changed(move |index: i32| {
-        on_output_port_changed(main_window_weak.clone(), &midi_for_output_change, index);
+        on_output_port_changed(
+            main_window_weak.clone(), &midi_for_output_change, index as usize);
     });
 
     let main_window_weak = main_window.as_weak();
@@ -59,13 +60,8 @@ fn main() {
 fn on_output_port_changed(
     main_window_weak: Weak<MainWindow>,
     midi: &SharedMidiManager,
-    index: i32,
+    index: usize,
 ) {
-    if index < 0 {
-        return;
-    }
-    let index = index as usize;
-
     if let Some(main_window) = main_window_weak.upgrade() {
         let mut midi_manager = midi.borrow_mut();
         let output_port_names = midi_manager.get_output_port_names();
