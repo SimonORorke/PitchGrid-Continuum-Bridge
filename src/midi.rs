@@ -25,7 +25,6 @@ impl MidiManager {
     fn disconnect_from_output_port(&mut self) {
         if let Some(connection) = self.output_connection.take() {
             connection.close();
-            self.output_connection = None;
         }
     }
 
