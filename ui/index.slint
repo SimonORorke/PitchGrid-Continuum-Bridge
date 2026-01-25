@@ -15,7 +15,7 @@ export component MainWindow inherits MagicWindow {
     forward-focus: output_ports_combo;
 
     in property output_ports_model <=> output_ports_combo.model;
-    out property <int> selected_output_port_index;
+    in-out property <int> selected_output_port_index;
     in property <string> window_title;
     
     callback connect_to_output_port();

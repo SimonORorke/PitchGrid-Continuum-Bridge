@@ -1,6 +1,7 @@
 // Prevent console window in addition to Slint window in Windows release builds when, e.g., starting the app via file manager. Ignored on other platforms.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod global;
 mod midi;
 
 use std::cell::RefCell;
@@ -33,11 +34,10 @@ impl slint::Model for OutputPortsModel {
 
 const MSG_CONNECT: &str = "Connect to a MIDI output port";
 const MSG_REFRESHED_OUTPUTS: &str = "Refreshed MIDI output ports. You must (re)connect.";
-const WINDOW_TITLE: &str = "PitchGrid-Continuum Companion";
 
 fn main() {
     let main_window = MainWindow::new().unwrap();
-    main_window.set_window_title(WINDOW_TITLE.into());
+    main_window.set_window_title(global::APP_TITLE.into());
     let mut midi: SharedMidiManager = Rc::new(RefCell::new(MidiManager::new()));
     set_output_ports(&main_window, &mut midi);
     show_warning(&main_window, MSG_CONNECT);
