@@ -14,9 +14,7 @@ impl MidiManager {
     }
 
     pub fn connect_to_output_port(&mut self, index: usize) {
-        if let Some(connection) = self.output_connection.take() {
-            connection.close();
-        }
+        self.disconnect_from_output_port();
         if let Some(port) = self.output_ports.get(index) {
             let midi_output = MidiOutput::new("My MIDI Output").unwrap();
             let port_name = midi_output.port_name(&port).unwrap();
@@ -24,7 +22,15 @@ impl MidiManager {
         }
     }
 
+    fn disconnect_from_output_port(&mut self) {
+        if let Some(connection) = self.output_connection.take() {
+            connection.close();
+            self.output_connection = None;
+        }
+    }
+
     pub fn get_output_port_names(&mut self) -> Vec<String> {
+        self.disconnect_from_output_port();
         let midi_output = MidiOutput::new("My MIDI Output").unwrap();
         self.output_ports = midi_output.ports().to_vec();
         let output_port_names: Vec<String> = self.output_ports.iter()

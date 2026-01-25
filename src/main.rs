@@ -31,52 +31,21 @@ impl slint::Model for OutputPortsModel {
     }
 }
 
+const MSG_CONNECT: &str = "Connect to a MIDI output port";
+const MSG_REFRESHED_OUTPUTS: &str = "Refreshed MIDI output ports. You must (re)connect.";
 const WINDOW_TITLE: &str = "PitchGrid-Continuum Companion";
-const MSG_REFRESHED_OUTPUTS: &str = "Refreshed MIDI outputs";
 
 fn main() {
     let main_window = MainWindow::new().unwrap();
     main_window.set_window_title(WINDOW_TITLE.into());
-
-    let midi: SharedMidiManager = Rc::new(RefCell::new(MidiManager::new()));
-    set_output_ports(&main_window, &midi);
-
+    let mut midi: SharedMidiManager = Rc::new(RefCell::new(MidiManager::new()));
+    set_output_ports(&main_window, &mut midi);
+    show_warning(&main_window, MSG_CONNECT);
     init_midi_ui_handlers(&main_window, Rc::clone(&midi));
-
-    // Select first output by default (if available).
-    on_output_port_changed(main_window.as_weak(), &midi);
-
     main_window.run().unwrap();
 }
 
-fn init_midi_ui_handlers(main_window: &MainWindow, midi: SharedMidiManager) {
-    let window_weak = main_window.as_weak();
-
-    {
-        let midi: SharedMidiManager = Rc::clone(&midi);
-        let window_weak = window_weak.clone();
-        main_window.on_output_port_changed(move || {
-            on_output_port_changed(window_weak.clone(), &midi);
-        });
-    }
-
-    {
-        let midi: SharedMidiManager = Rc::clone(&midi);
-        let window_weak = window_weak.clone();
-        main_window.on_refresh_output_ports(move || {
-            refresh_output_ports(window_weak.clone(), &midi);
-        });
-    }
-}
-
-
-fn with_main_window(main_window_weak: Weak<MainWindow>, f: impl FnOnce(&MainWindow)) {
-    if let Some(main_window) = main_window_weak.upgrade() {
-        f(&main_window);
-    }
-}
-
-fn on_output_port_changed(main_window_weak: Weak<MainWindow>, midi: &SharedMidiManager) {
+fn connect_to_output_port(main_window_weak: Weak<MainWindow>, midi: &SharedMidiManager) {
     with_main_window(main_window_weak, |main_window| {
         let mut midi_manager = midi.borrow_mut();
         let output_port_names = midi_manager.get_output_port_names();
@@ -88,27 +57,56 @@ fn on_output_port_changed(main_window_weak: Weak<MainWindow>, midi: &SharedMidiM
     });
 }
 
+fn init_midi_ui_handlers(main_window: &MainWindow, midi: SharedMidiManager) {
+    let window_weak = main_window.as_weak();
+
+    {
+        let midi: SharedMidiManager = Rc::clone(&midi);
+        let window_weak = window_weak.clone();
+        main_window.on_connect_to_output_port(move || {
+            connect_to_output_port(window_weak.clone(), &midi);
+        });
+    }
+
+    {
+        let mut midi: SharedMidiManager = Rc::clone(&midi);
+        let window_weak = window_weak.clone();
+        main_window.on_refresh_output_ports(move || {
+            refresh_output_ports(window_weak.clone(), &mut midi);
+        });
+    }
+}
+
 fn refresh_output_ports(
-    main_window_weak: Weak<MainWindow>, midi: &SharedMidiManager) {
+    main_window_weak: Weak<MainWindow>, midi: &mut SharedMidiManager) {
     with_main_window(main_window_weak, |main_window| {
         set_output_ports(&main_window, midi);
-        show_info(main_window, MSG_REFRESHED_OUTPUTS);
+        show_warning(main_window, MSG_REFRESHED_OUTPUTS);
     });
 }
 
 fn set_output_ports(
-    main_window: &MainWindow, midi: &SharedMidiManager) {
+    main_window: &MainWindow, midi: &mut SharedMidiManager) {
     let output_port_items: Vec<ComboBoxItem> = midi
         .borrow_mut()
         .get_output_port_names()
         .into_iter()
         .map(|text| ComboBoxItem { text: text.into() })
         .collect();
-
     let model = Rc::new(OutputPortsModel(output_port_items));
     main_window.set_output_ports_model(slint::ModelRc::from(model));
 }
 
 fn show_info(main_window: &MainWindow, message: impl Into<SharedString>) {
     main_window.invoke_show_message(message.into(), MessageType::Info);
+}
+
+fn show_warning(main_window: &MainWindow, message: impl Into<SharedString>) {
+    main_window.invoke_show_message(message.into(), MessageType::Warning);
+}
+
+fn with_main_window(main_window_weak: Weak<MainWindow>, f: impl FnOnce(&MainWindow)) {
+    if let Some(main_window) = main_window_weak.upgrade() {
+        f(&main_window);
+    }
 }
