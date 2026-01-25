@@ -51,8 +51,12 @@ fn connect_to_output_port(main_window_weak: Weak<MainWindow>, midi: &SharedMidiM
         let output_port_names = midi_manager.get_output_port_names();
         let index = main_window.get_selected_output_port_index() as usize;
         if let Some(name) = output_port_names.get(index) {
-            midi_manager.connect_to_output_port(index);
-            show_info(main_window, format!("Connected to MIDI output port {name}"));
+            match midi_manager.connect_to_output_port(index) {
+                Ok(_) =>
+                    show_info(main_window, format!("Connected to MIDI output port {name}")),
+                Err(err) =>
+                    show_error(main_window, format!("Error: {}", err)),
+            }
         }
     });
 }
@@ -95,6 +99,10 @@ fn set_output_ports(
         .collect();
     let model = Rc::new(OutputPortsModel(output_port_items));
     main_window.set_output_ports_model(slint::ModelRc::from(model));
+}
+
+fn show_error(main_window: &MainWindow, message: impl Into<SharedString>) {
+    main_window.invoke_show_message(message.into(), MessageType::Error);
 }
 
 fn show_info(main_window: &MainWindow, message: impl Into<SharedString>) {
