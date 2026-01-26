@@ -3,10 +3,11 @@
 
 mod global;
 mod midi;
+mod settings;
 
 use std::cell::RefCell;
 use std::rc::Rc;
-use slint::{SharedString, Weak};
+use slint::{CloseRequestResponse, SharedString, Weak};
 use midi::MidiManager;
 slint::include_modules!();
 
@@ -32,17 +33,30 @@ impl slint::Model for OutputPortsModel {
     }
 }
 
-const MSG_CONNECT: &str = "Connect to a MIDI output port";
-const MSG_REFRESHED_OUTPUTS: &str = "Refreshed MIDI output ports. You must (re)connect.";
+const MSG_CONNECT: &str = "Connect to a MIDI output port.";
+const MSG_REFRESHED_OUTPUTS_RECONNECT: &str = "Refreshed MIDI output ports. You must (re)connect.";
 
 fn main() {
     let main_window = MainWindow::new().unwrap();
     main_window.set_window_title(global::APP_TITLE.into());
     let mut midi: SharedMidiManager = Rc::new(RefCell::new(MidiManager::new()));
-    set_output_ports(&main_window, &mut midi);
-    show_warning(&main_window, MSG_CONNECT);
+    init_output_ports(&main_window, &mut midi);
     init_midi_ui_handlers(&main_window, Rc::clone(&midi));
     main_window.run().unwrap();
+}
+
+fn close(main_window_weak: Weak<MainWindow>, midi: &mut SharedMidiManager) -> CloseRequestResponse {
+    let mut response = CloseRequestResponse::HideWindow; 
+    with_main_window(main_window_weak, |main_window| {
+        match midi.borrow_mut().close() {
+            Ok(_) => {},
+            Err(err) => {
+                response = CloseRequestResponse::KeepWindowShown;
+                show_error(main_window, format!("Error: {}", err));
+            },
+        }
+    });
+    response
 }
 
 fn connect_to_output_port(main_window_weak: Weak<MainWindow>, midi: &SharedMidiManager) {
@@ -63,37 +77,59 @@ fn connect_to_output_port(main_window_weak: Weak<MainWindow>, midi: &SharedMidiM
 
 fn init_midi_ui_handlers(main_window: &MainWindow, midi: SharedMidiManager) {
     let window_weak = main_window.as_weak();
-
+    {
+        let mut midi: SharedMidiManager = Rc::clone(&midi);
+        let window_weak = window_weak.clone();
+        main_window.window().on_close_requested(move || {
+            close(window_weak.clone(), &mut midi)
+        });
+    }
     {
         let midi: SharedMidiManager = Rc::clone(&midi);
         let window_weak = window_weak.clone();
         main_window.on_connect_to_output_port(move || {
-            connect_to_output_port(window_weak.clone(), &midi);
+            connect_to_output_port(window_weak.clone(), &midi)
         });
     }
-
     {
         let mut midi: SharedMidiManager = Rc::clone(&midi);
         let window_weak = window_weak.clone();
         main_window.on_refresh_output_ports(move || {
-            refresh_output_ports(window_weak.clone(), &mut midi);
+            refresh_output_ports(window_weak.clone(), &mut midi)
         });
+    }
+}
+
+fn init_output_ports(main_window: &MainWindow, midi: &mut SharedMidiManager) {
+    let output_ports_data = midi.borrow_mut().update_output_ports();
+    set_output_ports(&main_window, output_ports_data.get_port_names());
+    if let Some(persisted_port) = output_ports_data.get_persisted_port() {
+        let index = persisted_port.get_index();
+        match midi.borrow_mut().connect_to_output_port(index) {
+            Ok(_) => {
+                main_window.set_selected_output_port_index(index as i32);
+                show_info(main_window, format!("Connected to MIDI output port {}", 
+                                               persisted_port.get_name()));
+                }
+            Err(err) =>
+                show_error(main_window, format!("Error: {}", err)),
+        }
+    } else {
+        show_warning(&main_window, MSG_CONNECT);
     }
 }
 
 fn refresh_output_ports(
     main_window_weak: Weak<MainWindow>, midi: &mut SharedMidiManager) {
     with_main_window(main_window_weak, |main_window| {
-        set_output_ports(&main_window, midi);
-        show_warning(main_window, MSG_REFRESHED_OUTPUTS);
+        let output_ports_data = midi.borrow_mut().update_output_ports();
+        set_output_ports(&main_window, output_ports_data.get_port_names());
+        show_warning(main_window, MSG_REFRESHED_OUTPUTS_RECONNECT);
     });
 }
 
-fn set_output_ports(
-    main_window: &MainWindow, midi: &mut SharedMidiManager) {
-    let output_port_items: Vec<ComboBoxItem> = midi
-        .borrow_mut()
-        .get_output_port_names()
+fn set_output_ports(main_window: &MainWindow, port_names: &Vec<String>) {
+    let output_port_items: Vec<ComboBoxItem> = port_names
         .into_iter()
         .map(|text| ComboBoxItem { text: text.into() })
         .collect();
