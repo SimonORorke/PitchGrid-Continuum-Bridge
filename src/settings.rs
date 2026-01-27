@@ -25,7 +25,20 @@ impl Settings {
 
     pub fn read_from_file(&mut self) -> Result<(), Box<dyn Error>> {
         let path = self.get_path();
-        let settings = toml::from_str::<Settings>(&std::fs::read_to_string(path)?)?;
+        let toml_str = match std::fs::read_to_string(&path) {
+            Ok(s) => s,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+            Err(e) => {
+                let msg = format!("Error reading settings file '{}': {}", path.clone(), e);
+                return Err(Box::new(std::io::Error::new(std::io::ErrorKind::Other, msg)));
+            }
+        };
+        let settings = toml::from_str::<Settings>(&toml_str)
+            .map_err(|e| {
+                let msg = format!("Error parsing settings file '{}': {}", path.clone(), e);
+                std::io::Error::new(std::io::ErrorKind::InvalidData, msg)
+            })?;
+
         self.midi_output_port = settings.midi_output_port;
         Ok(())
     }

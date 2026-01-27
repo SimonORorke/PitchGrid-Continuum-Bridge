@@ -100,8 +100,7 @@ fn init_midi_ui_handlers(main_window: &MainWindow, midi: SharedMidiManager) {
 fn init_output_ports(main_window: &MainWindow, midi: &mut SharedMidiManager) {
     let output_ports_data = midi.borrow_mut().update_output_ports();
     if let Err(err) = output_ports_data {
-        show_error(main_window, format!("Error: {}", err));
-        return;
+        panic!("Error: {}", err.to_string())
     }
     let output_ports_data = output_ports_data.unwrap();
     set_output_ports(&main_window, output_ports_data.get_port_names());
@@ -127,8 +126,7 @@ fn refresh_output_ports(
         let output_ports_data =
             midi.borrow_mut().update_output_ports();
         if let Err(err) = output_ports_data {
-            show_error(main_window, format!("Error: {}", err));
-            return;
+            panic!("Error: {}", err.to_string())
         }
         let output_ports_data = output_ports_data.unwrap();
         set_output_ports(&main_window, output_ports_data.get_port_names());
