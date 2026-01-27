@@ -3477,6 +3477,7 @@ name = "pitchgrid_continuum"
 version = "0.1.0"
 dependencies = [
  "directories",
+ "lazy_static",
  "midir",
  "midly",
  "serde",

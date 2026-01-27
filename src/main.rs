@@ -7,6 +7,8 @@ mod settings;
 
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::sync::Mutex;
+use lazy_static::lazy_static;
 use slint::{CloseRequestResponse, SharedString, Weak};
 use midi::MidiManager;
 slint::include_modules!();
@@ -36,6 +38,10 @@ impl slint::Model for OutputPortsModel {
 const MSG_CONNECT: &str = "Connect to a MIDI output port.";
 const MSG_REFRESHED_OUTPUTS_RECONNECT: &str = "Refreshed MIDI output ports. You must (re)connect.";
 
+lazy_static! {
+    static ref has_close_error: Mutex<bool> = Mutex::new(false);
+}
+
 fn main() {
     let main_window = MainWindow::new().unwrap();
     main_window.set_window_title(global::APP_TITLE.into());
@@ -46,11 +52,16 @@ fn main() {
 }
 
 fn close(main_window_weak: Weak<MainWindow>, midi: &mut SharedMidiManager) -> CloseRequestResponse {
-    let mut response = CloseRequestResponse::HideWindow; 
+    let mut response = CloseRequestResponse::HideWindow;
+    if *has_close_error.lock().unwrap() {
+        // If a close error message is already shown, allow the window to be closed.
+        return response
+    }
     with_main_window(main_window_weak, |main_window| {
         if let Err(err) = midi.borrow_mut().close() {
             response = CloseRequestResponse::KeepWindowShown;
             show_error(main_window, format!("Error: {}", err));
+            *has_close_error.lock().unwrap() = true;
         }
     });
     response
