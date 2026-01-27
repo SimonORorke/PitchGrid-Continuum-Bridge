@@ -6,6 +6,7 @@ import {
 } from "@vivi/magic.slint";
 
 import { MessageText, MessageType } from "components/message_text.slint";
+import { VerticalBox } from "std-widgets.slint";
 
 export component MainWindow inherits MagicWindow {
     width: 600px;
@@ -26,73 +27,69 @@ export component MainWindow inherits MagicWindow {
         message_text.message_type = message_type;
     }
 
-    GridLayout {
-        HorizontalLayout {
-            row: 0;
-            VerticalLayout {
-                padding_right: Globals.horizontal_padding;
-                Image {
-                    source: Globals.icon;
-                    width: Globals.row_height;
+    VerticalBox {
+        GridLayout {
+            HorizontalLayout {
+                row: 0;
+                VerticalLayout {
+                    padding_right: Globals.horizontal_padding;
+                    Image {
+                        source: Globals.icon;
+                        width: Globals.row_height;
+                        height: Globals.row_height;
+                    }
+                }
+                MagicText {
+                    text: "MIDI Output:";
+                    vertical_alignment: center;
+                    width: 100px;
+                }
+                VerticalLayout {
+                    padding_left: Globals.horizontal_padding;
+                    padding_top: Globals.vertical_padding;
+                    padding_right: Globals.horizontal_padding * 2;
+                    output_ports_combo := ComboBox {
+                        current_index: 0;
+                        changed current_index => {
+                            root.selected_output_port_index = self.current_index;
+                        }
+                        height: Globals.control_height;
+                        width: 280px;
+                    }
+                }
+                VerticalLayout {
+                    padding_top: Globals.vertical_padding;
+                    OutlineButton {
+                        text: "Connect";
+                        clicked => {
+                            root.connect_to_output_port()
+                        }
+                        height: Globals.control_height;
+                        width: Globals.button_width;
+                    }
+                }
+            }
+            HorizontalLayout {
+                row: 1;
+                Rectangle {
+                    width: root.width - Globals.button_width - Globals.horizontal_padding * 2;
                     height: Globals.row_height;
                 }
-            }
-            MagicText {
-                text: "MIDI Output:";
-                vertical_alignment: center;
-                width: 100px;
-            }
-            VerticalLayout {
-                padding_left: Globals.horizontal_padding;
-                padding_top: Globals.vertical_padding;
-                padding_right: Globals.horizontal_padding * 2;
-                output_ports_combo := ComboBox {
-                    current_index: 0;
-                    changed current_index => {
-                        root.selected_output_port_index = self.current_index;
+                VerticalLayout {
+                    OutlineButton {
+                        text: "Refresh Ports";
+                        clicked => {
+                            root.refresh_output_ports()
+                        }
+                        height: Globals.control_height;
+                        width: Globals.button_width;
                     }
-                    height: Globals.control_height;
-                    width: 280px;
-                }
-            }
-            VerticalLayout {
-                padding_top: Globals.vertical_padding;
-                OutlineButton {
-                    text: "Connect";
-                    clicked => {
-                        root.connect_to_output_port()
-                    }
-                    height: Globals.control_height;
-                    width: Globals.button_width;
                 }
             }
         }
-        HorizontalLayout {
-            row: 1;
-            Rectangle {
-                width: root.width - Globals.button_width - Globals.horizontal_padding * 2;
-                height: Globals.row_height;
-            }
-            VerticalLayout {
-                OutlineButton {
-                    text: "Refresh Ports";
-                    clicked => {
-                        root.refresh_output_ports()
-                    }
-                    height: Globals.control_height;
-                    width: Globals.button_width;
-                }
-            }
-        }
-        HorizontalLayout {
-            row: 2;
-            Rectangle {
-                width: root.width;
-                height: 0px; // Why does this work?
-                message_text := MessageText {
-                    vertical_alignment: center;
-                }
-            }
+        message_text := MessageText {
+            horizontal_alignment: center;
+            vertical_alignment: top;
         }
     }
 }

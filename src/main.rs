@@ -60,7 +60,7 @@ fn close(main_window_weak: Weak<MainWindow>, midi: &mut SharedMidiManager) -> Cl
     with_main_window(main_window_weak, |main_window| {
         if let Err(err) = midi.borrow_mut().close() {
             response = CloseRequestResponse::KeepWindowShown;
-            show_error(main_window, format!("Error: {}", err));
+            show_error(main_window, err.to_string());
             *has_close_error.lock().unwrap() = true;
         }
     });
