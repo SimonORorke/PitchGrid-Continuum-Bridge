@@ -39,7 +39,7 @@ const MSG_CONNECT: &str = "Connect to a MIDI output port.";
 const MSG_REFRESHED_OUTPUTS_RECONNECT: &str = "Refreshed MIDI output ports. You must (re)connect.";
 
 lazy_static! {
-    static ref has_close_error: Mutex<bool> = Mutex::new(false);
+    static ref IS_CLOSE_ERROR_SHOWN: Mutex<bool> = Mutex::new(false);
 }
 
 fn main() {
@@ -53,7 +53,7 @@ fn main() {
 
 fn close(main_window_weak: Weak<MainWindow>, midi: &mut SharedMidiManager) -> CloseRequestResponse {
     let mut response = CloseRequestResponse::HideWindow;
-    if *has_close_error.lock().unwrap() {
+    if *IS_CLOSE_ERROR_SHOWN.lock().unwrap() {
         // If a close error message is already shown, allow the window to be closed.
         return response
     }
@@ -61,7 +61,7 @@ fn close(main_window_weak: Weak<MainWindow>, midi: &mut SharedMidiManager) -> Cl
         if let Err(err) = midi.borrow_mut().close() {
             response = CloseRequestResponse::KeepWindowShown;
             show_error(main_window, err.to_string());
-            *has_close_error.lock().unwrap() = true;
+            *IS_CLOSE_ERROR_SHOWN.lock().unwrap() = true;
         }
     });
     response
@@ -74,11 +74,14 @@ fn connect_to_output_port(main_window_weak: Weak<MainWindow>, midi: &SharedMidiM
         let index = main_window.get_selected_output_port_index() as usize;
         if let Some(name) = output_port_names.get(index) {
             match midi_manager.connect_to_output_port(index) {
-                Ok(_) =>
-                    show_info(main_window, format!("Connected to MIDI output port {name}")),
+                Ok(_) => {
+                    main_window.set_connected_port_name(name.into());
+                    show_info(main_window, format!("Connected to MIDI output port {name}"));
+                }
                 Err(err) => {
-                    show_error(main_window, format!("Error: {}", err));
-                },
+                    main_window.set_connected_port_name("[none]".into());
+                    show_error(main_window, err.to_string());
+                }
             }
         }
     });
@@ -123,10 +126,13 @@ fn init_output_ports(main_window: &MainWindow, midi: &mut SharedMidiManager) {
         main_window.set_selected_output_port_index(index as i32);
         match midi.borrow_mut().connect_to_output_port(index) {
             Ok(_) => {
+                main_window.set_connected_port_name(name.into());
                 show_info(main_window, format!("Connected to MIDI output port {name}"));
             }
-            Err(err) =>
-                show_error(main_window, err.to_string()),
+            Err(err) => {
+                main_window.set_connected_port_name("[none]".into());
+                show_error(main_window, err.to_string());
+            }
         }
     } else {
         show_warning(&main_window, MSG_CONNECT);
