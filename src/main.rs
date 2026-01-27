@@ -119,14 +119,15 @@ fn init_output_ports(main_window: &MainWindow, midi: &mut SharedMidiManager) {
     set_output_ports(&main_window, output_ports_data.get_port_names());
     if let Some(persisted_port) = output_ports_data.get_persisted_port() {
         let index = persisted_port.get_index();
+        let name = persisted_port.get_name();
+        main_window.set_selected_output_port_index(index as i32);
         match midi.borrow_mut().connect_to_output_port(index) {
             Ok(_) => {
-                main_window.set_selected_output_port_index(index as i32);
                 show_info(main_window, format!("Connected to MIDI output port {}",
-                                               persisted_port.get_name()));
+                                               name));
             }
             Err(err) =>
-                show_error(main_window, format!("Error: {}", err)),
+                show_error(main_window, format!("Error connecting to {}: {}", name, err)),
         }
     } else {
         show_warning(&main_window, MSG_CONNECT);

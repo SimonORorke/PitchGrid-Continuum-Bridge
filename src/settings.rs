@@ -1,4 +1,5 @@
 ﻿use std::error::Error;
+use std::fs;
 use serde::{Serialize, Deserialize};
 use crate::global;
 
@@ -14,18 +15,23 @@ impl Settings {
         }
     }
 
-    fn get_path(&self) -> String {
+    fn get_app_config_folder_path(&self) -> String {
         let mut path = String::new();
         if let Some(base_dirs) = directories::BaseDirs::new() {
-            let config_dir = base_dirs.config_dir().to_str().unwrap().to_string();
-            path = format!("{}/{}/Settings.toml", config_dir, global::APP_TITLE);
+            let config_folder_path = base_dirs.config_dir().to_str().unwrap().to_string();
+            path =
+                format!("{}/{}", config_folder_path, global::APP_TITLE);
         }
         path
     }
 
+    fn get_path(&self) -> String {
+        format!("{}/Settings.toml", self.get_app_config_folder_path())
+    }
+
     pub fn read_from_file(&mut self) -> Result<(), Box<dyn Error>> {
         let path = self.get_path();
-        let toml_str = match std::fs::read_to_string(&path) {
+        let toml_str = match fs::read_to_string(&path) {
             Ok(s) => s,
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(()),
             Err(e) => {
@@ -33,6 +39,7 @@ impl Settings {
                 return Err(Box::new(std::io::Error::new(e.kind(), msg)));
             }
         };
+        // Deserialise settings.
         let settings = toml::from_str::<Settings>(&toml_str)
             .map_err(|e| {
                 let msg = format!("Error parsing settings file '{}': {}", path.clone(), e);
@@ -42,14 +49,20 @@ impl Settings {
         Ok(())
     }
 
-    pub fn write_to_file(&self) -> Result<(), Box<dyn Error>> {
+    pub fn write_to_file(&mut self) -> Result<(), Box<dyn Error>> {
         let path = self.get_path();
         if path.is_empty() {
             return Err(Box::new(std::io::Error::new(
                 std::io::ErrorKind::NotFound, "Settings path is empty")));
         }
+        let app_config_folder_path = self.get_app_config_folder_path();
+        let app_config_folder_exists = fs::exists(&app_config_folder_path)?;
+        if !app_config_folder_exists {
+            fs::create_dir(app_config_folder_path)?;
+        }
+        // Serialise settings.
         let toml = toml::to_string(&self)?;
-        if let Err(e) = std::fs::write(&path, toml) {
+        if let Err(e) = fs::write(&path, toml) {
             return Err(
                 Box::new(std::io::Error::new(e.kind(),
                 format!("Error writing settings file '{path}': {e}"))));
