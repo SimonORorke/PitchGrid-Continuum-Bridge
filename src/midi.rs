@@ -30,8 +30,16 @@ impl MidiManager {
         if let Some(port) = self.output_ports.get(index) {
             let midi_output = Self::get_midi_output();
             let port_name = midi_output.port_name(&port)?;
-            self.output_connection = Option::from(midi_output.connect(port, &port_name)?);
-            self.settings.midi_output_port = port_name.to_string();
+            match midi_output.connect(port, &port_name) {
+                Ok(connection) => {
+                    self.output_connection = Option::from(connection);
+                    self.settings.midi_output_port = port_name.to_string();
+                }
+                Err(_) =>
+                    return Err(format!(
+                        "Error connecting to MIDI output port {port_name}. The port may be in use.")
+                        .into())
+            }
         }
         Ok(())
     }

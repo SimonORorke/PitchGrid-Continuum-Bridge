@@ -123,11 +123,10 @@ fn init_output_ports(main_window: &MainWindow, midi: &mut SharedMidiManager) {
         main_window.set_selected_output_port_index(index as i32);
         match midi.borrow_mut().connect_to_output_port(index) {
             Ok(_) => {
-                show_info(main_window, format!("Connected to MIDI output port {}",
-                                               name));
+                show_info(main_window, format!("Connected to MIDI output port {name}"));
             }
             Err(err) =>
-                show_error(main_window, format!("Error connecting to {}: {}", name, err)),
+                show_error(main_window, err.to_string()),
         }
     } else {
         show_warning(&main_window, MSG_CONNECT);
