@@ -51,7 +51,7 @@ fn main() {
     main_window.run().unwrap();
 }
 
-fn close(main_window_weak: Weak<MainWindow>, midi: &mut SharedMidiManager) -> CloseRequestResponse {
+fn close(main_window_weak: Weak<MainWindow>, midi: &SharedMidiManager) -> CloseRequestResponse {
     let mut response = CloseRequestResponse::HideWindow;
     if *IS_CLOSE_ERROR_SHOWN.lock().unwrap() {
         // If a close error message is already shown, allow the window to be closed.
@@ -112,7 +112,7 @@ fn init_midi_ui_handlers(main_window: &MainWindow, midi: SharedMidiManager) {
     }
 }
 
-fn init_output_ports(main_window: &MainWindow, midi: &mut SharedMidiManager) {
+fn init_output_ports(main_window: &MainWindow, midi: &SharedMidiManager) {
     let output_ports_data = midi.borrow_mut().update_output_ports();
     if let Err(err) = output_ports_data {
         show_error(main_window, err.to_string());
@@ -140,7 +140,7 @@ fn init_output_ports(main_window: &MainWindow, midi: &mut SharedMidiManager) {
 }
 
 fn refresh_output_ports(
-    main_window_weak: Weak<MainWindow>, midi: &mut SharedMidiManager) {
+    main_window_weak: Weak<MainWindow>, midi: &SharedMidiManager) {
     with_main_window(main_window_weak, |main_window| {
         let output_ports_data =
             midi.borrow_mut().update_output_ports();
