@@ -28,62 +28,60 @@ export component MainWindow inherits MagicWindow {
     }
 
     VerticalBox {
-        GridLayout {
-            HorizontalLayout {
-                row: 0;
-                VerticalLayout {
-                    padding_right: Globals.horizontal_padding;
-                    Image {
-                        source: Globals.icon;
-                        width: Globals.row_height;
-                        height: Globals.row_height;
-                    }
-                }
-                MagicText {
-                    text: "MIDI Output:";
-                    vertical_alignment: center;
-                    width: 100px;
-                }
-                VerticalLayout {
-                    padding_left: Globals.horizontal_padding;
-                    padding_top: Globals.vertical_padding;
-                    padding_right: Globals.horizontal_padding * 2;
-                    output_ports_combo := ComboBox {
-                        current_index: root.selected_output_port_index;
-                        changed current_index => {
-                            root.selected_output_port_index = self.current_index;
-                        }
-                        height: Globals.control_height;
-                        width: 280px;
-                    }
-                }
-                VerticalLayout {
-                    padding_top: Globals.vertical_padding;
-                    OutlineButton {
-                        text: "Connect";
-                        clicked => {
-                            root.connect_to_output_port()
-                        }
-                        height: Globals.control_height;
-                        width: Globals.button_width;
-                    }
-                }
-            }
-            HorizontalLayout {
-                row: 1;
-                Rectangle {
-                    width: root.width - Globals.button_width - Globals.horizontal_padding * 2;
+        padding-left: 0px;
+        padding-top: 0px;
+        HorizontalLayout {
+            VerticalLayout {
+                padding_right: Globals.horizontal_padding;
+                Image {
+                    source: Globals.icon;
+                    width: Globals.row_height;
                     height: Globals.row_height;
                 }
-                VerticalLayout {
-                    OutlineButton {
-                        text: "Refresh Ports";
-                        clicked => {
-                            root.refresh_output_ports()
-                        }
-                        height: Globals.control_height;
-                        width: Globals.button_width;
+            }
+            MagicText {
+                text: "MIDI Output:";
+                vertical_alignment: center;
+                width: 100px;
+            }
+            VerticalLayout {
+                padding_left: Globals.horizontal_padding;
+                padding_top: Globals.vertical_padding;
+                padding_right: Globals.horizontal_padding * 2;
+                output_ports_combo := ComboBox {
+                    current_index: root.selected_output_port_index;
+                    changed current_index => {
+                        root.selected_output_port_index = self.current_index;
                     }
+                    height: Globals.control_height;
+                    width: 280px;
+                }
+            }
+            VerticalLayout {
+                padding_top: Globals.vertical_padding;
+                OutlineButton {
+                    text: "Connect";
+                    clicked => {
+                        root.connect_to_output_port()
+                    }
+                    height: Globals.control_height;
+                    width: Globals.button_width;
+                }
+            }
+        }
+        HorizontalLayout {
+            Rectangle {
+                width: root.width - Globals.button_width - Globals.horizontal_padding * 2;
+                height: Globals.row_height;
+            }
+            VerticalLayout {
+                OutlineButton {
+                    text: "Refresh Ports";
+                    clicked => {
+                        root.refresh_output_ports()
+                    }
+                    height: Globals.control_height;
+                    width: Globals.button_width;
                 }
             }
         }
