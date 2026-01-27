@@ -77,7 +77,6 @@ fn connect_to_output_port(main_window_weak: Weak<MainWindow>, midi: &SharedMidiM
                 Ok(_) =>
                     show_info(main_window, format!("Connected to MIDI output port {name}")),
                 Err(err) => {
-                    show_warning(&main_window, MSG_CONNECT);
                     show_error(main_window, format!("Error: {}", err));
                 },
             }
