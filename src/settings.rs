@@ -30,7 +30,7 @@ impl Settings {
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(()),
             Err(e) => {
                 let msg = format!("Error reading settings file '{}': {}", path.clone(), e);
-                return Err(Box::new(std::io::Error::new(std::io::ErrorKind::Other, msg)));
+                return Err(Box::new(std::io::Error::new(e.kind(), msg)));
             }
         };
         let settings = toml::from_str::<Settings>(&toml_str)
@@ -38,7 +38,6 @@ impl Settings {
                 let msg = format!("Error parsing settings file '{}': {}", path.clone(), e);
                 std::io::Error::new(std::io::ErrorKind::InvalidData, msg)
             })?;
-
         self.midi_output_port = settings.midi_output_port;
         Ok(())
     }
@@ -50,7 +49,11 @@ impl Settings {
                 std::io::ErrorKind::NotFound, "Settings path is empty")));
         }
         let toml = toml::to_string(&self)?;
-        std::fs::write(path, toml)?;
+        if let Err(e) = std::fs::write(&path, toml) {
+            return Err(
+                Box::new(std::io::Error::new(e.kind(),
+                format!("Error writing settings file '{path}': {e}"))));
+        }
         Ok(())
     }
 }
