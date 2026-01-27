@@ -20,7 +20,7 @@ export component MainWindow inherits MagicWindow {
     in-out property <int> selected_output_port_index;
     in property <string> window_title;
     
-    callback connect_to_output_port();
+    callback connect_output_port();
     callback refresh_output_ports();
 
     public function show_message(message: string, message_type: MessageType) {
@@ -63,7 +63,7 @@ export component MainWindow inherits MagicWindow {
                 OutlineButton {
                     text: "Connect";
                     clicked => {
-                        root.connect_to_output_port()
+                        root.connect_output_port()
                     }
                     height: Globals.control_height;
                     width: Globals.button_width;

@@ -25,7 +25,7 @@ impl MidiManager {
         Ok(())
     }
 
-    pub fn connect_to_output_port(&mut self, index: usize) -> Result<(), Box<dyn Error>> {
+    pub fn connect_output_port(&mut self, index: usize) -> Result<(), Box<dyn Error>> {
         self.disconnect_from_output_port();
         if let Some(port) = self.output_ports.get(index) {
             let midi_output = Self::get_midi_output();
@@ -95,9 +95,9 @@ impl OutputPort {
         self.index
     }
 
-    pub fn get_name(&self) -> &String {
-        &self.name
-    }
+    // pub fn get_name(&self) -> &String {
+    //     &self.name
+    // }
 }
 
 impl Clone for OutputPort {

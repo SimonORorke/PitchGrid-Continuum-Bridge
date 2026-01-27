@@ -37,6 +37,7 @@ impl slint::Model for OutputPortsModel {
 
 const MSG_CONNECT: &str = "Connect to a MIDI output port.";
 const MSG_REFRESHED_OUTPUTS_RECONNECT: &str = "Refreshed MIDI output ports. You must (re)connect.";
+const PORT_NONE: &str = "[none]";
 
 lazy_static! {
     static ref IS_CLOSE_ERROR_SHOWN: Mutex<bool> = Mutex::new(false);
@@ -67,24 +68,30 @@ fn close(main_window_weak: Weak<MainWindow>, midi: &SharedMidiManager) -> CloseR
     response
 }
 
-fn connect_to_output_port(main_window_weak: Weak<MainWindow>, midi: &SharedMidiManager) {
+fn connect_output_port(main_window_weak: Weak<MainWindow>, midi: &SharedMidiManager) {
     with_main_window(main_window_weak, |main_window| {
-        let mut midi_manager = midi.borrow_mut();
-        let output_port_names = midi_manager.get_output_port_names();
-        let index = main_window.get_selected_output_port_index() as usize;
-        if let Some(name) = output_port_names.get(index) {
-            match midi_manager.connect_to_output_port(index) {
-                Ok(_) => {
-                    main_window.set_connected_port_name(name.into());
-                    show_info(main_window, format!("Connected to MIDI output port {name}"));
-                }
-                Err(err) => {
-                    main_window.set_connected_port_name("[none]".into());
-                    show_error(main_window, err.to_string());
-                }
-            }
-        }
+        connect_selected_output_port(main_window, midi);
     });
+}
+
+fn connect_selected_output_port(main_window: &MainWindow, midi: &SharedMidiManager) {
+    let index = main_window.get_selected_output_port_index() as usize;
+    let mut midi_manager = midi.borrow_mut();
+    let output_port_names = midi_manager.get_output_port_names();
+    let Some(name) = output_port_names.get(index) else {
+        main_window.set_connected_port_name(PORT_NONE.into());
+        return;
+    };
+    match midi_manager.connect_output_port(index) {
+        Ok(()) => {
+            main_window.set_connected_port_name(name.into());
+            show_info(main_window, format!("Connected to MIDI output port {name}"));
+        }
+        Err(err) => {
+            main_window.set_connected_port_name(PORT_NONE.into());
+            show_error(main_window, err.to_string());
+        }
+    }
 }
 
 fn init_midi_ui_handlers(main_window: &MainWindow, midi: SharedMidiManager) {
@@ -99,8 +106,8 @@ fn init_midi_ui_handlers(main_window: &MainWindow, midi: SharedMidiManager) {
     {
         let midi: SharedMidiManager = Rc::clone(&midi);
         let window_weak = window_weak.clone();
-        main_window.on_connect_to_output_port(move || {
-            connect_to_output_port(window_weak.clone(), &midi)
+        main_window.on_connect_output_port(move || {
+            connect_output_port(window_weak.clone(), &midi)
         });
     }
     {
@@ -122,18 +129,8 @@ fn init_output_ports(main_window: &MainWindow, midi: &SharedMidiManager) {
     set_output_ports(&main_window, output_ports_data.get_port_names());
     if let Some(persisted_port) = output_ports_data.get_persisted_port() {
         let index = persisted_port.get_index();
-        let name = persisted_port.get_name();
         main_window.set_selected_output_port_index(index as i32);
-        match midi.borrow_mut().connect_to_output_port(index) {
-            Ok(_) => {
-                main_window.set_connected_port_name(name.into());
-                show_info(main_window, format!("Connected to MIDI output port {name}"));
-            }
-            Err(err) => {
-                main_window.set_connected_port_name("[none]".into());
-                show_error(main_window, err.to_string());
-            }
-        }
+        connect_selected_output_port(main_window, midi);
     } else {
         show_warning(&main_window, MSG_CONNECT);
     }
