@@ -12,6 +12,7 @@ export component MessageText inherits MagicText {
     in property <MessageType> message_type;
 
     color: get_color();
+    wrap: TextWrap.word-wrap;
 
     function get_color() -> color {
         let catppuccin_palette = Palette.color_scheme == ColorScheme.light

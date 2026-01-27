@@ -22,8 +22,13 @@ export component MainWindow inherits MagicWindow {
     callback refresh_output_ports();
 
     public function show_message(message: string, message_type: MessageType) {
-        message_text.text = message;
-        message_text.message_type = message_type;
+        if (message-type == MessageType.Error) {
+            error_text.text = message;
+            error_text.message_type = message_type;
+        } else {
+            message_text.text = message;
+            message_text.message_type = message_type;
+        }
     }
 
     GridLayout {
@@ -91,6 +96,16 @@ export component MainWindow inherits MagicWindow {
                 height: 0px; // Why does this work?
                 message_text := MessageText {
                     vertical_alignment: center;
+                }
+            }
+        }
+        HorizontalLayout {
+            row: 3;
+            Rectangle {
+                width: root.width;
+                height: 70px;
+                error_text := MessageText {
+                    vertical_alignment: top;
                 }
             }
         }
