@@ -61,37 +61,17 @@ impl MidiManager {
                 midi_output.port_name(&port).unwrap()).collect()
     }
 
-    pub fn update_output_ports(&mut self) -> OutputPortsData {
+    pub fn update_output_ports(&mut self) -> Result<OutputPortsData, Box<dyn Error>> {
+        self.settings.read_from_file()?;
         let midi_output = Self::get_midi_output();
         self.disconnect_from_output_port();
         self.output_ports = midi_output.ports().to_vec();
         let output_port_names: Vec<String> = self.get_output_port_names();
         let persisted_port =
             self.find_persisted_output_port(&output_port_names);
-        OutputPortsData::new(output_port_names, persisted_port)
+        Ok(OutputPortsData::new(output_port_names, persisted_port))
     }
 }
-
-//     pub fn update_output_ports(&mut self, reconnect_persisted_port: bool) -> 
-//             Result<(OutputPortData), Box<dyn Error>> {
-//         let midi_output = Self::get_midi_output();
-//         self.disconnect_from_output_port();
-//         self.output_ports = midi_output.ports().to_vec();
-//         let output_port_names: Vec<String> = self.output_ports.iter()
-//             .map(|port|
-//                 midi_output.port_name(&port).unwrap()).collect();
-//         let mut persisted_port = if reconnect_persisted_port {
-//             self.find_persisted_output_port(&output_port_names)
-//         } else {
-//             None
-//         };
-//         if persisted_port.is_some() {
-//             let port_to_connect = persisted_port.clone().unwrap();
-//             self.connect_to_output_port(port_to_connect.index)?;
-//         }
-//         Ok(OutputPortData::new(output_port_names, persisted_port.take()))
-//     }
-// }
 
 pub struct OutputPort {
     index: usize,

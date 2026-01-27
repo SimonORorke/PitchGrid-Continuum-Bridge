@@ -48,12 +48,9 @@ fn main() {
 fn close(main_window_weak: Weak<MainWindow>, midi: &mut SharedMidiManager) -> CloseRequestResponse {
     let mut response = CloseRequestResponse::HideWindow; 
     with_main_window(main_window_weak, |main_window| {
-        match midi.borrow_mut().close() {
-            Ok(_) => {},
-            Err(err) => {
-                response = CloseRequestResponse::KeepWindowShown;
-                show_error(main_window, format!("Error: {}", err));
-            },
+        if let Err(err) = midi.borrow_mut().close() {
+            response = CloseRequestResponse::KeepWindowShown;
+            show_error(main_window, format!("Error: {}", err));
         }
     });
     response
@@ -102,15 +99,20 @@ fn init_midi_ui_handlers(main_window: &MainWindow, midi: SharedMidiManager) {
 
 fn init_output_ports(main_window: &MainWindow, midi: &mut SharedMidiManager) {
     let output_ports_data = midi.borrow_mut().update_output_ports();
+    if let Err(err) = output_ports_data {
+        show_error(main_window, format!("Error: {}", err));
+        return;
+    }
+    let output_ports_data = output_ports_data.unwrap();
     set_output_ports(&main_window, output_ports_data.get_port_names());
     if let Some(persisted_port) = output_ports_data.get_persisted_port() {
         let index = persisted_port.get_index();
         match midi.borrow_mut().connect_to_output_port(index) {
             Ok(_) => {
                 main_window.set_selected_output_port_index(index as i32);
-                show_info(main_window, format!("Connected to MIDI output port {}", 
+                show_info(main_window, format!("Connected to MIDI output port {}",
                                                persisted_port.get_name()));
-                }
+            }
             Err(err) =>
                 show_error(main_window, format!("Error: {}", err)),
         }
@@ -122,7 +124,13 @@ fn init_output_ports(main_window: &MainWindow, midi: &mut SharedMidiManager) {
 fn refresh_output_ports(
     main_window_weak: Weak<MainWindow>, midi: &mut SharedMidiManager) {
     with_main_window(main_window_weak, |main_window| {
-        let output_ports_data = midi.borrow_mut().update_output_ports();
+        let output_ports_data =
+            midi.borrow_mut().update_output_ports();
+        if let Err(err) = output_ports_data {
+            show_error(main_window, format!("Error: {}", err));
+            return;
+        }
+        let output_ports_data = output_ports_data.unwrap();
         set_output_ports(&main_window, output_ports_data.get_port_names());
         show_warning(main_window, MSG_REFRESHED_OUTPUTS_RECONNECT);
     });
