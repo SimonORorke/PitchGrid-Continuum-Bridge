@@ -6,7 +6,7 @@ import {
 } from "@vivi/magic.slint";
 
 import { MessageText, MessageType } from "components/message_text.slint";
-import { VerticalBox } from "std-widgets.slint";
+import { VerticalBox, GridBox } from "std-widgets.slint";
 
 export component MainWindow inherits MagicWindow {
     width: 600px;
@@ -15,13 +15,17 @@ export component MainWindow inherits MagicWindow {
     icon: Globals.icon;
     forward-focus: output_ports_combo;
 
-    in property <string> connected_port_name;
     in property output_ports_model <=> output_ports_combo.model;
     in-out property <int> selected_output_port_index;
     in property <string> window_title;
     
     callback connect_output_port();
     callback refresh_output_ports();
+
+    public function show_connected_port_name(name: string, message_type: MessageType) {
+        connected_port_name_text.text = name;
+        connected_port_name_text.message_type = message_type;
+    }
 
     public function show_message(message: string, message_type: MessageType) {
         message_text.text = message;
@@ -70,24 +74,26 @@ export component MainWindow inherits MagicWindow {
                 }
             }
         }
-        HorizontalLayout {
-            Rectangle {
-                width: root.width - Globals.button_width - Globals.horizontal_padding * 2;
-                height: Globals.row_height;
+        GridLayout {
+            padding_left: Globals.row_height + Globals.horizontal_padding;
+            VerticalLayout {
+                col: 0;
                 MagicText {
                     text: "Connected: ";
-                    vertical_alignment: center;
-                }
-                Rectangle {
-                    width: Globals.horizontal_padding;
-                    height: Globals.row_height;
-                }
-                MagicText {
-                    text: root.connected_port_name;
+                    width: 112px;
+                    horizontal_alignment: left;
                     vertical_alignment: center;
                 }
             }
             VerticalLayout {
+                col: 1;
+                connected_port_name_text := MessageText {
+                    horizontal_alignment: left;
+                    vertical_alignment: center;
+                }
+            }
+            VerticalLayout {
+                col: 2;
                 OutlineButton {
                     text: "Refresh Ports";
                     clicked => {
