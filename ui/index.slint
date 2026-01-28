@@ -51,7 +51,7 @@ export component MainWindow inherits MagicWindow {
             }
             VerticalLayout {
                 padding_left: Globals.horizontal_padding;
-                padding_top: Globals.vertical_padding;
+                padding_top: Globals.control_vertical_padding;
                 padding_right: Globals.horizontal_padding * 2;
                 output_ports_combo := ComboBox {
                     current_index: root.selected_output_port_index;
@@ -63,7 +63,7 @@ export component MainWindow inherits MagicWindow {
                 }
             }
             VerticalLayout {
-                padding_top: Globals.vertical_padding;
+                padding_top: Globals.control_vertical_padding;
                 OutlineButton {
                     text: "Connect";
                     clicked => {
@@ -115,8 +115,8 @@ export component MainWindow inherits MagicWindow {
 global Globals {
     out property<length> button_width: 140px;
     out property<length> control_height: 30px;
+    out property<length> control_vertical_padding: 10px;
     out property<length> horizontal_padding: 5px;
     out property<image> icon: @image-url("images/Midi port black on red 512.png");
     out property<length> row_height: 50px;
-    out property<length> vertical_padding: 10px;
 }
