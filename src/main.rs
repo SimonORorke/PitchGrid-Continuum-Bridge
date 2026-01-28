@@ -10,7 +10,7 @@ use std::rc::Rc;
 use std::sync::Mutex;
 use lazy_static::lazy_static;
 use slint::{CloseRequestResponse, SharedString, Weak};
-use midi::MidiManager;
+use midi::{MidiManager, OutputPortsData};
 slint::include_modules!();
 
 /// 'Rc<RefCell<MidiManager>>' gives **shared ownership** ('Rc')
@@ -52,22 +52,6 @@ fn main() {
     main_window.run().unwrap();
 }
 
-fn close(main_window_weak: Weak<MainWindow>, midi: &SharedMidiManager) -> CloseRequestResponse {
-    let mut response = CloseRequestResponse::HideWindow;
-    if *IS_CLOSE_ERROR_SHOWN.lock().unwrap() {
-        // If a close error message is already shown, allow the window to be closed.
-        return response
-    }
-    with_main_window(main_window_weak, |main_window| {
-        if let Err(err) = midi.borrow_mut().close() {
-            response = CloseRequestResponse::KeepWindowShown;
-            show_error(main_window, err.to_string());
-            *IS_CLOSE_ERROR_SHOWN.lock().unwrap() = true;
-        }
-    });
-    response
-}
-
 fn connect_output_port(main_window_weak: Weak<MainWindow>, midi: &SharedMidiManager) {
     with_main_window(main_window_weak, |main_window| {
         connect_selected_output_port(main_window, midi);
@@ -78,7 +62,8 @@ fn connect_selected_output_port(main_window: &MainWindow, midi: &SharedMidiManag
     let index = main_window.get_selected_output_port_index() as usize;
     let mut midi_manager = midi.borrow_mut();
     let output_port_names = midi_manager.get_output_port_names();
-    let Some(name) = output_port_names.get(index) else {
+    let Some(name) = output_port_names.get(index)
+    else {
         main_window.set_connected_port_name(PORT_NONE.into());
         return;
     };
@@ -94,13 +79,29 @@ fn connect_selected_output_port(main_window: &MainWindow, midi: &SharedMidiManag
     }
 }
 
+fn handle_close_request(main_window_weak: Weak<MainWindow>, midi: &SharedMidiManager) -> CloseRequestResponse {
+    let mut response = CloseRequestResponse::HideWindow;
+    if *IS_CLOSE_ERROR_SHOWN.lock().unwrap() {
+        // If a close error message is already shown, allow the window to be closed.
+        return response
+    }
+    with_main_window(main_window_weak, |main_window| {
+        if let Err(err) = midi.borrow_mut().close() {
+            response = CloseRequestResponse::KeepWindowShown;
+            show_error(main_window, err.to_string());
+            *IS_CLOSE_ERROR_SHOWN.lock().unwrap() = true;
+        }
+    });
+    response
+}
+
 fn init_midi_ui_handlers(main_window: &MainWindow, midi: SharedMidiManager) {
     let window_weak = main_window.as_weak();
     {
         let mut midi: SharedMidiManager = Rc::clone(&midi);
         let window_weak = window_weak.clone();
         main_window.window().on_close_requested(move || {
-            close(window_weak.clone(), &mut midi)
+            handle_close_request(window_weak.clone(), &mut midi)
         });
     }
     {
@@ -120,13 +121,12 @@ fn init_midi_ui_handlers(main_window: &MainWindow, midi: SharedMidiManager) {
 }
 
 fn init_output_ports(main_window: &MainWindow, midi: &SharedMidiManager) {
-    let output_ports_data = midi.borrow_mut().update_output_ports();
-    if let Err(err) = output_ports_data {
-        show_error(main_window, err.to_string());
+    let Some(output_ports_data) = update_output_ports_or_show_error(
+        main_window, midi)
+    else {
         return;
-    }
-    let output_ports_data = output_ports_data.unwrap();
-    set_output_ports(&main_window, output_ports_data.get_port_names());
+    };
+    set_output_ports_model(&main_window, output_ports_data.get_port_names());
     if let Some(persisted_port) = output_ports_data.get_persisted_port() {
         let index = persisted_port.get_index();
         main_window.set_selected_output_port_index(index as i32);
@@ -139,21 +139,20 @@ fn init_output_ports(main_window: &MainWindow, midi: &SharedMidiManager) {
 fn refresh_output_ports(
     main_window_weak: Weak<MainWindow>, midi: &SharedMidiManager) {
     with_main_window(main_window_weak, |main_window| {
-        let output_ports_data =
-            midi.borrow_mut().update_output_ports();
-        if let Err(err) = output_ports_data {
-            show_error(main_window, err.to_string());
+        let Some(output_ports_data) = update_output_ports_or_show_error(
+            main_window, midi)
+        else {
             return;
-        }
-        let output_ports_data = output_ports_data.unwrap();
-        set_output_ports(&main_window, output_ports_data.get_port_names());
+        };
+        set_output_ports_model(&main_window, output_ports_data.get_port_names());
+        main_window.set_connected_port_name(PORT_NONE.into());
         show_warning(main_window, MSG_REFRESHED_OUTPUTS_RECONNECT);
     });
 }
 
-fn set_output_ports(main_window: &MainWindow, port_names: &Vec<String>) {
+fn set_output_ports_model(main_window: &MainWindow, port_names: &[String]) {
     let output_port_items: Vec<ComboBoxItem> = port_names
-        .into_iter()
+        .iter()
         .map(|text| ComboBoxItem { text: text.into() })
         .collect();
     let model = Rc::new(OutputPortsModel(output_port_items));
@@ -161,15 +160,32 @@ fn set_output_ports(main_window: &MainWindow, port_names: &Vec<String>) {
 }
 
 fn show_error(main_window: &MainWindow, message: impl Into<SharedString>) {
-    main_window.invoke_show_message(message.into(), MessageType::Error);
+    show_message(main_window, message, MessageType::Error);
 }
 
 fn show_info(main_window: &MainWindow, message: impl Into<SharedString>) {
-    main_window.invoke_show_message(message.into(), MessageType::Info);
+    show_message(main_window, message, MessageType::Info);
+}
+
+fn show_message(main_window: &MainWindow, message: impl Into<SharedString>, message_type: MessageType) {
+    main_window.invoke_show_message(message.into(), message_type);
 }
 
 fn show_warning(main_window: &MainWindow, message: impl Into<SharedString>) {
-    main_window.invoke_show_message(message.into(), MessageType::Warning);
+    show_message(main_window, message, MessageType::Warning);
+}
+
+fn update_output_ports_or_show_error(
+    main_window: &MainWindow,
+    midi: &SharedMidiManager,
+) -> Option<OutputPortsData> {
+    match midi.borrow_mut().update_output_ports() {
+        Ok(data) => Some(data),
+        Err(err) => {
+            show_error(main_window, err.to_string());
+            None
+        }
+    }
 }
 
 fn with_main_window(main_window_weak: Weak<MainWindow>, f: impl FnOnce(&MainWindow)) {
