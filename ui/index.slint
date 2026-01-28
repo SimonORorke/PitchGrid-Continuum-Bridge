@@ -74,13 +74,13 @@ export component MainWindow inherits MagicWindow {
             Rectangle {
                 width: root.width - Globals.button_width - Globals.horizontal_padding * 2;
                 height: Globals.row_height;
-                Rectangle {
-                    width: Globals.row_height;
-                    height: Globals.row_height;
-                }
                 MagicText {
                     text: "Connected: ";
                     vertical_alignment: center;
+                }
+                Rectangle {
+                    width: Globals.horizontal_padding;
+                    height: Globals.row_height;
                 }
                 MagicText {
                     text: root.connected_port_name;
