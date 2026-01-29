@@ -132,9 +132,9 @@ fn init_output_ports(main_window: &MainWindow, midi: &SharedMidiManager) {
     else {
         return;
     };
-    set_output_ports_model(&main_window, output_ports_data.get_port_names());
-    if let Some(persisted_port) = output_ports_data.get_persisted_port() {
-        let index = persisted_port.get_index();
+    set_output_ports_model(&main_window, output_ports_data.port_names());
+    if let Some(persisted_port) = output_ports_data.persisted_port() {
+        let index = persisted_port.index();
         main_window.set_selected_output_port_index(index as i32);
         connect_selected_output_port(main_window, midi);
     } else {
@@ -151,7 +151,7 @@ fn refresh_output_ports(
         else {
             return;
         };
-        set_output_ports_model(&main_window, output_ports_data.get_port_names());
+        set_output_ports_model(&main_window, output_ports_data.port_names());
         show_no_output_port_connected(main_window);
         show_warning(main_window, MSG_REFRESHED_OUTPUTS_RECONNECT);
     });

@@ -86,7 +86,7 @@ impl MidiManager {
 
 pub struct OutputPort {
     index: usize,
-    name: String,
+    name: String, // Maybe useful for debugging.
 }
 
 impl OutputPort {
@@ -94,13 +94,9 @@ impl OutputPort {
         Self { index, name }
     }
 
-    pub fn get_index(&self) -> usize {
+    pub fn index(&self) -> usize {
         self.index
     }
-
-    // pub fn get_name(&self) -> &String {
-    //     &self.name
-    // }
 }
 
 impl Clone for OutputPort {
@@ -119,11 +115,11 @@ impl OutputPortsData {
         Self { port_names, persisted_port: connected_port }
     }
     
-    pub fn get_persisted_port(&self) -> Option<&OutputPort> {
+    pub fn persisted_port(&self) -> Option<&OutputPort> {
         self.persisted_port.as_ref()
     }
 
-    pub fn get_port_names(&self) -> &Vec<String> {
+    pub fn port_names(&self) -> &Vec<String> {
         &self.port_names
     }
 }
