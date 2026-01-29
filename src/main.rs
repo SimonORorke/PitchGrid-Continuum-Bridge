@@ -10,7 +10,7 @@ use std::rc::Rc;
 use std::sync::Mutex;
 use lazy_static::lazy_static;
 use slint::{CloseRequestResponse, SharedString, Weak};
-use midi::{MidiManager, OutputPortsData};
+use midi::{InputPortsData, MidiManager, OutputPortsData};
 slint::include_modules!();
 
 /// 'Rc<RefCell<MidiManager>>' gives **shared ownership** ('Rc')
@@ -19,6 +19,21 @@ slint::include_modules!();
 /// If you later move MIDI work off the UI thread, you’ll want 'Arc<Mutex<_>>' instead.
 /// But for Slint’s typical single-threaded event loop, 'Rc<RefCell<_>>' is the right fix.
 type SharedMidiManager = Rc<RefCell<MidiManager>>;
+
+struct InputPortsModel(Vec<ComboBoxItem>);
+
+impl slint::Model for InputPortsModel {
+    type Data = ComboBoxItem;
+    fn row_count(&self) -> usize {
+        self.0.len()
+    }
+    fn row_data(&self, row: usize) -> Option<Self::Data> {
+        self.0.get(row).map(|x| x.clone())
+    }
+    fn model_tracker(&self) -> &dyn slint::ModelTracker {
+        &()
+    }
+}
 
 struct OutputPortsModel(Vec<ComboBoxItem>);
 
@@ -49,15 +64,47 @@ fn main() {
     let main_window = MainWindow::new().unwrap();
     main_window.set_window_title(global::APP_TITLE.into());
     let mut midi: SharedMidiManager = Rc::new(RefCell::new(MidiManager::new()));
+    init_input_ports(&main_window, &mut midi);
     init_output_ports(&main_window, &mut midi);
     init_midi_ui_handlers(&main_window, Rc::clone(&midi));
     main_window.run().unwrap();
+}
+
+fn connect_input_port(main_window_weak: Weak<MainWindow>, midi: &SharedMidiManager) {
+    with_main_window(main_window_weak, |main_window| {
+        connect_selected_input_port(main_window, midi);
+    });
 }
 
 fn connect_output_port(main_window_weak: Weak<MainWindow>, midi: &SharedMidiManager) {
     with_main_window(main_window_weak, |main_window| {
         connect_selected_output_port(main_window, midi);
     });
+}
+
+fn connect_selected_input_port(main_window: &MainWindow, midi: &SharedMidiManager) {
+    let index = main_window.get_selected_input_port_index() as usize;
+    let mut midi_manager = midi.borrow_mut();
+    let input_port_names = midi_manager.get_input_port_names();
+    let Some(name) = input_port_names.get(index)
+    else {
+        show_no_input_port_connected(main_window);
+        show_error(
+            main_window,
+            format!("No MIDI input port at index {}.", index),
+        );
+        return;
+    };
+    match midi_manager.connect_input_port(index) {
+        Ok(()) => {
+            show_connected_input_port_name(main_window, name);
+            show_info(main_window, format!("Connected to MIDI input port {name}"));
+        }
+        Err(err) => {
+            show_no_input_port_connected(main_window);
+            show_error(main_window, err.to_string());
+        }
+    }
 }
 
 fn connect_selected_output_port(main_window: &MainWindow, midi: &SharedMidiManager) {
@@ -113,6 +160,20 @@ fn init_midi_ui_handlers(main_window: &MainWindow, midi: SharedMidiManager) {
     {
         let midi: SharedMidiManager = Rc::clone(&midi);
         let window_weak = window_weak.clone();
+        main_window.on_connect_input_port(move || {
+            connect_input_port(window_weak.clone(), &midi)
+        });
+    }
+    {
+        let mut midi: SharedMidiManager = Rc::clone(&midi);
+        let window_weak = window_weak.clone();
+        main_window.on_refresh_input_ports(move || {
+            refresh_input_ports(window_weak.clone(), &mut midi)
+        });
+    }
+    {
+        let midi: SharedMidiManager = Rc::clone(&midi);
+        let window_weak = window_weak.clone();
         main_window.on_connect_output_port(move || {
             connect_output_port(window_weak.clone(), &midi)
         });
@@ -123,6 +184,23 @@ fn init_midi_ui_handlers(main_window: &MainWindow, midi: SharedMidiManager) {
         main_window.on_refresh_output_ports(move || {
             refresh_output_ports(window_weak.clone(), &mut midi)
         });
+    }
+}
+
+fn init_input_ports(main_window: &MainWindow, midi: &SharedMidiManager) {
+    let Some(input_ports_data) = update_input_ports_or_show_error(
+        main_window, midi)
+    else {
+        return;
+    };
+    set_input_ports_model(&main_window, input_ports_data.port_names());
+    if let Some(persisted_port) = input_ports_data.persisted_port() {
+        let index = persisted_port.index();
+        main_window.set_selected_input_port_index(index as i32);
+        connect_selected_input_port(main_window, midi);
+    } else {
+        show_no_input_port_connected(main_window);
+        show_warning(&main_window, MSG_CONNECT_INPUT);
     }
 }
 
@@ -143,6 +221,20 @@ fn init_output_ports(main_window: &MainWindow, midi: &SharedMidiManager) {
     }
 }
 
+fn refresh_input_ports(
+    main_window_weak: Weak<MainWindow>, midi: &SharedMidiManager) {
+    with_main_window(main_window_weak, |main_window| {
+        let Some(input_ports_data) = update_input_ports_or_show_error(
+            main_window, midi)
+        else {
+            return;
+        };
+        set_input_ports_model(&main_window, input_ports_data.port_names());
+        show_no_input_port_connected(main_window);
+        show_warning(main_window, MSG_REFRESHED_INPUTS_RECONNECT);
+    });
+}
+
 fn refresh_output_ports(
     main_window_weak: Weak<MainWindow>, midi: &SharedMidiManager) {
     with_main_window(main_window_weak, |main_window| {
@@ -157,6 +249,15 @@ fn refresh_output_ports(
     });
 }
 
+fn set_input_ports_model(main_window: &MainWindow, port_names: &[String]) {
+    let input_port_items: Vec<ComboBoxItem> = port_names
+        .iter()
+        .map(|text| ComboBoxItem { text: text.into() })
+        .collect();
+    let model = Rc::new(InputPortsModel(input_port_items));
+    main_window.set_input_ports_model(slint::ModelRc::from(model));
+}
+
 fn set_output_ports_model(main_window: &MainWindow, port_names: &[String]) {
     let output_port_items: Vec<ComboBoxItem> = port_names
         .iter()
@@ -164,6 +265,15 @@ fn set_output_ports_model(main_window: &MainWindow, port_names: &[String]) {
         .collect();
     let model = Rc::new(OutputPortsModel(output_port_items));
     main_window.set_output_ports_model(slint::ModelRc::from(model));
+}
+
+fn show_connected_input_port_name(main_window: &MainWindow, port_name: &str) {
+    let message_type = if port_name == PORT_NONE {
+        MessageType::Warning }
+    else {
+        MessageType::Info
+    };
+    main_window.invoke_show_connected_input_port_name(port_name.into(), message_type);
 }
 
 fn show_connected_output_port_name(main_window: &MainWindow, port_name: &str) {
@@ -187,12 +297,29 @@ fn show_message(main_window: &MainWindow, message: impl Into<SharedString>, mess
     main_window.invoke_show_message(message.into(), message_type);
 }
 
+fn show_no_input_port_connected(main_window: &MainWindow) {
+    show_connected_input_port_name(main_window, PORT_NONE);
+}
+
 fn show_no_output_port_connected(main_window: &MainWindow) {
     show_connected_output_port_name(main_window, PORT_NONE);
 }
 
 fn show_warning(main_window: &MainWindow, message: impl Into<SharedString>) {
     show_message(main_window, message, MessageType::Warning);
+}
+
+fn update_input_ports_or_show_error(
+    main_window: &MainWindow,
+    midi: &SharedMidiManager,
+) -> Option<InputPortsData> {
+    match midi.borrow_mut().update_input_ports() {
+        Ok(data) => Some(data),
+        Err(err) => {
+            show_error(main_window, err.to_string());
+            None
+        }
+    }
 }
 
 fn update_output_ports_or_show_error(

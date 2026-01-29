@@ -3480,6 +3480,7 @@ dependencies = [
  "lazy_static",
  "midir",
  "midly",
+ "rayon",
  "serde",
  "slint",
  "slint-build",

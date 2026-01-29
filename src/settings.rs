@@ -5,12 +5,14 @@ use crate::global;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Settings {
+    pub midi_input_port: String,
     pub midi_output_port: String,
 }
 
 impl Settings {
     pub fn new() -> Self {
         Self {
+            midi_input_port: String::new(),
             midi_output_port: String::new(),
         }
     }
