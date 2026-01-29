@@ -142,6 +142,7 @@ fn init_output_ports(main_window: &MainWindow, midi: &SharedMidiManager) {
         main_window.set_selected_output_port_index(index as i32);
         connect_selected_output_port(main_window, midi);
     } else {
+        show_no_output_port_connected(main_window);
         show_warning(&main_window, MSG_CONNECT_OUTPUT);
     }
 }

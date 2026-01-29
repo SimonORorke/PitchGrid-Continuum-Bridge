@@ -20,13 +20,13 @@ impl MidiManager {
     }
 
     pub fn close(&mut self) -> Result<(), Box<dyn Error>> {
-        self.disconnect_from_output_port();
+        self.disconnect_from_output_port(true);
         self.settings.write_to_file()?;
         Ok(())
     }
 
     pub fn connect_output_port(&mut self, index: usize) -> Result<(), Box<dyn Error>> {
-        self.disconnect_from_output_port();
+        self.disconnect_from_output_port(false);
         if let Some(port) = self.output_ports.get(index) {
             let midi_output = Self::get_midi_output();
             let port_name = midi_output.port_name(&port)?;
@@ -44,9 +44,12 @@ impl MidiManager {
         Ok(())
     }
 
-    fn disconnect_from_output_port(&mut self) {
+    fn disconnect_from_output_port(&mut self, is_closing: bool) {
         if let Some(connection) = self.output_connection.take() {
             connection.close();
+        }
+        if !is_closing {
+            self.settings.midi_output_port = "".to_string();
         }
     }
 
@@ -72,7 +75,7 @@ impl MidiManager {
     pub fn update_output_ports(&mut self) -> Result<OutputPortsData, Box<dyn Error>> {
         self.settings.read_from_file()?;
         let midi_output = Self::get_midi_output();
-        self.disconnect_from_output_port();
+        self.disconnect_from_output_port(false);
         self.output_ports = midi_output.ports().to_vec();
         let output_port_names: Vec<String> = self.get_output_port_names();
         let persisted_port =
