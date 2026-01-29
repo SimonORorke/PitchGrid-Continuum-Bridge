@@ -1,0 +1,13 @@
+﻿import {
+    ComboBox,
+    GroupBox,
+    MagicText,
+    OutlineButton,
+} from "@vivi/magic.slint";
+import { MessageText, MessageType } from "message_text.slint";
+
+export component MidiIo inherits GroupBox {
+    title: midi_io_title;
+
+    in property <string> midi_io_title;
+}

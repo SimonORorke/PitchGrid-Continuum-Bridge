@@ -45,6 +45,7 @@ lazy_static! {
 
 fn main() {
     let main_window = MainWindow::new().unwrap();
+    main_window.set_midi_output_title("To Haken Continuum or EaganMatrix Module".into());
     main_window.set_window_title(global::APP_TITLE.into());
     let mut midi: SharedMidiManager = Rc::new(RefCell::new(MidiManager::new()));
     init_output_ports(&main_window, &mut midi);

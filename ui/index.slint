@@ -2,6 +2,7 @@ import {
     ComboBox,
     MagicText,
     MagicWindow,
+    GroupBox,
     OutlineButton,
 } from "@vivi/magic.slint";
 
@@ -9,12 +10,13 @@ import { MessageText, MessageType } from "components/message_text.slint";
 import { VerticalBox, } from "std-widgets.slint";
 
 export component MainWindow inherits MagicWindow {
-    width: 600px;
+    width: 585px;
     height: 200px;
     title: window_title;
     icon: Globals.icon;
     forward-focus: output_ports_combo;
 
+    in property <string> midi_output_title;
     in property output_ports_model <=> output_ports_combo.model;
     in-out property <int> selected_output_port_index;
     in property <string> window_title;
@@ -32,82 +34,90 @@ export component MainWindow inherits MagicWindow {
         message_text.message_type = message_type;
     }
 
-    VerticalBox {
-        padding-left: 0px;
-        padding-top: 0px;
-        HorizontalLayout {
-            VerticalLayout {
-                padding_right: Globals.horizontal_padding;
-                Image {
-                    source: Globals.icon;
-                    width: Globals.row_height;
-                    height: Globals.row_height;
-                }
-            }
-            MagicText {
-                text: "MIDI Output:";
-                vertical_alignment: center;
-                width: 100px;
-            }
-            VerticalLayout {
-                padding_left: Globals.horizontal_padding;
-                padding_top: Globals.control_vertical_padding;
-                padding_right: Globals.horizontal_padding * 2;
-                output_ports_combo := ComboBox {
-                    current_index: root.selected_output_port_index;
-                    changed current_index => {
-                        root.selected_output_port_index = self.current_index;
+    VerticalLayout{
+        padding_left: 10px;
+        padding_top: 5px;
+        GroupBox {
+            title: root.midi_output_title;
+            width: 565px;
+            VerticalBox {
+                padding: 0px;
+                HorizontalLayout {
+    //                VerticalLayout {
+    ////                    padding-left: 0px;
+    //                    padding_right: Globals.horizontal_padding;
+    //                    Image {
+    //                        source: Globals.icon;
+    //                        width: Globals.row_height;
+    //                        height: Globals.row_height;
+    //                    }
+    //                }
+                    MagicText {
+                        text: "MIDI Output:";
+                        vertical_alignment: center;
+                        width: 100px;
                     }
-                    height: Globals.control_height;
-                    width: 280px;
-                }
-            }
-            VerticalLayout {
-                padding_top: Globals.control_vertical_padding;
-                OutlineButton {
-                    text: "Connect";
-                    clicked => {
-                        root.connect_output_port()
+                    VerticalLayout {
+                        padding_left: Globals.horizontal_padding;
+                        padding_right: Globals.horizontal_padding * 2;
+                        output_ports_combo := ComboBox {
+                            current_index: root.selected_output_port_index;
+                            changed current_index => {
+                                root.selected_output_port_index = self.current_index;
+                            }
+                            height: Globals.control_height;
+                            width: 280px;
+                        }
                     }
-                    height: Globals.control_height;
-                    width: Globals.button_width;
-                }
-            }
-        }
-        GridLayout {
-            padding_left: Globals.row_height + Globals.horizontal_padding;
-            padding-bottom: Globals.horizontal_padding;
-            VerticalLayout {
-                col: 0;
-                MagicText {
-                    text: "Connected: ";
-                    width: 112px;
-                    horizontal_alignment: left;
-                    vertical_alignment: center;
-                }
-            }
-            VerticalLayout {
-                col: 1;
-                connected_port_name_text := MessageText {
-                    horizontal_alignment: left;
-                    vertical_alignment: center;
-                }
-            }
-            VerticalLayout {
-                col: 2;
-                OutlineButton {
-                    text: "Refresh Ports";
-                    clicked => {
-                        root.refresh_output_ports()
+                    VerticalLayout {
+    //                    padding: 0;
+    //                    padding_top: Globals.control_vertical_padding;
+                        OutlineButton {
+                            text: "Connect";
+                            clicked => {
+                                root.connect_output_port()
+                            }
+                            height: Globals.control_height;
+                            width: Globals.button_width;
+                        }
                     }
-                    height: Globals.control_height;
-                    width: Globals.button_width;
+                }
+                GridLayout {
+    //                padding_left: Globals.row_height + Globals.horizontal_padding;
+    //                padding-bottom: Globals.horizontal_padding;
+                    VerticalLayout {
+                        col: 0;
+                        MagicText {
+                            text: "Connected: ";
+                            width: 112px;
+                            horizontal_alignment: left;
+                            vertical_alignment: center;
+                        }
+                    }
+                    VerticalLayout {
+                        col: 1;
+                        connected_port_name_text := MessageText {
+                            horizontal_alignment: left;
+                            vertical_alignment: center;
+                        }
+                    }
+                    VerticalLayout {
+                        col: 2;
+                        OutlineButton {
+                            text: "Refresh Ports";
+                            clicked => {
+                                root.refresh_output_ports()
+                            }
+                            height: Globals.control_height;
+                            width: Globals.button_width;
+                        }
+                    }
+                }
+                message_text := MessageText {
+                    horizontal_alignment: center;
+                    vertical_alignment: top;
                 }
             }
-        }
-        message_text := MessageText {
-            horizontal_alignment: center;
-            vertical_alignment: top;
         }
     }
 }
