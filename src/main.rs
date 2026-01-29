@@ -65,7 +65,7 @@ fn connect_selected_output_port(main_window: &MainWindow, midi: &SharedMidiManag
     let output_port_names = midi_manager.get_output_port_names();
     let Some(name) = output_port_names.get(index)
     else {
-        show_no_port_connected(main_window);
+        show_no_output_port_connected(main_window);
         show_error(
             main_window,
             format!("No MIDI output port at index {}.", index),
@@ -74,11 +74,11 @@ fn connect_selected_output_port(main_window: &MainWindow, midi: &SharedMidiManag
     };
     match midi_manager.connect_output_port(index) {
         Ok(()) => {
-            show_connected_port_name(main_window, name);
+            show_connected_output_port_name(main_window, name);
             show_info(main_window, format!("Connected to MIDI output port {name}"));
         }
         Err(err) => {
-            show_no_port_connected(main_window);
+            show_no_output_port_connected(main_window);
             show_error(main_window, err.to_string());
         }
     }
@@ -150,7 +150,7 @@ fn refresh_output_ports(
             return;
         };
         set_output_ports_model(&main_window, output_ports_data.get_port_names());
-        show_no_port_connected(main_window);
+        show_no_output_port_connected(main_window);
         show_warning(main_window, MSG_REFRESHED_OUTPUTS_RECONNECT);
     });
 }
@@ -164,13 +164,13 @@ fn set_output_ports_model(main_window: &MainWindow, port_names: &[String]) {
     main_window.set_output_ports_model(slint::ModelRc::from(model));
 }
 
-fn show_connected_port_name(main_window: &MainWindow, port_name: &str) {
+fn show_connected_output_port_name(main_window: &MainWindow, port_name: &str) {
     let message_type = if port_name == PORT_NONE {
         MessageType::Warning }
     else {
         MessageType::Info
     };
-    main_window.invoke_show_connected_port_name(port_name.into(), message_type);
+    main_window.invoke_show_connected_output_port_name(port_name.into(), message_type);
 }
 
 fn show_error(main_window: &MainWindow, message: impl Into<SharedString>) {
@@ -185,8 +185,8 @@ fn show_message(main_window: &MainWindow, message: impl Into<SharedString>, mess
     main_window.invoke_show_message(message.into(), message_type);
 }
 
-fn show_no_port_connected(main_window: &MainWindow) {
-    show_connected_port_name(main_window, PORT_NONE);
+fn show_no_output_port_connected(main_window: &MainWindow) {
+    show_connected_output_port_name(main_window, PORT_NONE);
 }
 
 fn show_warning(main_window: &MainWindow, message: impl Into<SharedString>) {

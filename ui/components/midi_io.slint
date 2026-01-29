@@ -5,9 +5,87 @@
     OutlineButton,
 } from "@vivi/magic.slint";
 import { MessageText, MessageType } from "message_text.slint";
+import { VerticalBox, } from "std-widgets.slint";
+import { Globals, } from "../globals.slint";
 
 export component MidiIo inherits GroupBox {
-    title: midi_io_title;
+    title: group_title;
+    width: 565px;
+    forward-focus: ports_combo;
 
-    in property <string> midi_io_title;
+    in property <string> group_title;
+    in property ports_model <=> ports_combo.model;
+    in-out property <int> selected_port_index;
+    in property <string> type_label;
+    
+    callback connect_port();
+    callback refresh_ports();
+
+    public function show_connected_port_name(name: string, message_type: MessageType) {
+        connected_port_name_text.text = name;
+        connected_port_name_text.message_type = message_type;
+    }
+
+    VerticalBox {
+        alignment: start;
+        padding: 0px;
+        HorizontalLayout {
+            MagicText {
+                text: root.type_label;
+                vertical_alignment: center;
+                width: 100px;
+            }
+            VerticalLayout {
+                padding_left: Globals.horizontal_padding;
+                padding_right: Globals.horizontal_padding * 2;
+                ports_combo := ComboBox {
+                    current_index: root.selected_port_index;
+                    changed current_index => {
+                        root.selected_port_index = self.current_index;
+                    }
+                    height: Globals.control_height;
+                    width: 280px;
+                }
+            }
+            VerticalLayout {
+                OutlineButton {
+                    text: "Connect";
+                    clicked => {
+                        root.connect_port()
+                    }
+                    height: Globals.control_height;
+                    width: Globals.button_width;
+                }
+            }
+        }
+        GridLayout {
+            VerticalLayout {
+                col: 0;
+                MagicText {
+                    text: "Connected: ";
+                    width: 112px;
+                    horizontal_alignment: left;
+                    vertical_alignment: center;
+                }
+            }
+            VerticalLayout {
+                col: 1;
+                connected_port_name_text := MessageText {
+                    horizontal_alignment: left;
+                    vertical_alignment: center;
+                }
+            }
+            VerticalLayout {
+                col: 2;
+                OutlineButton {
+                    text: "Refresh Ports";
+                    clicked => {
+                        root.refresh_ports()
+                    }
+                    height: Globals.control_height;
+                    width: Globals.button_width;
+                }
+            }
+        }
+    }
 }

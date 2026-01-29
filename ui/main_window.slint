@@ -1,0 +1,45 @@
+import { MagicWindow, } from "@vivi/magic.slint";
+import { MessageText, MessageType } from "components/message_text.slint";
+import { MidiIo } from "components/midi_io.slint";
+import { Globals } from "globals.slint";
+import { VerticalBox, } from "std-widgets.slint";
+
+export component MainWindow inherits MagicWindow {
+    width: 585px;
+    height: 200px;
+    title: window_title;
+    icon: Globals.icon;
+    forward-focus: midi_output;
+
+    in property <string> midi_output_title <=> midi_output.group_title;
+    in property output_ports_model <=> midi_output.ports_model;
+    in-out property <int> selected_output_port_index <=> midi_output.selected_port_index;
+    in property <string> window_title;
+    
+    callback connect_output_port <=> midi_output.connect_port;
+    callback refresh_output_ports <=> midi_output.refresh_ports;
+
+    public function show_connected_output_port_name(name: string, message_type: MessageType) {
+        midi_output.show_connected_port_name(name, message_type);
+    }
+
+    public function show_message(message: string, message_type: MessageType) {
+        message_text.text = message;
+        message_text.message_type = message_type;
+    }
+
+    VerticalLayout {
+        alignment: start;
+        padding_left: 10px;
+        padding_top: 5px;
+        midi_output := MidiIo {
+        }
+        VerticalBox {
+            padding-top: 10px;
+            message_text := MessageText {
+                horizontal_alignment: center;
+                vertical_alignment: top;
+            }
+        }
+    }
+}
