@@ -34,24 +34,17 @@ export component MainWindow inherits MagicWindow {
         message_text.message_type = message_type;
     }
 
-    VerticalLayout{
+    VerticalLayout {
+        alignment: start;
         padding_left: 10px;
         padding_top: 5px;
         GroupBox {
             title: root.midi_output_title;
             width: 565px;
             VerticalBox {
+                alignment: start;
                 padding: 0px;
                 HorizontalLayout {
-    //                VerticalLayout {
-    ////                    padding-left: 0px;
-    //                    padding_right: Globals.horizontal_padding;
-    //                    Image {
-    //                        source: Globals.icon;
-    //                        width: Globals.row_height;
-    //                        height: Globals.row_height;
-    //                    }
-    //                }
                     MagicText {
                         text: "MIDI Output:";
                         vertical_alignment: center;
@@ -70,8 +63,6 @@ export component MainWindow inherits MagicWindow {
                         }
                     }
                     VerticalLayout {
-    //                    padding: 0;
-    //                    padding_top: Globals.control_vertical_padding;
                         OutlineButton {
                             text: "Connect";
                             clicked => {
@@ -83,8 +74,6 @@ export component MainWindow inherits MagicWindow {
                     }
                 }
                 GridLayout {
-    //                padding_left: Globals.row_height + Globals.horizontal_padding;
-    //                padding-bottom: Globals.horizontal_padding;
                     VerticalLayout {
                         col: 0;
                         MagicText {
@@ -113,10 +102,13 @@ export component MainWindow inherits MagicWindow {
                         }
                     }
                 }
-                message_text := MessageText {
-                    horizontal_alignment: center;
-                    vertical_alignment: top;
-                }
+            }
+        }
+        VerticalBox {
+            padding-top: 10px;
+            message_text := MessageText {
+                horizontal_alignment: center;
+                vertical_alignment: top;
             }
         }
     }
