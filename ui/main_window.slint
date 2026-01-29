@@ -6,7 +6,7 @@ import { VerticalBox, } from "std-widgets.slint";
 
 export component MainWindow inherits MagicWindow {
     width: 585px;
-    height: 350px;
+    min_height: 320px; // Expands automatically if the status message does not fit.
     title: window_title;
     icon: Globals.icon;
     forward-focus: midi_input;
