@@ -37,10 +37,8 @@ impl slint::Model for OutputPortsModel {
 
 const MSG_CONNECT_INPUT: &str = "Connect to a MIDI input port.";
 const MSG_REFRESHED_INPUTS_RECONNECT: &str = "Refreshed MIDI input ports. You must (re)connect.";
-const INPUT_TITLE: &str = "From Haken Editor";
 const MSG_CONNECT_OUTPUT: &str = "Connect to a MIDI output port.";
 const MSG_REFRESHED_OUTPUTS_RECONNECT: &str = "Refreshed MIDI output ports. You must (re)connect.";
-const OUTPUT_TITLE: &str = "To Haken Continuum or EaganMatrix Module";
 const PORT_NONE: &str = "[None]";
 
 lazy_static! {
@@ -49,8 +47,6 @@ lazy_static! {
 
 fn main() {
     let main_window = MainWindow::new().unwrap();
-    main_window.set_midi_input_title(INPUT_TITLE.into());
-    main_window.set_midi_output_title(OUTPUT_TITLE.into());
     main_window.set_window_title(global::APP_TITLE.into());
     let mut midi: SharedMidiManager = Rc::new(RefCell::new(MidiManager::new()));
     init_output_ports(&main_window, &mut midi);

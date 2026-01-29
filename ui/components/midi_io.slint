@@ -1,5 +1,7 @@
 ﻿import {
+    ButtonAction,
     ComboBox,
+    FilledButton,
     GroupBox,
     MagicText,
     OutlineButton,
@@ -48,8 +50,9 @@ export component MidiIo inherits GroupBox {
                 }
             }
             VerticalLayout {
-                OutlineButton {
+                FilledButton {
                     text: "Connect";
+                    action: ButtonAction.primary;
                     clicked => {
                         root.connect_port()
                     }
