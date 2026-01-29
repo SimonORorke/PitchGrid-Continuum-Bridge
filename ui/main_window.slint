@@ -6,36 +6,48 @@ import { VerticalBox, } from "std-widgets.slint";
 
 export component MainWindow inherits MagicWindow {
     width: 585px;
-    height: 200px;
+    height: 350px;
     title: window_title;
     icon: Globals.icon;
     forward-focus: midi_output;
 
-    in property <string> midi_output_title <=> midi_output.group_title;
-    in property output_ports_model <=> midi_output.ports_model;
-    in-out property <int> selected_output_port_index <=> midi_output.selected_port_index;
     in property <string> window_title;
-    
-    callback connect_output_port <=> midi_output.connect_port;
-    callback refresh_output_ports <=> midi_output.refresh_ports;
-
-    public function show_connected_output_port_name(name: string, message_type: MessageType) {
-        midi_output.show_connected_port_name(name, message_type);
-    }
-
     public function show_message(message: string, message_type: MessageType) {
         message_text.text = message;
         message_text.message_type = message_type;
+    }
+
+    in property <string> midi_input_title <=> midi_input.group_title;
+    in property input_ports_model <=> midi_input.ports_model;
+    in-out property <int> selected_input_port_index <=> midi_input.selected_port_index;
+    callback connect_input_port <=> midi_input.connect_port;
+    callback refresh_input_ports <=> midi_input.refresh_ports;
+    public function show_connected_input_port_name(name: string, message_type: MessageType) {
+        midi_input.show_connected_port_name(name, message_type);
+    }
+
+    in property <string> midi_output_title <=> midi_output.group_title;
+    in property output_ports_model <=> midi_output.ports_model;
+    in-out property <int> selected_output_port_index <=> midi_output.selected_port_index;
+    callback connect_output_port <=> midi_output.connect_port;
+    callback refresh_output_ports <=> midi_output.refresh_ports;
+    public function show_connected_output_port_name(name: string, message_type: MessageType) {
+        midi_output.show_connected_port_name(name, message_type);
     }
 
     VerticalLayout {
         alignment: start;
         padding_left: 10px;
         padding_top: 5px;
-        midi_output := MidiIo {
+        midi_input := MidiIo {
+        }
+        VerticalLayout {
+            padding_top: 15px;
+            midi_output := MidiIo {
+            }
         }
         VerticalBox {
-            padding-top: 10px;
+            padding-top: 15px;
             message_text := MessageText {
                 horizontal_alignment: center;
                 vertical_alignment: top;
