@@ -50,6 +50,7 @@ impl slint::Model for OutputPortsModel {
     }
 }
 
+const MSG_CONNECT: &str = "Connect to MIDI input and output ports.";
 const MSG_CONNECT_INPUT: &str = "Connect to a MIDI input port.";
 const MSG_REFRESHED_INPUTS_RECONNECT: &str = "Refreshed MIDI input ports. You must (re)connect.";
 const MSG_CONNECT_OUTPUT: &str = "Connect to a MIDI output port.";
@@ -73,12 +74,18 @@ fn main() {
 fn connect_input_port(main_window_weak: Weak<MainWindow>, midi: &SharedMidiManager) {
     with_main_window(main_window_weak, |main_window| {
         connect_selected_input_port(main_window, midi);
+        if midi.borrow().is_input_port_connected() {
+            show_info(main_window, format!("Connected to MIDI input port {name}"));
+        }
     });
 }
 
 fn connect_output_port(main_window_weak: Weak<MainWindow>, midi: &SharedMidiManager) {
     with_main_window(main_window_weak, |main_window| {
         connect_selected_output_port(main_window, midi);
+        if midi.borrow().is_output_port_connected() {
+            show_info(main_window, format!("Connected to MIDI output port {name}"));
+        }
     });
 }
 
@@ -98,7 +105,6 @@ fn connect_selected_input_port(main_window: &MainWindow, midi: &SharedMidiManage
     match midi_manager.connect_input_port(index) {
         Ok(()) => {
             show_connected_input_port_name(main_window, name);
-            show_info(main_window, format!("Connected to MIDI input port {name}"));
         }
         Err(err) => {
             show_no_input_port_connected(main_window);
@@ -123,7 +129,11 @@ fn connect_selected_output_port(main_window: &MainWindow, midi: &SharedMidiManag
     match midi_manager.connect_output_port(index) {
         Ok(()) => {
             show_connected_output_port_name(main_window, name);
-            show_info(main_window, format!("Connected to MIDI output port {name}"));
+            // if midi_manager.is_input_port_connected() {
+            //     show_info(main_window, format!("Connected to MIDI output port {name}"));
+            // } else {
+            //     show_warning(&main_window, MSG_CONNECT_INPUT);
+            // }
         }
         Err(err) => {
             show_no_output_port_connected(main_window);
@@ -217,12 +227,17 @@ fn init_output_ports(main_window: &MainWindow, midi: &SharedMidiManager) {
         connect_selected_output_port(main_window, midi);
     } else {
         show_no_output_port_connected(main_window);
-        show_warning(&main_window, MSG_CONNECT_OUTPUT);
+        if midi.borrow().is_input_port_connected() {
+            show_warning(&main_window, MSG_CONNECT_OUTPUT);
+        } else {
+            show_warning(&main_window, MSG_CONNECT);
+        }
     }
 }
 
 fn refresh_input_ports(
     main_window_weak: Weak<MainWindow>, midi: &SharedMidiManager) {
+    midi.borrow_mut().disconnect_from_input_port(false);
     with_main_window(main_window_weak, |main_window| {
         let Some(input_ports_data) = update_input_ports_or_show_error(
             main_window, midi)
@@ -237,6 +252,7 @@ fn refresh_input_ports(
 
 fn refresh_output_ports(
     main_window_weak: Weak<MainWindow>, midi: &SharedMidiManager) {
+    midi.borrow_mut().disconnect_from_output_port(false);
     with_main_window(main_window_weak, |main_window| {
         let Some(output_ports_data) = update_output_ports_or_show_error(
             main_window, midi)

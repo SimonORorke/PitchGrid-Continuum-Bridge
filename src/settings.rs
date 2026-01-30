@@ -47,6 +47,7 @@ impl Settings {
                 let msg = format!("Error parsing settings file '{}': {}", path.clone(), e);
                 std::io::Error::new(std::io::ErrorKind::InvalidData, msg)
             })?;
+        self.midi_input_port = settings.midi_input_port;
         self.midi_output_port = settings.midi_output_port;
         Ok(())
     }
