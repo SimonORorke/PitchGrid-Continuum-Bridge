@@ -5,6 +5,8 @@ use midir::{
 use crate::settings;
 
 pub struct MidiManager {
+    connected_input_port: Option<InputPort>,
+    connected_output_port: Option<OutputPort>,
     input_connection: Option<MidiInputConnection<()>>,
     input_ports: Vec<MidiInputPort>,
     output_connection: Option<MidiOutputConnection>,
@@ -18,6 +20,8 @@ impl MidiManager {
 
     pub fn new() -> Self {
         Self {
+            connected_input_port: None,
+            connected_output_port: None,
             input_connection: None,
             input_ports: Vec::new(),
             output_connection: None,
