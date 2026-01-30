@@ -5,11 +5,13 @@ use midir::{
 use crate::settings;
 
 pub struct MidiManager {
-    connected_input_port: Option<InputPort>,
-    connected_output_port: Option<OutputPort>,
+    input_port: Option<InputPort>,
     input_connection: Option<MidiInputConnection<()>>,
+    input_port_names: Vec<String>,
     input_ports: Vec<MidiInputPort>,
     output_connection: Option<MidiOutputConnection>,
+    output_port: Option<OutputPort>,
+    output_port_names: Vec<String>,
     output_ports: Vec<MidiOutputPort>,
     settings: settings::Settings,
 }
@@ -20,13 +22,15 @@ impl MidiManager {
 
     pub fn new() -> Self {
         Self {
-            connected_input_port: None,
-            connected_output_port: None,
+            input_port: None,
+            output_port: None,
             input_connection: None,
-            input_ports: Vec::new(),
+            input_port_names: vec![],
+            input_ports: vec![],
             output_connection: None,
-            output_ports: Vec::new(),
+            output_ports: vec![],
             settings: settings::Settings::new(),
+            output_port_names: vec![],
         }
     }
 
@@ -42,6 +46,7 @@ impl MidiManager {
     }
 
     pub fn connect_input_port(&mut self, index: usize) -> Result<(), Box<dyn Error>> {
+        println!("midi.connect_connect_input_port");
         self.disconnect_from_input_port(false);
         if let Some(port) = self.input_ports.get(index) {
             let midi_input = Self::create_midi_input();
@@ -93,7 +98,7 @@ impl MidiManager {
         MidiOutput::new(Self::OUTPUT_CLIENT_NAME).unwrap()
     }
 
-    fn disconnect_from_input_port(&mut self, is_closing: bool) {
+    pub fn disconnect_from_input_port(&mut self, is_closing: bool) {
         if let Some(connection) = self.input_connection.take() {
             connection.close();
         }
@@ -102,7 +107,7 @@ impl MidiManager {
         }
     }
 
-    fn disconnect_from_output_port(&mut self, is_closing: bool) {
+    pub fn disconnect_from_output_port(&mut self, is_closing: bool) {
         if let Some(connection) = self.output_connection.take() {
             connection.close();
         }
@@ -111,62 +116,78 @@ impl MidiManager {
         }
     }
 
-    fn find_persisted_input_port(&self, input_port_names: &Vec<String>) -> Option<InputPort> {
+    fn find_persisted_input_port(&self) -> Option<InputPort> {
         if self.settings.midi_input_port.is_empty() {
             return None;
         }
-        input_port_names.iter().position(|name| name == &self.settings.midi_input_port)
+        self.input_port_names.iter().position(|name| name == &self.settings.midi_input_port)
             .map(|index| InputPort::new(index, self.settings.midi_input_port.to_string()))
     }
 
-    fn find_persisted_output_port(&self, output_port_names: &Vec<String>) -> Option<OutputPort> {
+    fn find_persisted_output_port(&self) -> Option<OutputPort> {
         if self.settings.midi_output_port.is_empty() {
             return None;
         }
-        output_port_names.iter().position(|name| name == &self.settings.midi_output_port)
+        self.output_port_names.iter().position(|name| name == &self.settings.midi_output_port)
             .map(|index| OutputPort::new(index, self.settings.midi_output_port.to_string()))
     }
 
-    pub fn get_input_port_names(&self) -> Vec<String> {
+    fn get_input_port_names(&self) -> Vec<String> {
         let midi_input = Self::create_midi_input();
         self.input_ports.iter()
             .map(|port|
                 midi_input.port_name(&port).unwrap()).collect()
     }
 
-    pub fn get_output_port_names(&self) -> Vec<String> {
+    fn get_output_port_names(&self) -> Vec<String> {
         let midi_output = Self::create_midi_output();
         self.output_ports.iter()
             .map(|port|
                 midi_output.port_name(&port).unwrap()).collect()
     }
 
-    pub fn update_input_ports(&mut self) -> Result<InputPortsData, Box<dyn Error>> {
+    pub fn input_port(&self) -> &Option<InputPort>  {
+        &self.input_port
+    }
+    
+    pub fn input_port_names(&self) -> &Vec<String> {
+        &self.input_port_names
+    }
+
+    pub fn output_port(&self) -> &Option<OutputPort>  {
+        &self.output_port
+    }
+    
+    pub fn output_port_names(&self) -> &Vec<String> {
+        &self.output_port_names
+    }
+
+    pub fn update_input_ports(&mut self) -> Result<(), Box<dyn Error>> {
         self.settings.read_from_file()?;
         let midi_input = Self::create_midi_input();
         self.disconnect_from_input_port(false);
         self.input_ports = midi_input.ports().to_vec();
-        let input_port_names: Vec<String> = self.get_input_port_names();
-        let persisted_port =
-            self.find_persisted_input_port(&input_port_names);
-        Ok(InputPortsData::new(input_port_names, persisted_port))
+        self.input_port_names.clear();
+        self.input_port_names.extend(self.get_input_port_names());
+        self.input_port = self.find_persisted_input_port();
+        Ok(())
     }
 
-    pub fn update_output_ports(&mut self) -> Result<OutputPortsData, Box<dyn Error>> {
+    pub fn update_output_ports(&mut self) -> Result<(), Box<dyn Error>> {
         self.settings.read_from_file()?;
         let midi_output = Self::create_midi_output();
         self.disconnect_from_output_port(false);
         self.output_ports = midi_output.ports().to_vec();
-        let output_port_names: Vec<String> = self.get_output_port_names();
-        let persisted_port =
-            self.find_persisted_output_port(&output_port_names);
-        Ok(OutputPortsData::new(output_port_names, persisted_port))
+        self.output_port_names.clear();
+        self.output_port_names.extend(self.get_output_port_names());
+        self.output_port = self.find_persisted_output_port();
+        Ok(())
     }
 }
 
 pub struct InputPort {
     index: usize,
-    name: String, // Maybe useful for debugging.
+    name: String,
 }
 
 impl InputPort {
@@ -177,36 +198,40 @@ impl InputPort {
     pub fn index(&self) -> usize {
         self.index
     }
-}
-
-impl Clone for InputPort {
-    fn clone(&self) -> Self {
-        Self { index: self.index, name: self.name.clone() }
+    
+    pub fn name(&self) -> &String {
+        &self.name
     }
 }
 
-pub struct InputPortsData {
-    port_names: Vec<String>,
-    persisted_port: Option<InputPort>,
-}
+// impl Clone for InputPort {
+//     fn clone(&self) -> Self {
+//         Self { index: self.index, name: self.name.clone() }
+//     }
+// }
 
-impl InputPortsData {
-    pub fn new(port_names: Vec<String>, connected_port: Option<InputPort>) -> Self {
-        Self { port_names, persisted_port: connected_port }
-    }
-
-    pub fn persisted_port(&self) -> Option<&InputPort> {
-        self.persisted_port.as_ref()
-    }
-
-    pub fn port_names(&self) -> &Vec<String> {
-        &self.port_names
-    }
-}
+// pub struct InputPortsData {
+//     port_names: Vec<String>,
+//     persisted_port: Option<InputPort>,
+// }
+// 
+// impl InputPortsData {
+//     pub fn new(port_names: Vec<String>, connected_port: Option<InputPort>) -> Self {
+//         Self { port_names, persisted_port: connected_port }
+//     }
+// 
+//     pub fn persisted_port(&self) -> Option<&InputPort> {
+//         self.persisted_port.as_ref()
+//     }
+// 
+//     pub fn port_names(&self) -> &Vec<String> {
+//         &self.port_names
+//     }
+// }
 
 pub struct OutputPort {
     index: usize,
-    name: String, // Maybe useful for debugging.
+    name: String,
 }
 
 impl OutputPort {
@@ -217,29 +242,33 @@ impl OutputPort {
     pub fn index(&self) -> usize {
         self.index
     }
-}
-
-impl Clone for OutputPort {
-    fn clone(&self) -> Self {
-        Self { index: self.index, name: self.name.clone() }
+    
+    pub fn name(&self) -> &String {
+        &self.name
     }
 }
 
-pub struct OutputPortsData {
-    port_names: Vec<String>,
-    persisted_port: Option<OutputPort>,
-}
+// impl Clone for OutputPort {
+//     fn clone(&self) -> Self {
+//         Self { index: self.index, name: self.name.clone() }
+//     }
+// }
 
-impl OutputPortsData {
-    pub fn new(port_names: Vec<String>, connected_port: Option<OutputPort>) -> Self {
-        Self { port_names, persisted_port: connected_port }
-    }
-
-    pub fn persisted_port(&self) -> Option<&OutputPort> {
-        self.persisted_port.as_ref()
-    }
-
-    pub fn port_names(&self) -> &Vec<String> {
-        &self.port_names
-    }
-}
+// pub struct OutputPortsData {
+//     port_names: Vec<String>,
+//     persisted_port: Option<OutputPort>,
+// }
+// 
+// impl OutputPortsData {
+//     pub fn new(port_names: Vec<String>, connected_port: Option<OutputPort>) -> Self {
+//         Self { port_names, persisted_port: connected_port }
+//     }
+// 
+//     pub fn persisted_port(&self) -> Option<&OutputPort> {
+//         self.persisted_port.as_ref()
+//     }
+// 
+//     pub fn port_names(&self) -> &Vec<String> {
+//         &self.port_names
+//     }
+// }
