@@ -46,7 +46,6 @@ impl MidiManager {
     }
 
     pub fn connect_input_port(&mut self, index: usize) -> Result<(), Box<dyn Error>> {
-        println!("midi.connect_connect_input_port");
         self.disconnect_from_input_port(false);
         if let Some(port) = self.input_ports.get(index) {
             let midi_input = Self::create_midi_input();
