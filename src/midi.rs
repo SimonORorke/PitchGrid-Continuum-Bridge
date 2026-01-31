@@ -35,8 +35,8 @@ impl Midi {
     }
 
     pub fn close(&mut self) -> Result<(), Box<dyn Error>> {
-        self.disconnect_from_input_port(true);
-        self.disconnect_from_output_port(true);
+        self.disconnect_input_port(true);
+        self.disconnect_output_port(true);
         self.settings.write_to_file()?;
         Ok(())
     }
@@ -46,7 +46,7 @@ impl Midi {
     }
 
     pub fn connect_input_port(&mut self, index: usize) -> Result<(), Box<dyn Error>> {
-        self.disconnect_from_input_port(false);
+        self.disconnect_input_port(false);
         if let Some(port) = self.input_ports.get(index) {
             let midi_input = Self::create_midi_input();
             let port_name = midi_input.port_name(&port)?;
@@ -71,7 +71,7 @@ impl Midi {
     }
 
     pub fn connect_output_port(&mut self, index: usize) -> Result<(), Box<dyn Error>> {
-        self.disconnect_from_output_port(false);
+        self.disconnect_output_port(false);
         if let Some(port) = self.output_ports.get(index) {
             let midi_output = Self::create_midi_output();
             let port_name = midi_output.port_name(&port)?;
@@ -97,7 +97,7 @@ impl Midi {
         MidiOutput::new(Self::OUTPUT_CLIENT_NAME).unwrap()
     }
 
-    pub fn disconnect_from_input_port(&mut self, is_closing: bool) {
+    fn disconnect_input_port(&mut self, is_closing: bool) {
         if let Some(connection) = self.input_connection.take() {
             connection.close();
         }
@@ -106,7 +106,7 @@ impl Midi {
         }
     }
 
-    pub fn disconnect_from_output_port(&mut self, is_closing: bool) {
+    fn disconnect_output_port(&mut self, is_closing: bool) {
         if let Some(connection) = self.output_connection.take() {
             connection.close();
         }
@@ -117,6 +117,7 @@ impl Midi {
 
     fn find_persisted_input_port(&self) -> Option<InputPort> {
         if self.settings.midi_input_port.is_empty() {
+            println!("Midi.find_persisted_input_port: self.settings.midi_input_port is empty.");
             return None;
         }
         self.input_port_names.iter().position(|name| name == &self.settings.midi_input_port)
@@ -146,7 +147,18 @@ impl Midi {
     }
 
     pub fn input_port(&self) -> &Option<InputPort>  {
+        println!("Midi.input_port: self.input_port = {:?}", self.input_port);
         &self.input_port
+    }
+
+    pub fn init_input_ports(&mut self) -> Result<(), Box<dyn Error>> {
+        self.populate_input_ports()?;
+        Ok(())
+    }
+
+    pub fn init_output_ports(&mut self) -> Result<(), Box<dyn Error>> {
+        self.populate_output_ports()?;
+        Ok(())
     }
     
     pub fn input_port_names(&self) -> &Vec<String> {
@@ -161,29 +173,48 @@ impl Midi {
         &self.output_port_names
     }
 
-    pub fn update_input_ports(&mut self) -> Result<(), Box<dyn Error>> {
+    fn populate_input_ports(&mut self) -> Result<(), Box<dyn Error>> {
+        println!("Midi.populate_input_ports: start");
         self.settings.read_from_file()?;
+        println!("Midi.populate_input_ports: self.settings.midi_input_port = {}", self.settings.midi_input_port);
         let midi_input = Self::create_midi_input();
-        self.disconnect_from_input_port(false);
         self.input_ports = midi_input.ports().to_vec();
         self.input_port_names.clear();
         self.input_port_names.extend(self.get_input_port_names());
+        println!("Midi.populate_input_ports: self.input_port_names = {:?}", self.input_port_names);
         self.input_port = self.find_persisted_input_port();
+        if self.input_port.is_some() {
+            println!("Midi.populate_input_ports: self.input_port found");
+        } else {
+            println!("Midi.populate_input_ports: self.input_port not found");
+        }
         Ok(())
     }
 
-    pub fn update_output_ports(&mut self) -> Result<(), Box<dyn Error>> {
+    fn populate_output_ports(&mut self) -> Result<(), Box<dyn Error>> {
         self.settings.read_from_file()?;
         let midi_output = Self::create_midi_output();
-        self.disconnect_from_output_port(false);
         self.output_ports = midi_output.ports().to_vec();
         self.output_port_names.clear();
         self.output_port_names.extend(self.get_output_port_names());
         self.output_port = self.find_persisted_output_port();
         Ok(())
     }
+
+    pub fn refresh_input_ports(&mut self) -> Result<(), Box<dyn Error>> {
+        self.disconnect_input_port(false);
+        self.populate_input_ports()?;
+        Ok(())
+    }
+
+    pub fn refresh_output_ports(&mut self) -> Result<(), Box<dyn Error>> {
+        self.disconnect_output_port(false);
+        self.populate_output_ports()?;
+        Ok(())
+    }
 }
 
+#[derive(Debug)]
 pub struct InputPort {
     index: usize,
     name: String,
@@ -228,6 +259,7 @@ impl InputPort {
 //     }
 // }
 
+#[derive(Debug)]
 pub struct OutputPort {
     index: usize,
     name: String,
