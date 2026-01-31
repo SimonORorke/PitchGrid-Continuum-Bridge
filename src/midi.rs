@@ -151,12 +151,9 @@ impl Midi {
         &self.input_port
     }
 
-    pub fn init_input_ports(&mut self) -> Result<(), Box<dyn Error>> {
+    pub fn init(&mut self) -> Result<(), Box<dyn Error>> {
+        self.settings.read_from_file()?;
         self.populate_input_ports()?;
-        Ok(())
-    }
-
-    pub fn init_output_ports(&mut self) -> Result<(), Box<dyn Error>> {
         self.populate_output_ports()?;
         Ok(())
     }
@@ -175,19 +172,12 @@ impl Midi {
 
     fn populate_input_ports(&mut self) -> Result<(), Box<dyn Error>> {
         // println!("Midi.populate_input_ports: start");
-        self.settings.read_from_file()?;
-        // println!("Midi.populate_input_ports: self.settings.midi_input_port = {}", self.settings.midi_input_port);
         let midi_input = Self::create_midi_input();
         self.input_ports = midi_input.ports().to_vec();
         self.input_port_names.clear();
         self.input_port_names.extend(self.get_input_port_names());
         // println!("Midi.populate_input_ports: self.input_port_names = {:?}", self.input_port_names);
         self.input_port = self.find_persisted_input_port();
-        // if self.input_port.is_some() {
-        //     println!("Midi.populate_input_ports: self.input_port found");
-        // } else {
-        //     println!("Midi.populate_input_ports: self.input_port not found");
-        // }
         Ok(())
     }
 

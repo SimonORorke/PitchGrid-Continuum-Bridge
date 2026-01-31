@@ -67,11 +67,36 @@ lazy_static! {
 fn main() {
     let main_window = MainWindow::new().unwrap();
     main_window.set_window_title(global::APP_TITLE.into());
-    let mut midi: SharedMidi = Rc::new(RefCell::new(Midi::new()));
-    init_input_ports(&main_window, &mut midi);
-    init_output_ports(&main_window, &mut midi);
-    init_midi_ui_handlers(&main_window, Rc::clone(&midi));
+    let midi: SharedMidi = Rc::new(RefCell::new(Midi::new()));
+    init(&main_window, &midi);
     main_window.run().unwrap();
+}
+
+fn connect_initial_input_port(main_window: &MainWindow, midi: &SharedMidi) {
+    let maybe_index = midi.borrow().input_port().as_ref().map(|p| p.index());
+    if let Some(index) = maybe_index {
+        main_window.set_selected_input_port_index(index as i32);
+        connect_selected_input_port(main_window, midi);
+    } else {
+        show_no_input_port_connected(main_window);
+        show_warning(&main_window, MSG_CONNECT_INPUT);
+    }
+}
+
+fn connect_initial_output_port(main_window: &MainWindow, midi: &SharedMidi) {
+    let maybe_index =
+        midi.borrow().output_port().as_ref().map(|p| p.index());
+    if let Some(index) = maybe_index {
+        main_window.set_selected_output_port_index(index as i32);
+        connect_selected_output_port(main_window, midi);
+    } else {
+        show_no_output_port_connected(main_window);
+        if midi.borrow().input_port().is_some() {
+            show_warning(&main_window, MSG_CONNECT_OUTPUT);
+        } else {
+            show_warning(&main_window, MSG_CONNECT);
+        }
+    }
 }
 
 fn connect_input_port(main_window_weak: Weak<MainWindow>, midi: &SharedMidi) {
@@ -176,7 +201,19 @@ fn handle_close_request(main_window_weak: Weak<MainWindow>, midi: &SharedMidi) -
     response
 }
 
-fn init_midi_ui_handlers(main_window: &MainWindow, midi: SharedMidi) {
+fn init(main_window: &MainWindow, midi: &SharedMidi) {
+    if let Err(err) = midi.borrow_mut().init() {
+        show_error(main_window, err.to_string());
+        return;
+    }
+    set_input_ports_model(&main_window, midi);
+    set_output_ports_model(&main_window, midi);
+    connect_initial_input_port(&main_window, &midi);
+    connect_initial_output_port(&main_window, &midi);
+    init_ui_handlers(&main_window, Rc::clone(&midi));
+}
+
+fn init_ui_handlers(main_window: &MainWindow, midi: SharedMidi) {
     let window_weak = main_window.as_weak();
     {
         let mut midi: SharedMidi = Rc::clone(&midi);
@@ -212,46 +249,6 @@ fn init_midi_ui_handlers(main_window: &MainWindow, midi: SharedMidi) {
         main_window.on_refresh_output_ports(move || {
             refresh_output_ports(window_weak.clone(), &mut midi)
         });
-    }
-}
-
-fn init_input_ports(main_window: &MainWindow, midi: &SharedMidi) {
-    // println!("main.init_input_ports");
-    if let Err(err) = midi.borrow_mut().init_input_ports() {
-        show_error(main_window, err.to_string());
-        return;
-    }
-    // println!("main.init_input_ports: updated input ports.");
-    set_input_ports_model(&main_window, midi);
-    let maybe_index = midi.borrow().input_port().as_ref().map(|p| p.index());
-    if let Some(index) = maybe_index {
-        main_window.set_selected_input_port_index(index as i32);
-        // println!("main.init_input_ports: selected input port index: {}", index);
-        connect_selected_input_port(main_window, midi);
-    } else {
-        show_no_input_port_connected(main_window);
-        show_warning(&main_window, MSG_CONNECT_INPUT);
-    }
-}
-
-fn init_output_ports(main_window: &MainWindow, midi: &SharedMidi) {
-    if let Err(err) = midi.borrow_mut().init_output_ports() {
-        show_error(main_window, err.to_string());
-        return;
-    }
-    set_output_ports_model(&main_window, midi);
-    let maybe_index =
-        midi.borrow().output_port().as_ref().map(|p| p.index());
-    if let Some(index) = maybe_index {
-        main_window.set_selected_output_port_index(index as i32);
-        connect_selected_output_port(main_window, midi);
-    } else {
-        show_no_output_port_connected(main_window);
-        if midi.borrow().input_port().is_some() {
-            show_warning(&main_window, MSG_CONNECT_OUTPUT);
-        } else {
-            show_warning(&main_window, MSG_CONNECT);
-        }
     }
 }
 
