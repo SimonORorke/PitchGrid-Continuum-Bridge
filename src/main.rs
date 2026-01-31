@@ -10,7 +10,7 @@ use std::rc::Rc;
 use std::sync::Mutex;
 use lazy_static::lazy_static;
 use slint::{CloseRequestResponse, SharedString, Weak};
-use midi::{ MidiManager };
+use midi::{Midi};
 slint::include_modules!();
 
 /// 'Rc<RefCell<MidiManager>>' gives **shared ownership** ('Rc')
@@ -18,7 +18,7 @@ slint::include_modules!();
 /// the same manager safely (single-threaded UI context).
 /// If you later move MIDI work off the UI thread, you’ll want 'Arc<Mutex<_>>' instead.
 /// But for Slint’s typical single-threaded event loop, 'Rc<RefCell<_>>' is the right fix.
-type SharedMidiManager = Rc<RefCell<MidiManager>>;
+type SharedMidi = Rc<RefCell<Midi>>;
 
 struct InputPortsModel(Vec<ComboBoxItem>);
 
@@ -66,14 +66,14 @@ lazy_static! {
 fn main() {
     let main_window = MainWindow::new().unwrap();
     main_window.set_window_title(global::APP_TITLE.into());
-    let mut midi: SharedMidiManager = Rc::new(RefCell::new(MidiManager::new()));
+    let mut midi: SharedMidi = Rc::new(RefCell::new(Midi::new()));
     init_input_ports(&main_window, &mut midi);
     init_output_ports(&main_window, &mut midi);
     init_midi_ui_handlers(&main_window, Rc::clone(&midi));
     main_window.run().unwrap();
 }
 
-fn connect_input_port(main_window_weak: Weak<MainWindow>, midi: &SharedMidiManager) {
+fn connect_input_port(main_window_weak: Weak<MainWindow>, midi: &SharedMidi) {
     with_main_window(main_window_weak, |main_window| {
         connect_selected_input_port(main_window, midi);
         if let Some(port) = midi.borrow().input_port() {
@@ -82,7 +82,7 @@ fn connect_input_port(main_window_weak: Weak<MainWindow>, midi: &SharedMidiManag
     });
 }
 
-fn connect_output_port(main_window_weak: Weak<MainWindow>, midi: &SharedMidiManager) {
+fn connect_output_port(main_window_weak: Weak<MainWindow>, midi: &SharedMidi) {
     with_main_window(main_window_weak, |main_window| {
         connect_selected_output_port(main_window, midi);
         if let Some(port) = midi.borrow().output_port() {
@@ -91,7 +91,7 @@ fn connect_output_port(main_window_weak: Weak<MainWindow>, midi: &SharedMidiMana
     });
 }
 
-fn connect_selected_input_port(main_window: &MainWindow, midi: &SharedMidiManager) {
+fn connect_selected_input_port(main_window: &MainWindow, midi: &SharedMidi) {
     let selected = main_window.get_selected_input_port_index();
     let index: usize = match usize::try_from(selected) {
         Ok(i) => i,
@@ -124,7 +124,7 @@ fn connect_selected_input_port(main_window: &MainWindow, midi: &SharedMidiManage
     }
 }
 
-fn connect_selected_output_port(main_window: &MainWindow, midi: &SharedMidiManager) {
+fn connect_selected_output_port(main_window: &MainWindow, midi: &SharedMidi) {
     let selected = main_window.get_selected_output_port_index();
     let index: usize = match usize::try_from(selected) {
         Ok(i) => i,
@@ -157,7 +157,7 @@ fn connect_selected_output_port(main_window: &MainWindow, midi: &SharedMidiManag
     }
 }
 
-fn handle_close_request(main_window_weak: Weak<MainWindow>, midi: &SharedMidiManager) -> CloseRequestResponse {
+fn handle_close_request(main_window_weak: Weak<MainWindow>, midi: &SharedMidi) -> CloseRequestResponse {
     let mut response = CloseRequestResponse::HideWindow;
     if *IS_CLOSE_ERROR_SHOWN.lock().unwrap() {
         // If a close error message is already shown, allow the window to be closed.
@@ -173,38 +173,38 @@ fn handle_close_request(main_window_weak: Weak<MainWindow>, midi: &SharedMidiMan
     response
 }
 
-fn init_midi_ui_handlers(main_window: &MainWindow, midi: SharedMidiManager) {
+fn init_midi_ui_handlers(main_window: &MainWindow, midi: SharedMidi) {
     let window_weak = main_window.as_weak();
     {
-        let mut midi: SharedMidiManager = Rc::clone(&midi);
+        let mut midi: SharedMidi = Rc::clone(&midi);
         let window_weak = window_weak.clone();
         main_window.window().on_close_requested(move || {
             handle_close_request(window_weak.clone(), &mut midi)
         });
     }
     {
-        let midi: SharedMidiManager = Rc::clone(&midi);
+        let midi: SharedMidi = Rc::clone(&midi);
         let window_weak = window_weak.clone();
         main_window.on_connect_input_port(move || {
             connect_input_port(window_weak.clone(), &midi)
         });
     }
     {
-        let mut midi: SharedMidiManager = Rc::clone(&midi);
+        let mut midi: SharedMidi = Rc::clone(&midi);
         let window_weak = window_weak.clone();
         main_window.on_refresh_input_ports(move || {
             refresh_input_ports(window_weak.clone(), &mut midi)
         });
     }
     {
-        let midi: SharedMidiManager = Rc::clone(&midi);
+        let midi: SharedMidi = Rc::clone(&midi);
         let window_weak = window_weak.clone();
         main_window.on_connect_output_port(move || {
             connect_output_port(window_weak.clone(), &midi)
         });
     }
     {
-        let mut midi: SharedMidiManager = Rc::clone(&midi);
+        let mut midi: SharedMidi = Rc::clone(&midi);
         let window_weak = window_weak.clone();
         main_window.on_refresh_output_ports(move || {
             refresh_output_ports(window_weak.clone(), &mut midi)
@@ -212,7 +212,7 @@ fn init_midi_ui_handlers(main_window: &MainWindow, midi: SharedMidiManager) {
     }
 }
 
-fn init_input_ports(main_window: &MainWindow, midi: &SharedMidiManager) {
+fn init_input_ports(main_window: &MainWindow, midi: &SharedMidi) {
     if !update_input_ports(main_window, midi) {
         return;
     }
@@ -226,7 +226,7 @@ fn init_input_ports(main_window: &MainWindow, midi: &SharedMidiManager) {
     }
 }
 
-fn init_output_ports(main_window: &MainWindow, midi: &SharedMidiManager) {
+fn init_output_ports(main_window: &MainWindow, midi: &SharedMidi) {
     if !update_output_ports(main_window, midi) {
         return;
     }
@@ -245,7 +245,7 @@ fn init_output_ports(main_window: &MainWindow, midi: &SharedMidiManager) {
 }
 
 fn refresh_input_ports(
-    main_window_weak: Weak<MainWindow>, midi: &SharedMidiManager) {
+    main_window_weak: Weak<MainWindow>, midi: &SharedMidi) {
     midi.borrow_mut().disconnect_from_input_port(false);
     with_main_window(main_window_weak, |main_window| {
         if !update_input_ports(main_window, midi) {
@@ -258,7 +258,7 @@ fn refresh_input_ports(
 }
 
 fn refresh_output_ports(
-    main_window_weak: Weak<MainWindow>, midi: &SharedMidiManager) {
+    main_window_weak: Weak<MainWindow>, midi: &SharedMidi) {
     midi.borrow_mut().disconnect_from_output_port(false);
     with_main_window(main_window_weak, |main_window| {
         if !update_output_ports(main_window, midi) {
@@ -270,7 +270,7 @@ fn refresh_output_ports(
     });
 }
 
-fn set_input_ports_model(main_window: &MainWindow, midi: &SharedMidiManager) {
+fn set_input_ports_model(main_window: &MainWindow, midi: &SharedMidi) {
     let input_port_items: Vec<ComboBoxItem> = midi.borrow().input_port_names()
         .iter()
         .map(|text| ComboBoxItem { text: text.into() })
@@ -279,7 +279,7 @@ fn set_input_ports_model(main_window: &MainWindow, midi: &SharedMidiManager) {
     main_window.set_input_ports_model(slint::ModelRc::from(model));
 }
 
-fn set_output_ports_model(main_window: &MainWindow, midi: &SharedMidiManager) {
+fn set_output_ports_model(main_window: &MainWindow, midi: &SharedMidi) {
     let output_port_items: Vec<ComboBoxItem> = midi.borrow().output_port_names()
         .iter()
         .map(|text| ComboBoxItem { text: text.into() })
@@ -332,7 +332,7 @@ fn show_warning(main_window: &MainWindow, message: impl Into<SharedString>) {
 
 fn update_input_ports(
     main_window: &MainWindow,
-    midi: &SharedMidiManager) -> bool {
+    midi: &SharedMidi) -> bool {
     if let Err(err) = midi.borrow_mut().update_input_ports() {
         show_error(main_window, err.to_string());
         return false
@@ -355,7 +355,7 @@ fn update_input_ports(
 
 fn update_output_ports(
     main_window: &MainWindow,
-    midi: &SharedMidiManager) -> bool {
+    midi: &SharedMidi) -> bool {
     if let Err(err) = midi.borrow_mut().update_output_ports() {
         show_error(main_window, err.to_string());
         return false

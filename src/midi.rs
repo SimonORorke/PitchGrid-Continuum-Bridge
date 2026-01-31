@@ -4,7 +4,7 @@ use midir::{
     MidiOutput, MidiOutputConnection, MidiOutputPort, };
 use crate::settings;
 
-pub struct MidiManager {
+pub struct Midi {
     input_port: Option<InputPort>,
     input_connection: Option<MidiInputConnection<()>>,
     input_port_names: Vec<String>,
@@ -16,7 +16,7 @@ pub struct MidiManager {
     settings: settings::Settings,
 }
 
-impl MidiManager {
+impl Midi {
     const INPUT_CLIENT_NAME: &str = "My MIDI Input";
     const OUTPUT_CLIENT_NAME: &str = "My MIDI Output";
 
