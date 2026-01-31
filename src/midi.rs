@@ -63,7 +63,7 @@ impl Midi {
                 }
                 Err(_) =>
                     return Err(format!(
-                        "Error connecting MIDI input port {port_name}. The port may be in use.")
+                        "Cannot connect MIDI input port {port_name}. The port may be in use.")
                         .into())
             }
         }
@@ -82,7 +82,7 @@ impl Midi {
                 }
                 Err(_) =>
                     return Err(format!(
-                        "Error connecting MIDI output port {port_name}. The port may be in use.")
+                        "Cannot connect MIDI output port {port_name}. The port may be in use.")
                         .into())
             }
         }
