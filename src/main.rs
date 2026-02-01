@@ -210,6 +210,11 @@ fn init(main_window: &MainWindow, midi: &SharedMidi) {
     set_output_ports_model(&main_window, midi);
     connect_initial_input_port(&main_window, &midi);
     connect_initial_output_port(&main_window, &midi);
+    let midi2 = midi.borrow();
+    // if midi.borrow().input_port().is_none() && midi.borrow().output_port().is_none() {
+    if midi2.input_port().is_none() && midi2.output_port().is_none() {
+        show_warning(&main_window, MSG_CONNECT);
+    }
     init_ui_handlers(&main_window, Rc::clone(&midi));
 }
 
