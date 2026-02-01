@@ -35,7 +35,7 @@ impl Midi {
     }
 
     pub fn close(&mut self) -> Result<(), Box<dyn Error>> {
-        println!("Midi.close");
+        // println!("Midi.close");
         self.disconnect_input_port(true);
         self.disconnect_output_port(true);
         self.settings.write_to_file()?;
@@ -46,8 +46,8 @@ impl Midi {
         println!("Received MIDI message: {:?}", message);
     }
 
-    pub fn connect_input_port(&mut self, index: usize) -> Result<(), Box<dyn Error>> {
-        println!("Midi.connect_input_port start: index = {}", index);
+    pub fn connect_input_port(&mut self, index: usize) -> Result<(Option<InputPort>), Box<dyn Error>> {
+        // println!("Midi.connect_input_port start: index = {}", index);
         self.disconnect_input_port(false);
         if let Some(port) = self.input_ports.get(index) {
             let midi_input = Self::create_midi_input();
@@ -62,7 +62,7 @@ impl Midi {
                 Ok(connection) => {
                     self.input_connection = Option::from(connection);
                     self.settings.midi_input_port = port_name.to_string();
-                    println!("Midi.connect_input_port: self.settings.midi_input_port = {}", self.settings.midi_input_port);
+                    // println!("Midi.connect_input_port: self.settings.midi_input_port = {}", self.settings.midi_input_port);
                 }
                 Err(_) =>
                     return Err(format!(
@@ -74,7 +74,7 @@ impl Midi {
     }
 
     pub fn connect_output_port(&mut self, index: usize) -> Result<(), Box<dyn Error>> {
-        println!("Midi.connect_output_port start: index = {}", index);
+        // println!("Midi.connect_output_port start: index = {}", index);
         self.disconnect_output_port(false);
         if let Some(port) = self.output_ports.get(index) {
             let midi_output = Self::create_midi_output();
@@ -83,7 +83,7 @@ impl Midi {
                 Ok(connection) => {
                     self.output_connection = Option::from(connection);
                     self.settings.midi_output_port = port_name.to_string();
-                    println!("Midi.connect_output_port: self.settings.midi_output_port = {}", self.settings.midi_output_port);
+                    // println!("Midi.connect_output_port: self.settings.midi_output_port = {}", self.settings.midi_output_port);
                 }
                 Err(_) =>
                     return Err(format!(
@@ -103,24 +103,24 @@ impl Midi {
     }
 
     fn disconnect_input_port(&mut self, is_closing: bool) {
-        println!("Midi.disconnect_input_port start");
+        // println!("Midi.disconnect_input_port start");
         if let Some(connection) = self.input_connection.take() {
             connection.close();
         }
         if !is_closing {
             self.settings.midi_input_port = "".to_string();
-            println!("Midi.disconnect_input_port: self.settings.midi_input_port = {}", self.settings.midi_input_port);
+            // println!("Midi.disconnect_input_port: self.settings.midi_input_port = {}", self.settings.midi_input_port);
         }
     }
 
     fn disconnect_output_port(&mut self, is_closing: bool) {
-        println!("Midi.disconnect_output_port start");
+        // println!("Midi.disconnect_output_port start");
         if let Some(connection) = self.output_connection.take() {
             connection.close();
         }
         if !is_closing {
             self.settings.midi_output_port = "".to_string();
-            println!("Midi.disconnect_output_port: self.settings.midi_output_port = {}", self.settings.midi_output_port);
+            // println!("Midi.disconnect_output_port: self.settings.midi_output_port = {}", self.settings.midi_output_port);
         }
     }
 
@@ -180,7 +180,7 @@ impl Midi {
     }
 
     fn populate_input_ports(&mut self) -> Result<(), Box<dyn Error>> {
-        println!("Midi.populate_input_ports: start");
+        // println!("Midi.populate_input_ports: start");
         let midi_input = Self::create_midi_input();
         self.input_ports = midi_input.ports().to_vec();
         self.input_port_names.clear();
@@ -191,7 +191,7 @@ impl Midi {
     }
 
     fn populate_output_ports(&mut self) -> Result<(), Box<dyn Error>> {
-        println!("Midi.populate_output_ports: start");
+        // println!("Midi.populate_output_ports: start");
         let midi_output = Self::create_midi_output();
         self.output_ports = midi_output.ports().to_vec();
         self.output_port_names.clear();
@@ -201,14 +201,14 @@ impl Midi {
     }
 
     pub fn refresh_input_ports(&mut self) -> Result<(), Box<dyn Error>> {
-        println!("Midi.refresh_input_ports: start");
+        // println!("Midi.refresh_input_ports: start");
         self.disconnect_input_port(false);
         self.populate_input_ports()?;
         Ok(())
     }
 
     pub fn refresh_output_ports(&mut self) -> Result<(), Box<dyn Error>> {
-        println!("Midi.refresh_output_ports: start");
+        // println!("Midi.refresh_output_ports: start");
         self.disconnect_output_port(false);
         self.populate_output_ports()?;
         Ok(())
@@ -235,30 +235,11 @@ impl InputPort {
     }
 }
 
-// impl Clone for InputPort {
-//     fn clone(&self) -> Self {
-//         Self { index: self.index, name: self.name.clone() }
-//     }
-// }
-
-// pub struct InputPortsData {
-//     port_names: Vec<String>,
-//     persisted_port: Option<InputPort>,
-// }
-// 
-// impl InputPortsData {
-//     pub fn new(port_names: Vec<String>, connected_port: Option<InputPort>) -> Self {
-//         Self { port_names, persisted_port: connected_port }
-//     }
-// 
-//     pub fn persisted_port(&self) -> Option<&InputPort> {
-//         self.persisted_port.as_ref()
-//     }
-// 
-//     pub fn port_names(&self) -> &Vec<String> {
-//         &self.port_names
-//     }
-// }
+impl Clone for InputPort {
+    fn clone(&self) -> Self {
+        Self { index: self.index, name: self.name.clone() }
+    }
+}
 
 #[derive(Debug)]
 pub struct OutputPort {
@@ -280,27 +261,8 @@ impl OutputPort {
     }
 }
 
-// impl Clone for OutputPort {
-//     fn clone(&self) -> Self {
-//         Self { index: self.index, name: self.name.clone() }
-//     }
-// }
-
-// pub struct OutputPortsData {
-//     port_names: Vec<String>,
-//     persisted_port: Option<OutputPort>,
-// }
-// 
-// impl OutputPortsData {
-//     pub fn new(port_names: Vec<String>, connected_port: Option<OutputPort>) -> Self {
-//         Self { port_names, persisted_port: connected_port }
-//     }
-// 
-//     pub fn persisted_port(&self) -> Option<&OutputPort> {
-//         self.persisted_port.as_ref()
-//     }
-// 
-//     pub fn port_names(&self) -> &Vec<String> {
-//         &self.port_names
-//     }
-// }
+impl Clone for OutputPort {
+    fn clone(&self) -> Self {
+        Self { index: self.index, name: self.name.clone() }
+    }
+}
