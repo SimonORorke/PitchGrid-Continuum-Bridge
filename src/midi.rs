@@ -1,4 +1,5 @@
 use std::error::Error;
+use std::fmt::Display;
 use midir::{
     MidiInput, MidiInputConnection, MidiInputPort,
     MidiOutput, MidiOutputConnection, MidiOutputPort, };
@@ -46,7 +47,7 @@ impl Midi {
         println!("Received MIDI message: {:?}", message);
     }
 
-    pub fn connect_input_port(&mut self, index: usize) -> Result<(Option<InputPort>), Box<dyn Error>> {
+    pub fn connect_input_port(&mut self, index: usize) -> Result<(), Box<dyn Error>> {
         // println!("Midi.connect_input_port start: index = {}", index);
         self.disconnect_input_port(false);
         if let Some(port) = self.input_ports.get(index) {
@@ -61,6 +62,7 @@ impl Midi {
                 ()) {
                 Ok(connection) => {
                     self.input_connection = Option::from(connection);
+                    self.input_port = Option::from(InputPort::new(index, port_name.to_string()));
                     self.settings.midi_input_port = port_name.to_string();
                     // println!("Midi.connect_input_port: self.settings.midi_input_port = {}", self.settings.midi_input_port);
                 }
@@ -82,6 +84,7 @@ impl Midi {
             match midi_output.connect(port, &port_name) {
                 Ok(connection) => {
                     self.output_connection = Option::from(connection);
+                    self.output_port = Option::from(OutputPort::new(index, port_name.to_string()));
                     self.settings.midi_output_port = port_name.to_string();
                     // println!("Midi.connect_output_port: self.settings.midi_output_port = {}", self.settings.midi_output_port);
                 }
@@ -156,7 +159,10 @@ impl Midi {
     }
 
     pub fn input_port(&self) -> &Option<InputPort>  {
-        // println!("Midi.input_port: self.input_port = {:?}", self.input_port);
+        // match &self.input_port {
+        //     Some(port) => println!("Midi.input_port: self.input_port = {}", port),
+        //     None => println!("Midi.input_port: self.input_port = None"),
+        // }
         &self.input_port
     }
 
@@ -240,6 +246,21 @@ impl Clone for InputPort {
         Self { index: self.index, name: self.name.clone() }
     }
 }
+
+impl Display for InputPort {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "[index: {}, name: {}]", self.index, self.name)
+    }
+}
+
+// impl Display for Option<InputPort> {
+//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//         match self {
+//             Some(port) => write!(f, "[index: {}, name: {}]", port.index, port.name),
+//             None => write!(f, "None"),
+//         }
+//     }
+// }
 
 #[derive(Debug)]
 pub struct OutputPort {

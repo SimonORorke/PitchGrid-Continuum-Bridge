@@ -10,7 +10,8 @@ use std::rc::Rc;
 use std::sync::Mutex;
 use lazy_static::lazy_static;
 use slint::{CloseRequestResponse, SharedString, Weak};
-use midi::{InputPort, Midi, OutputPort};
+use midi::Midi;
+// use midi::{InputPort, Midi, OutputPort};
 
 slint::include_modules!();
 
@@ -97,18 +98,14 @@ fn connect_initial_output_port(main_window: &MainWindow, midi: &SharedMidi) {
 }
 
 fn connect_input_port(main_window_weak: Weak<MainWindow>, midi: &SharedMidi) {
-    println!("main.connect_input_port start");
+    // println!("main.connect_input_port start");
     with_main_window(main_window_weak, |main_window| {
-        if connect_selected_input_port(main_window, midi) {
-            show_info(main_window, format!("Connected to MIDI input port {}", port.name()));
-            println!("main.connect_input_port: showed 'Connected to MIDI input port...'");
-        }
-        // connect_selected_input_port(main_window, midi);
+        connect_selected_input_port(main_window, midi);
         // println!("main.connect_input_port: after connect_selected_input_port");
-        // if let Some(port) = midi.borrow().input_port() {
-        //     show_info(main_window, format!("Connected to MIDI input port {}", port.name()));
-        //     println!("main.connect_input_port: showed 'Connected to MIDI input port...'");
-        // }
+        if let Some(port) = midi.borrow().input_port() {
+            show_info(main_window, format!("Connected MIDI input port {}", port.name()));
+            // println!("main.connect_input_port: showed 'Connected MIDI input port...'");
+        }
     });
 }
 
@@ -116,33 +113,28 @@ fn connect_output_port(main_window_weak: Weak<MainWindow>, midi: &SharedMidi) {
     with_main_window(main_window_weak, |main_window| {
         connect_selected_output_port(main_window, midi);
         if let Some(port) = midi.borrow().output_port() {
-            show_info(main_window, format!("Connected to MIDI output port {}", port.name()));
+            show_info(main_window, format!("Connected MIDI output port {}", port.name()));
         }
     });
 }
 
-fn connect_selected_input_port(main_window: &MainWindow, midi: &SharedMidi) -> Option<InputPort> {
-    println!("main.connect_selected_input_port: start");
+fn connect_selected_input_port(main_window: &MainWindow, midi: &SharedMidi) {
+    // println!("main.connect_selected_input_port: start");
     let selected = main_window.get_selected_input_port_index();
     let index: usize = match usize::try_from(selected) {
         Ok(i) => i,
         Err(_) => {
             show_no_input_port_connected(main_window);
             show_error(main_window, MSG_NO_INPUT_SELECTED);
-            return None;
+            return;
         }
     };
     // Do all Midi borrowing/mutation inside a tight scope, then update UI after.
-    let mut is_output_port_connected = false;
-    let mut port: Option<InputPort> = None;
     let ui_action: Result<String, String> = {
         let mut midi_mut = midi.borrow_mut();
-        if midi_mut.output_port().is_some() {
-            is_output_port_connected = true;
-        }
         let Some(name) = midi_mut.input_port_names().get(index).cloned()
         else {
-            return None;
+            return;
         };
         match midi_mut.connect_input_port(index) {
             Ok(()) => Ok(name),
@@ -152,19 +144,10 @@ fn connect_selected_input_port(main_window: &MainWindow, midi: &SharedMidi) -> O
     match ui_action {
         Ok(name) => {
             show_connected_input_port_name(main_window, &name);
-            if is_output_port_connected {
-                // Both input and output ports are now connected.
-                // So clear MSG_CONNECT if shown.
-                // show_info(&main_window, "");
-            } else {
-                // show_warning(&main_window, MSG_CONNECT_OUTPUT);
-            }
-            true
         }
         Err(message) => {
             show_no_input_port_connected(main_window);
             show_error(main_window, message);
-            None
         }
     }
 }
