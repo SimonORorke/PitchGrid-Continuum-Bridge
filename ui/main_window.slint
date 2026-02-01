@@ -33,6 +33,10 @@ export component MainWindow inherits MagicWindow {
         midi_output.show_connected_port_name(name, message_type);
     }
 
+    public function focus_output_port() {
+        midi_output.focus();
+    }
+
     VerticalLayout {
         alignment: start;
         padding_left: 10px;

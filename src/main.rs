@@ -52,7 +52,7 @@ impl slint::Model for OutputPortsModel {
     }
 }
 
-const MSG_CONNECT: &str = "Connect MIDI input and output ports.";
+const MSG_CONNECT_BOTH: &str = "Connect MIDI input and output ports.";
 const MSG_CONNECT_INPUT: &str = "Connect a MIDI input port.";
 const MSG_NO_INPUT_SELECTED: &str = "No MIDI input port selected.";
 const MSG_REFRESHED_INPUTS_RECONNECT: &str = "Refreshed MIDI input ports. You must (re)connect.";
@@ -213,8 +213,12 @@ fn init(main_window: &MainWindow, midi: &SharedMidi) {
     connect_initial_input_port(&main_window, &midi);
     connect_initial_output_port(&main_window, &midi);
     let midi2 = midi.borrow();
-    if midi2.input_port().is_none() && midi2.output_port().is_none() {
-        show_warning(&main_window, MSG_CONNECT);
+    if midi2.output_port().is_none() {
+        if midi2.input_port().is_none() {
+            show_warning(&main_window, MSG_CONNECT_BOTH);
+        } else {
+            main_window.invoke_focus_output_port();
+        }
     }
     init_ui_handlers(&main_window, Rc::clone(&midi));
 }
