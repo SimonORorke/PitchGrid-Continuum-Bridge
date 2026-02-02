@@ -221,6 +221,21 @@ impl Midi {
     }
 }
 
+trait MidiPort {
+    fn index(&self) -> usize;
+    fn name(&self) -> &String;
+}
+
+impl MidiPort for InputPort {
+    fn index(&self) -> usize {
+        self.index
+    }
+
+    fn name(&self) -> &String {
+        &self.name
+    }
+}
+
 #[derive(Debug)]
 pub struct InputPort {
     index: usize,
@@ -252,15 +267,6 @@ impl Display for InputPort {
         write!(f, "[index: {}, name: {}]", self.index, self.name)
     }
 }
-
-// impl Display for Option<InputPort> {
-//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-//         match self {
-//             Some(port) => write!(f, "[index: {}, name: {}]", port.index, port.name),
-//             None => write!(f, "None"),
-//         }
-//     }
-// }
 
 #[derive(Debug)]
 pub struct OutputPort {
