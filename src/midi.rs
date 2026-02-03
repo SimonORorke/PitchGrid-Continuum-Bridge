@@ -1,16 +1,28 @@
 use std::error::Error;
 use std::fmt::Display;
+use std::sync::Mutex;
+use lazy_static::lazy_static;
 use midir::{
     MidiInput, MidiInputConnection, MidiInputPort,
     MidiOutput, MidiOutputConnection, MidiOutputPort, };
 use crate::settings;
+
+struct MidiData {
+    pub output_connection: Option<MidiOutputConnection>,
+}
+
+lazy_static! {
+    static ref DATA: Mutex<MidiData> = Mutex::new(MidiData {
+        output_connection: None,
+    });
+}
 
 pub struct Midi {
     input_port: Option<InputPort>,
     input_connection: Option<MidiInputConnection<()>>,
     input_port_names: Vec<String>,
     input_ports: Vec<MidiInputPort>,
-    output_connection: Option<MidiOutputConnection>,
+    // output_connection: Option<MidiOutputConnection>,
     output_port: Option<OutputPort>,
     output_port_names: Vec<String>,
     output_ports: Vec<MidiOutputPort>,
@@ -28,7 +40,7 @@ impl Midi {
             input_connection: None,
             input_port_names: vec![],
             input_ports: vec![],
-            output_connection: None,
+            // output_connection: None,
             output_ports: vec![],
             settings: settings::Settings::new(),
             output_port_names: vec![],
@@ -43,10 +55,6 @@ impl Midi {
         Ok(())
     }
 
-    fn on_midi_message_received(message: &[u8]) {
-        println!("Received MIDI message: {:?}", message);
-    }
-
     pub fn connect_input_port(&mut self, index: usize) -> Result<(), Box<dyn Error>> {
         // println!("Midi.connect_input_port start: index = {}", index);
         self.disconnect_input_port(false);
@@ -57,7 +65,7 @@ impl Midi {
                 port,
                 &port_name,
                 |_, message, _| {
-                    Self::on_midi_message_received(message)
+                    Self::forward_midi_message(message)
                 },
                 ()) {
                 Ok(connection) => {
@@ -83,7 +91,8 @@ impl Midi {
             let port_name = midi_output.port_name(&port)?;
             match midi_output.connect(port, &port_name) {
                 Ok(connection) => {
-                    self.output_connection = Option::from(connection);
+                    let mut data = DATA.lock()?;
+                    data.output_connection = Option::from(connection);
                     self.output_port = Option::from(OutputPort::new(index, port_name.to_string()));
                     self.settings.midi_output_port = port_name.to_string();
                     // println!("Midi.connect_output_port: self.settings.midi_output_port = {}", self.settings.midi_output_port);
@@ -118,7 +127,8 @@ impl Midi {
 
     fn disconnect_output_port(&mut self, is_closing: bool) {
         // println!("Midi.disconnect_output_port start");
-        if let Some(connection) = self.output_connection.take() {
+        let mut data = DATA.lock().unwrap();
+        if let Some(connection) = data.output_connection.take() {
             connection.close();
         }
         if !is_closing {
@@ -142,6 +152,16 @@ impl Midi {
         }
         self.output_port_names.iter().position(|name| name == &self.settings.midi_output_port)
             .map(|index| OutputPort::new(index, self.settings.midi_output_port.to_string()))
+    }
+
+    fn forward_midi_message(message: &[u8]) {
+        let mut data = DATA.lock().unwrap();
+        if let Some(output_connection)
+            = data.output_connection.as_mut() {
+            output_connection.send(message)
+                .unwrap_or_else(|_| println!("Error when forwarding message ..."));
+        }
+        // println!("Received MIDI message: {:?}", message);
     }
 
     fn get_input_port_names(&self) -> Vec<String> {
