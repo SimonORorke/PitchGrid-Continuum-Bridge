@@ -4,7 +4,7 @@ use lazy_static::lazy_static;
 use midir::{
     MidiInput, MidiInputConnection, MidiInputPort,
     MidiOutput, MidiOutputConnection, MidiOutputPort};
-use crate::midi_data::{Io};
+use crate::midi_data::Io;
 use crate::settings;
 
 struct Data {
@@ -24,6 +24,18 @@ pub struct Midi {
     settings: settings::Settings,
 }
 
+trait MidiIo<T> {
+    fn io(&self) -> &Io<T>;
+}
+
+impl MidiIo<MidiInputPort> for Midi {
+    fn io(&self) -> &Io<MidiInputPort> { &self.input }
+}
+
+impl MidiIo<MidiOutputPort> for Midi {
+    fn io(&self) -> &Io<MidiOutputPort> { &self.output }
+}
+
 impl Midi {
     const INPUT_CLIENT_NAME: &str = "My MIDI Input";
     const OUTPUT_CLIENT_NAME: &str = "My MIDI Output";
@@ -38,7 +50,14 @@ impl Midi {
             settings: settings::Settings::new()
         }
     }
-    
+
+    pub fn io<T>(&self) -> &Io<T>
+    where
+        Self: MidiIo<T>,
+    {
+        <Self as MidiIo<T>>::io(self)
+    }
+
     pub fn input(&self) -> &Io<MidiInputPort> { &self.input }
     pub fn output(&self) -> &Io<MidiOutputPort> { &self.output }
 

@@ -11,8 +11,8 @@ use std::rc::Rc;
 use std::sync::Mutex;
 use lazy_static::lazy_static;
 use slint::{CloseRequestResponse, SharedString, Weak};
+use midir::{MidiInputPort, MidiOutputPort};
 use midi::Midi;
-// use midi::{InputPort, Midi, OutputPort};
 
 slint::include_modules!();
 
