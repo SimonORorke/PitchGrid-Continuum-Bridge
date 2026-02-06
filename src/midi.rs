@@ -5,14 +5,15 @@ use lazy_static::lazy_static;
 use midir::{
     MidiInput, MidiInputConnection, MidiInputPort,
     MidiOutput, MidiOutputConnection, MidiOutputPort, };
+use crate::midi_data;
 use crate::settings;
 
-struct MidiData {
+struct Data {
     pub output_connection: Option<MidiOutputConnection>,
 }
 
 lazy_static! {
-    static ref DATA: Mutex<MidiData> = Mutex::new(MidiData {
+    static ref DATA: Mutex<Data> = Mutex::new(Data {
         output_connection: None,
     });
 }
@@ -238,94 +239,4 @@ impl Midi {
         self.populate_output_ports()?;
         Ok(())
     }
-}
-
-trait Io {
-    fn connected_port(&self) -> &impl Port;
-    fn set_connected_port(&mut self, port: impl Port);
-    // input_port_names: Vec<String>,
-    // input_ports: Vec<MidiInputPort>,
-}
-
-trait Port {
-    fn index(&self) -> usize;
-    // fn set_index(&mut self, index: usize);
-    fn name(&self) -> &String;
-    // fn set_name(&mut self, name: String);
-}
-
-pub struct InputPort {
-    index: usize,
-    name: String,
-    midi_input_port: MidiInputPort,
-}
-
-impl InputPort {
-    pub fn new(index: usize, name: String, midi_input_port: MidiInputPort) -> Self {
-        Self { index, name, midi_input_port }
-    }
-
-    pub fn index(&self) -> usize {
-        self.index
-    }
-    
-    pub fn name(&self) -> &String {
-        &self.name
-    }
-}
-
-impl Clone for InputPort {
-    fn clone(&self) -> Self {
-        Self { index: self.index, name: self.name.clone(),
-            midi_input_port: self.midi_input_port.clone() }
-    }
-}
-
-impl Display for InputPort {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "[index: {}, name: {}]", self.index, self.name)
-    }
-}
-
-impl Port for InputPort {
-    fn index(&self) -> usize {
-        self.index
-    }
-    // fn set_index(&mut self, index: usize) { self.index = index; }
-    fn name(&self) -> &String {
-        &self.name
-    }
-    // fn set_name(&mut self, name: String) { self.name = name; }
-}
-
-pub struct OutputPort {
-    index: usize,
-    name: String,
-    midi_output_port: MidiOutputPort,
-}
-
-impl OutputPort {
-    pub fn new(index: usize, name: String, midi_output_port: MidiOutputPort) -> Self {
-        Self { index, name, midi_output_port}
-    }
-    // pub fn index(&self) -> usize {
-    //     self.index
-    // }
-    // pub fn name(&self) -> &String {
-    //     &self.name
-    // }
-}
-
-impl Clone for OutputPort {
-    fn clone(&self) -> Self {
-        Self { index: self.index, name: self.name.clone(),
-            midi_output_port: self.midi_output_port.clone() }
-    }
-}
-
-impl Port for OutputPort {
-    fn index(&self) -> usize { self.index }
-    // fn set_index(&mut self, index: usize) { self.index = index; }
-    fn name(&self) -> &String { &self.name }
-    // fn set_name(&mut self, name: String) { self.name = name; }
 }

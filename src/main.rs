@@ -3,6 +3,8 @@
 
 mod global;
 mod midi;
+mod midi_data;
+mod midi_data_wrong;
 mod settings;
 
 use std::cell::RefCell;
