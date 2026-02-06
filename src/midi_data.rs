@@ -16,8 +16,6 @@ impl<T> Port<T> {
     pub fn index(&self) -> usize { self.index }
     pub fn name(&self) -> &str { &self.name }
     pub fn midi_port(&self) -> &T { &self.midi_port }
-    // pub fn midi_port_mut(&mut self) -> &mut T { &mut self.midi_port }
-    // pub fn into_midi_port(self) -> T { self.midi_port }
 }
 
 impl<T: Clone> Clone for Port<T> {
@@ -46,8 +44,6 @@ impl<T: Clone> Io<T> {
     
     pub fn port(&self) -> Option<&Port<T>> { self.port.as_ref() }
     pub fn set_port(&mut self, port: Port<T>) { self.port = Some(port) }
-    // pub fn midi_io(&self) -> &Box<dyn MidiIO<Port=T>> { &self.midi_io }
-    // pub fn ports(&self) -> &Vec<Port<T>> { self.ports.as_ref() }
 
     pub fn find_port_by_index(&self, index: usize) -> Option<Port<T>> {
         self.ports.iter().position(|port| port.index() == index)

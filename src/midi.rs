@@ -139,46 +139,12 @@ impl Midi {
         // println!("Received MIDI message: {:?}", message);
     }
 
-    // fn get_input_port_names(&self) -> Vec<String> {
-    //     let midi_input = Self::create_midi_input();
-    //     self.input_ports.iter()
-    //         .map(|port|
-    //             midi_input.port_name(&port).unwrap()).collect()
-    // }
-    //
-    // fn get_output_port_names(&self) -> Vec<String> {
-    //     let midi_output = Self::create_midi_output();
-    //     self.output_ports.iter()
-    //         .map(|port|
-    //             midi_output.port_name(&port).unwrap()).collect()
-    // }
-
-    // pub fn input_port(&self) -> &Option<InputPort>  {
-    //     // match &self.input_port {
-    //     //     Some(port) => println!("Midi.input_port: self.input_port = {}", port),
-    //     //     None => println!("Midi.input_port: self.input_port = None"),
-    //     // }
-    //     &self.input_port
-    // }
-
     pub fn init(&mut self) -> Result<(), Box<dyn Error>> {
         self.settings.read_from_file()?;
         self.input.populate_ports(&self.settings.midi_input_port)?;
         self.output.populate_ports(&self.settings.midi_output_port)?;
         Ok(())
     }
-
-    // pub fn input_port_names(&self) -> &Vec<String> {
-    //     &self.input_port_names
-    // }
-
-    // pub fn output_port(&self) -> &Option<OutputPort>  {
-    //     &self.output_port
-    // }
-    
-    // pub fn output_port_names(&self) -> &Vec<String> {
-    //     &self.output_port_names
-    // }
 
     pub fn refresh_input_ports(&mut self) -> Result<(), Box<dyn Error>> {
         // println!("Midi.refresh_input_ports: start");
