@@ -4,7 +4,6 @@
 mod global;
 mod midi;
 mod midi_data;
-mod midi_data_wrong;
 mod settings;
 
 use std::cell::RefCell;
@@ -76,8 +75,9 @@ fn main() {
 }
 
 fn connect_initial_input_port(main_window: &MainWindow, midi: &SharedMidi) {
-    println!("main.connect_initial_input_port: start");
-    let maybe_index = midi.borrow().input_port().as_ref().map(|p| p.index());
+    // println!("main.connect_initial_input_port: start");
+    let maybe_index = midi.borrow().input().port().as_ref()
+        .map(|port| port.index());
     if let Some(index) = maybe_index {
         main_window.set_selected_input_port_index(index as i32);
         connect_selected_input_port(main_window, midi);
@@ -88,8 +88,8 @@ fn connect_initial_input_port(main_window: &MainWindow, midi: &SharedMidi) {
 }
 
 fn connect_initial_output_port(main_window: &MainWindow, midi: &SharedMidi) {
-    let maybe_index =
-        midi.borrow().output_port().as_ref().map(|p| p.index());
+    let maybe_index = midi.borrow().output().port().as_ref()
+        .map(|port| port.index());
     if let Some(index) = maybe_index {
         main_window.set_selected_output_port_index(index as i32);
         connect_selected_output_port(main_window, midi);
@@ -104,7 +104,7 @@ fn connect_input_port(main_window_weak: Weak<MainWindow>, midi: &SharedMidi) {
     with_main_window(main_window_weak, |main_window| {
         connect_selected_input_port(main_window, midi);
         // println!("main.connect_input_port: after connect_selected_input_port");
-        if let Some(port) = midi.borrow().input_port() {
+        if let Some(port) = midi.borrow().input().port() {
             show_info(main_window, format!("Connected MIDI input port {}", port.name()));
             // println!("main.connect_input_port: showed 'Connected MIDI input port...'");
         }
@@ -114,7 +114,7 @@ fn connect_input_port(main_window_weak: Weak<MainWindow>, midi: &SharedMidi) {
 fn connect_output_port(main_window_weak: Weak<MainWindow>, midi: &SharedMidi) {
     with_main_window(main_window_weak, |main_window| {
         connect_selected_output_port(main_window, midi);
-        if let Some(port) = midi.borrow().output_port() {
+        if let Some(port) = midi.borrow().output().port() {
             show_info(main_window, format!("Connected MIDI output port {}", port.name()));
         }
     });
@@ -134,7 +134,7 @@ fn connect_selected_input_port(main_window: &MainWindow, midi: &SharedMidi) {
     // Do all Midi borrowing/mutation inside a tight scope, then update UI after.
     let ui_action: Result<String, String> = {
         let mut midi_mut = midi.borrow_mut();
-        let Some(name) = midi_mut.input_port_names().get(index).cloned()
+        let Some(name) = midi_mut.input().port_names().get(index).cloned()
         else {
             return;
         };
@@ -167,7 +167,7 @@ fn connect_selected_output_port(main_window: &MainWindow, midi: &SharedMidi) -> 
     // Do all Midi borrowing/mutation inside a tight scope, then update UI after.
     let ui_action: Result<String, String> = {
         let mut midi_mut = midi.borrow_mut();
-        let Some(name) = midi_mut.output_port_names().get(index).cloned()
+        let Some(name) = midi_mut.output().port_names().get(index).cloned()
         else {
             return false;
         };
@@ -215,8 +215,8 @@ fn init(main_window: &MainWindow, midi: &SharedMidi) {
     connect_initial_input_port(&main_window, &midi);
     connect_initial_output_port(&main_window, &midi);
     let midi2 = midi.borrow();
-    if midi2.output_port().is_none() {
-        if midi2.input_port().is_none() {
+    if midi2.output().port().is_none() {
+        if midi2.input().port().is_none() {
             show_warning(&main_window, MSG_CONNECT_BOTH);
         } else {
             main_window.invoke_focus_output_port();
@@ -291,7 +291,7 @@ fn refresh_output_ports(
 }
 
 fn set_input_ports_model(main_window: &MainWindow, midi: &SharedMidi) {
-    let input_port_items: Vec<ComboBoxItem> = midi.borrow().input_port_names()
+    let input_port_items: Vec<ComboBoxItem> = midi.borrow().input().port_names()
         .iter()
         .map(|text| ComboBoxItem { text: text.into() })
         .collect();
@@ -300,7 +300,7 @@ fn set_input_ports_model(main_window: &MainWindow, midi: &SharedMidi) {
 }
 
 fn set_output_ports_model(main_window: &MainWindow, midi: &SharedMidi) {
-    let output_port_items: Vec<ComboBoxItem> = midi.borrow().output_port_names()
+    let output_port_items: Vec<ComboBoxItem> = midi.borrow().output().port_names()
         .iter()
         .map(|text| ComboBoxItem { text: text.into() })
         .collect();
@@ -349,32 +349,6 @@ fn show_no_output_port_connected(main_window: &MainWindow) {
 fn show_warning(main_window: &MainWindow, message: impl Into<SharedString>) {
     show_message(main_window, message, MessageType::Warning);
 }
-
-// fn update_input_ports_or_show_error(
-//     main_window: &MainWindow,
-//     midi: &SharedMidiManager,
-// ) -> Option<InputPortsData> {
-//     match midi.borrow_mut().update_input_ports() {
-//         Ok(data) => Some(data),
-//         Err(err) => {
-//             show_error(main_window, err.to_string());
-//             None
-//         }
-//     }
-// }
-
-// fn update_output_ports_or_show_error(
-//     main_window: &MainWindow,
-//     midi: &SharedMidiManager,
-// ) -> Option<OutputPortsData> {
-//     match midi.borrow_mut().update_output_ports() {
-//         Ok(data) => Some(data),
-//         Err(err) => {
-//             show_error(main_window, err.to_string());
-//             None
-//         }
-//     }
-// }
 
 fn with_main_window(main_window_weak: Weak<MainWindow>, f: impl FnOnce(&MainWindow)) {
     if let Some(main_window) = main_window_weak.upgrade() {

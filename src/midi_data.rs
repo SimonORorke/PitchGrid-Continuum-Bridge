@@ -1,4 +1,6 @@
-﻿use std::fmt::Display;
+﻿use std::error::Error;
+use std::fmt::Display;
+use midir::MidiIO;
 
 pub struct Port<T> {
     index: usize,
@@ -8,32 +10,14 @@ pub struct Port<T> {
 
 impl<T> Port<T> {
     pub fn new(index: usize, name: String, midi_port: T) -> Self {
-        Self {
-            index,
-            name,
-            midi_port,
-        }
+        Self { index, name, midi_port, }
     }
 
-    pub fn index(&self) -> usize {
-        self.index
-    }
-
-    pub fn name(&self) -> &str {
-        &self.name
-    }
-
-    pub fn midi_port(&self) -> &T {
-        &self.midi_port
-    }
-
-    pub fn midi_port_mut(&mut self) -> &mut T {
-        &mut self.midi_port
-    }
-
-    pub fn into_midi_port(self) -> T {
-        self.midi_port
-    }
+    pub fn index(&self) -> usize { self.index }
+    pub fn name(&self) -> &str { &self.name }
+    pub fn midi_port(&self) -> &T { &self.midi_port }
+    // pub fn midi_port_mut(&mut self) -> &mut T { &mut self.midi_port }
+    // pub fn into_midi_port(self) -> T { self.midi_port }
 }
 
 impl<T: Clone> Clone for Port<T> {
@@ -49,16 +33,52 @@ impl<T> Display for Port<T> {
     }
 }
 
-struct Io<T> {
-    connected_port: Option<Port<T>>,
+pub struct Io<T> {
+    midi_io: Box<dyn MidiIO<Port=T>>,
+    port: Option<Port<T>>,
     ports: Vec<Port<T>>,
 }
 
-impl<T> Io<T> {
-    fn new(ports: Vec<Port<T>>) -> Self {
-        Self { connected_port: None, ports }
+impl<T: Clone> Io<T> {
+    pub fn new(midi_io: Box<dyn MidiIO<Port=T>>) -> Self {
+        Self { midi_io, port: None, ports: Vec::new() }
     }
-    fn connected_port(&self) -> Option<&Port<T>> { self.connected_port.as_ref() }
-    fn set_connected_port(&mut self, port: Port<T>) { self.connected_port = Some(port) }
-    fn ports(&self) -> &Vec<Port<T>> { self.ports.as_ref() }
+    
+    pub fn port(&self) -> Option<&Port<T>> { self.port.as_ref() }
+    pub fn set_port(&mut self, port: Port<T>) { self.port = Some(port) }
+    // pub fn midi_io(&self) -> &Box<dyn MidiIO<Port=T>> { &self.midi_io }
+    // pub fn ports(&self) -> &Vec<Port<T>> { self.ports.as_ref() }
+
+    pub fn find_port_by_index(&self, index: usize) -> Option<Port<T>> {
+        self.ports.iter().position(|port| port.index() == index)
+            .map(|index| self.ports[index].clone())
+    }
+
+    fn find_port_by_name(&self, name: &str) -> Option<Port<T>> {
+        if name.is_empty() {
+            return None;
+        }
+        self.ports.iter().position(|port| port.name == name)
+            .map(|index| self.ports[index].clone())
+    }
+
+    pub fn port_names(&self) -> Vec<String> {
+        self.midi_io.ports().iter()
+            .map(|port|
+                self.midi_io.port_name(&port).unwrap()).collect()
+    }
+
+    pub fn populate_ports(&mut self, persisted_port_name: &str) -> Result<(), Box<dyn Error>> {
+        self.ports.clear();
+        self.ports.extend(
+            self.midi_io.ports().iter()
+                .enumerate()
+                .map(|(index, port)| {
+                    let name = self.midi_io.port_name(port).unwrap_or_default();
+                    Port::new(index, name, port.clone())
+                })
+        );
+        self.port = self.find_port_by_name(persisted_port_name);
+        Ok(())
+    }
 }

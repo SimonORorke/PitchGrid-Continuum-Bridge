@@ -1,11 +1,10 @@
 use std::error::Error;
-use std::fmt::Display;
 use std::sync::Mutex;
 use lazy_static::lazy_static;
 use midir::{
     MidiInput, MidiInputConnection, MidiInputPort,
-    MidiOutput, MidiOutputConnection, MidiOutputPort, };
-use crate::midi_data;
+    MidiOutput, MidiOutputConnection, MidiOutputPort};
+use crate::midi_data::{Io};
 use crate::settings;
 
 struct Data {
@@ -19,13 +18,9 @@ lazy_static! {
 }
 
 pub struct Midi {
-    input_port: Option<InputPort>,
+    input: Io<MidiInputPort>,
     input_connection: Option<MidiInputConnection<()>>,
-    input_port_names: Vec<String>,
-    input_ports: Vec<MidiInputPort>,
-    output_port: Option<OutputPort>,
-    output_port_names: Vec<String>,
-    output_ports: Vec<MidiOutputPort>,
+    output: Io<MidiOutputPort>,
     settings: settings::Settings,
 }
 
@@ -35,17 +30,17 @@ impl Midi {
 
     pub fn new() -> Self {
         Self {
-            input_port: None,
-            output_port: None,
+            input: Io::<MidiInputPort>::new(
+                Box::new(Self::create_midi_input())),
             input_connection: None,
-            input_port_names: vec![],
-            input_ports: vec![],
-            // output_connection: None,
-            output_ports: vec![],
-            settings: settings::Settings::new(),
-            output_port_names: vec![],
+            output: Io::<MidiOutputPort>::new(
+                Box::new(Self::create_midi_output())),
+            settings: settings::Settings::new()
         }
     }
+    
+    pub fn input(&self) -> &Io<MidiInputPort> { &self.input }
+    pub fn output(&self) -> &Io<MidiOutputPort> { &self.output }
 
     pub fn close(&mut self) -> Result<(), Box<dyn Error>> {
         // println!("Midi.close");
@@ -58,25 +53,23 @@ impl Midi {
     pub fn connect_input_port(&mut self, index: usize) -> Result<(), Box<dyn Error>> {
         // println!("Midi.connect_input_port start: index = {}", index);
         self.disconnect_input_port(false);
-        if let Some(port) = self.input_ports.get(index) {
+        if let Some(port) = self.input.find_port_by_index(index) {
             let midi_input = Self::create_midi_input();
-            let port_name = midi_input.port_name(&port)?;
             match midi_input.connect(
-                port,
-                &port_name,
+                port.midi_port(),
+                port.name(),
                 |_, message, _| {
                     Self::forward_midi_message(message)
                 },
                 ()) {
                 Ok(connection) => {
                     self.input_connection = Option::from(connection);
-                    self.input_port = Option::from(InputPort::new(index, port_name.to_string()));
-                    self.settings.midi_input_port = port_name.to_string();
-                    // println!("Midi.connect_input_port: self.settings.midi_input_port = {}", self.settings.midi_input_port);
+                    self.input.set_port(port.clone());
+                    self.settings.midi_input_port = port.name().to_string();
                 }
                 Err(_) =>
                     return Err(format!(
-                        "Cannot connect MIDI input port {port_name}. The port may be in use.")
+                        "Cannot connect MIDI input port {}. The port may be in use.", port.name())
                         .into())
             }
         }
@@ -86,20 +79,19 @@ impl Midi {
     pub fn connect_output_port(&mut self, index: usize) -> Result<(), Box<dyn Error>> {
         // println!("Midi.connect_output_port start: index = {}", index);
         self.disconnect_output_port(false);
-        if let Some(port) = self.output_ports.get(index) {
+        if let Some(port) = self.output.find_port_by_index(index) {
             let midi_output = Self::create_midi_output();
-            let port_name = midi_output.port_name(&port)?;
-            match midi_output.connect(port, &port_name) {
+            match midi_output.connect(port.midi_port(), port.name()) {
                 Ok(connection) => {
                     let mut data = DATA.lock()?;
                     data.output_connection = Option::from(connection);
-                    self.output_port = Option::from(OutputPort::new(index, port_name.to_string()));
-                    self.settings.midi_output_port = port_name.to_string();
+                    self.output.set_port(port.clone());
+                    self.settings.midi_output_port = port.name().to_string();
                     // println!("Midi.connect_output_port: self.settings.midi_output_port = {}", self.settings.midi_output_port);
                 }
                 Err(_) =>
                     return Err(format!(
-                        "Cannot connect MIDI output port {port_name}. The port may be in use.")
+                        "Cannot connect MIDI output port {}. The port may be in use.", port.name())
                         .into())
             }
         }
@@ -137,23 +129,6 @@ impl Midi {
         }
     }
 
-    fn find_persisted_input_port(&self) -> Option<InputPort> {
-        if self.settings.midi_input_port.is_empty() {
-            // println!("Midi.find_persisted_input_port: self.settings.midi_input_port is empty.");
-            return None;
-        }
-        self.input_port_names.iter().position(|name| name == &self.settings.midi_input_port)
-            .map(|index| InputPort::new(index, self.settings.midi_input_port.to_string()))
-    }
-
-    fn find_persisted_output_port(&self) -> Option<OutputPort> {
-        if self.settings.midi_output_port.is_empty() {
-            return None;
-        }
-        self.output_port_names.iter().position(|name| name == &self.settings.midi_output_port)
-            .map(|index| OutputPort::new(index, self.settings.midi_output_port.to_string()))
-    }
-
     fn forward_midi_message(message: &[u8]) {
         let mut data = DATA.lock().unwrap();
         if let Some(output_connection)
@@ -164,79 +139,58 @@ impl Midi {
         // println!("Received MIDI message: {:?}", message);
     }
 
-    fn get_input_port_names(&self) -> Vec<String> {
-        let midi_input = Self::create_midi_input();
-        self.input_ports.iter()
-            .map(|port|
-                midi_input.port_name(&port).unwrap()).collect()
-    }
+    // fn get_input_port_names(&self) -> Vec<String> {
+    //     let midi_input = Self::create_midi_input();
+    //     self.input_ports.iter()
+    //         .map(|port|
+    //             midi_input.port_name(&port).unwrap()).collect()
+    // }
+    //
+    // fn get_output_port_names(&self) -> Vec<String> {
+    //     let midi_output = Self::create_midi_output();
+    //     self.output_ports.iter()
+    //         .map(|port|
+    //             midi_output.port_name(&port).unwrap()).collect()
+    // }
 
-    fn get_output_port_names(&self) -> Vec<String> {
-        let midi_output = Self::create_midi_output();
-        self.output_ports.iter()
-            .map(|port|
-                midi_output.port_name(&port).unwrap()).collect()
-    }
-
-    pub fn input_port(&self) -> &Option<InputPort>  {
-        // match &self.input_port {
-        //     Some(port) => println!("Midi.input_port: self.input_port = {}", port),
-        //     None => println!("Midi.input_port: self.input_port = None"),
-        // }
-        &self.input_port
-    }
+    // pub fn input_port(&self) -> &Option<InputPort>  {
+    //     // match &self.input_port {
+    //     //     Some(port) => println!("Midi.input_port: self.input_port = {}", port),
+    //     //     None => println!("Midi.input_port: self.input_port = None"),
+    //     // }
+    //     &self.input_port
+    // }
 
     pub fn init(&mut self) -> Result<(), Box<dyn Error>> {
         self.settings.read_from_file()?;
-        self.populate_input_ports()?;
-        self.populate_output_ports()?;
+        self.input.populate_ports(&self.settings.midi_input_port)?;
+        self.output.populate_ports(&self.settings.midi_output_port)?;
         Ok(())
     }
 
-    pub fn input_port_names(&self) -> &Vec<String> {
-        &self.input_port_names
-    }
+    // pub fn input_port_names(&self) -> &Vec<String> {
+    //     &self.input_port_names
+    // }
 
-    pub fn output_port(&self) -> &Option<OutputPort>  {
-        &self.output_port
-    }
+    // pub fn output_port(&self) -> &Option<OutputPort>  {
+    //     &self.output_port
+    // }
     
-    pub fn output_port_names(&self) -> &Vec<String> {
-        &self.output_port_names
-    }
-
-    fn populate_input_ports(&mut self) -> Result<(), Box<dyn Error>> {
-        // println!("Midi.populate_input_ports: start");
-        let midi_input = Self::create_midi_input();
-        self.input_ports = midi_input.ports().to_vec();
-        self.input_port_names.clear();
-        self.input_port_names.extend(self.get_input_port_names());
-        // println!("Midi.populate_input_ports: self.input_port_names = {:?}", self.input_port_names);
-        self.input_port = self.find_persisted_input_port();
-        Ok(())
-    }
-
-    fn populate_output_ports(&mut self) -> Result<(), Box<dyn Error>> {
-        // println!("Midi.populate_output_ports: start");
-        let midi_output = Self::create_midi_output();
-        self.output_ports = midi_output.ports().to_vec();
-        self.output_port_names.clear();
-        self.output_port_names.extend(self.get_output_port_names());
-        self.output_port = self.find_persisted_output_port();
-        Ok(())
-    }
+    // pub fn output_port_names(&self) -> &Vec<String> {
+    //     &self.output_port_names
+    // }
 
     pub fn refresh_input_ports(&mut self) -> Result<(), Box<dyn Error>> {
         // println!("Midi.refresh_input_ports: start");
         self.disconnect_input_port(false);
-        self.populate_input_ports()?;
+        self.input.populate_ports(&self.settings.midi_input_port)?;
         Ok(())
     }
 
     pub fn refresh_output_ports(&mut self) -> Result<(), Box<dyn Error>> {
         // println!("Midi.refresh_output_ports: start");
         self.disconnect_output_port(false);
-        self.populate_output_ports()?;
+        self.output.populate_ports(&self.settings.midi_output_port)?;
         Ok(())
     }
 }
