@@ -1,21 +1,31 @@
-﻿use std::error::Error;
+use std::error::Error;
 use std::fmt::Display;
-use midir::MidiIO;
+// use midir::MidiIO;
 
-pub struct Port<T> {
+pub struct Port<T: ?Sized> {
     index: usize,
     name: String,
-    midi_port: T,
+    midi_port: Box<T>,
 }
 
-impl<T> Port<T> {
-    pub fn new(index: usize, name: String, midi_port: T) -> Self {
+pub trait IoPort {
+    fn index(&self) -> usize;
+    fn name(&self) -> String;
+}
+
+impl<T: ?Sized> Port<T> {
+    pub fn new(index: usize, name: String, midi_port: Box<T>) -> Self {
         Self { index, name, midi_port, }
     }
 
-    pub fn index(&self) -> usize { self.index }
-    pub fn name(&self) -> &str { &self.name }
+    // pub fn index(&self) -> usize { self.index }
+    // pub fn name(&self) -> &str { &self.name }
     pub fn midi_port(&self) -> &T { &self.midi_port }
+}
+
+impl<T: IoPort> IoPort for Port<T> {
+    fn index(&self) -> usize { self.index }
+    fn name(&self) -> String { self.name.clone() }
 }
 
 impl<T: Clone> Clone for Port<T> {

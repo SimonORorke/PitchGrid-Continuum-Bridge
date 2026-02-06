@@ -1,3 +1,4 @@
+use std::cmp::PartialEq;
 use std::error::Error;
 use std::sync::Mutex;
 use lazy_static::lazy_static;
@@ -6,6 +7,15 @@ use midir::{
     MidiOutput, MidiOutputConnection, MidiOutputPort};
 use crate::midi_data::Io;
 use crate::settings;
+
+pub enum PortType {
+    Input,
+    Output,
+}
+
+// pub trait MidiIo<T> {
+//     fn io(&self) -> &Io<T>;
+// }
 
 struct Data {
     pub output_connection: Option<MidiOutputConnection>,
@@ -24,17 +34,13 @@ pub struct Midi {
     settings: settings::Settings,
 }
 
-trait MidiIo<T> {
-    fn io(&self) -> &Io<T>;
-}
-
-impl MidiIo<MidiInputPort> for Midi {
-    fn io(&self) -> &Io<MidiInputPort> { &self.input }
-}
-
-impl MidiIo<MidiOutputPort> for Midi {
-    fn io(&self) -> &Io<MidiOutputPort> { &self.output }
-}
+// impl MidiIo<MidiInputPort> for Midi {
+//     fn io(&self) -> &Io<MidiInputPort> { &self.input }
+// }
+// 
+// impl MidiIo<MidiOutputPort> for Midi {
+//     fn io(&self) -> &Io<MidiOutputPort> { &self.output }
+// }
 
 impl Midi {
     const INPUT_CLIENT_NAME: &str = "My MIDI Input";
@@ -51,12 +57,12 @@ impl Midi {
         }
     }
 
-    pub fn io<T>(&self) -> &Io<T>
-    where
-        Self: MidiIo<T>,
-    {
-        <Self as MidiIo<T>>::io(self)
-    }
+    // fn io<T>(&self) -> &Io<T>
+    // where
+    //     Self: MidiIo<T>,
+    // {
+    //     <Self as MidiIo<T>>::io(self)
+    // }
 
     pub fn input(&self) -> &Io<MidiInputPort> { &self.input }
     pub fn output(&self) -> &Io<MidiOutputPort> { &self.output }
@@ -69,8 +75,39 @@ impl Midi {
         Ok(())
     }
 
+    pub fn connect_port(&mut self, port_type: PortType, index: usize) -> Result<(), Box<dyn Error>> {
+        match port_type {
+            PortType::Input => self.disconnect_input_port(false),
+            PortType::Output => self.disconnect_output_port(false),
+        }
+        let io = match port_type {
+            PortType::Input => &self.input,
+            PortType::Output => &self.output,
+        }
+        if let Some(port) = io.find_port_by_index(index) {
+            let midi_input = Self::create_midi_input();
+            match midi_input.connect(
+                port.midi_port(),
+                port.name(),
+                |_, message, _| {
+                    Self::forward_midi_message(message)
+                },
+                ()) {
+                Ok(connection) => {
+                    self.input_connection = Option::from(connection);
+                    self.input.set_port(port.clone());
+                    self.settings.midi_input_port = port.name().to_string();
+                }
+                Err(_) =>
+                    return Err(format!(
+                        "Cannot connect MIDI input port {}. The port may be in use.", port.name())
+                        .into())
+            }
+        }
+        Ok(())
+    }
+
     pub fn connect_input_port(&mut self, index: usize) -> Result<(), Box<dyn Error>> {
-        // println!("Midi.connect_input_port start: index = {}", index);
         self.disconnect_input_port(false);
         if let Some(port) = self.input.find_port_by_index(index) {
             let midi_input = Self::create_midi_input();

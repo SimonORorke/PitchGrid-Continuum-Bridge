@@ -121,7 +121,6 @@ fn connect_output_port(main_window_weak: Weak<MainWindow>, midi: &SharedMidi) {
 }
 
 fn connect_selected_input_port(main_window: &MainWindow, midi: &SharedMidi) {
-    // println!("main.connect_selected_input_port: start");
     let selected = main_window.get_selected_input_port_index();
     let index: usize = match usize::try_from(selected) {
         Ok(i) => i,
@@ -154,14 +153,14 @@ fn connect_selected_input_port(main_window: &MainWindow, midi: &SharedMidi) {
     }
 }
 
-fn connect_selected_output_port(main_window: &MainWindow, midi: &SharedMidi) -> bool {
+fn connect_selected_output_port(main_window: &MainWindow, midi: &SharedMidi) {
     let selected = main_window.get_selected_output_port_index();
     let index: usize = match usize::try_from(selected) {
         Ok(i) => i,
         Err(_) => {
             show_no_output_port_connected(main_window);
             show_error(main_window, MSG_NO_OUTPUT_SELECTED);
-            return false;
+            return;
         }
     };
     // Do all Midi borrowing/mutation inside a tight scope, then update UI after.
@@ -169,7 +168,7 @@ fn connect_selected_output_port(main_window: &MainWindow, midi: &SharedMidi) -> 
         let mut midi_mut = midi.borrow_mut();
         let Some(name) = midi_mut.output().port_names().get(index).cloned()
         else {
-            return false;
+            return;
         };
         match midi_mut.connect_output_port(index) {
             Ok(()) => Ok(name),
@@ -179,12 +178,10 @@ fn connect_selected_output_port(main_window: &MainWindow, midi: &SharedMidi) -> 
     match ui_action {
         Ok(name) => {
             show_connected_output_port_name(main_window, &name);
-            true
         }
         Err(message) => {
             show_no_output_port_connected(main_window);
             show_error(main_window, message);
-            false
         }
     }
 }
