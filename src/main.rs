@@ -255,24 +255,6 @@ fn set_ports_model(main_window: &MainWindow, midi: &SharedMidi, port_type: &Port
     }
 }
 
-// fn set_input_ports_model(main_window: &MainWindow, midi: &SharedMidi) {
-//     let input_port_items: Vec<ComboBoxItem> = midi.borrow().input().port_names()
-//         .iter()
-//         .map(|text| ComboBoxItem { text: text.into() })
-//         .collect();
-//     let model = Rc::new(InputPortsModel(input_port_items));
-//     main_window.set_input_ports_model(slint::ModelRc::from(model));
-// }
-
-// fn set_output_ports_model(main_window: &MainWindow, midi: &SharedMidi) {
-//     let output_port_items: Vec<ComboBoxItem> = midi.borrow().output().port_names()
-//         .iter()
-//         .map(|text| ComboBoxItem { text: text.into() })
-//         .collect();
-//     let model = Rc::new(OutputPortsModel(output_port_items));
-//     main_window.set_output_ports_model(slint::ModelRc::from(model));
-// }
-
 fn show_connected_port_name(main_window: &MainWindow, port_name: &str, port_type: &PortType) {
     let message_type = if port_name == PORT_NONE {
         MessageType::Warning }

@@ -34,24 +34,12 @@ impl<T: Clone + 'static> Io<T> {
         Self { midi_io, port: Box::new(None), ports: Box::new(Vec::new()) }
     }
 
-    pub fn set_port(&mut self, port: Port<T>) {
-        let index = port.index();
-        let selected = self
-            .ports
-            .iter()
-            .find(|p| p.index == index)
-            .cloned()
-            .or_else(|| {
-                None
-            });
-        self.port = Box::new(selected);
+    pub fn ports(&self) -> Vec<Port<T>> {
+        self.ports.as_ref().clone()
     }
-
-    pub fn find_port_by_index(&self, index: usize) -> Option<&Port<T>> {
-        self.ports
-            .iter()
-            .find(|port| port.index == index)
-            .map(|p| p)
+    
+    pub fn set_port(&mut self, port: Port<T>) {
+        self.port = Box::new(self.ports.get(port.index()).cloned());
     }
 }
 

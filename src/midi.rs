@@ -65,7 +65,7 @@ impl Midi {
 
     fn connect_input_port(&mut self, index: usize) -> Result<(), Box<dyn Error>> {
         self.disconnect_input_port(false);
-        if let Some(port) = self.input.find_port_by_index(index) {
+        if let Some(port) = self.input.ports().get(index) {
             let port_name = port.name();
             let midi_port = port.midi_port();
             let midi_input = Self::create_midi_input();
@@ -92,7 +92,7 @@ impl Midi {
 
     fn connect_output_port(&mut self, index: usize) -> Result<(), Box<dyn Error>> {
         self.disconnect_output_port(false);
-        if let Some(port) = self.output.find_port_by_index(index) {
+        if let Some(port) = self.output.ports().get(index) {
             let port_name = port.name();
             let midi_port = port.midi_port();
             let midi_output = Self::create_midi_output();
