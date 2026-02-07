@@ -42,25 +42,6 @@ export component MainWindow inherits MagicWindow {
     }
     VerticalLayout {
         padding_left: 10px;
-        HorizontalLayout {
-            padding_top: 10px;
-            HorizontalLayout {
-                alignment: start;
-                Image {
-                    source: Globals.icon;
-                    width:  Globals.control_height; height: Globals.control_height;
-                }
-            }
-            HorizontalLayout {
-                alignment: end;
-                padding-right: 25px;
-                FilledButton {
-                    prefix_icon: @image-url("images/menu-svgrepo-com.svg");
-                    height: Globals.control_height;
-                    width: 50px; // Min before icon is not centred.
-                }
-            }
-        }
         VerticalLayout {
             padding_top: 5px;
             midi_input := MidiIo {
@@ -75,11 +56,31 @@ export component MainWindow inherits MagicWindow {
                 type_label: "MIDI Output:";
             }
         }
-        VerticalBox {
-            padding-top: 15px;
-            message_text := MessageText {
-                horizontal_alignment: center;
-                vertical_alignment: top;
+        HorizontalLayout {
+            padding_top: 10px;
+            padding_bottom: 5px;
+            HorizontalLayout {
+                alignment: start;
+                Image {
+                    source: Globals.icon;
+                    width:  Globals.control_height; height: Globals.control_height;
+                }
+            }
+            VerticalBox {
+                padding-top: 5px;
+                message_text := MessageText {
+                    horizontal_alignment: center;
+                    vertical_alignment: top;
+                }
+            }
+            HorizontalLayout {
+                alignment: end;
+                padding-right: 10px;
+                FilledButton {
+                    prefix_icon: @image-url("images/menu-svgrepo-com.svg");
+                    height: Globals.control_height;
+                    width: 50px; // Min before icon is not centred.
+                }
             }
         }
     }
