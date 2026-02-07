@@ -1,21 +1,16 @@
-use std::cmp::PartialEq;
 use std::error::Error;
 use std::sync::Mutex;
 use lazy_static::lazy_static;
 use midir::{
     MidiInput, MidiInputConnection, MidiInputPort,
     MidiOutput, MidiOutputConnection, MidiOutputPort};
-use crate::midi_data::Io;
+use crate::midi_data::{Io, MidiIo};
 use crate::settings;
 
 pub enum PortType {
     Input,
     Output,
 }
-
-// pub trait MidiIo<T> {
-//     fn io(&self) -> &Io<T>;
-// }
 
 struct Data {
     pub output_connection: Option<MidiOutputConnection>,
@@ -34,14 +29,6 @@ pub struct Midi {
     settings: settings::Settings,
 }
 
-// impl MidiIo<MidiInputPort> for Midi {
-//     fn io(&self) -> &Io<MidiInputPort> { &self.input }
-// }
-// 
-// impl MidiIo<MidiOutputPort> for Midi {
-//     fn io(&self) -> &Io<MidiOutputPort> { &self.output }
-// }
-
 impl Midi {
     const INPUT_CLIENT_NAME: &str = "My MIDI Input";
     const OUTPUT_CLIENT_NAME: &str = "My MIDI Output";
@@ -57,13 +44,6 @@ impl Midi {
         }
     }
 
-    // fn io<T>(&self) -> &Io<T>
-    // where
-    //     Self: MidiIo<T>,
-    // {
-    //     <Self as MidiIo<T>>::io(self)
-    // }
-
     pub fn input(&self) -> &Io<MidiInputPort> { &self.input }
     pub fn output(&self) -> &Io<MidiOutputPort> { &self.output }
 
@@ -75,45 +55,27 @@ impl Midi {
         Ok(())
     }
 
-    pub fn connect_port(&mut self, port_type: PortType, index: usize) -> Result<(), Box<dyn Error>> {
+    pub fn connect_port(&mut self, port_type: &PortType, index: usize) -> Result<(), Box<dyn Error>> {
         match port_type {
-            PortType::Input => self.disconnect_input_port(false),
-            PortType::Output => self.disconnect_output_port(false),
+            PortType::Input => self.connect_input_port(index)?,
+            PortType::Output => self.connect_output_port(index)?,
         }
-        let io = match port_type {
-            PortType::Input => &self.input,
-            PortType::Output => &self.output,
-        }
-        if let Some(port) = io.find_port_by_index(index) {
-            let midi_input = Self::create_midi_input();
-            match midi_input.connect(
-                port.midi_port(),
-                port.name(),
-                |_, message, _| {
-                    Self::forward_midi_message(message)
-                },
-                ()) {
-                Ok(connection) => {
-                    self.input_connection = Option::from(connection);
-                    self.input.set_port(port.clone());
-                    self.settings.midi_input_port = port.name().to_string();
-                }
-                Err(_) =>
-                    return Err(format!(
-                        "Cannot connect MIDI input port {}. The port may be in use.", port.name())
-                        .into())
-            }
-        }
+        // let io: &dyn MidiIo = match port_type {
+        //     PortType::Input => &self.input,
+        //     PortType::Output => &self.output,
+        // };
         Ok(())
     }
 
-    pub fn connect_input_port(&mut self, index: usize) -> Result<(), Box<dyn Error>> {
+    fn connect_input_port(&mut self, index: usize) -> Result<(), Box<dyn Error>> {
         self.disconnect_input_port(false);
         if let Some(port) = self.input.find_port_by_index(index) {
+            let port_name = port.name();
+            let midi_port = port.midi_port();
             let midi_input = Self::create_midi_input();
             match midi_input.connect(
-                port.midi_port(),
-                port.name(),
+                midi_port,
+                &port_name,
                 |_, message, _| {
                     Self::forward_midi_message(message)
                 },
@@ -121,28 +83,29 @@ impl Midi {
                 Ok(connection) => {
                     self.input_connection = Option::from(connection);
                     self.input.set_port(port.clone());
-                    self.settings.midi_input_port = port.name().to_string();
+                    self.settings.midi_input_port = port_name;
                 }
                 Err(_) =>
                     return Err(format!(
-                        "Cannot connect MIDI input port {}. The port may be in use.", port.name())
+                        "Cannot connect MIDI input port {}. The port may be in use.", port_name)
                         .into())
             }
         }
         Ok(())
     }
 
-    pub fn connect_output_port(&mut self, index: usize) -> Result<(), Box<dyn Error>> {
-        // println!("Midi.connect_output_port start: index = {}", index);
+    fn connect_output_port(&mut self, index: usize) -> Result<(), Box<dyn Error>> {
         self.disconnect_output_port(false);
         if let Some(port) = self.output.find_port_by_index(index) {
+            let port_name = port.name();
+            let midi_port = port.midi_port();
             let midi_output = Self::create_midi_output();
-            match midi_output.connect(port.midi_port(), port.name()) {
+            match midi_output.connect(midi_port, &port_name) {
                 Ok(connection) => {
                     let mut data = DATA.lock()?;
                     data.output_connection = Option::from(connection);
                     self.output.set_port(port.clone());
-                    self.settings.midi_output_port = port.name().to_string();
+                    self.settings.midi_output_port = port_name;
                     // println!("Midi.connect_output_port: self.settings.midi_output_port = {}", self.settings.midi_output_port);
                 }
                 Err(_) =>
@@ -202,14 +165,22 @@ impl Midi {
         Ok(())
     }
 
-    pub fn refresh_input_ports(&mut self) -> Result<(), Box<dyn Error>> {
+    pub fn refresh_ports(&mut self, port_type: &PortType) -> Result<(), Box<dyn Error>> {
+        match port_type {
+            PortType::Input => self.refresh_input_ports()?,
+            PortType::Output => self.refresh_output_ports()?,
+        }
+        Ok(())
+    }
+
+    fn refresh_input_ports(&mut self) -> Result<(), Box<dyn Error>> {
         // println!("Midi.refresh_input_ports: start");
         self.disconnect_input_port(false);
         self.input.populate_ports(&self.settings.midi_input_port)?;
         Ok(())
     }
 
-    pub fn refresh_output_ports(&mut self) -> Result<(), Box<dyn Error>> {
+    fn refresh_output_ports(&mut self) -> Result<(), Box<dyn Error>> {
         // println!("Midi.refresh_output_ports: start");
         self.disconnect_output_port(false);
         self.output.populate_ports(&self.settings.midi_output_port)?;

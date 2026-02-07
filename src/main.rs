@@ -11,8 +11,8 @@ use std::rc::Rc;
 use std::sync::Mutex;
 use lazy_static::lazy_static;
 use slint::{CloseRequestResponse, SharedString, Weak};
-use midir::{MidiInputPort, MidiOutputPort};
-use midi::Midi;
+use midi::{Midi, PortType};
+use crate::midi_data::MidiIo;
 
 slint::include_modules!();
 
@@ -73,60 +73,47 @@ fn main() {
     init(&main_window, &midi);
     main_window.run().unwrap();
 }
-
-fn connect_initial_input_port(main_window: &MainWindow, midi: &SharedMidi) {
-    // println!("main.connect_initial_input_port: start");
+fn connect_initial_port(main_window: &MainWindow, midi: &SharedMidi, port_type: &PortType) {
     let maybe_index = midi.borrow().input().port().as_ref()
         .map(|port| port.index());
     if let Some(index) = maybe_index {
-        main_window.set_selected_input_port_index(index as i32);
-        connect_selected_input_port(main_window, midi);
+        let index = index as i32;
+        match port_type {
+            PortType::Input => main_window.set_selected_input_port_index(index),
+            PortType::Output => main_window.set_selected_output_port_index(index),
+        }
+        connect_selected_port(main_window, midi, port_type);
     } else {
-        show_no_input_port_connected(main_window);
-        show_warning(&main_window, MSG_CONNECT_INPUT);
+        show_no_port_connected(main_window, port_type);
+        let msg = match port_type {
+            PortType::Input => MSG_CONNECT_INPUT,
+            PortType::Output => MSG_CONNECT_OUTPUT,
+        };
+        show_warning(&main_window, msg);
     }
 }
 
-fn connect_initial_output_port(main_window: &MainWindow, midi: &SharedMidi) {
-    let maybe_index = midi.borrow().output().port().as_ref()
-        .map(|port| port.index());
-    if let Some(index) = maybe_index {
-        main_window.set_selected_output_port_index(index as i32);
-        connect_selected_output_port(main_window, midi);
-    } else {
-        show_no_output_port_connected(main_window);
-        show_warning(&main_window, MSG_CONNECT_OUTPUT);
-    }
-}
-
-fn connect_input_port(main_window_weak: Weak<MainWindow>, midi: &SharedMidi) {
-    // println!("main.connect_input_port start");
+fn connect_port(main_window_weak: Weak<MainWindow>, midi: &SharedMidi, port_type: &PortType) {
     with_main_window(main_window_weak, |main_window| {
-        connect_selected_input_port(main_window, midi);
-        // println!("main.connect_input_port: after connect_selected_input_port");
+        connect_selected_port(main_window, midi, port_type);
+        let port_type_name = match port_type {
+            PortType::Input => "input",
+            PortType::Output => "output",
+        };
         if let Some(port) = midi.borrow().input().port() {
-            show_info(main_window, format!("Connected MIDI input port {}", port.name()));
-            // println!("main.connect_input_port: showed 'Connected MIDI input port...'");
+            show_info(main_window, format!("Connected MIDI {} port {}",
+                                           port_type_name, port.name()));
         }
     });
 }
 
-fn connect_output_port(main_window_weak: Weak<MainWindow>, midi: &SharedMidi) {
-    with_main_window(main_window_weak, |main_window| {
-        connect_selected_output_port(main_window, midi);
-        if let Some(port) = midi.borrow().output().port() {
-            show_info(main_window, format!("Connected MIDI output port {}", port.name()));
-        }
-    });
-}
-
-fn connect_selected_input_port(main_window: &MainWindow, midi: &SharedMidi) {
+fn connect_selected_port(main_window: &MainWindow, midi: &SharedMidi, port_type: &PortType) {
     let selected = main_window.get_selected_input_port_index();
     let index: usize = match usize::try_from(selected) {
         Ok(i) => i,
         Err(_) => {
-            show_no_input_port_connected(main_window);
-            show_error(main_window, MSG_NO_INPUT_SELECTED);
+            show_no_port_connected(main_window, port_type);
+            show_error(main_window, "Port index out of range.");
             return;
         }
     };
@@ -137,50 +124,17 @@ fn connect_selected_input_port(main_window: &MainWindow, midi: &SharedMidi) {
         else {
             return;
         };
-        match midi_mut.connect_input_port(index) {
+        match midi_mut.connect_port(port_type, index) {
             Ok(()) => Ok(name),
             Err(err) => Err(err.to_string()),
         }
     };
     match ui_action {
         Ok(name) => {
-            show_connected_input_port_name(main_window, &name);
+            show_connected_port_name(main_window, &name, port_type);
         }
         Err(message) => {
-            show_no_input_port_connected(main_window);
-            show_error(main_window, message);
-        }
-    }
-}
-
-fn connect_selected_output_port(main_window: &MainWindow, midi: &SharedMidi) {
-    let selected = main_window.get_selected_output_port_index();
-    let index: usize = match usize::try_from(selected) {
-        Ok(i) => i,
-        Err(_) => {
-            show_no_output_port_connected(main_window);
-            show_error(main_window, MSG_NO_OUTPUT_SELECTED);
-            return;
-        }
-    };
-    // Do all Midi borrowing/mutation inside a tight scope, then update UI after.
-    let ui_action: Result<String, String> = {
-        let mut midi_mut = midi.borrow_mut();
-        let Some(name) = midi_mut.output().port_names().get(index).cloned()
-        else {
-            return;
-        };
-        match midi_mut.connect_output_port(index) {
-            Ok(()) => Ok(name),
-            Err(err) => Err(err.to_string()),
-        }
-    };
-    match ui_action {
-        Ok(name) => {
-            show_connected_output_port_name(main_window, &name);
-        }
-        Err(message) => {
-            show_no_output_port_connected(main_window);
+            show_no_port_connected(main_window, port_type);
             show_error(main_window, message);
         }
     }
@@ -209,8 +163,8 @@ fn init(main_window: &MainWindow, midi: &SharedMidi) {
     }
     set_input_ports_model(&main_window, midi);
     set_output_ports_model(&main_window, midi);
-    connect_initial_input_port(&main_window, &midi);
-    connect_initial_output_port(&main_window, &midi);
+    connect_initial_port(&main_window, &midi, &PortType::Input);
+    connect_initial_port(&main_window, &midi, &PortType::Output);
     let midi2 = midi.borrow();
     if midi2.output().port().is_none() {
         if midi2.input().port().is_none() {
@@ -235,55 +189,46 @@ fn init_ui_handlers(main_window: &MainWindow, midi: SharedMidi) {
         let midi: SharedMidi = Rc::clone(&midi);
         let window_weak = window_weak.clone();
         main_window.on_connect_input_port(move || {
-            connect_input_port(window_weak.clone(), &midi)
+            connect_port(window_weak.clone(), &midi, &PortType::Input)
         });
     }
     {
         let mut midi: SharedMidi = Rc::clone(&midi);
         let window_weak = window_weak.clone();
         main_window.on_refresh_input_ports(move || {
-            refresh_input_ports(window_weak.clone(), &mut midi)
+            refresh_ports(window_weak.clone(), &mut midi, &PortType::Input)
         });
     }
     {
         let midi: SharedMidi = Rc::clone(&midi);
         let window_weak = window_weak.clone();
         main_window.on_connect_output_port(move || {
-            connect_output_port(window_weak.clone(), &midi)
+            connect_port(window_weak.clone(), &midi, &PortType::Output)
         });
     }
     {
         let mut midi: SharedMidi = Rc::clone(&midi);
         let window_weak = window_weak.clone();
         main_window.on_refresh_output_ports(move || {
-            refresh_output_ports(window_weak.clone(), &mut midi)
+            refresh_ports(window_weak.clone(), &mut midi, &PortType::Output)
         });
     }
 }
 
-fn refresh_input_ports(
-    main_window_weak: Weak<MainWindow>, midi: &SharedMidi) {
+fn refresh_ports(
+    main_window_weak: Weak<MainWindow>, midi: &SharedMidi, port_type: &PortType) {
     with_main_window(main_window_weak, |main_window| {
-        if let Err(err) = midi.borrow_mut().refresh_input_ports() {
+        if let Err(err) = midi.borrow_mut().refresh_ports(port_type) {
             show_error(main_window, err.to_string());
             return;
         }
         set_input_ports_model(&main_window, midi);
-        show_no_input_port_connected(main_window);
-        show_warning(main_window, MSG_REFRESHED_INPUTS_RECONNECT);
-    });
-}
-
-fn refresh_output_ports(
-    main_window_weak: Weak<MainWindow>, midi: &SharedMidi) {
-    with_main_window(main_window_weak, |main_window| {
-        if let Err(err) = midi.borrow_mut().refresh_output_ports() {
-            show_error(main_window, err.to_string());
-            return;
-        }
-        set_output_ports_model(&main_window, midi);
-        show_no_output_port_connected(main_window);
-        show_warning(main_window, MSG_REFRESHED_OUTPUTS_RECONNECT);
+        show_no_port_connected(main_window, port_type);
+        let msg = match port_type {
+            PortType::Input => MSG_REFRESHED_INPUTS_RECONNECT,
+            PortType::Output => MSG_REFRESHED_OUTPUTS_RECONNECT,
+        };
+        show_warning(main_window, msg);
     });
 }
 
@@ -305,22 +250,18 @@ fn set_output_ports_model(main_window: &MainWindow, midi: &SharedMidi) {
     main_window.set_output_ports_model(slint::ModelRc::from(model));
 }
 
-fn show_connected_input_port_name(main_window: &MainWindow, port_name: &str) {
+fn show_connected_port_name(main_window: &MainWindow, port_name: &str, port_type: &PortType) {
     let message_type = if port_name == PORT_NONE {
         MessageType::Warning }
     else {
         MessageType::Info
     };
-    main_window.invoke_show_connected_input_port_name(port_name.into(), message_type);
-}
-
-fn show_connected_output_port_name(main_window: &MainWindow, port_name: &str) {
-    let message_type = if port_name == PORT_NONE {
-        MessageType::Warning }
-    else {
-        MessageType::Info
-    };
-    main_window.invoke_show_connected_output_port_name(port_name.into(), message_type);
+    match port_type {
+        PortType::Input => 
+            main_window.invoke_show_connected_input_port_name(port_name.into(), message_type),
+        PortType::Output => 
+            main_window.invoke_show_connected_output_port_name(port_name.into(), message_type),
+    }
 }
 
 fn show_error(main_window: &MainWindow, message: impl Into<SharedString>) {
@@ -335,12 +276,8 @@ fn show_message(main_window: &MainWindow, message: impl Into<SharedString>, mess
     main_window.invoke_show_message(message.into(), message_type);
 }
 
-fn show_no_input_port_connected(main_window: &MainWindow) {
-    show_connected_input_port_name(main_window, PORT_NONE);
-}
-
-fn show_no_output_port_connected(main_window: &MainWindow) {
-    show_connected_output_port_name(main_window, PORT_NONE);
+fn show_no_port_connected(main_window: &MainWindow, port_type: &PortType) {
+    show_connected_port_name(main_window, PORT_NONE, port_type);
 }
 
 fn show_warning(main_window: &MainWindow, message: impl Into<SharedString>) {
