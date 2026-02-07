@@ -100,9 +100,7 @@ fn connect_port(main_window_weak: Weak<MainWindow>, midi: &SharedMidi, port_type
             PortType::Input => "input",
             PortType::Output => "output",
         };
-        let midi_borrow = midi.borrow();
-        let io = midi_borrow.io(port_type);
-        if let Some(port) = io.port() {
+        if let Some(port) = midi.borrow().io(port_type).port() {
             show_info(main_window, format!("Connected MIDI {} port {}",
                                            port_type_name, port.name()));
         }
@@ -128,8 +126,7 @@ fn connect_selected_port(main_window: &MainWindow, midi: &SharedMidi, port_type:
     // Do all Midi borrowing/mutation inside a tight scope, then update UI after.
     let ui_action: Result<String, String> = {
         let mut midi_mut = midi.borrow_mut();
-        let io = midi_mut.io(port_type);
-        let Some(name) = io.port_names().get(index).cloned()
+        let Some(name) = midi_mut.io(port_type).port_names().get(index).cloned()
         else {
             return;
         };
@@ -242,9 +239,7 @@ fn refresh_ports(
 }
 
 fn set_ports_model(main_window: &MainWindow, midi: &SharedMidi, port_type: &PortType) {
-    let midi_borrow = midi.borrow();
-    let io = midi_borrow.io(port_type);
-    let port_items: Vec<ComboBoxItem> = io.port_names()
+    let port_items: Vec<ComboBoxItem> = midi.borrow().io(port_type).port_names()
         .iter()
         .map(|text| ComboBoxItem { text: text.into() })
         .collect();
