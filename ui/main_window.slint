@@ -45,12 +45,13 @@ export component MainWindow inherits MagicWindow {
 //        }
 //    }
     VerticalLayout {
-        alignment: start;
         padding_left: 10px;
-        padding_top: 5px;
-        midi_input := MidiIo {
-            group_title: "From Haken Editor Instrument Output";
-            type_label: "MIDI Input:";
+        VerticalLayout {
+            padding_top: 5px;
+            midi_input := MidiIo {
+                group_title: "From Haken Editor Instrument Output";
+                type_label: "MIDI Input:";
+            }
         }
         VerticalLayout {
             padding_top: 15px;
