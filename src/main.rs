@@ -3,7 +3,7 @@
 
 mod global;
 mod midi;
-mod midi_data;
+mod midi_ports;
 mod settings;
 
 use std::cell::RefCell;
@@ -12,7 +12,7 @@ use std::sync::Mutex;
 use lazy_static::lazy_static;
 use slint::{CloseRequestResponse, SharedString, Weak};
 use midi::{Midi, PortType};
-use crate::midi_data::MidiIo;
+use crate::midi_ports::MidiIo;
 
 slint::include_modules!();
 
@@ -74,7 +74,7 @@ fn main() {
     main_window.run().unwrap();
 }
 fn connect_initial_port(main_window: &MainWindow, midi: &SharedMidi, port_type: &PortType) {
-    let maybe_index = midi.borrow().input().port().as_ref()
+    let maybe_index = midi.borrow().io(port_type).port().as_ref()
         .map(|port| port.index());
     if let Some(index) = maybe_index {
         let index = index as i32;
@@ -100,27 +100,36 @@ fn connect_port(main_window_weak: Weak<MainWindow>, midi: &SharedMidi, port_type
             PortType::Input => "input",
             PortType::Output => "output",
         };
-        if let Some(port) = midi.borrow().input().port() {
+        let midi_borrow = midi.borrow();
+        let io = midi_borrow.io(port_type);
+        if let Some(port) = io.port() {
             show_info(main_window, format!("Connected MIDI {} port {}",
                                            port_type_name, port.name()));
         }
     });
 }
-
 fn connect_selected_port(main_window: &MainWindow, midi: &SharedMidi, port_type: &PortType) {
-    let selected = main_window.get_selected_input_port_index();
+    let selected = match port_type {
+        PortType::Input => main_window.get_selected_input_port_index(),
+        PortType::Output => main_window.get_selected_output_port_index(),
+    };
     let index: usize = match usize::try_from(selected) {
         Ok(i) => i,
         Err(_) => {
             show_no_port_connected(main_window, port_type);
-            show_error(main_window, "Port index out of range.");
+            let msg = match port_type {
+                PortType::Input => MSG_NO_INPUT_SELECTED,
+                PortType::Output => MSG_NO_OUTPUT_SELECTED,
+            };
+            show_error(main_window, msg);
             return;
         }
     };
     // Do all Midi borrowing/mutation inside a tight scope, then update UI after.
     let ui_action: Result<String, String> = {
         let mut midi_mut = midi.borrow_mut();
-        let Some(name) = midi_mut.input().port_names().get(index).cloned()
+        let io = midi_mut.io(port_type);
+        let Some(name) = io.port_names().get(index).cloned()
         else {
             return;
         };
@@ -161,10 +170,10 @@ fn init(main_window: &MainWindow, midi: &SharedMidi) {
         show_error(main_window, err.to_string());
         return;
     }
-    set_input_ports_model(&main_window, midi);
-    set_output_ports_model(&main_window, midi);
-    connect_initial_port(&main_window, &midi, &PortType::Input);
-    connect_initial_port(&main_window, &midi, &PortType::Output);
+    set_ports_model(&main_window, midi, &PortType::Input);
+    set_ports_model(&main_window, midi, &PortType::Output);
+    connect_initial_port(&main_window, midi, &PortType::Input);
+    connect_initial_port(&main_window, midi, &PortType::Output);
     let midi2 = midi.borrow();
     if midi2.output().port().is_none() {
         if midi2.input().port().is_none() {
@@ -222,7 +231,7 @@ fn refresh_ports(
             show_error(main_window, err.to_string());
             return;
         }
-        set_input_ports_model(&main_window, midi);
+        set_ports_model(&main_window, midi, port_type);
         show_no_port_connected(main_window, port_type);
         let msg = match port_type {
             PortType::Input => MSG_REFRESHED_INPUTS_RECONNECT,
@@ -232,23 +241,42 @@ fn refresh_ports(
     });
 }
 
-fn set_input_ports_model(main_window: &MainWindow, midi: &SharedMidi) {
-    let input_port_items: Vec<ComboBoxItem> = midi.borrow().input().port_names()
+fn set_ports_model(main_window: &MainWindow, midi: &SharedMidi, port_type: &PortType) {
+    let midi_borrow = midi.borrow();
+    let io = midi_borrow.io(port_type);
+    let port_items: Vec<ComboBoxItem> = io.port_names()
         .iter()
         .map(|text| ComboBoxItem { text: text.into() })
         .collect();
-    let model = Rc::new(InputPortsModel(input_port_items));
-    main_window.set_input_ports_model(slint::ModelRc::from(model));
+    match port_type {
+        PortType::Input => {
+            let model = Rc::new(InputPortsModel(port_items));
+            main_window.set_input_ports_model(slint::ModelRc::from(model));
+        },
+        PortType::Output => {
+            let model = Rc::new(OutputPortsModel(port_items));
+            main_window.set_output_ports_model(slint::ModelRc::from(model));
+        },
+    }
 }
 
-fn set_output_ports_model(main_window: &MainWindow, midi: &SharedMidi) {
-    let output_port_items: Vec<ComboBoxItem> = midi.borrow().output().port_names()
-        .iter()
-        .map(|text| ComboBoxItem { text: text.into() })
-        .collect();
-    let model = Rc::new(OutputPortsModel(output_port_items));
-    main_window.set_output_ports_model(slint::ModelRc::from(model));
-}
+// fn set_input_ports_model(main_window: &MainWindow, midi: &SharedMidi) {
+//     let input_port_items: Vec<ComboBoxItem> = midi.borrow().input().port_names()
+//         .iter()
+//         .map(|text| ComboBoxItem { text: text.into() })
+//         .collect();
+//     let model = Rc::new(InputPortsModel(input_port_items));
+//     main_window.set_input_ports_model(slint::ModelRc::from(model));
+// }
+
+// fn set_output_ports_model(main_window: &MainWindow, midi: &SharedMidi) {
+//     let output_port_items: Vec<ComboBoxItem> = midi.borrow().output().port_names()
+//         .iter()
+//         .map(|text| ComboBoxItem { text: text.into() })
+//         .collect();
+//     let model = Rc::new(OutputPortsModel(output_port_items));
+//     main_window.set_output_ports_model(slint::ModelRc::from(model));
+// }
 
 fn show_connected_port_name(main_window: &MainWindow, port_name: &str, port_type: &PortType) {
     let message_type = if port_name == PORT_NONE {

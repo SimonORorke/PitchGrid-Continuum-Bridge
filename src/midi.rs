@@ -4,7 +4,7 @@ use lazy_static::lazy_static;
 use midir::{
     MidiInput, MidiInputConnection, MidiInputPort,
     MidiOutput, MidiOutputConnection, MidiOutputPort};
-use crate::midi_data::{Io, MidiIo};
+use crate::midi_ports::{Io, MidiIo};
 use crate::settings;
 
 pub enum PortType {
@@ -60,10 +60,6 @@ impl Midi {
             PortType::Input => self.connect_input_port(index)?,
             PortType::Output => self.connect_output_port(index)?,
         }
-        // let io: &dyn MidiIo = match port_type {
-        //     PortType::Input => &self.input,
-        //     PortType::Output => &self.output,
-        // };
         Ok(())
     }
 
@@ -155,7 +151,6 @@ impl Midi {
             output_connection.send(message)
                 .unwrap_or_else(|_| println!("Error when forwarding message ..."));
         }
-        // println!("Received MIDI message: {:?}", message);
     }
 
     pub fn init(&mut self) -> Result<(), Box<dyn Error>> {
@@ -163,6 +158,13 @@ impl Midi {
         self.input.populate_ports(&self.settings.midi_input_port)?;
         self.output.populate_ports(&self.settings.midi_output_port)?;
         Ok(())
+    }
+
+    pub fn io(&self, port_type: &PortType) -> &dyn MidiIo {
+        match port_type {
+            PortType::Input => &self.input,
+            PortType::Output => &self.output,
+        }
     }
 
     pub fn refresh_ports(&mut self, port_type: &PortType) -> Result<(), Box<dyn Error>> {
