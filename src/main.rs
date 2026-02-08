@@ -4,6 +4,7 @@
 mod global;
 mod midi;
 mod midi_ports;
+mod osc;
 mod settings;
 
 use std::cell::RefCell;
