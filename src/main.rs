@@ -70,6 +70,12 @@ lazy_static! {
 fn main() {
     let main_window = MainWindow::new().unwrap();
     main_window.set_window_title(global::APP_TITLE.into());
+    main_window.set_depth("12".into());
+    main_window.set_root_freq("261.63 Hz".into());
+    main_window.set_stretch("1246 ct".into());
+    main_window.set_skew("0.94".into());
+    main_window.set_mode_offset("11".into());
+    main_window.set_steps("14".into());
     let midi: SharedMidi = Rc::new(RefCell::new(Midi::new()));
     init(&main_window, &midi);
     main_window.run().unwrap();

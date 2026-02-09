@@ -1,10 +1,12 @@
 ﻿import { Palette } from "std-widgets.slint";
 import { MagicText } from "@vivi/magic.slint";
+import { Globals } from "../globals.slint";
 import { Catppuccin, CatppuccinPalette } from "../styling.slint";
 
 export enum MessageType {
     Error,
     Info,
+    Highlight,
     Warning
 }
 
@@ -22,8 +24,23 @@ export component MessageText inherits MagicText {
             return catppuccin_palette.red;
         } else if (root.message_type == MessageType.Info) {
             return catppuccin_palette.blue;
+        } else if (root.message_type == MessageType.Highlight) {
+            return catppuccin_palette.green;
         } else { // Warning
             return catppuccin_palette.peach;
         }
     }
+}
+
+export component ParamName inherits MagicText {
+    width: Globals.param_width;
+    horizontal_alignment: center;
+    vertical_alignment: center;
+}
+
+export component ParamValue inherits MessageText {
+    width: Globals.param_width;
+    horizontal_alignment: center;
+    vertical_alignment: top;
+    message_type: MessageType.Highlight;
 }
