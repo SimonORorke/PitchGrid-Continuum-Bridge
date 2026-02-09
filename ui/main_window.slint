@@ -1,6 +1,8 @@
 import {
     ButtonAction,
     FilledButton,
+    GroupBox,
+    MagicText,
     MagicWindow,
 } from "@vivi/magic.slint";
 import { MessageText, MessageType } from "components/message_text.slint";
@@ -9,8 +11,8 @@ import { Globals } from "globals.slint";
 import { VerticalBox, } from "std-widgets.slint";
 
 export component MainWindow inherits MagicWindow {
-    width: 585px;
-    min_height: 320px; // Expands automatically if the status message does not fit.
+    width: 700px;
+    min_height: 405px; // Expands automatically if the status message does not fit.
     title: window_title;
     icon: Globals.icon;
     forward-focus: midi_input;
@@ -42,7 +44,81 @@ export component MainWindow inherits MagicWindow {
     }
 
     VerticalLayout {
+        alignment: start; // Stops spreading out when window lenghthened.
         padding_left: 10px;
+        VerticalLayout {
+            padding_top: 5px;
+            padding-right: 10px;
+            GroupBox {
+                title: "From PitchGrid";
+                width: 680px;
+                VerticalLayout {
+                    HorizontalLayout {
+//                        alignment: space-around;
+                        alignment: space-between;
+//                        alignment: space-evenly;
+                        MagicText {
+                            text: "Depth";
+//                            text: "Mode Offset";
+                            width: Globals.param_width;
+                            height: Globals.text_height;
+                            horizontal_alignment: left;
+                            vertical_alignment: center;
+                        }
+                        MagicText {
+                            text: "Root Freq";
+//                            text: "Mode Offset";
+                            width: Globals.param_width;
+                            height: Globals.text_height;
+                            horizontal_alignment: left;
+                            vertical_alignment: center;
+                        }
+                        MagicText {
+                            text: "Stretch";
+//                            text: "Mode Offset";
+                            width: Globals.param_width;
+                            height: Globals.text_height;
+                            horizontal_alignment: left;
+                            vertical_alignment: center;
+                        }
+                        MagicText {
+                            text: "Skew";
+//                            text: "Mode Offset";
+                            width: Globals.param_width;
+                            height: Globals.text_height;
+                            horizontal_alignment: left;
+                            vertical_alignment: center;
+                        }
+                        MagicText {
+                            text: "Mode Offset";
+                            width: Globals.param_width;
+                            height: Globals.text_height;
+                            horizontal_alignment: center;
+                            vertical_alignment: center;
+                        }
+                        MagicText {
+                            text: "Steps";
+//                            text: "Mode Offset";
+                            width: Globals.param_width;
+                            height: Globals.text_height;
+                            horizontal_alignment: center;
+                            vertical_alignment: center;
+                        }
+                    }
+                    HorizontalLayout {
+//                        alignment: space-around;
+                        alignment: space-between;
+//                        alignment: space-evenly;
+                        depth_text := MessageText {
+                            width: Globals.param_width;
+                            height: Globals.text_height;
+                            horizontal_alignment: center;
+                            vertical_alignment: top;
+                        }
+                    }
+                }
+            }
+        }
         VerticalLayout {
             padding_top: 5px;
             midi_input := MidiIo {

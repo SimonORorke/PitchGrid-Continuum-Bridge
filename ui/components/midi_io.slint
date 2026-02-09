@@ -12,7 +12,7 @@ import { Globals, } from "../globals.slint";
 
 export component MidiIo inherits GroupBox {
     title: group_title;
-    width: 565px;
+    width: 680px;
     forward-focus: ports_combo;
 
     in property <string> group_title;
@@ -29,6 +29,7 @@ export component MidiIo inherits GroupBox {
     }
 
     VerticalBox {
+        padding: 0px;
         HorizontalLayout {
             MagicText {
                 text: root.type_label;
@@ -44,7 +45,8 @@ export component MidiIo inherits GroupBox {
                         root.selected_port_index = self.current_index;
                     }
                     height: Globals.control_height;
-                    width: 280px;
+                    width: 395px;
+//                    width: 280px;
                 }
             }
             VerticalLayout {
