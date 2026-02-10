@@ -2,6 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod global;
+mod manager;
 mod midi;
 mod midi_ports;
 mod osc;
@@ -14,6 +15,7 @@ use lazy_static::lazy_static;
 use slint::{CloseRequestResponse, SharedString, Weak};
 use midi::{Midi, PortType};
 use crate::midi_ports::MidiIo;
+use crate::osc::{Osc, SharedConnectedChangedCallback, SharedTuningReceivedCallback};
 
 slint::include_modules!();
 
@@ -71,7 +73,7 @@ fn main() {
     let main_window = MainWindow::new().unwrap();
     main_window.set_window_title(global::APP_TITLE.into());
     main_window.set_depth("12".into());
-    main_window.set_root_freq("261.63 Hz".into());
+    main_window.set_root_freq("1261.63 Hz".into());
     main_window.set_stretch("1246 ct".into());
     main_window.set_skew("0.94".into());
     main_window.set_mode_offset("11".into());

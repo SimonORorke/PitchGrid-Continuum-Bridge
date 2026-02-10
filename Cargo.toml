@@ -9,6 +9,7 @@ build = "build.rs"
 
 [dependencies]
 directories = "6.0.0"
+howlong = "0.1.7"
 lazy_static = "1.5.0"
 midir = "0.10.3"
 midly = "0.5.3"
