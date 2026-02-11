@@ -2,19 +2,20 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod global;
-mod manager;
 mod midi;
 mod midi_ports;
 mod osc;
 mod settings;
+mod tuner;
 
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use lazy_static::lazy_static;
 use slint::{CloseRequestResponse, SharedString, Weak};
 use midi::{Midi, PortType};
 use crate::midi_ports::MidiIo;
+use crate::osc::Osc;
 
 slint::include_modules!();
 
@@ -66,6 +67,7 @@ const PORT_NONE: &str = "[None]";
 
 lazy_static! {
     static ref IS_CLOSE_ERROR_SHOWN: Mutex<bool> = Mutex::new(false);
+    static ref OSC: Mutex<Osc> = Mutex::new(Osc::new());
 }
 
 fn main() {
@@ -167,6 +169,8 @@ fn handle_close_request(main_window_weak: Weak<MainWindow>, midi: &SharedMidi) -
             *IS_CLOSE_ERROR_SHOWN.lock().unwrap() = true;
         }
     });
+    let mut osc = OSC.lock().unwrap();
+    osc.stop();
     response
 }
 
@@ -187,6 +191,8 @@ fn init(main_window: &MainWindow, midi: &SharedMidi) {
             main_window.invoke_focus_output_port();
         }
     }
+    let mut osc = OSC.lock().unwrap();
+    osc.start(Arc::new(on_osc_tuning_received), Arc::new(on_osc_connected_changed));
     init_ui_handlers(&main_window, Rc::clone(&midi));
 }
 
@@ -229,12 +235,12 @@ fn init_ui_handlers(main_window: &MainWindow, midi: SharedMidi) {
     }
 }
 
-// fn on_osc_connected_changed() {}
-// 
-// fn on_osc_tuning_received(depth: i32, mode: i32, root_freq: f32, stretch: f32,
-//                           skew: f32, mode_offset: i32, steps: i32) {
-// 
-// }
+fn on_osc_connected_changed() {}
+
+fn on_osc_tuning_received(depth: i32, mode: i32, root_freq: f32, stretch: f32,
+                          skew: f32, mode_offset: i32, steps: i32) {
+    tuner::on_tuning_changed(depth, mode, root_freq, stretch, skew, mode_offset, steps);
+}
 
 fn refresh_ports(
     main_window_weak: Weak<MainWindow>, midi: &SharedMidi, port_type: &PortType) {
