@@ -24,9 +24,15 @@ export component MainWindow inherits MagicWindow {
     in property mode_offset <=> mode_offset_value.text;
     in property steps <=> steps_value.text;
     in property <string> window_title;
+
     public function show_message(message: string, message_type: MessageType) {
         message_text.text = message;
         message_text.message_type = message_type;
+    }
+
+    public function show_pitchgrid_connection_status(message: string, message_type: MessageType) {
+        pitchgrid_connection_status_text.text = message;
+        pitchgrid_connection_status_text.message_type = message_type;
     }
 
     in property input_ports_model <=> midi_input.ports_model;
@@ -78,6 +84,13 @@ export component MainWindow inherits MagicWindow {
                         steps_value := ParamValue {}
                     }
                 }
+            }
+        }
+        VerticalBox {
+            padding-top: 5px;
+            pitchgrid_connection_status_text := MessageText {
+                horizontal_alignment: center;
+                vertical_alignment: top;
             }
         }
         VerticalLayout {
