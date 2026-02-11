@@ -151,14 +151,13 @@ fn init(main_window: &MainWindow, midi: &SharedMidi) {
         }
     }
     let mut data = DATA.lock().unwrap();
-    data.osc.start(Arc::new(on_osc_tuning_received), Arc::new(on_osc_connected_changed));
+    data.main_window_weak = Some(main_window.as_weak().clone());
     init_ui_handlers(&main_window, Rc::clone(&midi));
+    data.osc.start(Arc::new(on_osc_tuning_received), Arc::new(on_osc_connected_changed));
 }
 
 fn init_ui_handlers(main_window: &MainWindow, midi: SharedMidi) {
     let window_weak = main_window.as_weak();
-    let mut data = DATA.lock().unwrap();
-    data.main_window_weak = Some(window_weak.clone());
     {
         let mut midi: SharedMidi = Rc::clone(&midi);
         let window_weak = window_weak.clone();
@@ -196,9 +195,13 @@ fn init_ui_handlers(main_window: &MainWindow, midi: SharedMidi) {
     }
 }
 
-// fn on_osc_connected_changed() {
-//     let mut data = DATA.lock().unwrap();
-// }
+fn on_osc_connected_changed() {
+    let data = DATA.lock().unwrap();
+    if data.osc.is_connected() {
+    } else {
+
+    }
+}
 
 fn on_osc_tuning_received(depth: i32, mode: i32, root_freq: f32, stretch: f32,
                           skew: f32, mode_offset: i32, steps: i32) {
