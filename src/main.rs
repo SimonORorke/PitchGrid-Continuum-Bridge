@@ -15,7 +15,6 @@ use lazy_static::lazy_static;
 use slint::{CloseRequestResponse, SharedString, Weak};
 use midi::{Midi, PortType};
 use crate::midi_ports::MidiIo;
-use crate::osc::{Osc, SharedConnectedChangedCallback, SharedTuningReceivedCallback};
 
 slint::include_modules!();
 
@@ -229,6 +228,13 @@ fn init_ui_handlers(main_window: &MainWindow, midi: SharedMidi) {
         });
     }
 }
+
+// fn on_osc_connected_changed() {}
+// 
+// fn on_osc_tuning_received(depth: i32, mode: i32, root_freq: f32, stretch: f32,
+//                           skew: f32, mode_offset: i32, steps: i32) {
+// 
+// }
 
 fn refresh_ports(
     main_window_weak: Weak<MainWindow>, midi: &SharedMidi, port_type: &PortType) {

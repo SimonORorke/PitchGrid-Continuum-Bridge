@@ -25,25 +25,21 @@ pub type SharedTuningReceivedCallback =
     ) + Send + Sync + 'static>;
 
 pub struct Osc {
-    connected_changed_callback: SharedConnectedChangedCallback,
     is_connected: Arc<AtomicBool>,
     last_ack_time: Arc<Mutex<TimePoint>>,
-    tuning_received_callback: SharedTuningReceivedCallback,
 }
 
 impl Osc {
-    pub fn new(
-        tuning_received_callback: SharedTuningReceivedCallback,
-        connected_changed_callback: SharedConnectedChangedCallback) -> Self {
+    pub fn new() -> Self {
         Self {
-            connected_changed_callback,
             is_connected: Arc::new(AtomicBool::new(false)),
             last_ack_time: Arc::new(Mutex::new(SteadyClock::now())),
-            tuning_received_callback
         }
     }
 
-    pub fn start(&mut self) {
+    pub fn start(&mut self,
+                 tuning_received_callback: SharedTuningReceivedCallback,
+                 connected_changed_callback: SharedConnectedChangedCallback) {
         let is_connected = self.is_connected.clone();
         if is_connected.load(Ordering::SeqCst) {
             panic!("PitchGrid is already connected.");
@@ -52,15 +48,11 @@ impl Osc {
             Self::send_heartbeats();
         });
         let last_ack_time = self.last_ack_time.clone();
-        let tuning_received_callback =
-            self.tuning_received_callback.clone();
         rayon::spawn(move || {
             Self::listen(is_connected, last_ack_time, tuning_received_callback);
         });
         let is_connected = self.is_connected.clone();
         let last_ack_time = self.last_ack_time.clone();
-        let connected_changed_callback =
-            self.connected_changed_callback.clone();
         rayon::spawn(move || {
             Self::monitor_connection(is_connected, last_ack_time, connected_changed_callback);
         });
