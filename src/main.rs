@@ -11,7 +11,9 @@ mod tuner;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicBool, Ordering};
 use lazy_static::lazy_static;
+use round::round;
 use slint::{CloseRequestResponse, SharedString, Weak};
 use midi::{Midi, PortType};
 use crate::midi_ports::MidiIo;
@@ -19,55 +21,18 @@ use crate::osc::Osc;
 
 slint::include_modules!();
 
-/// 'Rc<RefCell<MidiManager>>' gives **shared ownership** ('Rc')
-/// + **interior mutability** ('RefCell'), so multiple closures can mutate
-/// the same manager safely (single-threaded UI context).
-/// If you later move MIDI work off the UI thread, you’ll want 'Arc<Mutex<_>>' instead.
-/// But for Slint’s typical single-threaded event loop, 'Rc<RefCell<_>>' is the right fix.
-type SharedMidi = Rc<RefCell<Midi>>;
-
-struct InputPortsModel(Vec<ComboBoxItem>);
-
-impl slint::Model for InputPortsModel {
-    type Data = ComboBoxItem;
-    fn row_count(&self) -> usize {
-        self.0.len()
-    }
-    fn row_data(&self, row: usize) -> Option<Self::Data> {
-        self.0.get(row).map(|x| x.clone())
-    }
-    fn model_tracker(&self) -> &dyn slint::ModelTracker {
-        &()
-    }
+struct Data {
+    pub is_close_error_shown: Arc<AtomicBool>,
+    pub main_window_weak: Option<Weak<MainWindow>>,
+    pub osc: Osc,
 }
-
-struct OutputPortsModel(Vec<ComboBoxItem>);
-
-impl slint::Model for OutputPortsModel {
-    type Data = ComboBoxItem;
-    fn row_count(&self) -> usize {
-        self.0.len()
-    }
-    fn row_data(&self, row: usize) -> Option<Self::Data> {
-        self.0.get(row).map(|x| x.clone())
-    }
-    fn model_tracker(&self) -> &dyn slint::ModelTracker {
-        &()
-    }
-}
-
-const MSG_CONNECT_BOTH: &str = "Connect MIDI input and output ports.";
-const MSG_CONNECT_INPUT: &str = "Connect a MIDI input port.";
-const MSG_NO_INPUT_SELECTED: &str = "No MIDI input port selected.";
-const MSG_REFRESHED_INPUTS_RECONNECT: &str = "Refreshed MIDI input ports. You must (re)connect.";
-const MSG_CONNECT_OUTPUT: &str = "Connect a MIDI output port.";
-const MSG_NO_OUTPUT_SELECTED: &str = "No MIDI output port selected.";
-const MSG_REFRESHED_OUTPUTS_RECONNECT: &str = "Refreshed MIDI output ports. You must (re)connect.";
-const PORT_NONE: &str = "[None]";
 
 lazy_static! {
-    static ref IS_CLOSE_ERROR_SHOWN: Mutex<bool> = Mutex::new(false);
-    static ref OSC: Mutex<Osc> = Mutex::new(Osc::new());
+    static ref DATA: Mutex<Data> = Mutex::new(Data {
+        is_close_error_shown: Arc::new(AtomicBool::new(false)),
+        main_window_weak: None,
+        osc: Osc::new(),
+    });
 }
 
 fn main() {
@@ -158,7 +123,8 @@ fn connect_selected_port(main_window: &MainWindow, midi: &SharedMidi, port_type:
 
 fn handle_close_request(main_window_weak: Weak<MainWindow>, midi: &SharedMidi) -> CloseRequestResponse {
     let mut response = CloseRequestResponse::HideWindow;
-    if *IS_CLOSE_ERROR_SHOWN.lock().unwrap() {
+    let mut data = DATA.lock().unwrap();
+    if data.is_close_error_shown.load(Ordering::Relaxed) {
         // If a close error message is already shown, allow the window to be closed.
         return response
     }
@@ -166,11 +132,10 @@ fn handle_close_request(main_window_weak: Weak<MainWindow>, midi: &SharedMidi) -
         if let Err(err) = midi.borrow_mut().close() {
             response = CloseRequestResponse::KeepWindowShown;
             show_error(main_window, err.to_string());
-            *IS_CLOSE_ERROR_SHOWN.lock().unwrap() = true;
+            data.is_close_error_shown.store(true, Ordering::Relaxed);
         }
     });
-    let mut osc = OSC.lock().unwrap();
-    osc.stop();
+    data.osc.stop();
     response
 }
 
@@ -191,13 +156,15 @@ fn init(main_window: &MainWindow, midi: &SharedMidi) {
             main_window.invoke_focus_output_port();
         }
     }
-    let mut osc = OSC.lock().unwrap();
-    osc.start(Arc::new(on_osc_tuning_received), Arc::new(on_osc_connected_changed));
+    let mut data = DATA.lock().unwrap();
+    data.osc.start(Arc::new(on_osc_tuning_received), Arc::new(on_osc_connected_changed));
     init_ui_handlers(&main_window, Rc::clone(&midi));
 }
 
 fn init_ui_handlers(main_window: &MainWindow, midi: SharedMidi) {
     let window_weak = main_window.as_weak();
+    let mut data = DATA.lock().unwrap();
+    data.main_window_weak = Some(window_weak.clone());
     {
         let mut midi: SharedMidi = Rc::clone(&midi);
         let window_weak = window_weak.clone();
@@ -235,11 +202,24 @@ fn init_ui_handlers(main_window: &MainWindow, midi: SharedMidi) {
     }
 }
 
-fn on_osc_connected_changed() {}
+fn on_osc_connected_changed() {
+    let mut data = DATA.lock().unwrap();
+}
 
 fn on_osc_tuning_received(depth: i32, mode: i32, root_freq: f32, stretch: f32,
                           skew: f32, mode_offset: i32, steps: i32) {
     tuner::on_tuning_changed(depth, mode, root_freq, stretch, skew, mode_offset, steps);
+    let data = DATA.lock().unwrap();
+    if let Some(main_window_weak) = &data.main_window_weak {
+        with_main_window(main_window_weak.clone(), |main_window| {
+            main_window.set_depth(format!("{depth}").into());
+            main_window.set_root_freq(format!("{} Hz", round(root_freq as f64, 2)).into());
+            main_window.set_stretch(format!("{} ct", stretch.round()).into());
+            main_window.set_skew(format!("{}", round(skew as f64, 2)).into());
+            main_window.set_mode_offset(format!("{mode_offset}").into());
+            main_window.set_steps(format!("{steps}").into());
+        });
+    }
 }
 
 fn refresh_ports(
@@ -315,3 +295,49 @@ fn with_main_window(main_window_weak: Weak<MainWindow>, f: impl FnOnce(&MainWind
         f(&main_window);
     }
 }
+
+/// 'Rc<RefCell<MidiManager>>' gives **shared ownership** ('Rc')
+/// + **interior mutability** ('RefCell'), so multiple closures can mutate
+/// the same manager safely (single-threaded UI context).
+/// If you later move MIDI work off the UI thread, you’ll want 'Arc<Mutex<_>>' instead.
+/// But for Slint’s typical single-threaded event loop, 'Rc<RefCell<_>>' is the right fix.
+type SharedMidi = Rc<RefCell<Midi>>;
+
+struct InputPortsModel(Vec<ComboBoxItem>);
+
+impl slint::Model for InputPortsModel {
+    type Data = ComboBoxItem;
+    fn row_count(&self) -> usize {
+        self.0.len()
+    }
+    fn row_data(&self, row: usize) -> Option<Self::Data> {
+        self.0.get(row).map(|x| x.clone())
+    }
+    fn model_tracker(&self) -> &dyn slint::ModelTracker {
+        &()
+    }
+}
+
+struct OutputPortsModel(Vec<ComboBoxItem>);
+
+impl slint::Model for OutputPortsModel {
+    type Data = ComboBoxItem;
+    fn row_count(&self) -> usize {
+        self.0.len()
+    }
+    fn row_data(&self, row: usize) -> Option<Self::Data> {
+        self.0.get(row).map(|x| x.clone())
+    }
+    fn model_tracker(&self) -> &dyn slint::ModelTracker {
+        &()
+    }
+}
+
+const MSG_CONNECT_BOTH: &str = "Connect MIDI input and output ports.";
+const MSG_CONNECT_INPUT: &str = "Connect a MIDI input port.";
+const MSG_NO_INPUT_SELECTED: &str = "No MIDI input port selected.";
+const MSG_REFRESHED_INPUTS_RECONNECT: &str = "Refreshed MIDI input ports. You must (re)connect.";
+const MSG_CONNECT_OUTPUT: &str = "Connect a MIDI output port.";
+const MSG_NO_OUTPUT_SELECTED: &str = "No MIDI output port selected.";
+const MSG_REFRESHED_OUTPUTS_RECONNECT: &str = "Refreshed MIDI output ports. You must (re)connect.";
+const PORT_NONE: &str = "[None]";
