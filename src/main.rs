@@ -153,6 +153,7 @@ fn init(main_window: &MainWindow, midi: &SharedMidi) {
     let mut data = DATA.lock().unwrap();
     data.main_window_weak = Some(main_window.as_weak().clone());
     init_ui_handlers(&main_window, Rc::clone(&midi));
+    show_pitchgrid_disconnected(&main_window);
     data.osc.start(Arc::new(on_osc_tuning_received), Arc::new(on_osc_connected_changed));
 }
 
@@ -197,9 +198,14 @@ fn init_ui_handlers(main_window: &MainWindow, midi: SharedMidi) {
 
 fn on_osc_connected_changed() {
     let data = DATA.lock().unwrap();
-    if data.osc.is_connected() {
-    } else {
-
+    if let Some(main_window_weak) = &data.main_window_weak {
+        with_main_window(main_window_weak.clone(), |main_window| {
+            if data.osc.is_connected() {
+                show_pitchgrid_connected(main_window);
+            } else {
+                show_pitchgrid_disconnected(main_window);
+            }
+        });
     }
 }
 
@@ -281,6 +287,21 @@ fn show_message(main_window: &MainWindow, message: impl Into<SharedString>, mess
 
 fn show_no_port_connected(main_window: &MainWindow, port_type: &PortType) {
     show_connected_port_name(main_window, PORT_NONE, port_type);
+}
+
+fn show_pitchgrid_connected(main_window: &MainWindow) {
+    show_pitchgrid_connection_status(
+        main_window, "Pitchgrid is connected", MessageType::Info);
+}
+
+fn show_pitchgrid_connection_status(
+    main_window: &MainWindow, message: impl Into<SharedString>, message_type: MessageType) {
+    main_window.invoke_show_pitchgrid_connection_status(message.into(), message_type);
+}
+
+fn show_pitchgrid_disconnected(main_window: &MainWindow) {
+    show_pitchgrid_connection_status(
+        main_window, "Pitchgrid is not connected", MessageType::Error);
 }
 
 fn show_warning(main_window: &MainWindow, message: impl Into<SharedString>) {
