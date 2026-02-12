@@ -1,4 +1,5 @@
-﻿use std::net::{Ipv4Addr, SocketAddrV4, UdpSocket};
+﻿use std::io::ErrorKind;
+use std::net::{Ipv4Addr, SocketAddrV4, UdpSocket};
 //use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -33,6 +34,7 @@ impl Osc {
             panic!("PitchGrid is already connected.");
         }
         let socket = UdpSocket::bind(Self::create_socket_addr(LISTENING_PORT)).unwrap();
+        socket.connect(Self::create_socket_addr(SEND_TO_PORT)).unwrap();
         let socket_clone = socket.try_clone().unwrap();
         rayon::spawn(move || {
             Self::send_heartbeats(socket);
@@ -67,7 +69,6 @@ impl Osc {
             OscType::Int(mode_offset),
             OscType::Int(steps),
         ] = args[..] {
-            // println!("Tuning: depth={}, mode={}, root={}Hz, stretch={}, skew={}, offset={}, steps={}",
             tuning_received_callback(depth, mode, root_freq, stretch, skew, mode_offset, steps);
         } else {
             println!("Osc.handle_tuning Invalid tuning arguments.");
@@ -81,8 +82,8 @@ impl Osc {
         let mut buf = [0u8; decoder::MTU];
         loop {
             println!("Osc.listen: receiving packet from socket");
-            match socket.recv_from(&mut buf) {
-                Ok((size, _)) => {
+            match socket.recv(&mut buf) {
+                Ok(size) => {
                     // println!("Received packet with size {} from: {}", size, addr);
                     let (_, packet) = decoder::decode_udp(&buf[..size]).unwrap();
                     match packet {
@@ -141,14 +142,13 @@ impl Osc {
 
     fn send_heartbeats(socket: UdpSocket) {
         println!("Osc.send_heartbeats: starting");
-        let to_socket_addr = Self::create_socket_addr(SEND_TO_PORT);
         let msg_buf = encoder::encode(&OscPacket::Message(OscMessage {
             addr: HANDSHAKE_ADDR.to_string(),
             args: vec![OscType::Int(1)],
         })).unwrap();
         loop {
             println!("Osc.send_heartbeats: sending heartbeat message");
-            socket.send_to(&msg_buf, to_socket_addr).unwrap();
+            socket.send(&msg_buf).unwrap();
             println!("Osc.send_heartbeats: sent heartbeat message");
             std::thread::sleep(Duration::from_secs(1));
         }
