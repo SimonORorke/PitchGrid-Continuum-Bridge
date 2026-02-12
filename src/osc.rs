@@ -75,17 +75,28 @@ impl Osc {
         }
     }
 
-    fn listen(socket: UdpSocket, is_connected: Arc<AtomicBool>,
-              last_ack_time: Arc<Mutex<TimePoint>>,
-              tuning_received_callback: SharedTuningReceivedCallback) {
+    fn listen(
+        socket: UdpSocket,
+        is_connected: Arc<AtomicBool>,
+        last_ack_time: Arc<Mutex<TimePoint>>,
+        tuning_received_callback: SharedTuningReceivedCallback,
+    ) {
         println!("Osc.listen: starting");
         let mut buf = [0u8; decoder::MTU];
+
         loop {
             println!("Osc.listen: receiving packet from socket");
             match socket.recv(&mut buf) {
                 Ok(size) => {
-                    // println!("Received packet with size {} from: {}", size, addr);
-                    let (_, packet) = decoder::decode_udp(&buf[..size]).unwrap();
+                    let decoded = decoder::decode_udp(&buf[..size]);
+                    let (_, packet) = match decoded {
+                        Ok(v) => v,
+                        Err(err) => {
+                            println!("OSC decode error: {}", err);
+                            continue;
+                        }
+                    };
+
                     match packet {
                         OscPacket::Message(msg) => {
                             println!("Osc.listen: message received:");
@@ -110,7 +121,15 @@ impl Osc {
                     }
                 }
                 Err(e) => {
-                    println!("Parse error receiving from socket: {}", e);
+                    // On Windows with a connected UDP socket, ICMP "Port Unreachable"
+                    // shows up here as WSAECONNRESET (10054) / ErrorKind::ConnectionReset.
+                    // It's not fatal; just keep listening.
+                    if e.kind() == ErrorKind::ConnectionReset {
+                        println!("Socket recv() got ConnectionReset (WSAECONNRESET/10054); ignoring and continuing");
+                        continue;
+                    }
+
+                    println!("Socket error receiving from socket: {}", e);
                     break;
                 }
             }
