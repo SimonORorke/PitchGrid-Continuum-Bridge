@@ -1,8 +1,10 @@
-﻿use std::sync::{Arc, Mutex};
+﻿use std::net::{Ipv4Addr, SocketAddrV4, UdpSocket};
+//use std::str::FromStr;
+use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 use howlong::{Clock, SteadyClock, TimePoint};
-use open_sound_control::*;
+use rosc::{decoder, encoder, OscMessage, OscPacket, OscType};
 
 pub struct Osc {
     is_connected: Arc<AtomicBool>,
@@ -17,6 +19,11 @@ impl Osc {
         }
     }
 
+    fn create_socket_addr(port: u16) -> SocketAddrV4 {
+        SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), port)
+        //SocketAddrV4::from_str(&format!("{}:{}", LOCAL_HOST, port)).unwrap()
+    }
+
     pub fn start(&mut self,
                  tuning_received_callback: SharedTuningReceivedCallback,
                  connected_changed_callback: SharedConnectedChangedCallback) {
@@ -25,12 +32,14 @@ impl Osc {
         if is_connected.load(Ordering::SeqCst) {
             panic!("PitchGrid is already connected.");
         }
+        let socket = UdpSocket::bind(Self::create_socket_addr(LISTENING_PORT)).unwrap();
+        let socket_clone = socket.try_clone().unwrap();
         rayon::spawn(move || {
-            Self::send_heartbeats();
+            Self::send_heartbeats(socket);
         });
         let last_ack_time = self.last_ack_time.clone();
         rayon::spawn(move || {
-            Self::listen(is_connected, last_ack_time, tuning_received_callback);
+            Self::listen(socket_clone, is_connected, last_ack_time, tuning_received_callback);
         });
         let is_connected = self.is_connected.clone();
         let last_ack_time = self.last_ack_time.clone();
@@ -48,45 +57,61 @@ impl Osc {
         self.is_connected.load(Ordering::SeqCst)
     }
 
-    fn handle_tuning(args: Vec<OscArgument>, tuning_received_callback: SharedTuningReceivedCallback) {
+    fn handle_tuning(args: Vec<OscType>, tuning_received_callback: SharedTuningReceivedCallback) {
         if let [
-            OscArgument::Int32(depth),
-            OscArgument::Int32(mode),
-            OscArgument::Float32(root_freq),
-            OscArgument::Float32(stretch),
-            OscArgument::Float32(skew),
-            OscArgument::Int32(mode_offset),
-            OscArgument::Int32(steps),
+            OscType::Int(depth),
+            OscType::Int(mode),
+            OscType::Float(root_freq),
+            OscType::Float(stretch),
+            OscType::Float(skew),
+            OscType::Int(mode_offset),
+            OscType::Int(steps),
         ] = args[..] {
             // println!("Tuning: depth={}, mode={}, root={}Hz, stretch={}, skew={}, offset={}, steps={}",
             tuning_received_callback(depth, mode, root_freq, stretch, skew, mode_offset, steps);
         } else {
-            panic!("Invalid tuning arguments.");
+            println!("Osc.handle_tuning Invalid tuning arguments.");
         }
     }
 
-    fn listen(is_connected: Arc<AtomicBool>, last_ack_time: Arc<Mutex<TimePoint>>,
-        tuning_received_callback: SharedTuningReceivedCallback) {
+    fn listen(socket: UdpSocket, is_connected: Arc<AtomicBool>,
+              last_ack_time: Arc<Mutex<TimePoint>>,
+              tuning_received_callback: SharedTuningReceivedCallback) {
         println!("Osc.listen: starting");
-        let receiver = OscReceiver::new(LISTENING_PORT.into()).unwrap();
+        let mut buf = [0u8; decoder::MTU];
         loop {
-            match receiver.get_messages() {
-                Ok(OscPacket::Message(msg)) => {
-                    println!("Osc.listen: message received");
-                    is_connected.store(true, Ordering::SeqCst);
-                    *last_ack_time.lock().unwrap() = SteadyClock::now();
-                    match msg.address.as_str() {
-                        HANDSHAKE_ACK_ADDR => {},
-                        TUNING_ADDR => {
-                            Self::handle_tuning(msg.arguments, tuning_received_callback.clone());
-                        },
-                        _ => {
-                            panic!("Invalid message address: {}", msg.address.as_str());
+            println!("Osc.listen: receiving packet from socket");
+            match socket.recv_from(&mut buf) {
+                Ok((size, _)) => {
+                    // println!("Received packet with size {} from: {}", size, addr);
+                    let (_, packet) = decoder::decode_udp(&buf[..size]).unwrap();
+                    match packet {
+                        OscPacket::Message(msg) => {
+                            println!("Osc.listen: message received:");
+                            is_connected.store(true, Ordering::SeqCst);
+                            *last_ack_time.lock().unwrap() = SteadyClock::now();
+                            match msg.addr.as_str() {
+                                HANDSHAKE_ACK_ADDR => {
+                                    println!("    {HANDSHAKE_ACK_ADDR}");
+                                }
+                                TUNING_ADDR => {
+                                    println!("    {TUNING_ADDR}");
+                                    Self::handle_tuning(msg.args, tuning_received_callback.clone());
+                                }
+                                _ => {
+                                    println!("    {:?}", msg);
+                                }
+                            }
                         }
-                    } 
-                },
-                Ok(OscPacket::Bundle(_bundle)) => panic!("Got bundle."),
-                Err(err) => panic!("Parse error: {:?}", err),
+                        OscPacket::Bundle(bundle) => {
+                            println!("OSC Bundle: {:?}", bundle);
+                        }
+                    }
+                }
+                Err(e) => {
+                    println!("Parse error receiving from socket: {}", e);
+                    break;
+                }
             }
         }
     }
@@ -114,16 +139,17 @@ impl Osc {
         }
     }
 
-    fn send_heartbeats() {
+    fn send_heartbeats(socket: UdpSocket) {
         println!("Osc.send_heartbeats: starting");
-        let message = OscMessage {
-            address: String::from(HANDSHAKE_ADDR),
-            arguments: vec![OscArgument::Int32(1)],
-        };
-        let sender = OscSender::new(LOCAL_HOST.to_string(), SEND_TO_PORT.into());
+        let to_socket_addr = Self::create_socket_addr(SEND_TO_PORT);
+        let msg_buf = encoder::encode(&OscPacket::Message(OscMessage {
+            addr: HANDSHAKE_ADDR.to_string(),
+            args: vec![OscType::Int(1)],
+        })).unwrap();
         loop {
-            println!("Osc.send_heartbeats: sending heartbeat message:");
-            sender.send_message(&message);
+            println!("Osc.send_heartbeats: sending heartbeat message");
+            socket.send_to(&msg_buf, to_socket_addr).unwrap();
+            println!("Osc.send_heartbeats: sent heartbeat message");
             std::thread::sleep(Duration::from_secs(1));
         }
     }
@@ -145,6 +171,6 @@ Arc<dyn Fn(
 const HANDSHAKE_ACK_ADDR: &str = "/pitchgrid/heartbeat/ack";
 const HANDSHAKE_ADDR: &str = "/pitchgrid/heartbeat";
 const LISTENING_PORT: u16 = 34561;
-const LOCAL_HOST: &str = "127.0.0.1";
+//const LOCAL_HOST: &str = "127.0.0.1";
 const SEND_TO_PORT: u16 = 34562;
 const TUNING_ADDR: &str = "/pitchgrid/plugin/tuning";
