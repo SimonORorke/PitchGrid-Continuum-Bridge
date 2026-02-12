@@ -34,7 +34,6 @@ impl Osc {
             panic!("PitchGrid is already connected.");
         }
         let socket = UdpSocket::bind(Self::create_socket_addr(LISTENING_PORT)).unwrap();
-        socket.connect(Self::create_socket_addr(SEND_TO_PORT)).unwrap();
         let socket_clone = socket.try_clone().unwrap();
         rayon::spawn(move || {
             Self::send_heartbeats(socket);
@@ -108,10 +107,12 @@ impl Osc {
                                 }
                                 TUNING_ADDR => {
                                     println!("    {TUNING_ADDR}");
+                                    println!("    args: {:?}", msg.args);
                                     Self::handle_tuning(msg.args, tuning_received_callback.clone());
                                 }
                                 _ => {
-                                    println!("    {:?}", msg);
+                                    println!("    Unknown address: {}", msg.addr);  // Change this line
+                                    // println!("    {:?}", msg);
                                 }
                             }
                         }
