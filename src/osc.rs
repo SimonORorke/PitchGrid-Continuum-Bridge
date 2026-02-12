@@ -33,19 +33,19 @@ impl Osc {
         if is_connected.load(Ordering::SeqCst) {
             panic!("PitchGrid is already connected.");
         }
-        let socket = UdpSocket::bind(Self::create_socket_addr(LISTENING_PORT)).unwrap();
-        let socket_clone = socket.try_clone().unwrap();
-        rayon::spawn(move || {
-            Self::send_heartbeats(socket);
-        });
+        let listen_socket = UdpSocket::bind(Self::create_socket_addr(LISTENING_PORT)).unwrap();
+        let send_socket = UdpSocket::bind(Self::create_socket_addr(0)).unwrap();
         let last_ack_time = self.last_ack_time.clone();
         rayon::spawn(move || {
-            Self::listen(socket_clone, is_connected, last_ack_time, tuning_received_callback);
+            Self::send_heartbeats(send_socket);
+        });
+        let last_ack_time_clone = self.last_ack_time.clone();
+        rayon::spawn(move || {
+            Self::listen(listen_socket, is_connected, last_ack_time, tuning_received_callback);
         });
         let is_connected = self.is_connected.clone();
-        let last_ack_time = self.last_ack_time.clone();
         rayon::spawn(move || {
-            Self::monitor_connection(is_connected, last_ack_time, connected_changed_callback);
+            Self::monitor_connection(is_connected, last_ack_time_clone, connected_changed_callback);
         });
     }
 
@@ -85,8 +85,8 @@ impl Osc {
 
         loop {
             println!("Osc.listen: receiving packet from socket");
-            match socket.recv(&mut buf) {
-                Ok(size) => {
+            match socket.recv_from(&mut buf) {
+                Ok((size, _)) => {
                     let decoded = decoder::decode_udp(&buf[..size]);
                     let (_, packet) = match decoded {
                         Ok(v) => v,
@@ -126,7 +126,7 @@ impl Osc {
                     // shows up here as WSAECONNRESET (10054) / ErrorKind::ConnectionReset.
                     // It's not fatal; just keep listening.
                     if e.kind() == ErrorKind::ConnectionReset {
-                        println!("Socket recv() got ConnectionReset (WSAECONNRESET/10054); ignoring and continuing");
+                        println!("Socket recv_from() got ConnectionReset (WSAECONNRESET/10054); ignoring and continuing");
                         continue;
                     }
 
@@ -166,9 +166,10 @@ impl Osc {
             addr: HANDSHAKE_ADDR.to_string(),
             args: vec![OscType::Int(1)],
         })).unwrap();
+        let socket_to_addr = Self::create_socket_addr(SEND_TO_PORT);
         loop {
             println!("Osc.send_heartbeats: sending heartbeat message");
-            socket.send(&msg_buf).unwrap();
+            socket.send_to(&msg_buf, socket_to_addr).unwrap();
             println!("Osc.send_heartbeats: sent heartbeat message");
             std::thread::sleep(Duration::from_secs(1));
         }
