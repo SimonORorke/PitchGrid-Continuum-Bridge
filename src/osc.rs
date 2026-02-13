@@ -38,14 +38,13 @@ impl Osc {
         //         Transport: UDP on localhost (127.0.0.1)
         //         Heartbeat requirement: Client must send /pitchgrid/heartbeat at least once
         //             every 2 seconds to maintain connection
-        let listen_socket =
-            UdpSocket::bind(Self::create_socket_addr(LISTENING_PORT)).unwrap();
-        println!("Osc.start: listening on {}", listen_socket.local_addr().unwrap());
+        let socket = UdpSocket::bind(Self::create_socket_addr(LISTENING_PORT)).unwrap();
+        println!("Osc.start: bound socket to {}", socket.local_addr().unwrap());
         std::io::stdout().flush().unwrap();
-        let send_socket =
-            UdpSocket::bind(Self::create_socket_addr(SEND_TO_PITCHGRID_PORT)).unwrap();
-        println!("Osc.start: sending from {}", send_socket.local_addr().unwrap());
-        std::io::stdout().flush().unwrap();
+
+        let send_socket = socket.try_clone().unwrap();
+        let listen_socket = socket;
+
         let last_ack_time = self.last_ack_time.clone();
         rayon::spawn(move || {
             Self::send_heartbeats(send_socket);
@@ -93,12 +92,12 @@ impl Osc {
         is_connected: Arc<AtomicBool>,
         last_ack_time: Arc<Mutex<TimePoint>>,
         tuning_received_callback: SharedTuningReceivedCallback) {
-        socket.set_read_timeout(Some(Duration::from_millis(10))).unwrap();
+        socket.set_read_timeout(Some(Duration::from_millis(500))).unwrap();
         println!("Osc.listen: starting, listening on {}", socket.local_addr().unwrap());
         std::io::stdout().flush().unwrap();
         let mut buf = [0u8; decoder::MTU];
         loop {
-            // println!("Osc.listen: receiving packet from socket");
+            println!("Osc.listen: Waiting for packet...");
             match socket.recv_from(&mut buf) {
                 Ok((size, addr)) => {
                     println!("Osc.listen: received {} bytes from {}", size, addr);
@@ -142,11 +141,15 @@ impl Osc {
                         // Timeout - no data received, continue listening
                         continue;
                     }
+                    if e.kind() == ErrorKind::TimedOut {
+                        // Timeout - no data received, continue listening
+                        continue;
+                    }
                     // On Windows with a connected UDP socket, ICMP "Port Unreachable"
                     // shows up here as WSAECONNRESET (10054) / ErrorKind::ConnectionReset.
                     if e.kind() == ErrorKind::ConnectionReset {
                         println!("Osc.listen: Socket recv_from() got ConnectionReset (WSAECONNRESET/10054); ignoring and continuing");
-                        break;
+                        continue;
                     }
                     println!("Osc.listen: Socket error receiving from socket: {}", e);
                     break;
