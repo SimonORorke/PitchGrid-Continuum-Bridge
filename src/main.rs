@@ -8,7 +8,6 @@ mod osc;
 mod settings;
 mod tuner;
 
-use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -38,13 +37,22 @@ lazy_static! {
 fn main() {
     let main_window = MainWindow::new().unwrap();
     main_window.set_window_title(global::APP_TITLE.into());
-    let midi: SharedMidi = Rc::new(RefCell::new(Midi::new()));
-    init(&main_window, &midi);
+    let mut midi: SharedMidi = Arc::new(Mutex::new(Midi::new()));
+    init(&main_window, &mut midi);
     main_window.run().unwrap();
 }
-fn connect_initial_port(main_window: &MainWindow, midi: &SharedMidi, port_type: &PortType) {
-    let maybe_index = midi.borrow().io(port_type).port().as_ref()
-        .map(|port| port.index());
+
+fn connect_initial_port(main_window: &MainWindow, midi: &mut SharedMidi, port_type: &PortType) {
+    // println!("main.connect_initial_port");
+    // We have to limit the scope of the lock, as midi will have to be locked again in
+    // connect_selected_port.
+    let maybe_index = {
+        let midi1 = midi.lock().unwrap();
+        // println!("main.connect_initial_port: Locked midi");
+        midi1.io(port_type).port().as_ref()
+            .map(|port| port.index())
+    }; // Lock is dropped here
+
     if let Some(index) = maybe_index {
         let index = index as i32;
         match port_type {
@@ -62,20 +70,24 @@ fn connect_initial_port(main_window: &MainWindow, midi: &SharedMidi, port_type: 
     }
 }
 
-fn connect_port(main_window_weak: Weak<MainWindow>, midi: &SharedMidi, port_type: &PortType) {
-    with_main_window(main_window_weak, |main_window| {
-        connect_selected_port(main_window, midi, port_type);
+fn connect_port(main_window_weak: Weak<MainWindow>, midi: &mut SharedMidi, port_type: &PortType) {
+    let port_type = *port_type;
+    let mut midi = Arc::clone(midi);
+    with_main_window(main_window_weak, move |main_window| {
+        connect_selected_port(main_window, &mut midi, &port_type);
         let port_type_name = match port_type {
             PortType::Input => "input",
             PortType::Output => "output",
         };
-        if let Some(port) = midi.borrow().io(port_type).port() {
+        if let Some(port) = midi.lock().unwrap().io(&port_type).port() {
             show_info(main_window, format!("Connected MIDI {} port {}",
                                            port_type_name, port.name()));
         }
     });
 }
-fn connect_selected_port(main_window: &MainWindow, midi: &SharedMidi, port_type: &PortType) {
+
+fn connect_selected_port(main_window: &MainWindow, midi: &mut SharedMidi, port_type: &PortType) {
+    // println!("main.connect_selected_port");
     let selected = match port_type {
         PortType::Input => main_window.get_selected_input_port_index(),
         PortType::Output => main_window.get_selected_output_port_index(),
@@ -94,12 +106,12 @@ fn connect_selected_port(main_window: &MainWindow, midi: &SharedMidi, port_type:
     };
     // Do all Midi borrowing/mutation inside a tight scope, then update UI after.
     let ui_action: Result<String, String> = {
-        let mut midi_mut = midi.borrow_mut();
-        let Some(name) = midi_mut.io(port_type).port_names().get(index).cloned()
+        let mut midi1 = midi.lock().unwrap();
+        let Some(name) = midi1.io(port_type).port_names().get(index).cloned()
         else {
             return;
         };
-        match midi_mut.connect_port(port_type, index) {
+        match midi1.connect_port(port_type, index) {
             Ok(()) => Ok(name),
             Err(err) => Err(err.to_string()),
         }
@@ -116,41 +128,51 @@ fn connect_selected_port(main_window: &MainWindow, midi: &SharedMidi, port_type:
 }
 
 fn handle_close_request(main_window_weak: Weak<MainWindow>, midi: &SharedMidi) -> CloseRequestResponse {
-    let mut response = CloseRequestResponse::HideWindow;
+    let response = Arc::new(Mutex::new(CloseRequestResponse::HideWindow));
     let mut data = DATA.lock().unwrap();
     if data.is_close_error_shown.load(Ordering::Relaxed) {
         // If a close error message is already shown, allow the window to be closed.
-        return response
+        return *response.lock().unwrap()
     }
-    with_main_window(main_window_weak, |main_window| {
-        if let Err(err) = midi.borrow_mut().close() {
-            response = CloseRequestResponse::KeepWindowShown;
+    let midi = Arc::clone(midi);
+    let is_close_error_shown = Arc::clone(&data.is_close_error_shown);
+    let response_clone = Arc::clone(&response);
+    with_main_window(main_window_weak, move |main_window| {
+        if let Err(err) = midi.lock().unwrap().close() {
+            *response_clone.lock().unwrap() = CloseRequestResponse::KeepWindowShown;
             show_error(main_window, err.to_string());
-            data.is_close_error_shown.store(true, Ordering::Relaxed);
+            is_close_error_shown.store(true, Ordering::Relaxed);
         }
     });
     data.osc.stop();
-    response
+    *response.lock().unwrap()
 }
 
-fn init(main_window: &MainWindow, midi: &SharedMidi) {
-    if let Err(err) = midi.borrow_mut().init() {
-        show_error(main_window, err.to_string());
-        return;
+fn init(main_window: &MainWindow, midi: &mut SharedMidi) {
+    // println!("main.init");
+    {
+        let mut midi1 = midi.lock().unwrap();
+        if let Err(err) = midi1.init() {
+            show_error(main_window, err.to_string());
+            return;
+        }
     }
     set_ports_model(&main_window, midi, &PortType::Input);
     set_ports_model(&main_window, midi, &PortType::Output);
     connect_initial_port(&main_window, midi, &PortType::Input);
     connect_initial_port(&main_window, midi, &PortType::Output);
-    let midi2 = midi.borrow();
-    if midi2.output().port().is_none() {
-        if midi2.input().port().is_none() {
-            show_warning(&main_window, MSG_CONNECT_BOTH);
-        } else {
-            main_window.invoke_focus_output_port();
+    {
+        // println!("main.init: Showing warning if no MIDI ports are connected.");
+        let midi1 = midi.lock().unwrap();
+        if midi1.output().port().is_none() {
+            if midi1.input().port().is_none() {
+                show_warning(&main_window, MSG_CONNECT_BOTH);
+            } else {
+                main_window.invoke_focus_output_port();
+            }
         }
     }
-    init_ui_handlers(&main_window, Rc::clone(&midi));
+    init_ui_handlers(&main_window, Arc::clone(&midi));
     show_pitchgrid_disconnected(&main_window);
     let mut data = DATA.lock().unwrap();
     data.main_window_weak = Some(main_window.as_weak().clone());
@@ -160,35 +182,35 @@ fn init(main_window: &MainWindow, midi: &SharedMidi) {
 fn init_ui_handlers(main_window: &MainWindow, midi: SharedMidi) {
     let window_weak = main_window.as_weak();
     {
-        let mut midi: SharedMidi = Rc::clone(&midi);
+        let mut midi: SharedMidi = Arc::clone(&midi);
         let window_weak = window_weak.clone();
         main_window.window().on_close_requested(move || {
             handle_close_request(window_weak.clone(), &mut midi)
         });
     }
     {
-        let midi: SharedMidi = Rc::clone(&midi);
+        let mut midi: SharedMidi = Arc::clone(&midi);
         let window_weak = window_weak.clone();
         main_window.on_connect_input_port(move || {
-            connect_port(window_weak.clone(), &midi, &PortType::Input)
+            connect_port(window_weak.clone(), &mut midi, &PortType::Input)
         });
     }
     {
-        let mut midi: SharedMidi = Rc::clone(&midi);
+        let mut midi: SharedMidi = Arc::clone(&midi);
         let window_weak = window_weak.clone();
         main_window.on_refresh_input_ports(move || {
             refresh_ports(window_weak.clone(), &mut midi, &PortType::Input)
         });
     }
     {
-        let midi: SharedMidi = Rc::clone(&midi);
+        let mut midi: SharedMidi = Arc::clone(&midi);
         let window_weak = window_weak.clone();
         main_window.on_connect_output_port(move || {
-            connect_port(window_weak.clone(), &midi, &PortType::Output)
+            connect_port(window_weak.clone(), &mut midi, &PortType::Output)
         });
     }
     {
-        let mut midi: SharedMidi = Rc::clone(&midi);
+        let mut midi: SharedMidi = Arc::clone(&midi);
         let window_weak = window_weak.clone();
         main_window.on_refresh_output_ports(move || {
             refresh_ports(window_weak.clone(), &mut midi, &PortType::Output)
@@ -198,12 +220,13 @@ fn init_ui_handlers(main_window: &MainWindow, midi: SharedMidi) {
 
 fn on_osc_connected_changed() {
     let data = DATA.lock().unwrap();
-    println!("main.on_osc_connected_changed: Connected = {}", data.osc.is_connected());
+    // println!("main.on_osc_connected_changed: Connected = {}", data.osc.is_connected());
     if let Some(main_window_weak) = &data.main_window_weak {
-        println!("main.on_osc_connected_changed: Found main_window_weak");
-        with_main_window(main_window_weak.clone(), |main_window| {
-            println!("main.on_osc_connected_changed: Found main_window");
-            if data.osc.is_connected() {
+        // println!("main.on_osc_connected_changed: Found main_window_weak");
+        let is_connected = data.osc.is_connected();
+        with_main_window(main_window_weak.clone(), move |main_window| {
+            // println!("main.on_osc_connected_changed: Found main_window");
+            if is_connected {
                 show_pitchgrid_connected(main_window);
             } else {
                 show_pitchgrid_disconnected(main_window);
@@ -215,13 +238,15 @@ fn on_osc_connected_changed() {
 fn on_osc_tuning_received(depth: i32, mode: i32, root_freq: f32, stretch: f32,
                           skew: f32, mode_offset: i32, steps: i32) {
     tuner::on_tuning_changed(depth, mode, root_freq, stretch, skew, mode_offset, steps);
-    println!("main.on_osc_tuning_received");
+    // println!("main.on_osc_tuning_received");
     let data = DATA.lock().unwrap();
     if let Some(main_window_weak) = &data.main_window_weak {
-        with_main_window(main_window_weak.clone(), |main_window| {
+        with_main_window(main_window_weak.clone(), move |main_window| {
             main_window.set_depth(format!("{depth}").into());
             main_window.set_root_freq(format!("{} Hz", round(root_freq as f64, 2)).into());
-            main_window.set_stretch(format!("{} ct", stretch.round()).into());
+            // The stretch parameter is in octaves, so we need to multiply by 1200 to get the
+            // number of cents to display.
+            main_window.set_stretch(format!("{} ct", (stretch * 1200.0).round()).into());
             main_window.set_skew(format!("{}", round(skew as f64, 2)).into());
             main_window.set_mode_offset(format!("{mode_offset}").into());
             main_window.set_steps(format!("{steps}").into());
@@ -231,13 +256,15 @@ fn on_osc_tuning_received(depth: i32, mode: i32, root_freq: f32, stretch: f32,
 
 fn refresh_ports(
     main_window_weak: Weak<MainWindow>, midi: &SharedMidi, port_type: &PortType) {
-    with_main_window(main_window_weak, |main_window| {
-        if let Err(err) = midi.borrow_mut().refresh_ports(port_type) {
+    let midi = Arc::clone(midi);
+    let port_type = *port_type;
+    with_main_window(main_window_weak, move |main_window| {
+        if let Err(err) = midi.lock().unwrap().refresh_ports(&port_type) {
             show_error(main_window, err.to_string());
             return;
         }
-        set_ports_model(&main_window, midi, port_type);
-        show_no_port_connected(main_window, port_type);
+        set_ports_model(&main_window, &midi, &port_type);
+        show_no_port_connected(main_window, &port_type);
         let msg = match port_type {
             PortType::Input => MSG_REFRESHED_INPUTS_RECONNECT,
             PortType::Output => MSG_REFRESHED_OUTPUTS_RECONNECT,
@@ -247,7 +274,7 @@ fn refresh_ports(
 }
 
 fn set_ports_model(main_window: &MainWindow, midi: &SharedMidi, port_type: &PortType) {
-    let port_items: Vec<ComboBoxItem> = midi.borrow().io(port_type).port_names()
+    let port_items: Vec<ComboBoxItem> = midi.lock().unwrap().io(port_type).port_names()
         .iter()
         .map(|text| ComboBoxItem { text: text.into() })
         .collect();
@@ -313,20 +340,17 @@ fn show_warning(main_window: &MainWindow, message: impl Into<SharedString>) {
     show_message(main_window, message, MessageType::Warning);
 }
 
-fn with_main_window(main_window_weak: Weak<MainWindow>, f: impl FnOnce(&MainWindow)) {
-    println!("main.with_main_window start");
-    if let Some(main_window) = main_window_weak.upgrade() {
-        println!("main.with_main_window: Found main_window");
+/// Upgrades a weak reference to a `MainWindow` to a strong reference, then calls the closure with
+/// the strong reference. If called from a non-UI thread, the closure will be executed in the UI
+/// event loop.
+fn with_main_window(main_window_weak: Weak<MainWindow>,
+                    f: impl FnOnce(&MainWindow) + Send + 'static) {
+    main_window_weak.upgrade_in_event_loop(move |main_window| {
         f(&main_window);
-    }
+    }).ok();
 }
 
-/// 'Rc<RefCell<MidiManager>>' gives **shared ownership** ('Rc')
-/// + **interior mutability** ('RefCell'), so multiple closures can mutate
-/// the same manager safely (single-threaded UI context).
-/// If you later move MIDI work off the UI thread, you’ll want 'Arc<Mutex<_>>' instead.
-/// But for Slint’s typical single-threaded event loop, 'Rc<RefCell<_>>' is the right fix.
-type SharedMidi = Rc<RefCell<Midi>>;
+type SharedMidi = Arc<Mutex<Midi>>;
 
 struct InputPortsModel(Vec<ComboBoxItem>);
 

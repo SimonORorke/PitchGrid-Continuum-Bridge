@@ -7,6 +7,7 @@ use midir::{
 use crate::midi_ports::{Io, MidiIo};
 use crate::settings;
 
+#[derive(Clone, Copy)]
 pub enum PortType {
     Input,
     Output,

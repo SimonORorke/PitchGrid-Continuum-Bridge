@@ -24,13 +24,13 @@ impl<T: ?Sized> IoPort for Port<T> {
 }
 
 pub struct Io<T> {
-    midi_io: Box<dyn midir::MidiIO<Port=T>>,
+    midi_io: Box<dyn midir::MidiIO<Port=T> + Send>,
     port: Box<Option<Port<T>>>,
     ports: Box<Vec<Port<T>>>,
 }
 
-impl<T: Clone + 'static> Io<T> {
-    pub fn new(midi_io: Box<dyn midir::MidiIO<Port=T>>) -> Self {
+impl<T: Clone + Send + 'static> Io<T> {
+    pub fn new(midi_io: Box<dyn midir::MidiIO<Port=T> + Send>) -> Self {
         Self { midi_io, port: Box::new(None), ports: Box::new(Vec::new()) }
     }
 
@@ -43,13 +43,13 @@ impl<T: Clone + 'static> Io<T> {
     }
 }
 
-pub trait MidiIo {
+pub trait MidiIo: Send {
     fn port(&self) -> Option<&dyn IoPort>;
     fn port_names(&self) -> Vec<String>;
     fn populate_ports(&mut self, persisted_port_name: &str) -> Result<(), Box<dyn Error>>;
 }
 
-impl<T: Clone + 'static> MidiIo for Io<T> {
+impl<T: Clone + Send + 'static> MidiIo for Io<T> {
     fn port(&self) -> Option<&dyn IoPort> {
         self.port
             .as_ref()               // Box<Option<...>> -> &Option<...>
