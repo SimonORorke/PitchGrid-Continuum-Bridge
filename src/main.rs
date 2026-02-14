@@ -150,10 +150,10 @@ fn init(main_window: &MainWindow, midi: &SharedMidi) {
             main_window.invoke_focus_output_port();
         }
     }
-    let mut data = DATA.lock().unwrap();
-    data.main_window_weak = Some(main_window.as_weak().clone());
     init_ui_handlers(&main_window, Rc::clone(&midi));
     show_pitchgrid_disconnected(&main_window);
+    let mut data = DATA.lock().unwrap();
+    data.main_window_weak = Some(main_window.as_weak().clone());
     data.osc.start(Arc::new(on_osc_tuning_received), Arc::new(on_osc_connected_changed));
 }
 
@@ -198,8 +198,11 @@ fn init_ui_handlers(main_window: &MainWindow, midi: SharedMidi) {
 
 fn on_osc_connected_changed() {
     let data = DATA.lock().unwrap();
+    println!("main.on_osc_connected_changed: Connected = {}", data.osc.is_connected());
     if let Some(main_window_weak) = &data.main_window_weak {
+        println!("main.on_osc_connected_changed: Found main_window_weak");
         with_main_window(main_window_weak.clone(), |main_window| {
+            println!("main.on_osc_connected_changed: Found main_window");
             if data.osc.is_connected() {
                 show_pitchgrid_connected(main_window);
             } else {
@@ -212,6 +215,7 @@ fn on_osc_connected_changed() {
 fn on_osc_tuning_received(depth: i32, mode: i32, root_freq: f32, stretch: f32,
                           skew: f32, mode_offset: i32, steps: i32) {
     tuner::on_tuning_changed(depth, mode, root_freq, stretch, skew, mode_offset, steps);
+    println!("main.on_osc_tuning_received");
     let data = DATA.lock().unwrap();
     if let Some(main_window_weak) = &data.main_window_weak {
         with_main_window(main_window_weak.clone(), |main_window| {
@@ -291,7 +295,7 @@ fn show_no_port_connected(main_window: &MainWindow, port_type: &PortType) {
 
 fn show_pitchgrid_connected(main_window: &MainWindow) {
     show_pitchgrid_connection_status(
-        main_window, "Pitchgrid is connected", MessageType::Info);
+        main_window, "Pitchgrid OSC is connected", MessageType::Info);
 }
 
 fn show_pitchgrid_connection_status(
@@ -301,7 +305,8 @@ fn show_pitchgrid_connection_status(
 
 fn show_pitchgrid_disconnected(main_window: &MainWindow) {
     show_pitchgrid_connection_status(
-        main_window, "Pitchgrid is not connected", MessageType::Error);
+        main_window, "Pitchgrid OSC is not connected. OSC must be enabled in Pitchgrid.", 
+        MessageType::Error);
 }
 
 fn show_warning(main_window: &MainWindow, message: impl Into<SharedString>) {
@@ -309,7 +314,9 @@ fn show_warning(main_window: &MainWindow, message: impl Into<SharedString>) {
 }
 
 fn with_main_window(main_window_weak: Weak<MainWindow>, f: impl FnOnce(&MainWindow)) {
+    println!("main.with_main_window start");
     if let Some(main_window) = main_window_weak.upgrade() {
+        println!("main.with_main_window: Found main_window");
         f(&main_window);
     }
 }
