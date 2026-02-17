@@ -14,7 +14,7 @@ fn main() {
         .file("scalatrix/src/node.cpp")
         .file("scalatrix/src/params.cpp")
         .file("scalatrix/src/pitchset.cpp")
-        // .file("scalatrix/src/python_bindings.cpp")
+        // .file("scalatrix/src/python_bindings.cpp") // Causes compiler error.
         .file("scalatrix/src/scale.cpp")
         .include("scalatrix/include")
         .std("c++17")

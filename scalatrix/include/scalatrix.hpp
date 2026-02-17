@@ -27,20 +27,51 @@
 
 #include <memory>
 
+// Wrapper functions for CXX bridge
 namespace scalatrix {
-    // Wrapper function for CXX bridge
-    inline std::unique_ptr<MOS> mosFromG(int depth, int m, double g, double e, int repetitions) {
+    inline std::unique_ptr<AffineTransform>  affine_from_three_dots(
+            const Vector2d& a1, const Vector2d& a2, const Vector2d& a3,
+            const Vector2d& b1, const Vector2d& b2, const Vector2d& b3) {
+        return std::make_unique<AffineTransform>(affineFromThreeDots(a1, a2, a3, b1, b2, b3));
+    }
+
+    inline int get_mos_a(const MOS& mos) {
+        return mos.a;
+    }
+
+    inline int get_mos_b(const MOS& mos) {
+        return mos.b;
+    }
+
+    inline int get_mos_v_gen_x(const MOS& mos) {
+        return mos.v_gen.x;
+    }
+
+    inline int get_mos_v_gen_y(const MOS& mos) {
+        return mos.v_gen.y;
+    }
+
+    inline double get_node_pitch(const Node& node) {
+        return node.pitch;
+    }
+
+    inline std::unique_ptr<std::vector<Node>> get_scale_nodes(const Scale& scale) {
+        return std::make_unique<std::vector<Node>>(scale.getNodes());
+    }
+
+    inline std::unique_ptr<MOS> mos_from_g(int depth, int m, double g, double e, int repetitions) {
         return std::make_unique<MOS>(MOS::fromG(depth, m, g, e, repetitions));
     }
 
-    // Getter for nL field
-    inline int get_nL(const MOS& mos) {
-        return mos.nL;
+    inline std::unique_ptr<Scale> scale_from_affine(
+            const AffineTransform& affine, const double base_freq,
+            int num_nodes_to_generate, int root_index) {
+        return std::make_unique<Scale>(Scale::fromAffine(affine, base_freq,
+            num_nodes_to_generate, root_index));
     }
 
-    // Getter for nL field
-    inline int get_nS(const MOS& mos) {
-        return mos.nS;
+    inline std::unique_ptr<Vector2d> vector2d(double x, double y) {
+        return std::make_unique<Vector2d>(Vector2d(x, y));
     }
 }
 
