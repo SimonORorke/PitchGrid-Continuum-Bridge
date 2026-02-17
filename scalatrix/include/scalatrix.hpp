@@ -25,5 +25,23 @@
 #include "scalatrix/pitchset.hpp"
 #include "scalatrix/label_calculator.hpp"
 
+#include <memory>
+
+namespace scalatrix {
+    // Wrapper function for CXX bridge
+    inline std::unique_ptr<MOS> mosFromG(int depth, int m, double g, double e, int repetitions) {
+        return std::make_unique<MOS>(MOS::fromG(depth, m, g, e, repetitions));
+    }
+
+    // Getter for nL field
+    inline int get_nL(const MOS& mos) {
+        return mos.nL;
+    }
+
+    // Getter for nL field
+    inline int get_nS(const MOS& mos) {
+        return mos.nS;
+    }
+}
 
 #endif // SCALATRIX_HPP

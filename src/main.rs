@@ -237,7 +237,7 @@ fn on_osc_connected_changed() {
 
 fn on_osc_tuning_received(depth: i32, mode: i32, root_freq: f32, stretch: f32,
                           skew: f32, mode_offset: i32, steps: i32) {
-    tuner::on_tuning_changed(depth, mode, root_freq, stretch, skew, mode_offset, steps);
+    tuner::update_tuning(depth, mode, root_freq, stretch, skew, mode_offset, steps);
     // println!("main.on_osc_tuning_received");
     let data = DATA.lock().unwrap();
     if let Some(main_window_weak) = &data.main_window_weak {
