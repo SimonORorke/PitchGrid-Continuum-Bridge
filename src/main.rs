@@ -161,6 +161,7 @@ fn init(main_window: &MainWindow, midi: &mut SharedMidi) {
     set_ports_model(&main_window, midi, &PortType::Output);
     connect_initial_port(&main_window, midi, &PortType::Input);
     connect_initial_port(&main_window, midi, &PortType::Output);
+    set_tuning_grids_model(&main_window);
     {
         // println!("main.init: Showing warning if no MIDI ports are connected.");
         let midi1 = midi.lock().unwrap();
@@ -290,6 +291,14 @@ fn set_ports_model(main_window: &MainWindow, midi: &SharedMidi, port_type: &Port
     }
 }
 
+fn set_tuning_grids_model(main_window: &MainWindow) {
+    let tuning_grid_items: Vec<ComboBoxItem> = (80..88)
+        .map(|grid_no| ComboBoxItem { text: grid_no.to_string().into() })
+        .collect();
+    let model = Rc::new(TuningGridsModel(tuning_grid_items));
+    main_window.set_tuning_grids_model(slint::ModelRc::from(model));
+}
+
 fn show_connected_port_name(main_window: &MainWindow, port_name: &str, port_type: &PortType) {
     let message_type = if port_name == PORT_NONE {
         MessageType::Warning }
@@ -359,7 +368,8 @@ impl slint::Model for InputPortsModel {
     fn row_count(&self) -> usize {
         self.0.len()
     }
-    fn row_data(&self, row: usize) -> Option<Self::Data> {
+    fn row_data(&self, row: usize) ->
+        Option<Self::Data> {
         self.0.get(row).map(|x| x.clone())
     }
     fn model_tracker(&self) -> &dyn slint::ModelTracker {
@@ -374,7 +384,24 @@ impl slint::Model for OutputPortsModel {
     fn row_count(&self) -> usize {
         self.0.len()
     }
-    fn row_data(&self, row: usize) -> Option<Self::Data> {
+    fn row_data(&self, row: usize) ->
+        Option<Self::Data> {
+        self.0.get(row).map(|x| x.clone())
+    }
+    fn model_tracker(&self) -> &dyn slint::ModelTracker {
+        &()
+    }
+}
+
+struct TuningGridsModel(Vec<ComboBoxItem>);
+
+impl slint::Model for TuningGridsModel {
+    type Data = ComboBoxItem;
+    fn row_count(&self) -> usize {
+        self.0.len()
+    }
+    fn row_data(&self, row: usize) ->
+        Option<Self::Data> {
         self.0.get(row).map(|x| x.clone())
     }
     fn model_tracker(&self) -> &dyn slint::ModelTracker {
