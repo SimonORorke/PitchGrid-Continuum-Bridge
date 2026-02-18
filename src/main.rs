@@ -15,8 +15,10 @@ use lazy_static::lazy_static;
 use round::round;
 use slint::{CloseRequestResponse, SharedString, Weak};
 use midi::{Midi, PortType};
+use crate::global::{APP_TITLE, SharedSettings};
 use crate::midi_ports::MidiIo;
 use crate::osc::Osc;
+use crate::settings::Settings;
 
 slint::include_modules!();
 
@@ -36,9 +38,10 @@ lazy_static! {
 
 fn main() {
     let main_window = MainWindow::new().unwrap();
-    main_window.set_window_title(global::APP_TITLE.into());
+    main_window.set_window_title(APP_TITLE.into());
     let mut midi: SharedMidi = Arc::new(Mutex::new(Midi::new()));
-    init(&main_window, &mut midi);
+    let mut settings: SharedSettings = Arc::new(Mutex::new(Settings::new()));
+    init(&main_window, &mut midi, &mut settings);
     main_window.run().unwrap();
 }
 
@@ -148,7 +151,7 @@ fn handle_close_request(main_window_weak: Weak<MainWindow>, midi: &SharedMidi) -
     *response.lock().unwrap()
 }
 
-fn init(main_window: &MainWindow, midi: &mut SharedMidi) {
+fn init(main_window: &MainWindow, midi: &mut SharedMidi, settings: &mut SharedSettings) {
     // println!("main.init");
     {
         let mut midi1 = midi.lock().unwrap();

@@ -1,7 +1,7 @@
 ﻿use std::error::Error;
 use std::fs;
 use serde::{Serialize, Deserialize};
-use crate::global;
+use crate::global::APP_TITLE;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Settings {
@@ -24,7 +24,7 @@ impl Settings {
         if let Some(base_dirs) = directories::BaseDirs::new() {
             let config_folder_path = base_dirs.config_dir().to_str().unwrap().to_string();
             path =
-                format!("{}/{}", config_folder_path, global::APP_TITLE);
+                format!("{}/{}", config_folder_path, APP_TITLE);
         }
         path
     }
