@@ -41,6 +41,10 @@ impl<T: Clone + Send + 'static> Io<T> {
     pub fn set_port(&mut self, port: Port<T>) {
         self.port = Box::new(self.ports.get(port.index()).cloned());
     }
+
+    pub fn set_port_to_none(&mut self) {
+        self.port = Box::new(None);
+    }
 }
 
 pub trait MidiIo: Send {

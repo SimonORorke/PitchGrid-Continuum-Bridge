@@ -118,6 +118,7 @@ impl Midi {
         // println!("Midi.disconnect_input_port start");
         if let Some(connection) = self.input_connection.take() {
             connection.close();
+            self.input.set_port_to_none();
         }
     }
 
@@ -126,6 +127,7 @@ impl Midi {
         let mut data = DATA.lock().unwrap();
         if let Some(connection) = data.output_connection.take() {
             connection.close();
+            self.output.set_port_to_none();
         }
     }
 
