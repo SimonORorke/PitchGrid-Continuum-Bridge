@@ -15,7 +15,7 @@ use lazy_static::lazy_static;
 use round::round;
 use slint::{CloseRequestResponse, SharedString, Weak};
 use midi::{Midi, PortType};
-use crate::global::{APP_TITLE, SharedSettings};
+use crate::global::APP_TITLE;
 use crate::midi_ports::MidiIo;
 use crate::osc::Osc;
 use crate::settings::Settings;
@@ -45,7 +45,7 @@ fn main() {
     main_window.run().unwrap();
 }
 
-fn connect_initial_port(main_window: &MainWindow, midi: &mut SharedMidi, port_type: &PortType) {
+fn connect_initial_port(main_window: &MainWindow, midi: &mut SharedMidi, settings: &mut SharedSettings, port_type: &PortType) {
     // println!("main.connect_initial_port");
     // We have to limit the scope of the lock, as midi will have to be locked again in
     // connect_selected_port.
@@ -62,9 +62,9 @@ fn connect_initial_port(main_window: &MainWindow, midi: &mut SharedMidi, port_ty
             PortType::Input => main_window.set_selected_input_port_index(index),
             PortType::Output => main_window.set_selected_output_port_index(index),
         }
-        connect_selected_port(main_window, midi, port_type);
+        connect_selected_port(main_window, midi, settings, port_type);
     } else {
-        show_no_port_connected(main_window, port_type);
+        show_no_port_connected(main_window, settings, port_type);
         let msg = match port_type {
             PortType::Input => MSG_CONNECT_INPUT,
             PortType::Output => MSG_CONNECT_OUTPUT,
@@ -73,11 +73,13 @@ fn connect_initial_port(main_window: &MainWindow, midi: &mut SharedMidi, port_ty
     }
 }
 
-fn connect_port(main_window_weak: Weak<MainWindow>, midi: &mut SharedMidi, port_type: &PortType) {
+fn connect_port(main_window_weak: Weak<MainWindow>, midi: &mut SharedMidi,
+                settings: &mut SharedSettings, port_type: &PortType) {
     let port_type = *port_type;
     let mut midi = Arc::clone(midi);
+    let mut settings = Arc::clone(settings);
     with_main_window(main_window_weak, move |main_window| {
-        connect_selected_port(main_window, &mut midi, &port_type);
+        connect_selected_port(main_window, &mut midi, &mut settings, &port_type);
         let port_type_name = match port_type {
             PortType::Input => "input",
             PortType::Output => "output",
@@ -89,7 +91,8 @@ fn connect_port(main_window_weak: Weak<MainWindow>, midi: &mut SharedMidi, port_
     });
 }
 
-fn connect_selected_port(main_window: &MainWindow, midi: &mut SharedMidi, port_type: &PortType) {
+fn connect_selected_port(main_window: &MainWindow, midi: &mut SharedMidi, 
+                         settings: &mut SharedSettings, port_type: &PortType) {
     // println!("main.connect_selected_port");
     let selected = match port_type {
         PortType::Input => main_window.get_selected_input_port_index(),
@@ -98,7 +101,7 @@ fn connect_selected_port(main_window: &MainWindow, midi: &mut SharedMidi, port_t
     let index: usize = match usize::try_from(selected) {
         Ok(i) => i,
         Err(_) => {
-            show_no_port_connected(main_window, port_type);
+            show_no_port_connected(main_window, settings, port_type);
             let msg = match port_type {
                 PortType::Input => MSG_NO_INPUT_SELECTED,
                 PortType::Output => MSG_NO_OUTPUT_SELECTED,
@@ -121,27 +124,30 @@ fn connect_selected_port(main_window: &MainWindow, midi: &mut SharedMidi, port_t
     };
     match ui_action {
         Ok(name) => {
-            show_connected_port_name(main_window, &name, port_type);
+            show_connected_port_name(main_window, settings, &name, port_type);
         }
         Err(message) => {
-            show_no_port_connected(main_window, port_type);
+            show_no_port_connected(main_window, settings, port_type);
             show_error(main_window, message);
         }
     }
 }
 
-fn handle_close_request(main_window_weak: Weak<MainWindow>, midi: &SharedMidi) -> CloseRequestResponse {
+fn handle_close_request(
+        main_window_weak: Weak<MainWindow>, midi: &SharedMidi,
+        settings: &mut SharedSettings) -> CloseRequestResponse {
     let response = Arc::new(Mutex::new(CloseRequestResponse::HideWindow));
     let mut data = DATA.lock().unwrap();
     if data.is_close_error_shown.load(Ordering::Relaxed) {
         // If a close error message is already shown, allow the window to be closed.
         return *response.lock().unwrap()
     }
-    let midi = Arc::clone(midi);
+    Arc::clone(midi).lock().unwrap().close();
     let is_close_error_shown = Arc::clone(&data.is_close_error_shown);
     let response_clone = Arc::clone(&response);
+    let settings1 = Arc::clone(settings);
     with_main_window(main_window_weak, move |main_window| {
-        if let Err(err) = midi.lock().unwrap().close() {
+        if let Err(err) = settings1.lock().unwrap().write_to_file() {
             *response_clone.lock().unwrap() = CloseRequestResponse::KeepWindowShown;
             show_error(main_window, err.to_string());
             is_close_error_shown.store(true, Ordering::Relaxed);
@@ -154,16 +160,29 @@ fn handle_close_request(main_window_weak: Weak<MainWindow>, midi: &SharedMidi) -
 fn init(main_window: &MainWindow, midi: &mut SharedMidi, settings: &mut SharedSettings) {
     // println!("main.init");
     {
+        let mut settings1 = settings.lock().unwrap();
+        let input_port_name: String;
+        let output_port_name: String;
+        match settings1.read_from_file() {
+            Ok(_) => {
+                input_port_name = settings1.midi_input_port.clone();
+                output_port_name = settings1.midi_output_port.clone();
+            }
+            Err(err) => {
+                show_error(main_window, err.to_string());
+                return;
+            }
+        }
         let mut midi1 = midi.lock().unwrap();
-        if let Err(err) = midi1.init() {
+        if let Err(err) = midi1.init(&input_port_name, &output_port_name) {
             show_error(main_window, err.to_string());
             return;
         }
     }
     set_ports_model(&main_window, midi, &PortType::Input);
     set_ports_model(&main_window, midi, &PortType::Output);
-    connect_initial_port(&main_window, midi, &PortType::Input);
-    connect_initial_port(&main_window, midi, &PortType::Output);
+    connect_initial_port(&main_window, midi, settings, &PortType::Input);
+    connect_initial_port(&main_window, midi, settings, &PortType::Output);
     set_tuning_grids_model(&main_window);
     {
         // println!("main.init: Showing warning if no MIDI ports are connected.");
@@ -176,48 +195,53 @@ fn init(main_window: &MainWindow, midi: &mut SharedMidi, settings: &mut SharedSe
             }
         }
     }
-    init_ui_handlers(&main_window, Arc::clone(&midi));
+    init_ui_handlers(&main_window, Arc::clone(&midi), Arc::clone(settings));
     show_pitchgrid_disconnected(&main_window);
     let mut data = DATA.lock().unwrap();
     data.main_window_weak = Some(main_window.as_weak().clone());
     data.osc.start(Arc::new(on_osc_tuning_received), Arc::new(on_osc_connected_changed));
 }
 
-fn init_ui_handlers(main_window: &MainWindow, midi: SharedMidi) {
+fn init_ui_handlers(main_window: &MainWindow, midi: SharedMidi, settings: SharedSettings) {
     let window_weak = main_window.as_weak();
     {
         let mut midi: SharedMidi = Arc::clone(&midi);
+        let mut settings: SharedSettings = Arc::clone(&settings);
         let window_weak = window_weak.clone();
         main_window.window().on_close_requested(move || {
-            handle_close_request(window_weak.clone(), &mut midi)
+            handle_close_request(window_weak.clone(), &mut midi, &mut settings)
         });
     }
     {
         let mut midi: SharedMidi = Arc::clone(&midi);
+        let mut settings: SharedSettings = Arc::clone(&settings);
         let window_weak = window_weak.clone();
         main_window.on_connect_input_port(move || {
-            connect_port(window_weak.clone(), &mut midi, &PortType::Input)
+            connect_port(window_weak.clone(), &mut midi, &mut settings, &PortType::Input)
         });
     }
     {
         let mut midi: SharedMidi = Arc::clone(&midi);
+        let mut settings: SharedSettings = Arc::clone(&settings);
         let window_weak = window_weak.clone();
         main_window.on_refresh_input_ports(move || {
-            refresh_ports(window_weak.clone(), &mut midi, &PortType::Input)
+            refresh_ports(window_weak.clone(), &mut midi, &mut settings, &PortType::Input)
         });
     }
     {
         let mut midi: SharedMidi = Arc::clone(&midi);
+        let mut settings: SharedSettings = Arc::clone(&settings);
         let window_weak = window_weak.clone();
         main_window.on_connect_output_port(move || {
-            connect_port(window_weak.clone(), &mut midi, &PortType::Output)
+            connect_port(window_weak.clone(), &mut midi, &mut settings, &PortType::Output)
         });
     }
     {
         let mut midi: SharedMidi = Arc::clone(&midi);
+        let mut settings: SharedSettings = Arc::clone(&settings);
         let window_weak = window_weak.clone();
         main_window.on_refresh_output_ports(move || {
-            refresh_ports(window_weak.clone(), &mut midi, &PortType::Output)
+            refresh_ports(window_weak.clone(), &mut midi, &mut settings, &PortType::Output)
         });
     }
 }
@@ -259,16 +283,22 @@ fn on_osc_tuning_received(depth: i32, mode: i32, root_freq: f32, stretch: f32,
 }
 
 fn refresh_ports(
-    main_window_weak: Weak<MainWindow>, midi: &SharedMidi, port_type: &PortType) {
+        main_window_weak: Weak<MainWindow>, midi: &SharedMidi, settings: &mut SharedSettings,
+        port_type: &PortType) {
     let midi = Arc::clone(midi);
+    let mut settings = Arc::clone(settings);
     let port_type = *port_type;
+    let port_name = match port_type {
+        PortType::Input => settings.lock().unwrap().midi_input_port.clone(),
+        PortType::Output => settings.lock().unwrap().midi_output_port.clone(),
+    };
     with_main_window(main_window_weak, move |main_window| {
-        if let Err(err) = midi.lock().unwrap().refresh_ports(&port_type) {
+        if let Err(err) = midi.lock().unwrap().refresh_ports(&port_name, &port_type) {
             show_error(main_window, err.to_string());
             return;
         }
         set_ports_model(&main_window, &midi, &port_type);
-        show_no_port_connected(main_window, &port_type);
+        show_no_port_connected(main_window, &mut settings, &port_type);
         let msg = match port_type {
             PortType::Input => MSG_REFRESHED_INPUTS_RECONNECT,
             PortType::Output => MSG_REFRESHED_OUTPUTS_RECONNECT,
@@ -302,17 +332,23 @@ fn set_tuning_grids_model(main_window: &MainWindow) {
     main_window.set_tuning_grids_model(slint::ModelRc::from(model));
 }
 
-fn show_connected_port_name(main_window: &MainWindow, port_name: &str, port_type: &PortType) {
+fn show_connected_port_name(main_window: &MainWindow, settings: &mut SharedSettings, 
+                            port_name: &str, port_type: &PortType) {
     let message_type = if port_name == PORT_NONE {
         MessageType::Warning }
     else {
         MessageType::Info
     };
+    let mut settings1 = settings.lock().unwrap();
     match port_type {
-        PortType::Input => 
-            main_window.invoke_show_connected_input_port_name(port_name.into(), message_type),
-        PortType::Output => 
-            main_window.invoke_show_connected_output_port_name(port_name.into(), message_type),
+        PortType::Input => {
+            main_window.invoke_show_connected_input_port_name(port_name.into(), message_type);
+            settings1.midi_input_port = port_name.into();
+        }
+        PortType::Output => {
+            main_window.invoke_show_connected_output_port_name(port_name.into(), message_type);
+            settings1.midi_output_port = port_name.into();
+        }
     }
 }
 
@@ -328,8 +364,9 @@ fn show_message(main_window: &MainWindow, message: impl Into<SharedString>, mess
     main_window.invoke_show_message(message.into(), message_type);
 }
 
-fn show_no_port_connected(main_window: &MainWindow, port_type: &PortType) {
-    show_connected_port_name(main_window, PORT_NONE, port_type);
+fn show_no_port_connected(main_window: &MainWindow, settings: &mut SharedSettings,
+                          port_type: &PortType) {
+    show_connected_port_name(main_window, settings, PORT_NONE, port_type);
 }
 
 fn show_pitchgrid_connected(main_window: &MainWindow) {
@@ -363,6 +400,7 @@ fn with_main_window(main_window_weak: Weak<MainWindow>,
 }
 
 type SharedMidi = Arc<Mutex<Midi>>;
+type SharedSettings = Arc<Mutex<Settings>>;
 
 struct InputPortsModel(Vec<ComboBoxItem>);
 
