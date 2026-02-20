@@ -14,14 +14,14 @@ use rosc::{decoder, encoder, OscMessage, OscPacket, OscType};
 ///             every 2 seconds to maintain connection
 pub struct Osc {
     is_connected: Arc<AtomicBool>,
-    last_ack_time: Arc<Mutex<Instant>>,
+    last_ack_time: Arc<Mutex<Option<Instant>>>,
 }
 
 impl Osc {
     pub fn new() -> Self {
         Self {
             is_connected: Arc::new(AtomicBool::new(false)),
-            last_ack_time: Arc::new(Mutex::new(Instant::now())),
+            last_ack_time: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -63,6 +63,11 @@ impl Osc {
         self.is_connected.load(Ordering::SeqCst)
     }
 
+    fn call_connected_changed_callback(
+        connected_changed_callback: SharedConnectedChangedCallback) {
+        connected_changed_callback();
+    }
+
     fn handle_tuning(args: Vec<OscType>, tuning_received_callback: SharedTuningReceivedCallback) {
         // println!("Osc.handle_tuning");
         if let [
@@ -84,7 +89,7 @@ impl Osc {
 
     fn listen(
         socket: UdpSocket,
-        last_ack_time: Arc<Mutex<Instant>>,
+        last_ack_time: Arc<Mutex<Option<Instant>>>,
         tuning_received_callback: SharedTuningReceivedCallback) {
         socket.set_read_timeout(Some(Duration::from_millis(500))).unwrap();
         // println!("Osc.listen: starting, listening on {}", socket.local_addr().unwrap());
@@ -105,7 +110,7 @@ impl Osc {
                     match packet {
                         OscPacket::Message(msg) => {
                             // println!("Osc.listen: message received:");
-                            *last_ack_time.lock().unwrap() = Instant::now();
+                            *last_ack_time.lock().unwrap() = Some(Instant::now());
                             match msg.addr.as_str() {
                                 HANDSHAKE_ACK_ADDR => {
                                     // println!("    {HANDSHAKE_ACK_ADDR}");
@@ -151,36 +156,38 @@ impl Osc {
     /// PitchGrid will send us messages if we send a heartbeat message at least every 2 seconds.
     /// So, if we don't receive any messages for 2 seconds, PitchGrid is probably not running.
     fn monitor_connection(is_connected: Arc<AtomicBool>,
-                          last_ack_time: Arc<Mutex<Instant>>,
+                          last_ack_time: Arc<Mutex<Option<Instant>>>,
                           connected_changed_callback: SharedConnectedChangedCallback) {
         // println!("Osc.monitor_connection: starting");
+        let mut has_initially_not_connected_callback_been_called = false;
         loop {
             // println!("Osc.monitor_connection: looping");
             let current_time = Instant::now();
-            let last_ack_time = *last_ack_time.lock().unwrap();
+            let maybe_last_ack_time = *last_ack_time.lock().unwrap();
+            if maybe_last_ack_time.is_none() {
+                if !has_initially_not_connected_callback_been_called {
+                    has_initially_not_connected_callback_been_called = true;
+                    Self::call_connected_changed_callback(connected_changed_callback.clone());
+                }
+                std::thread::sleep(Duration::from_millis(500));
+                continue;
+            }
+            let last_ack_time = maybe_last_ack_time.unwrap();
             let time_since_ack = current_time.duration_since(last_ack_time);
             let was_connected = is_connected.load(Ordering::SeqCst);
-            // println!("current_time = {:?}, time_since_ack {:?} = , was_connected = {}",
-            //          current_time, time_since_ack, was_connected );
+            // println!("current_time = {:?}, last_ack_time = {:?}, time_since_ack = {:?}, was_connected = {}",
+            //          current_time, last_ack_time, time_since_ack, was_connected );
             if time_since_ack > Duration::from_secs(2) { // No ack for 2 seconds
                 // println!("Osc.monitor_connection: not connected");
                 is_connected.store(false, Ordering::SeqCst);
                 if was_connected {
-                    let connected_changed_callback
-                        = connected_changed_callback.clone();
-                    rayon::spawn(move || {
-                        connected_changed_callback();
-                    });
+                    Self::call_connected_changed_callback(connected_changed_callback.clone());
                 }
             } else if time_since_ack <= Duration::from_secs(2)
                 && !was_connected { // Reconnected
                 // println!("Osc.monitor_connection: connected");
                 is_connected.store(true, Ordering::SeqCst);
-                let connected_changed_callback
-                    = connected_changed_callback.clone();
-                rayon::spawn(move || {
-                    connected_changed_callback();
-                });
+                Self::call_connected_changed_callback(connected_changed_callback.clone());
             }
             std::thread::sleep(Duration::from_millis(500));
         }

@@ -196,7 +196,6 @@ fn init(main_window: &MainWindow, midi: &mut SharedMidi, settings: &mut SharedSe
         }
     }
     init_ui_handlers(&main_window, Arc::clone(&midi), Arc::clone(settings));
-    show_pitchgrid_disconnected(&main_window);
     let mut data = DATA.lock().unwrap();
     data.main_window_weak = Some(main_window.as_weak().clone());
     data.osc.start(Arc::new(on_osc_tuning_received), Arc::new(on_osc_connected_changed));
@@ -248,10 +247,10 @@ fn init_ui_handlers(main_window: &MainWindow, midi: SharedMidi, settings: Shared
 
 fn on_osc_connected_changed() {
     let data = DATA.lock().unwrap();
-    // println!("main.on_osc_connected_changed: Connected = {}", data.osc.is_connected());
     if let Some(main_window_weak) = &data.main_window_weak {
         // println!("main.on_osc_connected_changed: Found main_window_weak");
         let is_connected = data.osc.is_connected();
+        // println!("main.on_osc_connected_changed: Connected = {}", is_connected);
         with_main_window(main_window_weak.clone(), move |main_window| {
             // println!("main.on_osc_connected_changed: Found main_window");
             if is_connected {
