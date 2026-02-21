@@ -12,12 +12,11 @@ import { Globals } from "globals.slint";
 import { Palette, VerticalBox, } from "std-widgets.slint";
 
 export component MainWindow inherits MagicWindow {
-//    background: Catppuccin.current_palette.mauve;
-//    background: Catppuccin.current_palette.yellow;
-//    background: #254A3D;
     background: get_background_color();
     width: 700px;
-    min_height: 405px; // Expands automatically if the status message does not fit.
+    // Needs to be big enough to include everything down to the first status bar line.
+    // Expands automatically if the status message does not fit.
+    min_height: 505px;
     title: window_title;
     icon: Globals.icon;
     forward-focus: midi_input;
@@ -63,17 +62,7 @@ export component MainWindow inherits MagicWindow {
     }
 
     function get_background_color() -> color {
-//        return Palette.color_scheme == ColorScheme.light ? #EEEBFF : #2A4A2B;
-//        return Palette.color_scheme == ColorScheme.light ? #EBFFF8 : #2A4A2B;
-//        return Palette.color_scheme == ColorScheme.light ? #EBFFFF : #2A4A2B;
-//        return Palette.color_scheme == ColorScheme.light ? #C4DFE8 : #2A4A2B;
-//        return Palette.color_scheme == ColorScheme.light ? #ECF9FF : #2A4A2B; // Bluer
-//        return Palette.color_scheme == ColorScheme.light ? #ECFFFF : #2A4A2B;
-//        return Palette.color_scheme == ColorScheme.light ? #EBFBFF : #2A4A2B; // Greener
-//        return Palette.color_scheme == ColorScheme.light ? #ECFFF5 : #2A4A2B; // Greenest
-        return Palette.color_scheme == ColorScheme.light ? #BDDFCC : #2A4A2B; // Darker Green
-//        return Palette.color_scheme == ColorScheme.light ? #96B2A2 : #2A4A2B; // Even Darker Green
-//        return Palette.color_scheme == ColorScheme.light ? #BBDFCB : #2A4A2B; // Darker Green
+        return Palette.color_scheme == ColorScheme.light ? #BDDFCC : #123735;
     }
 
     VerticalLayout {
