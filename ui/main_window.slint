@@ -26,10 +26,12 @@ export component MainWindow inherits MagicWindow {
     in property stretch <=> stretch_value.text;
     in property skew <=> skew_value.text;
     in property mode_offset <=> mode_offset_value.text;
-    in-out property <int> selected_tuning_grid_index;
+    in property <int> selected_tuning_grid_index;
     in property steps <=> steps_value.text;
     in property tuning_grids_model <=> tuning_grids_combo.model;
     in property <string> window_title;
+
+    callback selected_tuning_grid_changed(index: int);
 
     public function show_message(message: string, message_type: MessageType) {
         message_text.text = message;
@@ -130,7 +132,7 @@ export component MainWindow inherits MagicWindow {
                 tuning_grids_combo := ComboBox {
                     current_index: root.selected_tuning_grid_index;
                     changed current_index => {
-                        root.selected_tuning_grid_index = self.current_index;
+                        root.selected_tuning_grid_changed(self.current_index);
                     }
                     height: Globals.control_height;
                     width: 55px;

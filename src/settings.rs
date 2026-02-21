@@ -7,7 +7,7 @@ use crate::global::APP_TITLE;
 pub struct Settings {
     pub midi_input_port: String,
     pub midi_output_port: String,
-    pub tuning_grid: String,
+    pub tuning_grid: i32,
 }
 
 impl Settings {
@@ -15,7 +15,7 @@ impl Settings {
         Self {
             midi_input_port: String::new(),
             midi_output_port: String::new(),
-            tuning_grid: String::new(),
+            tuning_grid: 0,
         }
     }
 

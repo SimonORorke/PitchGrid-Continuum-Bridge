@@ -8,6 +8,7 @@ mod osc;
 mod settings;
 mod tuner;
 
+use std::cmp::max;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -159,6 +160,7 @@ fn handle_close_request(
 
 fn init(main_window: &MainWindow, midi: &mut SharedMidi, settings: &mut SharedSettings) {
     // println!("main.init");
+    let tuning_grid_no: i32;
     {
         let mut settings1 = settings.lock().unwrap();
         let input_port_name: String;
@@ -167,6 +169,7 @@ fn init(main_window: &MainWindow, midi: &mut SharedMidi, settings: &mut SharedSe
             Ok(_) => {
                 input_port_name = settings1.midi_input_port.clone();
                 output_port_name = settings1.midi_output_port.clone();
+                tuning_grid_no = max(tuner::default_tuning_grid_no(), settings1.tuning_grid);
             }
             Err(err) => {
                 show_error(main_window, err.to_string());
@@ -184,6 +187,8 @@ fn init(main_window: &MainWindow, midi: &mut SharedMidi, settings: &mut SharedSe
     connect_initial_port(&main_window, midi, settings, &PortType::Input);
     connect_initial_port(&main_window, midi, settings, &PortType::Output);
     set_tuning_grids_model(&main_window);
+    tuner::set_tuning_grid_no(tuning_grid_no);
+    main_window.set_selected_tuning_grid_index(tuner::tuning_grid_index() as i32);
     {
         // println!("main.init: Showing warning if no MIDI ports are connected.");
         let midi1 = midi.lock().unwrap();
@@ -243,6 +248,18 @@ fn init_ui_handlers(main_window: &MainWindow, midi: SharedMidi, settings: Shared
             refresh_ports(window_weak.clone(), &mut midi, &mut settings, &PortType::Output)
         });
     }
+    {
+        let mut settings: SharedSettings = Arc::clone(&settings);
+        main_window.on_selected_tuning_grid_changed(move |index| {
+            update_tuning_grid_no(index as usize, &mut settings)
+        });
+    }
+}
+
+fn update_tuning_grid_no(index: usize, settings: &mut SharedSettings) {
+    let tuning_grid_no = tuner::tuning_grid_nos()[index];
+    tuner::set_tuning_grid_no(tuning_grid_no);
+    settings.lock().unwrap().tuning_grid = tuning_grid_no;
 }
 
 fn on_osc_connected_changed() {
@@ -264,7 +281,7 @@ fn on_osc_connected_changed() {
 
 fn on_osc_tuning_received(depth: i32, mode: i32, root_freq: f32, stretch: f32,
                           skew: f32, mode_offset: i32, steps: i32) {
-    tuner::update_tuning(depth, mode, root_freq, stretch, skew, mode_offset, steps);
+    tuner::on_tuning_received(depth, mode, root_freq, stretch, skew, mode_offset, steps);
     // println!("main.on_osc_tuning_received");
     let data = DATA.lock().unwrap();
     if let Some(main_window_weak) = &data.main_window_weak {
@@ -324,7 +341,8 @@ fn set_ports_model(main_window: &MainWindow, midi: &SharedMidi, port_type: &Port
 }
 
 fn set_tuning_grids_model(main_window: &MainWindow) {
-    let tuning_grid_items: Vec<ComboBoxItem> = (80..88)
+    let tuning_grid_items: Vec<ComboBoxItem> = tuner::tuning_grid_nos()
+        .iter()
         .map(|grid_no| ComboBoxItem { text: grid_no.to_string().into() })
         .collect();
     let model = Rc::new(TuningGridsModel(tuning_grid_items));
