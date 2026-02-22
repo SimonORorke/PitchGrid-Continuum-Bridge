@@ -198,6 +198,8 @@ fn init(main_window: &MainWindow, midi: &mut SharedMidi, settings: &mut SharedSe
             } else {
                 main_window.invoke_focus_output_port();
             }
+        } else if midi1.input().port().is_some() {
+            main_window.invoke_focus_update_tuning_button();
         }
     }
     init_ui_handlers(&main_window, Arc::clone(&midi), Arc::clone(settings));
@@ -248,6 +250,9 @@ fn init_ui_handlers(main_window: &MainWindow, midi: SharedMidi, settings: Shared
             refresh_ports(window_weak.clone(), &mut midi, &mut settings, &PortType::Output)
         });
     }
+    main_window.on_update_tuning(move || {
+        tuner::update_tuning()
+    });
     {
         let mut settings: SharedSettings = Arc::clone(&settings);
         main_window.on_selected_tuning_grid_changed(move |index| {

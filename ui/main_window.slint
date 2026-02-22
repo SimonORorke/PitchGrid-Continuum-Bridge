@@ -32,6 +32,7 @@ export component MainWindow inherits MagicWindow {
     in property <string> window_title;
 
     callback selected_tuning_grid_changed(index: int);
+    callback update_tuning();
 
     public function show_message(message: string, message_type: MessageType) {
         message_text.text = message;
@@ -61,6 +62,10 @@ export component MainWindow inherits MagicWindow {
 
     public function focus_output_port() {
         midi_output.focus();
+    }
+
+    public function focus_update_tuning_button() {
+        update_tuning_button.focus();
     }
 
     function get_background_color() -> color {
@@ -124,7 +129,7 @@ export component MainWindow inherits MagicWindow {
             MagicText {
                 text: "Tuning grid:";
                 vertical_alignment: center;
-                width: 100px;
+                width: 90px;
             }
             VerticalLayout {
                 padding_left: Globals.horizontal_padding;
@@ -138,12 +143,25 @@ export component MainWindow inherits MagicWindow {
                     width: 55px;
                 }
             }
+            HorizontalLayout {
+                alignment: end;
+                padding-right: 20px;
+                update_tuning_button := FilledButton {
+                    text: "Update Tuning";
+                    action: ButtonAction.primary;
+                    height: Globals.control_height;
+                    width: Globals.button_width;
+                    clicked => {
+                        root.update_tuning()
+                    }
+                }
+            }
         }
         HorizontalLayout {
             padding_top: 10px;
             padding_bottom: 5px;
             HorizontalLayout {
-                alignment: start;
+                alignment: start; // Centres the message text.
                 Image {
                     source: Globals.icon;
                     width:  Globals.control_height; height: Globals.control_height;
