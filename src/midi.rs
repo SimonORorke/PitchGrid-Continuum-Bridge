@@ -77,6 +77,7 @@ impl Midi {
                     self.input.set_port(port.clone());
                 }
                 Err(_) =>
+                    // See comment in connect_output_port.
                     return Err(format!(
                         "Cannot connect MIDI input port {}. The port may be in use.", port_name)
                         .into())
@@ -98,6 +99,16 @@ impl Midi {
                     self.output.set_port(port.clone());
                 }
                 Err(_) =>
+                    // Devices that have their own MIDI drivers may support shared connections.
+                    // iConnectivity devices do.
+                    // Also, the new Windows MIDI Services does by default.
+                    // I don't know about other operating systems.
+                    // On 7th Feb 2026, I asked in the iConnectivity User Community FB group,
+                    // in a post headed 'Exclusive lock on MIDI ports?',
+                    // whether an iConnectivity might in future support exclusive connections,
+                    // which would be useful for this application. There was no response.
+                    // So on 14th Feb 2026, I raised a support ticket for the feature request.
+                    // So far, no response.
                     return Err(format!(
                         "Cannot connect MIDI output port {}. The port may be in use.", port.name())
                         .into())
