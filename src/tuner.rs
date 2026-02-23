@@ -2,9 +2,10 @@
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicI32, Ordering};
 use lazy_static::lazy_static;
+use round::round;
 
 struct Data {
-    pub note_pitches:Arc<Vec<f64>>,
+    pub note_pitches:Arc<Vec<f32>>,
     pub tuning_grid_no: Arc<AtomicI32>,
 }
 
@@ -27,6 +28,10 @@ lazy_static! {
 ///         steps: Number of steps per period
 pub fn on_tuning_received(depth: i32, mode: i32, root_freq: f32, stretch: f32,
                           skew: f32, mode_offset: i32, steps: i32) {
+    // println!(
+    //     "on_tuning_received: depth = {}; mode = {}; root_freq = {}; stretch = {}; \
+    //     skew = {}; mode_offset = {}; steps = {}",
+    //     depth, mode, root_freq, stretch, skew, mode_offset, steps);
     let mut data = DATA.lock().unwrap();
     let note_pitches = calculate_note_pitches(
         max(1, depth), mode, root_freq, stretch, skew, mode_offset, max(1, steps));
@@ -43,7 +48,7 @@ pub fn update_tuning() {
 /// Calculates and returns the pitch of each note in the MIDI range,
 /// given the tuning parameters.
 fn calculate_note_pitches(depth: i32, mode: i32, root_freq: f32, stretch: f32,
-                 skew: f32, mode_offset: i32, steps: i32) -> Vec<f64> {
+                 skew: f32, mode_offset: i32, steps: i32) -> Vec<f32> {
     let mos = ffi:: mos_from_g(
         depth,
         mode,
@@ -69,7 +74,12 @@ fn calculate_note_pitches(depth: i32, mode: i32, root_freq: f32, stretch: f32,
         128, // MIDI note number range 0 to 127
         60); // Middle C
     let scale_nodes = ffi::get_scale_nodes(&scale);
-    scale_nodes.iter().map(|node| ffi::get_node_pitch(&node)).collect()
+    scale_nodes.iter().map(|node|
+        // root_freq is received as f32 rounded to 5 decimal places,
+        // so let's store the pitch with the same precision.
+        round(ffi::get_node_pitch(&node), 5) as f32)
+        .collect()
+    // scale_nodes.iter().map(|node| ffi::get_node_pitch(&node)).collect()
 }
 
 pub fn default_tuning_grid_no() -> i32 { 80 }
