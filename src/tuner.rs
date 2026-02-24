@@ -51,9 +51,15 @@ pub fn on_tuning_received(depth: i32, mode: i32, root_freq: f32, stretch: f32,
     let mut data = DATA.lock().unwrap();
     let note_frequencies = calculate_note_frequencies(
         max(1, depth), mode, root_freq, stretch, skew, mode_offset, max(1, steps));
-    // for (i, pitch) in note_frequencies.iter().enumerate() {
-    //     println!("note {}: {}", i, pitch);
-    // }
+    for (i, pitch) in note_frequencies.iter().enumerate() {
+        println!("note {}: {}", i, pitch);
+        if i < note_frequencies.len() - 1 {
+            println!(
+                "Semitone: {} Hz",
+                round((note_frequencies[i + 1] as f64)
+                          - (*pitch as f64), 4).to_string());
+        }
+    }
     data.note_frequencies = Arc::new(note_frequencies);
 }
 
@@ -168,6 +174,7 @@ fn create_default_note_frequencies() -> Vec<f32> {
         4434.9224, 4698.6353, 4978.0317, 5274.0396, 5587.6514, 5919.9087, 6271.926, 6644.875,
         7039.9985, 7458.6196, 7902.1304, 8372.017, 8869.844, 9397.2705, 9956.0625, 10548.079,
         11175.302, 11839.817, 12543.852]
+    // 11175.302, 11839.817, 12543.852, 13289.75] // 128
 }
 
 #[cxx::bridge(namespace = "scalatrix")]
