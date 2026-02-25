@@ -23,6 +23,9 @@ use crate::settings::Settings;
 
 slint::include_modules!();
 
+/// Giving separate names to this shared data struct and those in modules
+/// and also to the static refs that use them works around a problem with RustRover where
+/// Linter would sometimes falsely indicate compiler errors.
 struct MainData {
     pub is_close_error_shown: Arc<AtomicBool>,
     pub main_window_weak: Option<Weak<MainWindow>>,
