@@ -23,14 +23,14 @@ use crate::settings::Settings;
 
 slint::include_modules!();
 
-struct Data {
+struct MainData {
     pub is_close_error_shown: Arc<AtomicBool>,
     pub main_window_weak: Option<Weak<MainWindow>>,
     pub osc: Osc,
 }
 
 lazy_static! {
-    static ref DATA: Mutex<Data> = Mutex::new(Data {
+    static ref MAIN_DATA: Mutex<MainData> = Mutex::new(MainData {
         is_close_error_shown: Arc::new(AtomicBool::new(false)),
         main_window_weak: None,
         osc: Osc::new(),
@@ -138,7 +138,7 @@ fn handle_close_request(
         main_window_weak: Weak<MainWindow>, midi: &SharedMidi,
         settings: &mut SharedSettings) -> CloseRequestResponse {
     let response = Arc::new(Mutex::new(CloseRequestResponse::HideWindow));
-    let mut data = DATA.lock().unwrap();
+    let mut data = MAIN_DATA.lock().unwrap();
     if data.is_close_error_shown.load(Ordering::Relaxed) {
         // If a close error message is already shown, allow the window to be closed.
         return *response.lock().unwrap()
@@ -203,7 +203,7 @@ fn init(main_window: &MainWindow, midi: &mut SharedMidi, settings: &mut SharedSe
         }
     }
     init_ui_handlers(&main_window, Arc::clone(&midi), Arc::clone(settings));
-    let mut data = DATA.lock().unwrap();
+    let mut data = MAIN_DATA.lock().unwrap();
     data.main_window_weak = Some(main_window.as_weak().clone());
     data.osc.start(Arc::new(on_osc_tuning_received), Arc::new(on_osc_connected_changed));
 }
@@ -268,7 +268,7 @@ fn update_tuning_grid_no(index: usize, settings: &mut SharedSettings) {
 }
 
 fn on_osc_connected_changed() {
-    let data = DATA.lock().unwrap();
+    let data = MAIN_DATA.lock().unwrap();
     if let Some(main_window_weak) = &data.main_window_weak {
         // println!("main.on_osc_connected_changed: Found main_window_weak");
         let is_connected = data.osc.is_connected();
@@ -291,7 +291,7 @@ fn on_osc_tuning_received(depth: i32, mode: i32, root_freq: f32, stretch: f32,
     //     skew = {}; mode_offset = {}; steps = {}",
     //     depth, mode, root_freq, stretch, skew, mode_offset, steps);
     tuner::on_tuning_received(depth, mode, root_freq, stretch, skew, mode_offset, steps);
-    let data = DATA.lock().unwrap();
+    let data = MAIN_DATA.lock().unwrap();
     if let Some(main_window_weak) = &data.main_window_weak {
         with_main_window(main_window_weak.clone(), move |main_window| {
             main_window.set_depth(format!("{depth}").into());

@@ -15,13 +15,13 @@ struct Note {
 }
 
 
-struct Data {
+struct TunerData {
     pub notes:Arc<Vec<Note>>,
     pub tuning_grid_no: Arc<AtomicI32>,
 }
 
 lazy_static! {
-    static ref DATA: Mutex<Data> = Mutex::new(Data {
+    static ref TUNER_DATA: Mutex<TunerData> = Mutex::new(TunerData {
         notes: Arc::new(vec![]),
         tuning_grid_no: Arc::new(AtomicI32::new(80)),
     });
@@ -44,7 +44,7 @@ pub fn on_tuning_received(depth: i32, mode: i32, root_freq: f32, stretch: f32,
     //     "tuner.on_tuning_received: depth = {}; mode = {}; root_freq = {}; stretch = {}; \
     //     skew = {}; mode_offset = {}; steps = {}",
     //     depth, mode, root_freq, stretch, skew, mode_offset, steps);
-    let mut data = DATA.lock().unwrap();
+    let mut data = TUNER_DATA.lock().unwrap();
     let note_pitches = calculate_note_pitches(
         max(1, depth), mode, root_freq, stretch, skew, mode_offset, max(1, steps));
     data.notes = Arc::new(note_pitches.iter().enumerate()
@@ -71,7 +71,9 @@ pub fn on_tuning_received(depth: i32, mode: i32, root_freq: f32, stretch: f32,
 
 pub fn update_tuning() {
     set_to_note_numbers();
-    set_offsets();
+    calculate_offsets();
+    // let mut data = TUNER_DATA.lock().unwrap();
+    // let notes = Arc::clone(data.notes);
 }
 
 /// Calculates and returns the pitch of each note in the MIDI range,
@@ -112,12 +114,15 @@ fn calculate_note_pitches(depth: i32, mode: i32, root_freq: f32, stretch: f32,
 
 pub fn default_tuning_grid_no() -> i32 { 80 }
 
-fn set_offsets() {
-    let mut data = DATA.lock().unwrap();
+fn calculate_offsets() {
+    let mut data = TUNER_DATA.lock().unwrap();
     let notes = Arc::make_mut(&mut data.notes);
     for i in 0..notes.len() {
         let note_pitch = notes[i].pitch;
         let to_note_pitch = notes[notes[i].to_number].pitch;
+        // let offset_hz  = note_pitch - to_note_pitch;
+        // let semitone_hz  = get_default_note_semitone_hz(notes[i].to_number);
+        // let mut offset_ratio = offset_hz / semitone_hz;
         let mut offset_ratio = (note_pitch / to_note_pitch).log2();
         if offset_ratio > 1.0 { // Could happen if to_number is 127
             offset_ratio = 1.0;
@@ -135,15 +140,15 @@ fn set_offsets() {
     }
 }
 
-/// Sets the to_number field of each Note in DATA.notes to
+/// Sets the to_number field of each Note in TUNER_DATA.notes to
 /// the index of the note pitch in DEFAULT_NOTE_PITCHES
 /// that matches the Note's pitch.
-/// A match is when a pitch in DATA.note_pitches is
+/// A match is when a pitch in TUNER_DATA.note_pitches is
 /// greater than or equal to the pitch in DEFAULT_NOTE_PITCHES
 /// and less than the next pitch, if any, in DEFAULT_NOTE_PITCHES.
 /// Pitches in both vectors are assumed to be sorted in ascending order.
 fn set_to_note_numbers() {
-    let mut data = DATA.lock().unwrap();
+    let mut data = TUNER_DATA.lock().unwrap();
     let notes = Arc::make_mut(&mut data.notes);
     // Exact match: Ok(i) → returns i ✓
     // pitch < first: Err(0) → returns 0 ✓
@@ -161,20 +166,20 @@ fn set_to_note_numbers() {
     }
 }
 
-fn get_default_note_semitone_hz(note_number: usize) -> f32 {
-    if note_number < DEFAULT_NOTE_PITCHES.len() - 1 {
-        return DEFAULT_NOTE_PITCHES[note_number + 1] - DEFAULT_NOTE_PITCHES[note_number];
-    }
-    // Note 127, so there's no next pitch.  But we can hard-code it: 13289.75 - 12543.852.   
-    745.898
-}
+// fn get_default_note_semitone_hz(note_number: usize) -> f32 {
+//     if note_number < DEFAULT_NOTE_PITCHES.len() - 1 {
+//         return DEFAULT_NOTE_PITCHES[note_number + 1] - DEFAULT_NOTE_PITCHES[note_number];
+//     }
+//     // Note 127, so there's no next pitch.  But we can hard-code it: 13289.75 - 12543.852.   
+//     745.898
+// }
 
 pub fn set_tuning_grid_no(tuning_grid_no: i32) {
-    DATA.lock().unwrap().tuning_grid_no.store(tuning_grid_no, Ordering::Relaxed);
+    TUNER_DATA.lock().unwrap().tuning_grid_no.store(tuning_grid_no, Ordering::Relaxed);
 }
 
 pub fn tuning_grid_index() -> usize {
-    let tuning_grid_no = DATA.lock().unwrap().tuning_grid_no.load(Ordering::Relaxed);
+    let tuning_grid_no = TUNER_DATA.lock().unwrap().tuning_grid_no.load(Ordering::Relaxed);
     // Return the index of the TUNING_GRID_NOS item that equals tuning_grid_no.
     TUNING_GRID_NOS.iter().position(|&x| x == tuning_grid_no).unwrap_or(0)
 }

@@ -12,12 +12,12 @@ pub enum PortType {
     Output,
 }
 
-struct Data {
+struct MidiData {
     pub output_connection: Option<MidiOutputConnection>,
 }
 
 lazy_static! {
-    static ref DATA: Mutex<Data> = Mutex::new(Data {
+    static ref MIDI_DATA: Mutex<MidiData> = Mutex::new(MidiData {
         output_connection: None,
     });
 }
@@ -94,7 +94,7 @@ impl Midi {
             let midi_output = Self::create_midi_output();
             match midi_output.connect(midi_port, &port_name) {
                 Ok(connection) => {
-                    let mut data = DATA.lock()?;
+                    let mut data = MIDI_DATA.lock()?;
                     data.output_connection = Option::from(connection);
                     self.output.set_port(port.clone());
                 }
@@ -135,7 +135,7 @@ impl Midi {
 
     fn disconnect_output_port(&mut self) {
         // println!("Midi.disconnect_output_port start");
-        let mut data = DATA.lock().unwrap();
+        let mut data = MIDI_DATA.lock().unwrap();
         if let Some(connection) = data.output_connection.take() {
             connection.close();
             self.output.set_port_to_none();
@@ -143,7 +143,7 @@ impl Midi {
     }
 
     fn forward_midi_message(message: &[u8]) {
-        let mut data = DATA.lock().unwrap();
+        let mut data = MIDI_DATA.lock().unwrap();
         if let Some(output_connection)
             = data.output_connection.as_mut() {
             output_connection.send(message)
