@@ -4,40 +4,36 @@ use std::sync::atomic::{AtomicI32, Ordering};
 use lazy_static::lazy_static;
 use round::round;
 
-struct NoteRetuning {
-    from_note: u8,
-    to_note: u8,
-    to_offset_msb: u8,
-    to_offset_lsb: u8,
+#[derive(Clone)]
+struct Note {
+    number: usize,
+    pitch: f32,
+    to_number: usize,
+    offset_ratio: f32,
+    offset_msb: u8,
+    offset_lsb: u8,
 }
 
-impl NoteRetuning {
-    pub fn new(from_note: u8, to_note: u8, to_offset_msb: u8, to_offset_lsb: u8) -> Self {
-        Self { from_note, to_note, to_offset_msb, to_offset_lsb }
-    }
-}
 
 struct Data {
-    pub note_frequencies:Arc<Vec<f32>>,
+    pub notes:Arc<Vec<Note>>,
     pub tuning_grid_no: Arc<AtomicI32>,
 }
 
 lazy_static! {
     static ref DATA: Mutex<Data> = Mutex::new(Data {
-        note_frequencies: Arc::new(vec![]),
+        notes: Arc::new(vec![]),
         tuning_grid_no: Arc::new(AtomicI32::new(80)),
     });
-    static ref MIDDLE_C_FREQ: f32 = 261.62558;
     static ref TUNING_GRID_NOS: Vec<i32> = (80..88).collect();
-    static ref DEFAULT_NOTE_CENTS: Vec<f32> = create_default_note_cents();
-    static ref DEFAULT_NOTE_FREQUENCIES: Vec<f32> = create_default_note_frequencies();
+    static ref DEFAULT_NOTE_PITCHES: Vec<f32> = create_default_note_pitches();
 }
 
 /// Update tuning parameters from the OSC message.
 ///     Args:
 ///         depth: MOS depth (generation)
 ///         mode: Mode index
-///         root_freq: Root frequency in Hz
+///         root_freq: Root pitch in Hz
 ///         stretch: Stretch factor
 ///         skew: Skew factor
 ///         mode_offset: Mode offset
@@ -49,28 +45,39 @@ pub fn on_tuning_received(depth: i32, mode: i32, root_freq: f32, stretch: f32,
     //     skew = {}; mode_offset = {}; steps = {}",
     //     depth, mode, root_freq, stretch, skew, mode_offset, steps);
     let mut data = DATA.lock().unwrap();
-    let note_frequencies = calculate_note_frequencies(
+    let note_pitches = calculate_note_pitches(
         max(1, depth), mode, root_freq, stretch, skew, mode_offset, max(1, steps));
-    for (i, pitch) in note_frequencies.iter().enumerate() {
-        println!("note {}: {}", i, pitch);
-        if i < note_frequencies.len() - 1 {
+    data.notes = Arc::new(note_pitches.iter().enumerate()
+        .map(|(i, pitch)| {
+        Note {
+            number: i,
+            pitch: *pitch,
+            to_number: 0,
+            offset_ratio: 0.0,
+            offset_msb: 0,
+            offset_lsb: 0,
+        }
+    }).collect());
+    for note in data.notes.iter() {
+        println!("note {}: {}", note.number, note.pitch);
+        if note.number < data.notes.len() - 1 {
             println!(
                 "Semitone: {} Hz",
-                round((note_frequencies[i + 1] as f64)
-                          - (*pitch as f64), 4).to_string());
+                round((data.notes[note.number + 1].number as f64)
+                          - (note.pitch as f64), 4).to_string());
         }
     }
-    data.note_frequencies = Arc::new(note_frequencies);
 }
 
 pub fn update_tuning() {
-    let to_note_indexes = get_to_note_indexes();
+    set_to_note_numbers();
+    set_offsets();
 }
 
 /// Calculates and returns the pitch of each note in the MIDI range,
 /// given the tuning parameters.
-fn calculate_note_frequencies(depth: i32, mode: i32, root_freq: f32, stretch: f32,
-                              skew: f32, mode_offset: i32, steps: i32) -> Vec<f32> {
+fn calculate_note_pitches(depth: i32, mode: i32, root_freq: f32, stretch: f32,
+                          skew: f32, mode_offset: i32, steps: i32) -> Vec<f32> {
     let mos = ffi:: mos_from_g(
         depth,
         mode,
@@ -105,6 +112,63 @@ fn calculate_note_frequencies(depth: i32, mode: i32, root_freq: f32, stretch: f3
 
 pub fn default_tuning_grid_no() -> i32 { 80 }
 
+fn set_offsets() {
+    let mut data = DATA.lock().unwrap();
+    let notes = Arc::make_mut(&mut data.notes);
+    for i in 0..notes.len() {
+        let note_pitch = notes[i].pitch;
+        let to_note_pitch = notes[notes[i].to_number].pitch;
+        let mut offset_ratio = (note_pitch / to_note_pitch).log2();
+        if offset_ratio > 1.0 { // Could happen if to_number is 127
+            offset_ratio = 1.0;
+        } else if offset_ratio < 0.0 { // Shouldn't happen
+            panic!("offset_ratio should not be negative.")
+        }
+        notes[i].offset_ratio = offset_ratio;
+        // Convert offset_ratio (0.0 to 1.0) to 14-bit value (0 to 16,383)
+        let offset_14bit = (offset_ratio * 16383.0).round() as u16;
+        // Extract the upper 7 bits for MSB by shifting right 7 positions.
+        // Extract the lower 7 bits for LSB using a mask.
+        // Mask both with 0x7F to ensure they're 7-bit values.
+        notes[i].offset_msb = ((offset_14bit >> 7) & 0x7F) as u8;
+        notes[i].offset_lsb = (offset_14bit & 0x7F) as u8;
+    }
+}
+
+/// Sets the to_number field of each Note in DATA.notes to
+/// the index of the note pitch in DEFAULT_NOTE_PITCHES
+/// that matches the Note's pitch.
+/// A match is when a pitch in DATA.note_pitches is
+/// greater than or equal to the pitch in DEFAULT_NOTE_PITCHES
+/// and less than the next pitch, if any, in DEFAULT_NOTE_PITCHES.
+/// Pitches in both vectors are assumed to be sorted in ascending order.
+fn set_to_note_numbers() {
+    let mut data = DATA.lock().unwrap();
+    let notes = Arc::make_mut(&mut data.notes);
+    // Exact match: Ok(i) → returns i ✓
+    // pitch < first: Err(0) → returns 0 ✓
+    // pitch between elements: Err(i) where i > 0 → returns i - 1 ✓
+    // pitch > last: Err(128) → returns 127 ✓
+    for note in notes.iter_mut() {
+        note.to_number = DEFAULT_NOTE_PITCHES.binary_search_by(|&x|
+            x.partial_cmp(&note.pitch).unwrap()).unwrap_or_else(|i| {
+            if i == 0 {
+                0  // Below first pitch
+            } else {
+                i - 1  // pitch is between DEFAULT_NOTE_PITCHES[i-1] and [i]
+            }
+        });
+    }
+}
+
+fn get_default_note_semitone_hz(note_number: usize) -> f32 {
+    if note_number < DEFAULT_NOTE_PITCHES.len() - 1 {
+        return DEFAULT_NOTE_PITCHES[note_number + 1] - DEFAULT_NOTE_PITCHES[note_number];
+    }
+    // Note 127, so there's no next pitch.  But we can hard-code it: 13289.75 - 12543.852.   
+    745.898
+}
+
 pub fn set_tuning_grid_no(tuning_grid_no: i32) {
     DATA.lock().unwrap().tuning_grid_no.store(tuning_grid_no, Ordering::Relaxed);
 }
@@ -119,44 +183,11 @@ pub fn tuning_grid_nos() -> Vec<i32> {
     TUNING_GRID_NOS.clone()
 }
 
-/// Returns the indexes of the note frequencies in DEFAULT_NOTE_FREQUENCIES
-/// that match the corresponding note frequencies in DATA.note_frequencies.
-/// A match is when a frequency in DATA.note_frequencies is
-/// greater than or equal to the frequency in DEFAULT_NOTE_FREQUENCIES
-/// and less than the next frequency, if any, in DEFAULT_NOTE_FREQUENCIES.
-/// Frequencies in both vectors are assumed to be sorted in ascending order.
-fn get_to_note_indexes() -> Vec<usize> {
-    let data = DATA.lock().unwrap();
-    let note_frequencies = &*data.note_frequencies;
-    // Exact match: Ok(i) → returns i ✓
-    // freq < first: Err(0) → returns 0 ✓
-    // freq between elements: Err(i) where i > 0 → returns i - 1 ✓
-    // freq > last: Err(128) → returns 127 ✓
-    note_frequencies.iter().map(|&freq| {
-        DEFAULT_NOTE_FREQUENCIES.binary_search_by(|&x|
-            x.partial_cmp(&freq).unwrap()).unwrap_or_else(|i| {
-            if i == 0 {
-                0  // Below first frequency
-            } else {
-                i - 1  // freq is between DEFAULT_NOTE_FREQUENCIES[i-1] and [i]
-            }
-        })
-    }).collect()
-}
-
-/// Returns the default note pitches in cents relative to note 0,
-/// so with each note's pitch increased by 100 cents.
-#[allow(unused)] // The compiler thinks this function is unused,
-// even though it's used to initialise DEFAULT_NOTE_CENTS.
-fn create_default_note_cents() -> Vec<f32> {
-    (0..128).map(|i| i as f32 * 100.0).collect()
-}
-
-/// Returns the default note frequencies in Hz, where the default scale is 12-TET
+/// Returns the default note pitches in Hz, where the default scale is 12-TET
 /// at standard concert pitch.
 #[allow(unused)] // The compiler thinks this function is unused,
-// even though it's used to initialise DEFAULT_NOTE_FREQUENCIES.
-fn create_default_note_frequencies() -> Vec<f32> {
+// even though it's used to initialise DEFAULT_NOTE_PITCHES.
+fn create_default_note_pitches() -> Vec<f32> {
     vec![
         8.1758, 8.66196, 9.17703, 9.72272, 10.30086, 10.91339, 11.56233, 12.24986, 12.97828,
         13.75, 14.56762, 15.43385, 16.3516, 17.32392, 18.35405, 19.44544, 20.60172, 21.82677,
@@ -174,7 +205,7 @@ fn create_default_note_frequencies() -> Vec<f32> {
         4434.9224, 4698.6353, 4978.0317, 5274.0396, 5587.6514, 5919.9087, 6271.926, 6644.875,
         7039.9985, 7458.6196, 7902.1304, 8372.017, 8869.844, 9397.2705, 9956.0625, 10548.079,
         11175.302, 11839.817, 12543.852]
-    // 11175.302, 11839.817, 12543.852, 13289.75] // 128
+    // 11175.302, 11839.817, 12543.852, 13289.75] // 129 Notes
 }
 
 #[cxx::bridge(namespace = "scalatrix")]
