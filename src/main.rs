@@ -298,7 +298,7 @@ fn on_osc_tuning_received(depth: i32, mode: i32, root_freq: f32, stretch: f32,
     if let Some(main_window_weak) = &data.main_window_weak {
         with_main_window(main_window_weak.clone(), move |main_window| {
             main_window.set_depth(format!("{depth}").into());
-            main_window.set_root_freq(format!("{} Hz", round(root_freq as f64, 2)).into());
+            main_window.set_root_freq(format!("{} Hz", round(root_freq as f64, 3)).into());
             // The stretch parameter is in octaves, so we need to multiply by 1200 to get the
             // number of cents to display.
             main_window.set_stretch(format!("{} ct", (stretch * 1200.0).round()).into());

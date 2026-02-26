@@ -104,28 +104,14 @@ export component MainWindow inherits MagicWindow {
             }
         }
         VerticalBox {
-            padding-top: 5px;
+            padding-top: 10px;
             pitchgrid_connection_status_text := MessageText {
                 horizontal_alignment: center;
                 vertical_alignment: top;
             }
         }
-        VerticalLayout {
-            padding_top: 5px;
-            midi_input := MidiIo {
-                group_title: "From Haken/Osmose Editor Instrument Output";
-                type_label: "MIDI Input:";
-            }
-        }
-        VerticalLayout {
-            padding_top: 15px;
-            midi_output := MidiIo {
-                group_title: "To Haken Continuum / EaganMatrix Module / Osmose";
-                type_label: "MIDI Output:";
-            }
-        }
         HorizontalLayout {
-            padding_top: 15px;
+            padding_top: 5px;
             MagicText {
                 text: "Tuning grid:";
                 vertical_alignment: center;
@@ -155,6 +141,20 @@ export component MainWindow inherits MagicWindow {
                         root.update_tuning()
                     }
                 }
+            }
+        }
+        VerticalLayout {
+            padding_top: 10px;
+            midi_input := MidiIo {
+                group_title: "From Haken/Osmose Editor Instrument Output";
+                type_label: "MIDI Input:";
+            }
+        }
+        VerticalLayout {
+            padding_top: 15px;
+            midi_output := MidiIo {
+                group_title: "To Haken Continuum / EaganMatrix Module / Osmose";
+                type_label: "MIDI Output:";
             }
         }
         HorizontalLayout {
