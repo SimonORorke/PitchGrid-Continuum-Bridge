@@ -73,12 +73,6 @@ pub fn update_tuning() {
     println!("tuner.update_tuning");
     set_to_note_numbers();
     calculate_offsets();
-    let data = TUNER_DATA.lock().unwrap();
-    // let notes = data.notes.clone();
-    // for note in notes.iter() {
-    //     println!("note {}: to_note = {}; offset_ratio = {}; offset_msb = {}; offset_lsb = {}",
-    //              note.number, note.to_number, note.offset_ratio, note.offset_msb, note.offset_lsb);
-    // }
 }
 
 /// Calculates and returns the pitch of each note in the MIDI range,
@@ -119,27 +113,38 @@ fn calculate_note_pitches(depth: i32, mode: i32, root_freq: f32, stretch: f32,
 
 pub fn default_tuning_grid_no() -> i32 { 80 }
 
+/// Calculates the offset ratio and 14-bit offset values for each note.
+/// The offset ratio is the offset specified as % of a semitone between
+/// the required pitch and the closest standard tuning pitch that is less than or equal to it.
 fn calculate_offsets() {
     let mut data = TUNER_DATA.lock().unwrap();
     let notes = Arc::make_mut(&mut data.notes);
     for i in 0..notes.len() {
         let note_pitch = notes[i].pitch;
+        // Get the closest standard tuning pitch that is less than or equal to the
+        // required note pitch.
         let to_note_pitch = DEFAULT_NOTE_PITCHES[notes[i].to_number];
-        // let offset_hz  = note_pitch - to_note_pitch;
-        // let semitone_hz  = get_default_note_semitone_hz(notes[i].to_number);
-        // let offset_ratio = (offset_hz / semitone_hz).log2();
-        let offset_ratio = (note_pitch / to_note_pitch).log2();
-        // let mut offset_ratio = (note_pitch / to_note_pitch).log2();
-        // if offset_ratio > 1.0 { // Could happen if to_number is 127
-        //     offset_ratio = 1.0;
-        // } else if offset_ratio < 0.0 { // Shouldn't happen
-        //     panic!("offset_ratio should not be negative.")
-        // }
+        // offset_ratio is the offset specified as % of a semitone between
+        // note_pitch and to_note_pitch.
+        let mut offset_ratio = 12.0 * (note_pitch / to_note_pitch).log2();
+        if offset_ratio > 1.0 { // Could happen if to_number is 127
+            offset_ratio = 1.0;
+        } else if offset_ratio < 0.0 { // Shouldn't happen
+            panic!("offset_ratio should not be negative.")
+        }
         notes[i].offset_ratio = offset_ratio;
+        // Convert offset_ratio (0.0 to 1.0) to 14-bit value (0 to 16,383)
+        let offset_14bit = (offset_ratio * 16383.0).round() as u16;
+        // Extract the upper 7 bits for MSB by shifting right 7 positions.
+        // Extract the lower 7 bits for LSB using a mask.
+        // Mask both with 0x7F to ensure they're 7-bit values.
+        notes[i].offset_msb = ((offset_14bit >> 7) & 0x7F) as u8;
+        notes[i].offset_lsb = (offset_14bit & 0x7F) as u8;
         println!(
-            "note {}: pitch = {}; to_note = {}; to_note_pitch = {}; offset_ratio = {}",
+            "note {}: pitch = {}; to_note = {}; to_note_pitch = {}; offset_ratio = {}; \
+            offset_msb = {}, offset_lsb = {}",
             notes[i].number, note_pitch, notes[i].to_number, to_note_pitch,
-            notes[i].offset_ratio);
+            notes[i].offset_ratio, notes[i].offset_msb, notes[i].offset_lsb);
     }
 }
 
@@ -167,14 +172,6 @@ fn set_to_note_numbers() {
             }
         });
     }
-}
-
-fn get_default_note_semitone_hz(note_number: usize) -> f32 {
-    if note_number < DEFAULT_NOTE_PITCHES.len() - 1 {
-        return DEFAULT_NOTE_PITCHES[note_number + 1] - DEFAULT_NOTE_PITCHES[note_number];
-    }
-    // Note 127, so there's no next pitch.  But we can hard-code it: 13289.75 - 12543.852.
-    745.898
 }
 
 pub fn set_tuning_grid_no(tuning_grid_no: i32) {
