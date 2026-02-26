@@ -74,7 +74,7 @@ pub fn update_tuning() {
     set_to_note_numbers();
     calculate_offsets();
     let data = TUNER_DATA.lock().unwrap();
-    let notes = data.notes.clone();
+    // let notes = data.notes.clone();
     // for note in notes.iter() {
     //     println!("note {}: to_note = {}; offset_ratio = {}; offset_msb = {}; offset_lsb = {}",
     //              note.number, note.to_number, note.offset_ratio, note.offset_msb, note.offset_lsb);
@@ -123,13 +123,13 @@ fn calculate_offsets() {
     let mut data = TUNER_DATA.lock().unwrap();
     let notes = Arc::make_mut(&mut data.notes);
     for i in 0..notes.len() {
-        // let note_pitch = notes[i].pitch;
+        let note_pitch = notes[i].pitch;
         let to_note_pitch = DEFAULT_NOTE_PITCHES[notes[i].to_number];
         // let offset_hz  = note_pitch - to_note_pitch;
         // let semitone_hz  = get_default_note_semitone_hz(notes[i].to_number);
-        // let mut offset_ratio = offset_hz / semitone_hz;
-        let offset_ratio = (notes[i].pitch / to_note_pitch).log2();
-        // let mut offset_ratio = (notes[i].pitch / to_note_pitch).log2();
+        // let offset_ratio = (offset_hz / semitone_hz).log2();
+        let offset_ratio = (note_pitch / to_note_pitch).log2();
+        // let mut offset_ratio = (note_pitch / to_note_pitch).log2();
         // if offset_ratio > 1.0 { // Could happen if to_number is 127
         //     offset_ratio = 1.0;
         // } else if offset_ratio < 0.0 { // Shouldn't happen
@@ -138,15 +138,8 @@ fn calculate_offsets() {
         notes[i].offset_ratio = offset_ratio;
         println!(
             "note {}: pitch = {}; to_note = {}; to_note_pitch = {}; offset_ratio = {}",
-            notes[i].number, notes[i].pitch, notes[i].to_number, to_note_pitch,
+            notes[i].number, note_pitch, notes[i].to_number, to_note_pitch,
             notes[i].offset_ratio);
-        // // Convert offset_ratio (0.0 to 1.0) to 14-bit value (0 to 16,383)
-        // let offset_14bit = (offset_ratio * 16383.0).round() as u16;
-        // // Extract the upper 7 bits for MSB by shifting right 7 positions.
-        // // Extract the lower 7 bits for LSB using a mask.
-        // // Mask both with 0x7F to ensure they're 7-bit values.
-        // notes[i].offset_msb = ((offset_14bit >> 7) & 0x7F) as u8;
-        // notes[i].offset_lsb = (offset_14bit & 0x7F) as u8;
     }
 }
 
@@ -176,13 +169,13 @@ fn set_to_note_numbers() {
     }
 }
 
-// fn get_default_note_semitone_hz(note_number: usize) -> f32 {
-//     if note_number < DEFAULT_NOTE_PITCHES.len() - 1 {
-//         return DEFAULT_NOTE_PITCHES[note_number + 1] - DEFAULT_NOTE_PITCHES[note_number];
-//     }
-//     // Note 127, so there's no next pitch.  But we can hard-code it: 13289.75 - 12543.852.
-//     745.898
-// }
+fn get_default_note_semitone_hz(note_number: usize) -> f32 {
+    if note_number < DEFAULT_NOTE_PITCHES.len() - 1 {
+        return DEFAULT_NOTE_PITCHES[note_number + 1] - DEFAULT_NOTE_PITCHES[note_number];
+    }
+    // Note 127, so there's no next pitch.  But we can hard-code it: 13289.75 - 12543.852.
+    745.898
+}
 
 pub fn set_tuning_grid_no(tuning_grid_no: i32) {
     TUNER_DATA.lock().unwrap().tuning_grid_no.store(tuning_grid_no, Ordering::Relaxed);
