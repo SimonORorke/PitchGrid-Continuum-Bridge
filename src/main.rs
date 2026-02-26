@@ -302,7 +302,7 @@ fn on_osc_tuning_received(depth: i32, mode: i32, root_freq: f32, stretch: f32,
             // The stretch parameter is in octaves, so we need to multiply by 1200 to get the
             // number of cents to display.
             main_window.set_stretch(format!("{} ct", (stretch * 1200.0).round()).into());
-            main_window.set_skew(format!("{}", round(skew as f64, 2)).into());
+            main_window.set_skew(format!("{}", round(skew as f64, 5)).into());
             main_window.set_mode_offset(format!("{mode_offset}").into());
             main_window.set_steps(format!("{steps}").into());
         });

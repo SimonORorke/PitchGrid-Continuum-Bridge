@@ -58,15 +58,6 @@ pub fn on_tuning_received(depth: i32, mode: i32, root_freq: f32, stretch: f32,
             offset_lsb: 0,
         }
     }).collect());
-    // for note in data.notes.iter() {
-    //     println!("note {}: {}", note.number, note.pitch);
-    //     if note.number < data.notes.len() - 1 {
-    //         println!(
-    //             "Semitone: {} Hz",
-    //             round((data.notes[note.number + 1].number as f64)
-    //                       - (note.pitch as f64), 4).to_string());
-    //     }
-    // }
 }
 
 pub fn update_tuning() {
@@ -140,11 +131,11 @@ fn calculate_offsets() {
         // Mask both with 0x7F to ensure they're 7-bit values.
         notes[i].offset_msb = ((offset_14bit >> 7) & 0x7F) as u8;
         notes[i].offset_lsb = (offset_14bit & 0x7F) as u8;
-        println!(
-            "note {}: pitch = {}; to_note = {}; to_note_pitch = {}; offset_ratio = {}; \
-            offset_msb = {}, offset_lsb = {}",
-            notes[i].number, note_pitch, notes[i].to_number, to_note_pitch,
-            notes[i].offset_ratio, notes[i].offset_msb, notes[i].offset_lsb);
+        // println!(
+        //     "note {}: pitch = {}; to_note = {}; to_note_pitch = {}; offset_ratio = {}; \
+        //     offset_msb = {}, offset_lsb = {}",
+        //     notes[i].number, note_pitch, notes[i].to_number, to_note_pitch,
+        //     notes[i].offset_ratio, notes[i].offset_msb, notes[i].offset_lsb);
     }
 }
 
