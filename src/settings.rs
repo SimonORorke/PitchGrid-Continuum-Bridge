@@ -7,7 +7,7 @@ use crate::global::APP_TITLE;
 pub struct Settings {
     pub midi_input_port: String,
     pub midi_output_port: String,
-    pub tuning_grid: i32,
+    pub pitch_table: i32,
 }
 
 impl Settings {
@@ -15,7 +15,7 @@ impl Settings {
         Self {
             midi_input_port: String::new(),
             midi_output_port: String::new(),
-            tuning_grid: 0,
+            pitch_table: 0,
         }
     }
 
@@ -51,7 +51,7 @@ impl Settings {
             })?;
         self.midi_input_port = settings.midi_input_port;
         self.midi_output_port = settings.midi_output_port;
-        self.tuning_grid = settings.tuning_grid;
+        self.pitch_table = settings.pitch_table;
         // println!("Settings.read_from_file: self.midi_input_port = {}", self.midi_input_port);
         Ok(())
     }

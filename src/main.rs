@@ -163,7 +163,7 @@ fn handle_close_request(
 
 fn init(main_window: &MainWindow, midi: &mut SharedMidi, settings: &mut SharedSettings) {
     // println!("main.init");
-    let tuning_grid_no: i32;
+    let pitch_table_no: i32;
     {
         let mut settings1 = settings.lock().unwrap();
         let input_port_name: String;
@@ -172,7 +172,7 @@ fn init(main_window: &MainWindow, midi: &mut SharedMidi, settings: &mut SharedSe
             Ok(_) => {
                 input_port_name = settings1.midi_input_port.clone();
                 output_port_name = settings1.midi_output_port.clone();
-                tuning_grid_no = max(tuner::default_tuning_grid_no(), settings1.tuning_grid);
+                pitch_table_no = max(tuner::default_pitch_table_no(), settings1.pitch_table);
             }
             Err(err) => {
                 show_error(main_window, err.to_string());
@@ -189,9 +189,9 @@ fn init(main_window: &MainWindow, midi: &mut SharedMidi, settings: &mut SharedSe
     set_ports_model(&main_window, midi, &PortType::Output);
     connect_initial_port(&main_window, midi, settings, &PortType::Input);
     connect_initial_port(&main_window, midi, settings, &PortType::Output);
-    set_tuning_grids_model(&main_window);
-    tuner::set_tuning_grid_no(tuning_grid_no);
-    main_window.set_selected_tuning_grid_index(tuner::tuning_grid_index() as i32);
+    set_pitch_tables_model(&main_window);
+    tuner::set_pitch_table_no(pitch_table_no);
+    main_window.set_selected_pitch_table_index(tuner::pitch_table_index() as i32);
     {
         // println!("main.init: Showing warning if no MIDI ports are connected.");
         let midi1 = midi.lock().unwrap();
@@ -258,16 +258,16 @@ fn init_ui_handlers(main_window: &MainWindow, midi: SharedMidi, settings: Shared
     });
     {
         let mut settings: SharedSettings = Arc::clone(&settings);
-        main_window.on_selected_tuning_grid_changed(move |index| {
-            update_tuning_grid_no(index as usize, &mut settings)
+        main_window.on_selected_pitch_table_changed(move |index| {
+            update_pitch_table_no(index as usize, &mut settings)
         });
     }
 }
 
-fn update_tuning_grid_no(index: usize, settings: &mut SharedSettings) {
-    let tuning_grid_no = tuner::tuning_grid_nos()[index];
-    tuner::set_tuning_grid_no(tuning_grid_no);
-    settings.lock().unwrap().tuning_grid = tuning_grid_no;
+fn update_pitch_table_no(index: usize, settings: &mut SharedSettings) {
+    let pitch_table_no = tuner::pitch_table_nos()[index];
+    tuner::set_pitch_table_no(pitch_table_no);
+    settings.lock().unwrap().pitch_table = pitch_table_no;
 }
 
 fn on_osc_connected_changed() {
@@ -351,13 +351,13 @@ fn set_ports_model(main_window: &MainWindow, midi: &SharedMidi, port_type: &Port
     }
 }
 
-fn set_tuning_grids_model(main_window: &MainWindow) {
-    let tuning_grid_items: Vec<ComboBoxItem> = tuner::tuning_grid_nos()
+fn set_pitch_tables_model(main_window: &MainWindow) {
+    let pitch_table_items: Vec<ComboBoxItem> = tuner::pitch_table_nos()
         .iter()
         .map(|grid_no| ComboBoxItem { text: grid_no.to_string().into() })
         .collect();
-    let model = Rc::new(TuningGridsModel(tuning_grid_items));
-    main_window.set_tuning_grids_model(slint::ModelRc::from(model));
+    let model = Rc::new(TuningGridsModel(pitch_table_items));
+    main_window.set_pitch_tables_model(slint::ModelRc::from(model));
 }
 
 fn show_connected_port_name(main_window: &MainWindow, settings: &mut SharedSettings, 

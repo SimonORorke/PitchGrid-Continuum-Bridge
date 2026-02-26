@@ -17,15 +17,21 @@ struct Note {
 
 struct TunerData {
     pub notes:Arc<Vec<Note>>,
-    pub tuning_grid_no: Arc<AtomicI32>,
+    /// About the name Pitch Table.
+    /// The EaganMatrix Overlay Developer's Guide calls them tuning grids.
+    /// But naming is inconsistent in the Continuum User Guide.
+    /// The main documentation calls them pitch tables or custom grids, though there are also
+    /// scattered references to tuning grids.
+    /// We call them pitch tables, as that has the best chance of being understood by users.
+    pub pitch_table_no: Arc<AtomicI32>,
 }
 
 lazy_static! {
     static ref TUNER_DATA: Mutex<TunerData> = Mutex::new(TunerData {
         notes: Arc::new(vec![]),
-        tuning_grid_no: Arc::new(AtomicI32::new(80)),
+        pitch_table_no: Arc::new(AtomicI32::new(80)),
     });
-    static ref TUNING_GRID_NOS: Vec<i32> = (80..88).collect();
+    static ref pitch_table_NOS: Vec<i32> = (80..88).collect();
     static ref DEFAULT_NOTE_PITCHES: Vec<f32> = create_default_note_pitches();
 }
 
@@ -102,7 +108,7 @@ fn calculate_note_pitches(depth: i32, mode: i32, root_freq: f32, stretch: f32,
         .collect()
 }
 
-pub fn default_tuning_grid_no() -> i32 { 80 }
+pub fn default_pitch_table_no() -> i32 { 80 }
 
 /// Calculates the offset ratio and 14-bit offset values for each note.
 /// The offset ratio is the offset specified as % of a semitone between
@@ -165,18 +171,18 @@ fn set_to_note_numbers() {
     }
 }
 
-pub fn set_tuning_grid_no(tuning_grid_no: i32) {
-    TUNER_DATA.lock().unwrap().tuning_grid_no.store(tuning_grid_no, Ordering::Relaxed);
+pub fn set_pitch_table_no(pitch_table_no: i32) {
+    TUNER_DATA.lock().unwrap().pitch_table_no.store(pitch_table_no, Ordering::Relaxed);
 }
 
-pub fn tuning_grid_index() -> usize {
-    let tuning_grid_no = TUNER_DATA.lock().unwrap().tuning_grid_no.load(Ordering::Relaxed);
-    // Return the index of the TUNING_GRID_NOS item that equals tuning_grid_no.
-    TUNING_GRID_NOS.iter().position(|&x| x == tuning_grid_no).unwrap_or(0)
+pub fn pitch_table_index() -> usize {
+    let pitch_table_no = TUNER_DATA.lock().unwrap().pitch_table_no.load(Ordering::Relaxed);
+    // Return the index of the pitch_table_NOS item that equals pitch_table_no.
+    pitch_table_NOS.iter().position(|&x| x == pitch_table_no).unwrap_or(0)
 }
 
-pub fn tuning_grid_nos() -> Vec<i32> {
-    TUNING_GRID_NOS.clone()
+pub fn pitch_table_nos() -> Vec<i32> {
+    pitch_table_NOS.clone()
 }
 
 /// Returns the default note pitches in Hz, where the default scale is 12-TET

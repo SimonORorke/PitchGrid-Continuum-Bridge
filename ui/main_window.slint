@@ -26,12 +26,12 @@ export component MainWindow inherits MagicWindow {
     in property stretch <=> stretch_value.text;
     in property skew <=> skew_value.text;
     in property mode_offset <=> mode_offset_value.text;
-    in property <int> selected_tuning_grid_index;
+    in property <int> selected_pitch_table_index;
     in property steps <=> steps_value.text;
-    in property tuning_grids_model <=> tuning_grids_combo.model;
+    in property pitch_tables_model <=> pitch_tables_combo.model;
     in property <string> window_title;
 
-    callback selected_tuning_grid_changed(index: int);
+    callback selected_pitch_table_changed(index: int);
     callback update_tuning();
 
     public function show_message(message: string, message_type: MessageType) {
@@ -113,17 +113,17 @@ export component MainWindow inherits MagicWindow {
         HorizontalLayout {
             padding_top: 5px;
             MagicText {
-                text: "Tuning grid:";
+                text: "Pitch table:";
                 vertical_alignment: center;
                 width: 90px;
             }
             VerticalLayout {
                 padding_left: Globals.horizontal_padding;
                 padding_right: Globals.horizontal_padding * 2;
-                tuning_grids_combo := ComboBox {
-                    current_index: root.selected_tuning_grid_index;
+                pitch_tables_combo := ComboBox {
+                    current_index: root.selected_pitch_table_index;
                     changed current_index => {
-                        root.selected_tuning_grid_changed(self.current_index);
+                        root.selected_pitch_table_changed(self.current_index);
                     }
                     height: Globals.control_height;
                     width: 55px;
