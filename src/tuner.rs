@@ -1,14 +1,15 @@
 use std::cmp::max;
 use std::sync::{Arc, Mutex};
-use std::sync::atomic::{AtomicI32, Ordering};
+use std::sync::atomic::{AtomicU8, Ordering};
 use lazy_static::lazy_static;
 use round::round;
+use crate::midi::Midi;
 
 #[derive(Clone)]
 struct Note {
-    number: usize,
+    number: u8,
     pitch: f32,
-    to_number: usize,
+    to_number: u8,
     offset_ratio: f32,
     offset_msb: u8,
     offset_lsb: u8,
@@ -23,17 +24,18 @@ struct TunerData {
     /// The main documentation calls them pitch tables or custom grids, though there are also
     /// scattered references to tuning grids.
     /// We call them pitch tables, as that has the best chance of being understood by users.
-    pub pitch_table_no: Arc<AtomicI32>,
+    pub pitch_table_no: Arc<AtomicU8>,
 }
 
 lazy_static! {
     static ref TUNER_DATA: Mutex<TunerData> = Mutex::new(TunerData {
         notes: Arc::new(vec![]),
-        pitch_table_no: Arc::new(AtomicI32::new(80)),
+        pitch_table_no: Arc::new(AtomicU8::new(default_pitch_table_no())),
     });
-    static ref pitch_table_NOS: Vec<i32> = (80..88).collect();
+    static ref PITCH_TABLE_NOS: Vec<u8> = (80..88).collect();
     static ref DEFAULT_NOTE_PITCHES: Vec<f32> = create_default_note_pitches();
 }
+
 
 /// Update tuning parameters from the OSC message.
 ///     Args:
@@ -56,7 +58,7 @@ pub fn on_tuning_received(depth: i32, mode: i32, root_freq: f32, stretch: f32,
     data.notes = Arc::new(note_pitches.iter().enumerate()
         .map(|(i, pitch)| {
         Note {
-            number: i,
+            number: i as u8,
             pitch: *pitch,
             to_number: 0,
             offset_ratio: 0.0,
@@ -66,10 +68,15 @@ pub fn on_tuning_received(depth: i32, mode: i32, root_freq: f32, stretch: f32,
     }).collect());
 }
 
+pub fn set_pitch_table_no(pitch_table_no: u8) {
+    TUNER_DATA.lock().unwrap().pitch_table_no.store(pitch_table_no, Ordering::Relaxed);
+}
+
 pub fn update_tuning() {
-    println!("tuner.update_tuning");
+    // println!("tuner.update_tuning");
     set_to_note_numbers();
     calculate_offsets();
+    send_pitch_table_to_instrument()
 }
 
 /// Calculates and returns the pitch of each note in the MIDI range,
@@ -108,7 +115,7 @@ fn calculate_note_pitches(depth: i32, mode: i32, root_freq: f32, stretch: f32,
         .collect()
 }
 
-pub fn default_pitch_table_no() -> i32 { 80 }
+pub fn default_pitch_table_no() -> u8 { 80 }
 
 /// Calculates the offset ratio and 14-bit offset values for each note.
 /// The offset ratio is the offset specified as % of a semitone between
@@ -120,14 +127,14 @@ fn calculate_offsets() {
         let note_pitch = notes[i].pitch;
         // Get the closest standard tuning pitch that is less than or equal to the
         // required note pitch.
-        let to_note_pitch = DEFAULT_NOTE_PITCHES[notes[i].to_number];
+        let to_note_pitch = DEFAULT_NOTE_PITCHES[notes[i].to_number as usize];
         // offset_ratio is the offset specified as % of a semitone between
         // note_pitch and to_note_pitch.
         let mut offset_ratio = 12.0 * (note_pitch / to_note_pitch).log2();
-        if offset_ratio > 1.0 { // Could happen if to_number is 127
+        if offset_ratio > 1.0 { // Could happen if to_number is 127.
             offset_ratio = 1.0;
         } else if offset_ratio < 0.0 { // Shouldn't happen
-            panic!("offset_ratio should not be negative.")
+            offset_ratio = 0.0; // Could happen with low notes.
         }
         notes[i].offset_ratio = offset_ratio;
         // Convert offset_ratio (0.0 to 1.0) to 14-bit value (0 to 16,383)
@@ -143,6 +150,40 @@ fn calculate_offsets() {
         //     notes[i].number, note_pitch, notes[i].to_number, to_note_pitch,
         //     notes[i].offset_ratio, notes[i].offset_msb, notes[i].offset_lsb);
     }
+}
+
+fn send_pitch_table_to_instrument() {
+    // // Test: Load a user preset.
+    // Midi::send_control_change(16, 0, 0); // User presets
+    // Midi::send_control_change(16, 16, 0); // Preset no.
+    let notes: Vec<Note>;
+    let pitch_table_no: u8;
+    {
+        let data = TUNER_DATA.lock().unwrap();
+        notes = data.notes.to_vec();
+        pitch_table_no = data.pitch_table_no.load(Ordering::Relaxed);
+    }
+    // Select pitch table to update.
+    Midi::send_control_change(16, 109, pitch_table_no);
+    // Tuning for eac MIDI note
+    for note in notes {
+        // Base/From MIDI note
+        Midi::send_control_change(16, 38, note.number);
+        // Base/From MIDI note tuning MSB
+        Midi::send_control_change(16, 38, 0);
+        // Base/From MIDI note tuning LSB
+        Midi::send_control_change(16, 38, 0);
+        // Re-tuned/To MIDI note
+        Midi::send_control_change(16, 38, note.to_number);
+        // Re-tuned/To MIDI note tuning MSB
+        Midi::send_control_change(16, 38, note.offset_msb);
+        // Re-tuned/To MIDI note tuning LSB
+        Midi::send_control_change(16, 38, note.offset_lsb);
+    }
+    // Save pitch table on instrument.
+    Midi::send_control_change(16, 109, 101);
+    // Set active pitch table for performance.
+    Midi::send_control_change(16, 51, pitch_table_no);
 }
 
 /// Sets the to_number field of each Note in TUNER_DATA.notes to
@@ -167,22 +208,18 @@ fn set_to_note_numbers() {
             } else {
                 i - 1  // pitch is between DEFAULT_NOTE_PITCHES[i-1] and [i]
             }
-        });
+        }) as u8;
     }
-}
-
-pub fn set_pitch_table_no(pitch_table_no: i32) {
-    TUNER_DATA.lock().unwrap().pitch_table_no.store(pitch_table_no, Ordering::Relaxed);
 }
 
 pub fn pitch_table_index() -> usize {
     let pitch_table_no = TUNER_DATA.lock().unwrap().pitch_table_no.load(Ordering::Relaxed);
     // Return the index of the pitch_table_NOS item that equals pitch_table_no.
-    pitch_table_NOS.iter().position(|&x| x == pitch_table_no).unwrap_or(0)
+    PITCH_TABLE_NOS.iter().position(|&x| x == pitch_table_no).unwrap_or(0)
 }
 
-pub fn pitch_table_nos() -> Vec<i32> {
-    pitch_table_NOS.clone()
+pub fn pitch_table_nos() -> Vec<u8> {
+    PITCH_TABLE_NOS.clone()
 }
 
 /// Returns the default note pitches in Hz, where the default scale is 12-TET
@@ -207,7 +244,6 @@ fn create_default_note_pitches() -> Vec<f32> {
         4434.9224, 4698.6353, 4978.0317, 5274.0396, 5587.6514, 5919.9087, 6271.926, 6644.875,
         7039.9985, 7458.6196, 7902.1304, 8372.017, 8869.844, 9397.2705, 9956.0625, 10548.079,
         11175.302, 11839.817, 12543.852]
-    // 11175.302, 11839.817, 12543.852, 13289.75] // 129 Notes
 }
 
 #[cxx::bridge(namespace = "scalatrix")]

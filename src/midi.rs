@@ -4,6 +4,7 @@ use lazy_static::lazy_static;
 use midir::{
     MidiInput, MidiInputConnection, MidiInputPort,
     MidiOutput, MidiOutputConnection, MidiOutputPort};
+use midly::{live::LiveEvent, MidiMessage};
 use crate::midi_ports::{Io, MidiIo};
 
 #[derive(Clone, Copy)]
@@ -27,6 +28,12 @@ pub struct Midi {
     input_connection: Option<MidiInputConnection<()>>,
     output: Io<MidiOutputPort>,
 }
+
+// impl Midi {
+//     pub(crate) fn send_pitch_table_to_instrument(p0: i32) {
+//         todo!()
+//     }
+// }
 
 impl Midi {
     const INPUT_CLIENT_NAME: &str = "My MIDI Input";
@@ -69,7 +76,7 @@ impl Midi {
                 midi_port,
                 &port_name,
                 |_, message, _| {
-                    Self::forward_midi_message(message)
+                    Self::send_message(message)
                 },
                 ()) {
                 Ok(connection) => {
@@ -142,15 +149,6 @@ impl Midi {
         }
     }
 
-    fn forward_midi_message(message: &[u8]) {
-        let mut data = MIDI_DATA.lock().unwrap();
-        if let Some(output_connection)
-            = data.output_connection.as_mut() {
-            output_connection.send(message)
-                .unwrap_or_else(|_| println!("Error when forwarding message ..."));
-        }
-    }
-
     pub fn init(&mut self,
                 input_port_name: &str, output_port_name: &str) -> Result<(), Box<dyn Error>> {
         self.input.populate_ports(input_port_name)?;
@@ -174,6 +172,19 @@ impl Midi {
         Ok(())
     }
 
+    pub fn send_control_change(channel: u8, cc_no: u8, value: u8) {
+        let live_event = LiveEvent::Midi {
+            channel: channel.into(),
+            message: MidiMessage::Controller {
+                controller: cc_no.into(),
+                value: value.into(),
+            },
+        };
+        let mut buf = Vec::new();
+        live_event.write(&mut buf).unwrap();
+        Self::send_message(&buf[..]);
+    }
+
     fn refresh_input_ports(&mut self, input_port_name: &str) -> Result<(), Box<dyn Error>> {
         // println!("Midi.refresh_input_ports: start");
         self.disconnect_input_port();
@@ -186,5 +197,14 @@ impl Midi {
         self.disconnect_output_port();
         self.output.populate_ports(output_port_name)?;
         Ok(())
+    }
+
+    fn send_message(message: &[u8]) {
+        let mut data = MIDI_DATA.lock().unwrap();
+        if let Some(output_connection)
+            = data.output_connection.as_mut() {
+            output_connection.send(message)
+                .unwrap_or_else(|_| println!("Error when sending message ..."));
+        }
     }
 }

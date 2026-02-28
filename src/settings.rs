@@ -7,7 +7,7 @@ use crate::global::APP_TITLE;
 pub struct Settings {
     pub midi_input_port: String,
     pub midi_output_port: String,
-    pub pitch_table: i32,
+    pub pitch_table: u8,
 }
 
 impl Settings {

@@ -163,7 +163,7 @@ fn handle_close_request(
 
 fn init(main_window: &MainWindow, midi: &mut SharedMidi, settings: &mut SharedSettings) {
     // println!("main.init");
-    let pitch_table_no: i32;
+    let pitch_table_no: u8;
     {
         let mut settings1 = settings.lock().unwrap();
         let input_port_name: String;
