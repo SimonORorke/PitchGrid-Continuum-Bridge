@@ -196,12 +196,15 @@ impl Midi {
         match event {
             LiveEvent::Midi { channel, message } => match message {
                 MidiMessage::NoteOn { key, vel } => {
+                    // Should not be any of these if we are receiving from Haken Editor.
                     let channel1 = u8::from(channel) + 1; // 1-based channel number.
                     println!("rx: NoteOn ch{} {} {}", channel1, key, vel);
                 },
                 MidiMessage::Controller { controller, value } => {
                     let channel1 = u8::from(channel) + 1; // 1-based channel number.
-                    if channel1 == 16 && controller != 82 {
+                    // Monitor system messages (channel 16);
+                    // but ignore Haken Editor's heartbeat messages (cc 116).
+                    if channel1 == 16 && controller != 116 {
                         println!("rx: ch{} cc{} {}", channel1, controller, value);
                         if controller == 109 {
                             if value == 54 {
@@ -217,7 +220,7 @@ impl Midi {
             _ => {}
         }
         // Needed if we need to forward from Haken Editor
-        //Self::send_message(message);
+        Self::send_message(message);
     }
 
     fn refresh_input_ports(&mut self, input_port_name: &str) -> Result<(), Box<dyn Error>> {
