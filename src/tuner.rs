@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicU8, Ordering};
 use lazy_static::lazy_static;
 use round::round;
-use crate::midi::Midi;
+use crate::midi::{ConnectionTo, Midi};
 
 #[derive(Clone)]
 struct Note {
@@ -161,26 +161,30 @@ fn send_pitch_table_to_instrument() {
         pitch_table_no = data.pitch_table_no.load(Ordering::Relaxed);
     }
     // Select pitch table to update.
-    Midi::send_control_change(16, 109, pitch_table_no);
-    // Tuning for eac MIDI note
+    send_control_change(16, 109, pitch_table_no);
+    // Tuning for each MIDI note
     for note in notes {
         // Base/From MIDI note
-        Midi::send_control_change(16, 38, note.number);
+        send_control_change(16, 38, note.number);
         // Base/From MIDI note tuning MSB
-        Midi::send_control_change(16, 38, 0);
+        send_control_change(16, 38, 0);
         // Base/From MIDI note tuning LSB
-        Midi::send_control_change(16, 38, 0);
+        send_control_change(16, 38, 0);
         // Re-tuned/To MIDI note
-        Midi::send_control_change(16, 38, note.to_number);
+        send_control_change(16, 38, note.to_number);
         // Re-tuned/To MIDI note tuning MSB
-        Midi::send_control_change(16, 38, note.offset_msb);
+        send_control_change(16, 38, note.offset_msb);
         // Re-tuned/To MIDI note tuning LSB
-        Midi::send_control_change(16, 38, note.offset_lsb);
+        send_control_change(16, 38, note.offset_lsb);
     }
     // Save pitch table on instrument.
-    Midi::send_control_change(16, 109, 101);
+    send_control_change(16, 109, 101);
     // Set active pitch table for performance.
-    Midi::send_control_change(16, 51, pitch_table_no);
+    send_control_change(16, 51, pitch_table_no);
+}
+
+fn send_control_change(channel: u8, cc_no: u8, value: u8) {
+    Midi::send_control_change(channel, cc_no, value, &ConnectionTo::Instru);
 }
 
 /// Sets the to_number field of each Note in TUNER_DATA.notes to

@@ -8,32 +8,37 @@ use midly::{live::LiveEvent, MidiMessage};
 use crate::midi_ports::{Io, MidiIo};
 
 #[derive(Clone, Copy)]
+pub enum ConnectionTo {
+    Editor,
+    Instru, // Instrument
+}
+
+#[derive(Clone, Copy)]
 pub enum PortType {
     Input,
     Output,
 }
 
 struct MidiData {
-    pub output_connection: Option<MidiOutputConnection>,
+    pub editor_output_connection: Option<MidiOutputConnection>,
+    pub instru_output_connection: Option<MidiOutputConnection>,
 }
 
 lazy_static! {
     static ref MIDI_DATA: Mutex<MidiData> = Mutex::new(MidiData {
-        output_connection: None,
+        editor_output_connection: None,
+        instru_output_connection: None,
     });
 }
 
 pub struct Midi {
-    input: Io<MidiInputPort>,
-    input_connection: Option<MidiInputConnection<()>>,
-    output: Io<MidiOutputPort>,
+    editor_input: Io<MidiInputPort>,
+    editor_output: Io<MidiOutputPort>,
+    editor_input_connection: Option<MidiInputConnection<()>>,
+    instru_input: Io<MidiInputPort>,
+    instru_output: Io<MidiOutputPort>,
+    instru_input_connection: Option<MidiInputConnection<()>>,
 }
-
-// impl Midi {
-//     pub(crate) fn send_pitch_table_to_instrument(p0: i32) {
-//         todo!()
-//     }
-// }
 
 impl Midi {
     const INPUT_CLIENT_NAME: &str = "My MIDI Input";
@@ -41,47 +46,78 @@ impl Midi {
 
     pub fn new() -> Self {
         Self {
-            input: Io::<MidiInputPort>::new(
+            editor_input: Io::<MidiInputPort>::new(
                 Box::new(Self::create_midi_input())),
-            input_connection: None,
-            output: Io::<MidiOutputPort>::new(
+            editor_output: Io::<MidiOutputPort>::new(
                 Box::new(Self::create_midi_output())),
+            editor_input_connection: None,
+            instru_input: Io::<MidiInputPort>::new(
+                Box::new(Self::create_midi_input())),
+            instru_output: Io::<MidiOutputPort>::new(
+                Box::new(Self::create_midi_output())),
+            instru_input_connection: None,
         }
     }
 
-    pub fn input(&self) -> &Io<MidiInputPort> { &self.input }
-    pub fn output(&self) -> &Io<MidiOutputPort> { &self.output }
+    pub fn input(&self, connection_to: &ConnectionTo) -> &Io<MidiInputPort> {
+        match connection_to {
+            ConnectionTo::Editor => &self.editor_input,
+            ConnectionTo::Instru => &self.instru_input,
+        }
+    }
+    pub fn output(&self, connection_to: &ConnectionTo) -> &Io<MidiOutputPort> {
+        match connection_to {
+            ConnectionTo::Editor => &self.editor_output,
+            ConnectionTo::Instru => &self.instru_output,
+        }
+    }
 
     pub fn close(&mut self) {
         // println!("Midi.close");
-        self.disconnect_input_port();
-        self.disconnect_output_port();
+        self.disconnect_input_port(&ConnectionTo::Editor);
+        self.disconnect_input_port(&ConnectionTo::Instru);
+        self.disconnect_output_port(&ConnectionTo::Editor);
+        self.disconnect_output_port(&ConnectionTo::Instru);
     }
 
-    pub fn connect_port(&mut self, port_type: &PortType, index: usize) -> Result<(), Box<dyn Error>> {
+    pub fn connect_port(&mut self, port_type: &PortType, index: usize,
+                        connection_to: &ConnectionTo) -> Result<(), Box<dyn Error>> {
         match port_type {
-            PortType::Input => self.connect_input_port(index)?,
-            PortType::Output => self.connect_output_port(index)?,
+            PortType::Input => self.connect_input_port(index, connection_to)?,
+            PortType::Output => self.connect_output_port(index, connection_to)?,
         }
         Ok(())
     }
 
-    fn connect_input_port(&mut self, index: usize) -> Result<(), Box<dyn Error>> {
-        self.disconnect_input_port();
-        if let Some(port) = self.input.ports().get(index) {
+    fn connect_input_port(
+            &mut self, index: usize, connection_to: &ConnectionTo) -> Result<(), Box<dyn Error>> {
+        self.disconnect_input_port(connection_to);
+        let connection_to_owned = *connection_to;
+        let input: &mut Io<MidiInputPort> = match connection_to {
+            ConnectionTo::Editor => &mut self.editor_input,
+            ConnectionTo::Instru => &mut self.instru_input,
+        };
+        if let Some(port) = input.ports().get(index) {
             let port_name = port.name();
             let midi_port = port.midi_port();
             let midi_input = Self::create_midi_input();
             match midi_input.connect(
                 midi_port,
                 &port_name,
-                |_, message, _| {
-                    Self::on_message_received(message)
+                move |_, message, _| {
+                    match connection_to_owned {
+                        ConnectionTo::Editor => Self::on_editor_message_received(message),
+                        ConnectionTo::Instru => Self::on_instru_message_received(message),
+                    }
                 },
                 ()) {
                 Ok(connection) => {
-                    self.input_connection = Option::from(connection);
-                    self.input.set_port(port.clone());
+                    input.set_port(port.clone());
+                    let connection_option = Option::from(connection);
+                    match connection_to { 
+                        ConnectionTo::Editor => self.editor_input_connection = connection_option,
+                        ConnectionTo::Instru => self.instru_input_connection = connection_option,
+                    }
                 }
                 Err(_) =>
                     // See comment in connect_output_port.
@@ -93,17 +129,25 @@ impl Midi {
         Ok(())
     }
 
-    fn connect_output_port(&mut self, index: usize) -> Result<(), Box<dyn Error>> {
-        self.disconnect_output_port();
-        if let Some(port) = self.output.ports().get(index) {
+    fn connect_output_port(&mut self, index: usize, connection_to: &ConnectionTo)
+            -> Result<(), Box<dyn Error>> {
+        self.disconnect_output_port(connection_to);
+        let output: &mut Io<MidiOutputPort> = match connection_to {
+            ConnectionTo::Editor => &mut self.editor_output,
+            ConnectionTo::Instru => &mut self.instru_output,
+        };
+        if let Some(port) = output.ports().get(index) {
             let port_name = port.name();
             let midi_port = port.midi_port();
             let midi_output = Self::create_midi_output();
             match midi_output.connect(midi_port, &port_name) {
                 Ok(connection) => {
                     let mut data = MIDI_DATA.lock()?;
-                    data.output_connection = Option::from(connection);
-                    self.output.set_port(port.clone());
+                    match connection_to {
+                        ConnectionTo::Editor => data.editor_output_connection = Option::from(connection),
+                        ConnectionTo::Instru => data.instru_output_connection = Option::from(connection),
+                    }
+                    output.set_port(port.clone());
                 }
                 Err(_) =>
                     // Devices that have their own MIDI drivers may support shared connections.
@@ -132,66 +176,98 @@ impl Midi {
         MidiOutput::new(Self::OUTPUT_CLIENT_NAME).unwrap()
     }
 
-    fn disconnect_input_port(&mut self) {
+    fn disconnect_input_port(&mut self, connection_to: &ConnectionTo) {
         // println!("Midi.disconnect_input_port start");
-        if let Some(connection) = self.input_connection.take() {
+        let input_connection = match connection_to {
+            ConnectionTo::Editor => self.editor_input_connection.take(),
+            ConnectionTo::Instru => self.instru_input_connection.take(),
+        };
+        if let Some(connection) = input_connection {
             connection.close();
-            self.input.set_port_to_none();
+            let input = match connection_to {
+                ConnectionTo::Editor => &mut self.editor_input,
+                ConnectionTo::Instru => &mut self.instru_input,
+            };
+            input.set_port_to_none();
         }
     }
 
-    fn disconnect_output_port(&mut self) {
+    fn disconnect_output_port(&mut self, connection_to: &ConnectionTo) {
         // println!("Midi.disconnect_output_port start");
         let mut data = MIDI_DATA.lock().unwrap();
-        if let Some(connection) = data.output_connection.take() {
+        let output_connection = match connection_to {
+            ConnectionTo::Editor => data.editor_output_connection.take(),
+            ConnectionTo::Instru => data.instru_output_connection.take(),
+        };
+        if let Some(connection) = output_connection {
             connection.close();
-            self.output.set_port_to_none();
+            let output = match connection_to {
+                ConnectionTo::Editor => &mut self.editor_output,
+                ConnectionTo::Instru => &mut self.instru_output,
+            };
+            output.set_port_to_none();
         }
     }
 
     pub fn init(&mut self,
-                input_port_name: &str, output_port_name: &str) -> Result<(), Box<dyn Error>> {
-        self.input.populate_ports(input_port_name)?;
-        self.output.populate_ports(output_port_name)?;
+                editor_input_port_name: &str, editor_output_port_name: &str,
+                instru_input_port_name: &str, instru_output_port_name: &str)
+                    -> Result<(), Box<dyn Error>> {
+        self.editor_input.populate_ports(editor_input_port_name)?;
+        self.editor_output.populate_ports(editor_output_port_name)?;
+        self.instru_input.populate_ports(instru_input_port_name)?;
+        self.instru_output.populate_ports(instru_output_port_name)?;
         Ok(())
     }
 
-    pub fn io(&self, port_type: &PortType) -> &dyn MidiIo {
-        match port_type {
-            PortType::Input => &self.input,
-            PortType::Output => &self.output,
+    pub fn io(&self, port_type: &PortType, connection_to: &ConnectionTo) -> &dyn MidiIo {
+        match connection_to {
+            ConnectionTo::Editor => match port_type {
+                PortType::Input => &self.editor_input,
+                PortType::Output => &self.editor_output,
+            },
+            ConnectionTo::Instru => match port_type {
+                PortType::Input => &self.instru_input,
+                PortType::Output => &self.instru_output,
+            },
         }
     }
 
-    pub fn refresh_ports(&mut self,
-                         port_name: &str, port_type: &PortType) -> Result<(), Box<dyn Error>> {
+    pub fn refresh_ports(
+            &mut self,
+            port_name: &str, port_type: &PortType, connection_to: &ConnectionTo)
+                -> Result<(), Box<dyn Error>> {
         match port_type {
-            PortType::Input => self.refresh_input_ports(port_name)?,
-            PortType::Output => self.refresh_output_ports(port_name)?,
+            PortType::Input => self.refresh_input_ports(port_name, connection_to)?,
+            PortType::Output => self.refresh_output_ports(port_name, connection_to)?,
         }
         Ok(())
     }
 
     /// Send a MIDI control change message.
     /// Parameter `channel` is 1-based.
-    pub fn send_control_change(channel: u8, cc_no: u8, value: u8) {
+    pub fn send_control_change(channel: u8, cc_no: u8, value: u8, connection_to: &ConnectionTo) {
         Self::send_channel_message(channel, MidiMessage::Controller {
             controller: cc_no.into(),
             value: value.into(),
-        });
+        }, connection_to);
     }
 
     /// Send a MIDI program change message.
     /// Parameter `channel` is 1-based.
     /// Parameter `program` is 0-based.
     #[allow(dead_code)]
-    pub fn send_program_change(channel: u8, program: u8) {
+    pub fn send_program_change(channel: u8, program: u8, connection_to: &ConnectionTo) {
         Self::send_channel_message(channel, MidiMessage::ProgramChange {
             program: program.into(),
-        });
+        }, connection_to);
     }
 
-    fn on_message_received(message: &[u8]) {
+    fn on_editor_message_received(message: &[u8]) {
+        Self::send_message(message, &ConnectionTo::Editor);
+    }
+
+    fn on_instru_message_received(message: &[u8]) {
         let event = LiveEvent::parse(message).unwrap();
         match event {
             LiveEvent::Midi { channel, message } => match message {
@@ -219,41 +295,51 @@ impl Midi {
             },
             _ => {}
         }
-        // Needed if we need to forward from Haken Editor
-        Self::send_message(message);
+        Self::send_message(message, &ConnectionTo::Instru);
     }
 
-    fn refresh_input_ports(&mut self, input_port_name: &str) -> Result<(), Box<dyn Error>> {
+    fn refresh_input_ports(&mut self, input_port_name: &str,
+                           connection_to: &ConnectionTo) -> Result<(), Box<dyn Error>> {
         // println!("Midi.refresh_input_ports: start");
-        self.disconnect_input_port();
-        self.input.populate_ports(input_port_name)?;
+        self.disconnect_input_port(connection_to);
+        match connection_to {
+            ConnectionTo::Editor => self.editor_input.populate_ports(input_port_name)?,
+            ConnectionTo::Instru => self.instru_input.populate_ports(input_port_name)?,
+        }
         Ok(())
     }
 
-    fn refresh_output_ports(&mut self, output_port_name: &str) -> Result<(), Box<dyn Error>> {
+    fn refresh_output_ports(&mut self, output_port_name: &str,
+                            connection_to: &ConnectionTo) -> Result<(), Box<dyn Error>> {
         // println!("Midi.refresh_output_ports: start");
-        self.disconnect_output_port();
-        self.output.populate_ports(output_port_name)?;
+        self.disconnect_output_port(connection_to);
+        match connection_to {
+            ConnectionTo::Editor => self.editor_output.populate_ports(output_port_name)?,
+            ConnectionTo::Instru => self.instru_output.populate_ports(output_port_name)?,
+        }
         Ok(())
     }
 
     /// Send a MIDI channel message.
     /// Parameter `channel` is 1-based.
-    fn send_channel_message(channel: u8, message: MidiMessage) {
+    fn send_channel_message(channel: u8, message: MidiMessage, connection_to: &ConnectionTo) {
         let live_event = LiveEvent::Midi {
             channel: (channel - 1).into(), // 0-based channel number.
             message,
         };
         let mut buf = Vec::new();
         live_event.write(&mut buf).unwrap();
-        Self::send_message(&buf[..]);
+        Self::send_message(&buf[..], connection_to);
     }
 
-    fn send_message(message: &[u8]) {
+    fn send_message(message: &[u8], connection_to: &ConnectionTo) {
         let mut data = MIDI_DATA.lock().unwrap();
-        if let Some(output_connection)
-            = data.output_connection.as_mut() {
-            output_connection.send(message)
+        let connection_option = match connection_to {
+            ConnectionTo::Editor => data.editor_output_connection.as_mut(),
+            ConnectionTo::Instru => data.instru_output_connection.as_mut(),
+        };
+        if let Some(connection) = connection_option {
+            connection.send(message)
                 .unwrap_or_else(|_| println!("Error when sending message ..."));
         }
     }

@@ -34,6 +34,14 @@ export component MainWindow inherits MagicWindow {
     callback selected_pitch_table_changed(index: int);
     callback update_tuning();
 
+    public function focus_update_tuning_button() {
+        update_tuning_button.focus();
+    }
+
+    function get_background_color() -> color {
+        return Palette.color_scheme == ColorScheme.light ? #BDDFCC : #123735;
+    }
+
     public function show_message(message: string, message_type: MessageType) {
         message_text.text = message;
         message_text.message_type = message_type;
@@ -66,12 +74,26 @@ export component MainWindow inherits MagicWindow {
         editor.output_show_connected_port_name(name, message_type);
     }
 
-    public function focus_update_tuning_button() {
-        update_tuning_button.focus();
+    in property instru_input_ports_model <=> instr.input_ports_model;
+    in-out property <int> instru_input_selected_port_index <=> instr.input_selected_port_index;
+    callback instru_input_connect_port <=> instr.input_connect_port;
+    callback instru_input_refresh_ports <=> instr.input_refresh_ports;
+    public function instru_input_focus() {
+        instr.input_focus();
+    }
+    public function instru_input_show_connected_port_name(name: string, message_type: MessageType) {
+        instr.input_show_connected_port_name(name, message_type);
     }
 
-    function get_background_color() -> color {
-        return Palette.color_scheme == ColorScheme.light ? #BDDFCC : #123735;
+    in property instru_output_ports_model <=> instr.output_ports_model;
+    in-out property <int> instru_output_selected_port_index <=> instr.output_selected_port_index;
+    callback instru_output_connect_port <=> instr.output_connect_port;
+    callback instru_output_refresh_ports <=> instr.output_refresh_ports;
+    public function instru_output_focus() {
+        instr.output_focus();
+    }
+    public function instru_output_show_connected_port_name(name: string, message_type: MessageType) {
+        instr.output_show_connected_port_name(name, message_type);
     }
 
     VerticalLayout {
@@ -148,13 +170,13 @@ export component MainWindow inherits MagicWindow {
         VerticalLayout {
             padding_top: 10px;
             editor := MidiIo {
-                group_title: "MIDI from/to Editor (Instrument Ports)";
+                group_title: "From/to Editor (Instrument Ports)";
             }
         }
         VerticalLayout {
             padding_top: 15px;
-            instrument := MidiIo {
-                group_title: "MIDI from/to Instrument";
+            instr := MidiIo {
+                group_title: "From/To Instrument";
             }
         }
         HorizontalLayout {
