@@ -76,7 +76,7 @@ impl Midi {
                 midi_port,
                 &port_name,
                 |_, message, _| {
-                    Self::send_message(message)
+                    Self::on_message_received(message)
                 },
                 ()) {
                 Ok(connection) => {
@@ -172,17 +172,52 @@ impl Midi {
         Ok(())
     }
 
+    /// Send a MIDI control change message.
+    /// Parameter `channel` is 1-based.
     pub fn send_control_change(channel: u8, cc_no: u8, value: u8) {
-        let live_event = LiveEvent::Midi {
-            channel: channel.into(),
-            message: MidiMessage::Controller {
-                controller: cc_no.into(),
-                value: value.into(),
+        Self::send_channel_message(channel, MidiMessage::Controller {
+            controller: cc_no.into(),
+            value: value.into(),
+        });
+    }
+
+    /// Send a MIDI program change message.
+    /// Parameter `channel` is 1-based.
+    /// Parameter `program` is 0-based.
+    #[allow(dead_code)]
+    pub fn send_program_change(channel: u8, program: u8) {
+        Self::send_channel_message(channel, MidiMessage::ProgramChange {
+            program: program.into(),
+        });
+    }
+
+    fn on_message_received(message: &[u8]) {
+        let event = LiveEvent::parse(message).unwrap();
+        match event {
+            LiveEvent::Midi { channel, message } => match message {
+                MidiMessage::NoteOn { key, vel } => {
+                    let channel1 = u8::from(channel) + 1; // 1-based channel number.
+                    println!("rx: NoteOn ch{} {} {}", channel1, key, vel);
+                },
+                MidiMessage::Controller { controller, value } => {
+                    let channel1 = u8::from(channel) + 1; // 1-based channel number.
+                    if channel1 == 16 && controller != 82 {
+                        println!("rx: ch{} cc{} {}", channel1, controller, value);
+                        if controller == 109 {
+                            if value == 54 {
+                                println!("Start of user preset list");
+                            } else if value == 55 {
+                                println!("End of user preset list");
+                            }
+                        }
+                    }
+                },
+                _ => {}
             },
-        };
-        let mut buf = Vec::new();
-        live_event.write(&mut buf).unwrap();
-        Self::send_message(&buf[..]);
+            _ => {}
+        }
+        // Needed if we need to forward from Haken Editor
+        //Self::send_message(message);
     }
 
     fn refresh_input_ports(&mut self, input_port_name: &str) -> Result<(), Box<dyn Error>> {
@@ -197,6 +232,18 @@ impl Midi {
         self.disconnect_output_port();
         self.output.populate_ports(output_port_name)?;
         Ok(())
+    }
+
+    /// Send a MIDI channel message.
+    /// Parameter `channel` is 1-based.
+    fn send_channel_message(channel: u8, message: MidiMessage) {
+        let live_event = LiveEvent::Midi {
+            channel: (channel - 1).into(), // 0-based channel number.
+            message,
+        };
+        let mut buf = Vec::new();
+        live_event.write(&mut buf).unwrap();
+        Self::send_message(&buf[..]);
     }
 
     fn send_message(message: &[u8]) {

@@ -153,9 +153,6 @@ fn calculate_offsets() {
 }
 
 fn send_pitch_table_to_instrument() {
-    // // Test: Load a user preset.
-    // Midi::send_control_change(16, 0, 0); // User presets
-    // Midi::send_control_change(16, 16, 0); // Preset no.
     let notes: Vec<Note>;
     let pitch_table_no: u8;
     {
