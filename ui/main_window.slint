@@ -19,7 +19,7 @@ export component MainWindow inherits MagicWindow {
     min_height: 505px;
     title: window_title;
     icon: Globals.icon;
-    forward-focus: midi_input;
+    forward-focus: editor;
 
     in property depth <=> depth_value.text;
     in property root_freq <=> root_freq_value.text;
@@ -44,24 +44,26 @@ export component MainWindow inherits MagicWindow {
         pitchgrid_connection_status_text.message_type = message_type;
     }
 
-    in property input_ports_model <=> midi_input.ports_model;
-    in-out property <int> selected_input_port_index <=> midi_input.selected_port_index;
-    callback connect_input_port <=> midi_input.connect_port;
-    callback refresh_input_ports <=> midi_input.refresh_ports;
-    public function show_connected_input_port_name(name: string, message_type: MessageType) {
-        midi_input.show_connected_port_name(name, message_type);
+    in property editor_input_ports_model <=> editor.input_ports_model;
+    in-out property <int> editor_input_selected_port_index <=> editor.input_selected_port_index;
+    callback editor_input_connect_port <=> editor.input_connect_port;
+    callback editor_input_refresh_ports <=> editor.input_refresh_ports;
+    public function editor_input_focus() {
+        editor.input_focus();
+    }
+    public function editor_input_show_connected_port_name(name: string, message_type: MessageType) {
+        editor.input_show_connected_port_name(name, message_type);
     }
 
-    in property output_ports_model <=> midi_output.ports_model;
-    in-out property <int> selected_output_port_index <=> midi_output.selected_port_index;
-    callback connect_output_port <=> midi_output.connect_port;
-    callback refresh_output_ports <=> midi_output.refresh_ports;
-    public function show_connected_output_port_name(name: string, message_type: MessageType) {
-        midi_output.show_connected_port_name(name, message_type);
+    in property editor_output_ports_model <=> editor.output_ports_model;
+    in-out property <int> editor_output_selected_port_index <=> editor.output_selected_port_index;
+    callback editor_output_connect_port <=> editor.output_connect_port;
+    callback editor_output_refresh_ports <=> editor.output_refresh_ports;
+    public function editor_output_focus() {
+        editor.output_focus();
     }
-
-    public function focus_output_port() {
-        midi_output.focus();
+    public function editor_output_show_connected_port_name(name: string, message_type: MessageType) {
+        editor.output_show_connected_port_name(name, message_type);
     }
 
     public function focus_update_tuning_button() {
@@ -145,16 +147,14 @@ export component MainWindow inherits MagicWindow {
         }
         VerticalLayout {
             padding_top: 10px;
-            midi_input := MidiIo {
-                group_title: "From Haken/Osmose Editor Instrument Output";
-                type_label: "MIDI Input:";
+            editor := MidiIo {
+                group_title: "MIDI from/to Editor (Instrument Ports)";
             }
         }
         VerticalLayout {
             padding_top: 15px;
-            midi_output := MidiIo {
-                group_title: "To Haken Continuum / EaganMatrix Module / Osmose";
-                type_label: "MIDI Output:";
+            instrument := MidiIo {
+                group_title: "MIDI from/to Instrument";
             }
         }
         HorizontalLayout {

@@ -13,36 +13,49 @@ import { Globals, } from "../globals.slint";
 export component MidiIo inherits GroupBox {
     title: group_title;
     width: 680px;
-    forward-focus: ports_combo;
+    forward-focus: input_ports_combo;
 
     in property <string> group_title;
-    in property ports_model <=> ports_combo.model;
-    in-out property <int> selected_port_index;
-    in property <string> type_label;
-    
-    callback connect_port();
-    callback refresh_ports();
 
-    public function show_connected_port_name(name: string, message_type: MessageType) {
-        connected_port_name_text.text = name;
-        connected_port_name_text.message_type = message_type;
+    in property input_ports_model <=> input_ports_combo.model;
+    in-out property <int> input_selected_port_index;
+    callback input_connect_port();
+    callback input_refresh_ports();
+    public function input_focus() {
+        input_ports_combo.focus();
+    }
+    public function input_show_connected_port_name(name: string, message_type: MessageType) {
+        input_connected_port_name_text.text = name;
+        input_connected_port_name_text.message_type = message_type;
+    }
+
+    in property output_ports_model <=> output_ports_combo.model;
+    in-out property <int> output_selected_port_index;
+    callback output_connect_port();
+    callback output_refresh_ports();
+    public function output_focus() {
+        output_ports_combo.focus();
+    }
+    public function output_show_connected_port_name(name: string, message_type: MessageType) {
+        output_connected_port_name_text.text = name;
+        output_connected_port_name_text.message_type = message_type;
     }
 
     VerticalBox {
         padding: 0px;
         HorizontalLayout {
             MagicText {
-                text: root.type_label;
+                text: "MIDI Input:";
                 vertical_alignment: center;
                 width: 100px;
             }
             VerticalLayout {
                 padding_left: Globals.horizontal_padding;
                 padding_right: Globals.horizontal_padding * 2;
-                ports_combo := ComboBox {
-                    current_index: root.selected_port_index;
+                input_ports_combo := ComboBox {
+                    current_index: root.input_selected_port_index;
                     changed current_index => {
-                        root.selected_port_index = self.current_index;
+                        root.input_selected_port_index = self.current_index;
                     }
                     height: Globals.control_height;
                     width: 395px;
@@ -53,7 +66,7 @@ export component MidiIo inherits GroupBox {
                     text: "Connect";
                     action: ButtonAction.primary;
                     clicked => {
-                        root.connect_port()
+                        root.input_connect_port()
                     }
                     height: Globals.control_height;
                     width: Globals.button_width;
@@ -72,7 +85,7 @@ export component MidiIo inherits GroupBox {
             }
             VerticalLayout {
                 col: 1;
-                connected_port_name_text := MessageText {
+                input_connected_port_name_text := MessageText {
                     horizontal_alignment: left;
                     vertical_alignment: center;
                 }
@@ -82,7 +95,66 @@ export component MidiIo inherits GroupBox {
                 OutlineButton {
                     text: "Refresh Ports";
                     clicked => {
-                        root.refresh_ports()
+                        root.input_refresh_ports()
+                    }
+                    height: Globals.control_height;
+                    width: Globals.button_width;
+                }
+            }
+        }
+        HorizontalLayout {
+            MagicText {
+                text: "MIDI Output:";
+                vertical_alignment: center;
+                width: 100px;
+            }
+            VerticalLayout {
+                padding_left: Globals.horizontal_padding;
+                padding_right: Globals.horizontal_padding * 2;
+                output_ports_combo := ComboBox {
+                    current_index: root.output_selected_port_index;
+                    changed current_index => {
+                        root.output_selected_port_index = self.current_index;
+                    }
+                    height: Globals.control_height;
+                    width: 395px;
+                }
+            }
+            VerticalLayout {
+                FilledButton {
+                    text: "Connect";
+                    action: ButtonAction.primary;
+                    clicked => {
+                        root.output_connect_port()
+                    }
+                    height: Globals.control_height;
+                    width: Globals.button_width;
+                }
+            }
+        }
+        GridLayout {
+            VerticalLayout {
+                col: 0;
+                MagicText {
+                    text: "Connected: ";
+                    width: 112px;
+                    horizontal_alignment: left;
+                    vertical_alignment: center;
+                }
+            }
+            VerticalLayout {
+                col: 1;
+                output_connected_port_name_text := MessageText {
+                    horizontal_alignment: left;
+                    vertical_alignment: center;
+                }
+            }
+            VerticalLayout {
+                col: 2;
+                OutlineButton {
+                    text: "Refresh Ports";
+                    clicked => {
+                        root.output_refresh_ports()
                     }
                     height: Globals.control_height;
                     width: Globals.button_width;
