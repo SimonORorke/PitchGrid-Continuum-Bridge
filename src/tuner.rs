@@ -52,31 +52,27 @@ pub fn on_tuning_received(depth: i32, mode: i32, root_freq: f32, stretch: f32,
     //     "tuner.on_tuning_received: depth = {}; mode = {}; root_freq = {}; stretch = {}; \
     //     skew = {}; mode_offset = {}; steps = {}",
     //     depth, mode, root_freq, stretch, skew, mode_offset, steps);
-    let mut data = TUNER_DATA.lock().unwrap();
-    let note_pitches = calculate_note_pitches(
-        max(1, depth), mode, root_freq, stretch, skew, mode_offset, max(1, steps));
-    data.notes = Arc::new(note_pitches.iter().enumerate()
-        .map(|(i, pitch)| {
-        Note {
-            number: i as u8,
-            pitch: *pitch,
-            to_number: 0,
-            offset_ratio: 0.0,
-            offset_msb: 0,
-            offset_lsb: 0,
-        }
-    }).collect());
+    {
+        let mut data = TUNER_DATA.lock().unwrap();
+        let note_pitches = calculate_note_pitches(
+            max(1, depth), mode, root_freq, stretch, skew, mode_offset, max(1, steps));
+        data.notes = Arc::new(note_pitches.iter().enumerate()
+            .map(|(i, pitch)| {
+                Note {
+                    number: i as u8,
+                    pitch: *pitch,
+                    to_number: 0,
+                    offset_ratio: 0.0,
+                    offset_msb: 0,
+                    offset_lsb: 0,
+                }
+            }).collect());
+    }
+    update_tuning()
 }
 
 pub fn set_pitch_table_no(pitch_table_no: u8) {
     TUNER_DATA.lock().unwrap().pitch_table_no.store(pitch_table_no, Ordering::Relaxed);
-}
-
-pub fn update_tuning() {
-    // println!("tuner.update_tuning");
-    set_to_note_numbers();
-    calculate_offsets();
-    send_pitch_table_to_instrument()
 }
 
 /// Calculates and returns the pitch of each note in the MIDI range,
@@ -211,6 +207,13 @@ fn set_to_note_numbers() {
             }
         }) as u8;
     }
+}
+
+fn update_tuning() {
+    // println!("tuner.update_tuning");
+    set_to_note_numbers();
+    calculate_offsets();
+    send_pitch_table_to_instrument()
 }
 
 pub fn pitch_table_index() -> usize {

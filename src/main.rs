@@ -7,6 +7,7 @@ mod midi_ports;
 mod osc;
 mod settings;
 mod tuner;
+mod port_strategy;
 
 use std::cmp::max;
 use std::rc::Rc;
@@ -15,10 +16,13 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use lazy_static::lazy_static;
 use round::round;
 use slint::{CloseRequestResponse, SharedString, Weak};
-use midi::{Midi, PortType};
+use midi::{ConnectionTo, Midi, PortType};
 use crate::global::APP_TITLE;
 use crate::midi_ports::MidiIo;
 use crate::osc::Osc;
+use crate::port_strategy::{
+    EditorInputStrategy, EditorOutputStrategy, 
+    InstrumentInputStrategy, InstrumentOutputStrategy, PortStrategy};
 use crate::settings::Settings;
 
 slint::include_modules!();
@@ -49,63 +53,53 @@ fn main() {
     main_window.run().unwrap();
 }
 
-fn connect_initial_port(main_window: &MainWindow, midi: &mut SharedMidi, settings: &mut SharedSettings, port_type: &PortType) {
+fn connect_initial_port(
+    main_window: &MainWindow, midi: &mut SharedMidi,
+    settings: &mut SharedSettings, port_strategy: &dyn PortStrategy) {
     // println!("main.connect_initial_port");
     // We have to limit the scope of the lock, as midi will have to be locked again in
     // connect_selected_port.
     let maybe_index = {
         let midi1 = midi.lock().unwrap();
         // println!("main.connect_initial_port: Locked midi");
-        midi1.io(port_type).port().as_ref()
+        midi1.io(port_strategy).port().as_ref()
             .map(|port| port.index())
     }; // Lock is dropped here
-
     if let Some(index) = maybe_index {
         let index = index as i32;
-        match port_type {
-            PortType::Input => main_window.set_selected_input_port_index(index),
-            PortType::Output => main_window.set_selected_output_port_index(index),
-        }
-        connect_selected_port(main_window, midi, settings, port_type);
+        port_strategy.set_selected_port_index(main_window, index);
+        connect_selected_port(main_window, midi, settings, port_strategy);
     } else {
-        show_no_port_connected(main_window, settings, port_type);
-        let msg = match port_type {
-            PortType::Input => MSG_CONNECT_INPUT,
-            PortType::Output => MSG_CONNECT_OUTPUT,
-        };
-        show_warning(&main_window, msg);
+        show_no_port_connected(main_window, settings, port_strategy);
+        show_warning(&main_window, port_strategy.msg_connect());
     }
 }
 
 fn connect_port(main_window_weak: Weak<MainWindow>, midi: &mut SharedMidi,
-                settings: &mut SharedSettings, port_type: &PortType) {
-    let port_type = *port_type;
+                settings: &mut SharedSettings, port_strategy: &(dyn PortStrategy + Send + Sync)) {
     let mut midi = Arc::clone(midi);
     let mut settings = Arc::clone(settings);
+    let port_strategy = port_strategy.clone_box();
     with_main_window(main_window_weak, move |main_window| {
-        connect_selected_port(main_window, &mut midi, &mut settings, &port_type);
-        let port_type_name = match port_type {
-            PortType::Input => "input",
-            PortType::Output => "output",
-        };
-        if let Some(port) = midi.lock().unwrap().io(&port_type).port() {
-            show_info(main_window, format!("Connected MIDI {} port {}",
-                                           port_type_name, port.name()));
+        connect_selected_port(main_window, &mut midi, &mut settings, &*port_strategy);
+        if let Some(port) = midi.lock().unwrap().io(&*port_strategy).port() {
+            let port_name: &str = &port.name();
+            show_info(main_window, port_strategy.msg_connected(port_name));
         }
     });
 }
 
-fn connect_selected_port(main_window: &MainWindow, midi: &mut SharedMidi, 
-                         settings: &mut SharedSettings, port_type: &PortType) {
+fn connect_selected_port(main_window: &MainWindow, midi: &mut SharedMidi,
+                         settings: &mut SharedSettings, port_strategy: &dyn PortStrategy) {
     // println!("main.connect_selected_port");
-    let selected = match port_type {
-        PortType::Input => main_window.get_selected_input_port_index(),
-        PortType::Output => main_window.get_selected_output_port_index(),
-    };
+    let selected = port_strategy.get_selected_port_index(main_window);
     let index: usize = match usize::try_from(selected) {
         Ok(i) => i,
         Err(_) => {
             show_no_port_connected(main_window, settings, port_type);
+            // let msg = match connection_to {
+            //
+            // };
             let msg = match port_type {
                 PortType::Input => MSG_NO_INPUT_SELECTED,
                 PortType::Output => MSG_NO_OUTPUT_SELECTED,
@@ -117,11 +111,11 @@ fn connect_selected_port(main_window: &MainWindow, midi: &mut SharedMidi,
     // Do all Midi borrowing/mutation inside a tight scope, then update UI after.
     let ui_action: Result<String, String> = {
         let mut midi1 = midi.lock().unwrap();
-        let Some(name) = midi1.io(port_type).port_names().get(index).cloned()
+        let Some(name) = midi1.io(connection_to, port_type).port_names().get(index).cloned()
         else {
             return;
         };
-        match midi1.connect_port(port_type, index) {
+        match midi1.connect_port(index, connection_to, port_type) {
             Ok(()) => Ok(name),
             Err(err) => Err(err.to_string()),
         }
@@ -166,12 +160,16 @@ fn init(main_window: &MainWindow, midi: &mut SharedMidi, settings: &mut SharedSe
     let pitch_table_no: u8;
     {
         let mut settings1 = settings.lock().unwrap();
-        let input_port_name: String;
-        let output_port_name: String;
+        let editor_input_port_name: String;
+        let editor_output_port_name: String;
+        let instru_input_port_name: String;
+        let instr_output_port_name: String;
         match settings1.read_from_file() {
             Ok(_) => {
-                input_port_name = settings1.midi_input_port.clone();
-                output_port_name = settings1.midi_output_port.clone();
+                editor_input_port_name = settings1.editor_midi_input_port.clone();
+                editor_output_port_name = settings1.editor_midi_output_port.clone();
+                instru_input_port_name = settings1.instrument_midi_input_port.clone();
+                instr_output_port_name = settings1.instrument_midi_output_port.clone();
                 pitch_table_no = max(tuner::default_pitch_table_no(), settings1.pitch_table);
             }
             Err(err) => {
@@ -180,15 +178,25 @@ fn init(main_window: &MainWindow, midi: &mut SharedMidi, settings: &mut SharedSe
             }
         }
         let mut midi1 = midi.lock().unwrap();
-        if let Err(err) = midi1.init(&input_port_name, &output_port_name) {
+        if let Err(err) = midi1.init(
+            &editor_input_port_name, &editor_output_port_name,
+            &instru_input_port_name, &instr_output_port_name) {
             show_error(main_window, err.to_string());
             return;
         }
     }
-    set_ports_model(&main_window, midi, &PortType::Input);
-    set_ports_model(&main_window, midi, &PortType::Output);
-    connect_initial_port(&main_window, midi, settings, &PortType::Input);
-    connect_initial_port(&main_window, midi, settings, &PortType::Output);
+    let editor_input_strategy = EditorInputStrategy::new();
+    let editor_output_strategy = EditorOutputStrategy::new();
+    let instru_input_strategy = InstrumentInputStrategy::new();
+    let instru_output_strategy = InstrumentOutputStrategy::new();
+    set_ports_model(&main_window, midi, &editor_input_strategy);
+    set_ports_model(&main_window, midi, &editor_output_strategy);
+    set_ports_model(&main_window, midi, &instru_input_strategy);
+    set_ports_model(&main_window, midi, &instru_output_strategy);
+    connect_initial_port(&main_window, midi, settings, &editor_input_strategy);
+    connect_initial_port(&main_window, midi, settings, &editor_output_strategy);
+    connect_initial_port(&main_window, midi, settings, &instru_input_strategy);
+    connect_initial_port(&main_window, midi, settings, &instru_output_strategy);
     set_pitch_tables_model(&main_window);
     tuner::set_pitch_table_no(pitch_table_no);
     main_window.set_selected_pitch_table_index(tuner::pitch_table_index() as i32);
@@ -316,7 +324,7 @@ fn refresh_ports(
     let mut settings = Arc::clone(settings);
     let port_type = *port_type;
     let port_name = match port_type {
-        PortType::Input => settings.lock().unwrap().midi_input_port.clone(),
+        PortType::Input => settings.lock().unwrap().instrument_midi_input_port.clone(),
         PortType::Output => settings.lock().unwrap().midi_output_port.clone(),
     };
     with_main_window(main_window_weak, move |main_window| {
@@ -334,21 +342,25 @@ fn refresh_ports(
     });
 }
 
-fn set_ports_model(main_window: &MainWindow, midi: &SharedMidi, port_type: &PortType) {
-    let port_items: Vec<ComboBoxItem> = midi.lock().unwrap().io(port_type).port_names()
+fn set_ports_model(main_window: &MainWindow, midi: &SharedMidi,
+                   port_strategy: &dyn PortStrategy) {
+    let port_items: Vec<ComboBoxItem> =
+        midi.lock().unwrap().io(port_strategy).port_names()
         .iter()
         .map(|text| ComboBoxItem { text: text.into() })
         .collect();
-    match port_type {
-        PortType::Input => {
-            let model = Rc::new(InputPortsModel(port_items));
-            main_window.set_input_ports_model(slint::ModelRc::from(model));
-        },
-        PortType::Output => {
-            let model = Rc::new(OutputPortsModel(port_items));
-            main_window.set_output_ports_model(slint::ModelRc::from(model));
-        },
-    }
+        let model =
+            match port_strategy.port_type() {
+                PortType::Input => {
+                    let input_model = Rc::new(InputPortsModel(port_items));
+                    slint::ModelRc::from(input_model)
+                },
+                PortType::Output => {
+                    let output_model = Rc::new(OutputPortsModel(port_items));
+                    slint::ModelRc::from(output_model)
+                },
+            };
+        port_strategy.set_ports_model(main_window, model);
 }
 
 fn set_pitch_tables_model(main_window: &MainWindow) {
@@ -360,24 +372,16 @@ fn set_pitch_tables_model(main_window: &MainWindow) {
     main_window.set_pitch_tables_model(slint::ModelRc::from(model));
 }
 
-fn show_connected_port_name(main_window: &MainWindow, settings: &mut SharedSettings, 
-                            port_name: &str, port_type: &PortType) {
+fn show_connected_port_name(main_window: &MainWindow, settings: &mut SharedSettings,
+                            port_name: &str, port_strategy: &dyn PortStrategy) {
     let message_type = if port_name == PORT_NONE {
         MessageType::Warning }
     else {
         MessageType::Info
     };
+    port_strategy.invoke_show_connected_port_name(main_window, port_name, message_type);
     let mut settings1 = settings.lock().unwrap();
-    match port_type {
-        PortType::Input => {
-            main_window.invoke_show_connected_input_port_name(port_name.into(), message_type);
-            settings1.midi_input_port = port_name.into();
-        }
-        PortType::Output => {
-            main_window.invoke_show_connected_output_port_name(port_name.into(), message_type);
-            settings1.midi_output_port = port_name.into();
-        }
-    }
+    port_strategy.update_port_setting(&mut settings1, port_name);
 }
 
 fn show_error(main_window: &MainWindow, message: impl Into<SharedString>) {
@@ -393,8 +397,8 @@ fn show_message(main_window: &MainWindow, message: impl Into<SharedString>, mess
 }
 
 fn show_no_port_connected(main_window: &MainWindow, settings: &mut SharedSettings,
-                          port_type: &PortType) {
-    show_connected_port_name(main_window, settings, PORT_NONE, port_type);
+                          port_strategy: &dyn PortStrategy) {
+    show_connected_port_name(main_window, settings, PORT_NONE, port_strategy);
 }
 
 fn show_pitchgrid_connected(main_window: &MainWindow) {
@@ -478,11 +482,4 @@ impl slint::Model for TuningGridsModel {
     }
 }
 
-const MSG_CONNECT_BOTH: &str = "Connect MIDI input and output ports.";
-const MSG_CONNECT_INPUT: &str = "Connect a MIDI input port.";
-const MSG_NO_INPUT_SELECTED: &str = "No MIDI input port selected.";
-const MSG_REFRESHED_INPUTS_RECONNECT: &str = "Refreshed MIDI input ports. You must (re)connect.";
-const MSG_CONNECT_OUTPUT: &str = "Connect a MIDI output port.";
-const MSG_NO_OUTPUT_SELECTED: &str = "No MIDI output port selected.";
-const MSG_REFRESHED_OUTPUTS_RECONNECT: &str = "Refreshed MIDI output ports. You must (re)connect.";
 const PORT_NONE: &str = "[None]";

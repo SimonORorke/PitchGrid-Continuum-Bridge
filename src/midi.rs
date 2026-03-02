@@ -1,11 +1,12 @@
 use std::error::Error;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use lazy_static::lazy_static;
 use midir::{
     MidiInput, MidiInputConnection, MidiInputPort,
     MidiOutput, MidiOutputConnection, MidiOutputPort};
 use midly::{live::LiveEvent, MidiMessage};
 use crate::midi_ports::{Io, MidiIo};
+use crate::port_strategy::PortStrategy;
 
 #[derive(Clone, Copy)]
 pub enum ConnectionTo {
@@ -20,15 +21,16 @@ pub enum PortType {
 }
 
 struct MidiData {
-    pub editor_output_connection: Option<MidiOutputConnection>,
-    pub instru_output_connection: Option<MidiOutputConnection>,
+    editor_output_connection: Option<MidiOutputConnection>,
+    instru_output_connection: Option<MidiOutputConnection>,
+    on_pitch_table_updated: Arc<Option<Box<dyn Fn() + Send + Sync + 'static>>>,
 }
 
 lazy_static! {
     static ref MIDI_DATA: Mutex<MidiData> = Mutex::new(MidiData {
         editor_output_connection: None,
         instru_output_connection: None,
-    });
+        on_pitch_table_updated: Arc::new(None),});
 }
 
 pub struct Midi {
@@ -65,6 +67,7 @@ impl Midi {
             ConnectionTo::Instru => &self.instru_input,
         }
     }
+    
     pub fn output(&self, connection_to: &ConnectionTo) -> &Io<MidiOutputPort> {
         match connection_to {
             ConnectionTo::Editor => &self.editor_output,
@@ -80,11 +83,13 @@ impl Midi {
         self.disconnect_output_port(&ConnectionTo::Instru);
     }
 
-    pub fn connect_port(&mut self, port_type: &PortType, index: usize,
-                        connection_to: &ConnectionTo) -> Result<(), Box<dyn Error>> {
-        match port_type {
-            PortType::Input => self.connect_input_port(index, connection_to)?,
-            PortType::Output => self.connect_output_port(index, connection_to)?,
+    pub fn connect_port(
+        &mut self, index: usize, port_strategy: &dyn PortStrategy) -> Result<(), Box<dyn Error>> {
+        match port_strategy.port_type() {
+            PortType::Input => self.connect_input_port(
+                index, port_strategy.connection_to())?,
+            PortType::Output => self.connect_output_port(
+                index, port_strategy.connection_to())?,
         }
         Ok(())
     }
@@ -220,26 +225,18 @@ impl Midi {
         Ok(())
     }
 
-    pub fn io(&self, port_type: &PortType, connection_to: &ConnectionTo) -> &dyn MidiIo {
-        match connection_to {
-            ConnectionTo::Editor => match port_type {
-                PortType::Input => &self.editor_input,
-                PortType::Output => &self.editor_output,
-            },
-            ConnectionTo::Instru => match port_type {
-                PortType::Input => &self.instru_input,
-                PortType::Output => &self.instru_output,
-            },
-        }
+    pub fn io(&self, port_strategy: &dyn PortStrategy) -> &dyn MidiIo {
+        port_strategy.io(self)
     }
 
     pub fn refresh_ports(
-            &mut self,
-            port_name: &str, port_type: &PortType, connection_to: &ConnectionTo)
+            &mut self, port_name: &str, port_strategy: &dyn PortStrategy)
                 -> Result<(), Box<dyn Error>> {
-        match port_type {
-            PortType::Input => self.refresh_input_ports(port_name, connection_to)?,
-            PortType::Output => self.refresh_output_ports(port_name, connection_to)?,
+        match port_strategy.port_type() {
+            PortType::Input => self.refresh_input_ports(
+                port_name, port_strategy.connection_to())?,
+            PortType::Output => self.refresh_output_ports(
+                port_name, port_strategy.connection_to())?,
         }
         Ok(())
     }
@@ -263,39 +260,54 @@ impl Midi {
         }, connection_to);
     }
 
+    pub fn editor_input(&self) -> &Io<MidiInputPort> {
+        &self.editor_input
+    }
+
+    pub fn editor_output(&self) -> &Io<MidiOutputPort> {
+        &self.editor_output
+    }
+
+    pub fn instru_input(&self) -> &Io<MidiInputPort> {
+        &self.instru_input
+    }
+
+    pub fn instru_output(&self) -> &Io<MidiOutputPort> {
+        &self.instru_output
+    }
+
     fn on_editor_message_received(message: &[u8]) {
-        Self::send_message(message, &ConnectionTo::Editor);
+        Self::send_message(message, &ConnectionTo::Instru);
     }
 
     fn on_instru_message_received(message: &[u8]) {
         let event = LiveEvent::parse(message).unwrap();
         match event {
             LiveEvent::Midi { channel, message } => match message {
-                MidiMessage::NoteOn { key, vel } => {
-                    // Should not be any of these if we are receiving from Haken Editor.
-                    let channel1 = u8::from(channel) + 1; // 1-based channel number.
-                    println!("rx: NoteOn ch{} {} {}", channel1, key, vel);
-                },
+                // MidiMessage::NoteOn { key, vel } => {
+                //     let channel1 = u8::from(channel) + 1; // 1-based channel number.
+                //     println!("rx: NoteOn ch{} {} {}", channel1, key, vel);
+                // },
                 MidiMessage::Controller { controller, value } => {
                     let channel1 = u8::from(channel) + 1; // 1-based channel number.
-                    // Monitor system messages (channel 16);
-                    // but ignore Haken Editor's heartbeat messages (cc 116).
-                    if channel1 == 16 && controller != 116 {
-                        println!("rx: ch{} cc{} {}", channel1, controller, value);
-                        if controller == 109 {
-                            if value == 54 {
-                                println!("Start of user preset list");
-                            } else if value == 55 {
-                                println!("End of user preset list");
-                            }
-                        }
+                    if channel1 == 16 && controller == 54 {
+                        let data = MIDI_DATA.lock().unwrap();
+                        let on_pitch_table_updated = 
+                            data.on_pitch_table_updated.clone();
+                        // TODO: Use rayon to call the callback in on_pitch_table_updated on a separate thread.
+                        // if let Some(on_pitch_table_updated1) =
+                        //     on_pitch_table_updated {
+                        //     rayon::spawn(move || {
+                        //         on_pitch_table_updated1();
+                        //     });
+                        // }
                     }
                 },
                 _ => {}
             },
             _ => {}
         }
-        Self::send_message(message, &ConnectionTo::Instru);
+        Self::send_message(message, &ConnectionTo::Editor);
     }
 
     fn refresh_input_ports(&mut self, input_port_name: &str,

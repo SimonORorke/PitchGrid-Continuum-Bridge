@@ -5,16 +5,20 @@ use crate::global::APP_TITLE;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Settings {
-    pub midi_input_port: String,
-    pub midi_output_port: String,
+    pub editor_midi_input_port: String,
+    pub editor_midi_output_port: String,
+    pub instrument_midi_input_port: String,
+    pub instrument_midi_output_port: String,
     pub pitch_table: u8,
 }
 
 impl Settings {
     pub fn new() -> Self {
         Self {
-            midi_input_port: String::new(),
-            midi_output_port: String::new(),
+            editor_midi_input_port: String::new(),
+            editor_midi_output_port: String::new(),
+            instrument_midi_input_port: String::new(),
+            instrument_midi_output_port: String::new(),
             pitch_table: 0,
         }
     }
@@ -49,8 +53,10 @@ impl Settings {
                 let msg = format!("Error parsing settings file '{}': {}", path.clone(), e);
                 std::io::Error::new(std::io::ErrorKind::InvalidData, msg)
             })?;
-        self.midi_input_port = settings.midi_input_port;
-        self.midi_output_port = settings.midi_output_port;
+        self.editor_midi_input_port = settings.editor_midi_input_port;
+        self.editor_midi_output_port = settings.editor_midi_output_port;
+        self.instrument_midi_input_port = settings.instrument_midi_input_port;
+        self.instrument_midi_output_port = settings.instrument_midi_output_port;
         self.pitch_table = settings.pitch_table;
         // println!("Settings.read_from_file: self.midi_input_port = {}", self.midi_input_port);
         Ok(())
