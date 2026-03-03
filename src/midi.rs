@@ -61,20 +61,6 @@ impl Midi {
         }
     }
 
-    pub fn input(&self, connection_to: &ConnectionTo) -> &Io<MidiInputPort> {
-        match connection_to {
-            ConnectionTo::Editor => &self.editor_input,
-            ConnectionTo::Instru => &self.instru_input,
-        }
-    }
-    
-    pub fn output(&self, connection_to: &ConnectionTo) -> &Io<MidiOutputPort> {
-        match connection_to {
-            ConnectionTo::Editor => &self.editor_output,
-            ConnectionTo::Instru => &self.instru_output,
-        }
-    }
-
     pub fn close(&mut self) {
         // println!("Midi.close");
         self.disconnect_input_port(&ConnectionTo::Editor);
@@ -283,19 +269,26 @@ impl Midi {
                 //     let channel1 = u8::from(channel) + 1; // 1-based channel number.
                 //     println!("rx: NoteOn ch{} {} {}", channel1, key, vel);
                 // },
-                MidiMessage::Controller { controller, value } => {
+                MidiMessage::Controller { controller, .. } => {
                     let channel1 = u8::from(channel) + 1; // 1-based channel number.
+                    // Call back if the pitch table has been updated and loaded.
                     if channel1 == 16 && controller == 54 {
-                        let data = MIDI_DATA.lock().unwrap();
-                        let on_pitch_table_updated = 
-                            data.on_pitch_table_updated.clone();
-                        // TODO: Use rayon to call the callback in on_pitch_table_updated on a separate thread.
-                        // if let Some(on_pitch_table_updated1) =
-                        //     on_pitch_table_updated {
-                        //     rayon::spawn(move || {
-                        //         on_pitch_table_updated1();
-                        //     });
-                        // }
+                        // This means that the pitch table has been loaded,
+                        // which will have been requested after the pitch table update
+                        // was sent to the instrument.
+                        // The instrument does not notify us to confirm that the pitch table
+                        // has been updated. But now we effectively know that the pitch table has
+                        // been updated and loaded.
+                        let on_pitch_table_updated = {
+                            let data = MIDI_DATA.lock().unwrap();
+                            data.on_pitch_table_updated.clone()
+                        };
+                        rayon::spawn(move || {
+                            if let Some(callback) =
+                                    on_pitch_table_updated.as_ref() {
+                                callback();
+                            }
+                        });
                     }
                 },
                 _ => {}

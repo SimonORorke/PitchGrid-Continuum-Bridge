@@ -18,7 +18,6 @@ use round::round;
 use slint::{CloseRequestResponse, SharedString, Weak};
 use midi::{Midi, PortType};
 use crate::global::APP_TITLE;
-use crate::midi_ports::MidiIo;
 use crate::osc::Osc;
 use crate::port_strategy::{
     EditorInputStrategy, EditorOutputStrategy, 
