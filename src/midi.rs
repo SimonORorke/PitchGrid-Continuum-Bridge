@@ -86,18 +86,16 @@ impl Midi {
     pub fn connect_port(
         &mut self, index: usize, port_strategy: &dyn PortStrategy) -> Result<(), Box<dyn Error>> {
         match port_strategy.port_type() {
-            PortType::Input => self.connect_input_port(
-                index, port_strategy.connection_to())?,
-            PortType::Output => self.connect_output_port(
-                index, port_strategy.connection_to())?,
+            PortType::Input => self.connect_input_port(index, port_strategy)?,
+            PortType::Output => self.connect_output_port(index, port_strategy)?,
         }
         Ok(())
     }
 
     fn connect_input_port(
-            &mut self, index: usize, connection_to: &ConnectionTo) -> Result<(), Box<dyn Error>> {
-        self.disconnect_input_port(connection_to);
-        let connection_to_owned = *connection_to;
+            &mut self, index: usize, port_strategy: &dyn PortStrategy) -> Result<(), Box<dyn Error>> {
+        self.disconnect_input_port(port_strategy.connection_to());
+        let connection_to = *port_strategy.connection_to();
         let input: &mut Io<MidiInputPort> = match connection_to {
             ConnectionTo::Editor => &mut self.editor_input,
             ConnectionTo::Instru => &mut self.instru_input,
@@ -110,7 +108,7 @@ impl Midi {
                 midi_port,
                 &port_name,
                 move |_, message, _| {
-                    match connection_to_owned {
+                    match connection_to {
                         ConnectionTo::Editor => Self::on_editor_message_received(message),
                         ConnectionTo::Instru => Self::on_instru_message_received(message),
                     }
@@ -126,16 +124,15 @@ impl Midi {
                 }
                 Err(_) =>
                     // See comment in connect_output_port.
-                    return Err(format!(
-                        "Cannot connect MIDI input port {}. The port may be in use.", port_name)
-                        .into())
+                    return Err(port_strategy.msg_cannot_connect(&port_name).into())
             }
         }
         Ok(())
     }
 
-    fn connect_output_port(&mut self, index: usize, connection_to: &ConnectionTo)
+    fn connect_output_port(&mut self, index: usize, port_strategy: &dyn PortStrategy)
             -> Result<(), Box<dyn Error>> {
+        let connection_to = port_strategy.connection_to();
         self.disconnect_output_port(connection_to);
         let output: &mut Io<MidiOutputPort> = match connection_to {
             ConnectionTo::Editor => &mut self.editor_output,
@@ -165,9 +162,7 @@ impl Midi {
                     // which would be useful for this application. There was no response.
                     // So on 14th Feb 2026, I raised a support ticket for the feature request.
                     // So far, no response.
-                    return Err(format!(
-                        "Cannot connect MIDI output port {}. The port may be in use.", port.name())
-                        .into())
+                    return Err(port_strategy.msg_cannot_connect(&port_name).into())
             }
         }
         Ok(())

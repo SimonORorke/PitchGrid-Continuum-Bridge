@@ -72,6 +72,7 @@ fn connect_initial_port(
     } else {
         show_no_port_connected(main_window, settings, port_strategy);
         show_warning(&main_window, port_strategy.msg_connect());
+        port_strategy.focus_port(main_window);
     }
 }
 
@@ -96,36 +97,30 @@ fn connect_selected_port(main_window: &MainWindow, midi: &mut SharedMidi,
     let index: usize = match usize::try_from(selected) {
         Ok(i) => i,
         Err(_) => {
-            show_no_port_connected(main_window, settings, port_type);
-            // let msg = match connection_to {
-            //
-            // };
-            let msg = match port_type {
-                PortType::Input => MSG_NO_INPUT_SELECTED,
-                PortType::Output => MSG_NO_OUTPUT_SELECTED,
-            };
-            show_error(main_window, msg);
+            // A port has not been selected. That's impossible with the UI as it is.
+            show_no_port_connected(main_window, settings, port_strategy);
+            show_error(main_window, port_strategy.msg_not_selected());
             return;
         }
     };
     // Do all Midi borrowing/mutation inside a tight scope, then update UI after.
     let ui_action: Result<String, String> = {
         let mut midi1 = midi.lock().unwrap();
-        let Some(name) = midi1.io(connection_to, port_type).port_names().get(index).cloned()
+        let Some(name) = midi1.io(port_strategy).port_names().get(index).cloned()
         else {
             return;
         };
-        match midi1.connect_port(index, connection_to, port_type) {
+        match midi1.connect_port(index, port_strategy) {
             Ok(()) => Ok(name),
             Err(err) => Err(err.to_string()),
         }
     };
     match ui_action {
         Ok(name) => {
-            show_connected_port_name(main_window, settings, &name, port_type);
+            show_connected_port_name(main_window, settings, &name, port_strategy);
         }
         Err(message) => {
-            show_no_port_connected(main_window, settings, port_type);
+            show_no_port_connected(main_window, settings, port_strategy);
             show_error(main_window, message);
         }
     }
@@ -200,19 +195,6 @@ fn init(main_window: &MainWindow, midi: &mut SharedMidi, settings: &mut SharedSe
     set_pitch_tables_model(&main_window);
     tuner::set_pitch_table_no(pitch_table_no);
     main_window.set_selected_pitch_table_index(tuner::pitch_table_index() as i32);
-    {
-        // println!("main.init: Showing warning if no MIDI ports are connected.");
-        let midi1 = midi.lock().unwrap();
-        if midi1.output().port().is_none() {
-            if midi1.input().port().is_none() {
-                show_warning(&main_window, MSG_CONNECT_BOTH);
-            } else {
-                main_window.invoke_focus_output_port();
-            }
-        } else if midi1.input().port().is_some() {
-            main_window.invoke_focus_update_tuning_button();
-        }
-    }
     init_ui_handlers(&main_window, Arc::clone(&midi), Arc::clone(settings));
     let mut data = MAIN_DATA.lock().unwrap();
     data.main_window_weak = Some(main_window.as_weak().clone());
@@ -261,9 +243,6 @@ fn init_ui_handlers(main_window: &MainWindow, midi: SharedMidi, settings: Shared
             refresh_ports(window_weak.clone(), &mut midi, &mut settings, &PortType::Output)
         });
     }
-    main_window.on_update_tuning(move || {
-        tuner::update_tuning()
-    });
     {
         let mut settings: SharedSettings = Arc::clone(&settings);
         main_window.on_selected_pitch_table_changed(move |index| {
@@ -319,31 +298,24 @@ fn on_osc_tuning_received(depth: i32, mode: i32, root_freq: f32, stretch: f32,
 
 fn refresh_ports(
         main_window_weak: Weak<MainWindow>, midi: &SharedMidi, settings: &mut SharedSettings,
-        port_type: &PortType) {
+        port_strategy: &dyn PortStrategy) {
     let midi = Arc::clone(midi);
     let mut settings = Arc::clone(settings);
-    let port_type = *port_type;
-    let port_name = match port_type {
-        PortType::Input => settings.lock().unwrap().instrument_midi_input_port.clone(),
-        PortType::Output => settings.lock().unwrap().midi_output_port.clone(),
-    };
+    let port_strategy = port_strategy.clone_box();
     with_main_window(main_window_weak, move |main_window| {
-        if let Err(err) = midi.lock().unwrap().refresh_ports(&port_name, &port_type) {
+        let port_name = port_strategy.port_setting(&settings.lock().unwrap()).to_string();
+        if let Err(err) = midi.lock().unwrap().refresh_ports(
+                &port_name, &*port_strategy) {
             show_error(main_window, err.to_string());
             return;
         }
-        set_ports_model(&main_window, &midi, &port_type);
-        show_no_port_connected(main_window, &mut settings, &port_type);
-        let msg = match port_type {
-            PortType::Input => MSG_REFRESHED_INPUTS_RECONNECT,
-            PortType::Output => MSG_REFRESHED_OUTPUTS_RECONNECT,
-        };
-        show_warning(main_window, msg);
+        set_ports_model(&main_window, &midi, &*port_strategy);
+        show_no_port_connected(main_window, &mut settings, &*port_strategy);
+        show_warning(main_window, port_strategy.msg_refreshed_reconnect());
     });
 }
 
-fn set_ports_model(main_window: &MainWindow, midi: &SharedMidi,
-                   port_strategy: &dyn PortStrategy) {
+fn set_ports_model(main_window: &MainWindow, midi: &SharedMidi, port_strategy: &dyn PortStrategy) {
     let port_items: Vec<ComboBoxItem> =
         midi.lock().unwrap().io(port_strategy).port_names()
         .iter()
@@ -379,9 +351,9 @@ fn show_connected_port_name(main_window: &MainWindow, settings: &mut SharedSetti
     else {
         MessageType::Info
     };
-    port_strategy.invoke_show_connected_port_name(main_window, port_name, message_type);
+    port_strategy.show_connected_port_name(main_window, port_name, message_type);
     let mut settings1 = settings.lock().unwrap();
-    port_strategy.update_port_setting(&mut settings1, port_name);
+    port_strategy.set_port_setting(&mut settings1, port_name);
 }
 
 fn show_error(main_window: &MainWindow, message: impl Into<SharedString>) {

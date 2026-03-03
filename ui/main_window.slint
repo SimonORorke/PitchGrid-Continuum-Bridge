@@ -32,11 +32,6 @@ export component MainWindow inherits MagicWindow {
     in property <string> window_title;
 
     callback selected_pitch_table_changed(index: int);
-//    callback update_tuning();
-
-//    public function focus_update_tuning_button() {
-//        update_tuning_button.focus();
-//    }
 
     function get_background_color() -> color {
         return Palette.color_scheme == ColorScheme.light ? #BDDFCC : #123735;
