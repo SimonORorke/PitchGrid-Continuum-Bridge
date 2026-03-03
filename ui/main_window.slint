@@ -11,6 +11,16 @@ import { MidiIo } from "components/midi_io.slint";
 import { Globals } from "globals.slint";
 import { Palette, VerticalBox, } from "std-widgets.slint";
 
+export enum SlintConnectionTo {
+    editor,
+    instrument
+}
+
+export enum SlintPortType {
+    input,
+    output
+}
+
 export component MainWindow inherits MagicWindow {
     background: get_background_color();
     width: 700px;
@@ -31,6 +41,8 @@ export component MainWindow inherits MagicWindow {
     in property pitch_tables_model <=> pitch_tables_combo.model;
     in property <string> window_title;
 
+    callback connect_port(connection_to: SlintConnectionTo, port_type: SlintPortType);
+    callback refresh_ports(connection_to: SlintConnectionTo, port_type: SlintPortType);
     callback selected_pitch_table_changed(index: int);
 
     function get_background_color() -> color {
@@ -49,8 +61,8 @@ export component MainWindow inherits MagicWindow {
 
     in property editor_input_ports_model <=> editor.input_ports_model;
     in-out property <int> editor_input_selected_port_index <=> editor.input_selected_port_index;
-    callback editor_input_connect_port <=> editor.input_connect_port;
-    callback editor_input_refresh_ports <=> editor.input_refresh_ports;
+//    callback editor_input_connect_port <=> editor.input_connect_port;
+//    callback editor_input_refresh_ports <=> editor.input_refresh_ports;
     public function editor_input_focus() {
         editor.input_focus();
     }
@@ -71,8 +83,8 @@ export component MainWindow inherits MagicWindow {
 
     in property instru_input_ports_model <=> instr.input_ports_model;
     in-out property <int> instru_input_selected_port_index <=> instr.input_selected_port_index;
-    callback instru_input_connect_port <=> instr.input_connect_port;
-    callback instru_input_refresh_ports <=> instr.input_refresh_ports;
+//    callback instru_input_connect_port <=> instr.input_connect_port;
+//    callback instru_input_refresh_ports <=> instr.input_refresh_ports;
     public function instru_input_focus() {
         instr.input_focus();
     }
@@ -166,12 +178,24 @@ export component MainWindow inherits MagicWindow {
             padding_top: 10px;
             editor := MidiIo {
                 group_title: "From/to Editor (Instrument Ports)";
+                input_connect_port => {
+                    root.connect_port(SlintConnectionTo.editor, SlintPortType.input)
+                }
+                output_connect_port => {
+                    root.connect_port(SlintConnectionTo.editor, SlintPortType.output)
+                }
             }
         }
         VerticalLayout {
             padding_top: 15px;
             instr := MidiIo {
                 group_title: "From/To Instrument";
+                input_connect_port => {
+                    root.connect_port(SlintConnectionTo.instrument, SlintPortType.input)
+                }
+                output_connect_port => {
+                    root.connect_port(SlintConnectionTo.instrument, SlintPortType.output)
+                }
             }
         }
         HorizontalLayout {

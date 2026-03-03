@@ -16,7 +16,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use lazy_static::lazy_static;
 use round::round;
 use slint::{CloseRequestResponse, SharedString, Weak};
-use midi::{ConnectionTo, Midi, PortType};
+use midi::{Midi, PortType};
 use crate::global::APP_TITLE;
 use crate::midi_ports::MidiIo;
 use crate::osc::Osc;
@@ -215,32 +215,22 @@ fn init_ui_handlers(main_window: &MainWindow, midi: SharedMidi, settings: Shared
         let mut midi: SharedMidi = Arc::clone(&midi);
         let mut settings: SharedSettings = Arc::clone(&settings);
         let window_weak = window_weak.clone();
-        main_window.on_connect_input_port(move || {
-            connect_port(window_weak.clone(), &mut midi, &mut settings, &PortType::Input)
+        main_window.on_connect_port(move |
+            connection_to: SlintConnectionTo, port_type: SlintPortType| {
+            let port_strategy = create_port_strategy(
+                connection_to, port_type);
+            connect_port(window_weak.clone(), &mut midi, &mut settings, &*port_strategy)
         });
     }
     {
         let mut midi: SharedMidi = Arc::clone(&midi);
         let mut settings: SharedSettings = Arc::clone(&settings);
         let window_weak = window_weak.clone();
-        main_window.on_refresh_input_ports(move || {
-            refresh_ports(window_weak.clone(), &mut midi, &mut settings, &PortType::Input)
-        });
-    }
-    {
-        let mut midi: SharedMidi = Arc::clone(&midi);
-        let mut settings: SharedSettings = Arc::clone(&settings);
-        let window_weak = window_weak.clone();
-        main_window.on_connect_output_port(move || {
-            connect_port(window_weak.clone(), &mut midi, &mut settings, &PortType::Output)
-        });
-    }
-    {
-        let mut midi: SharedMidi = Arc::clone(&midi);
-        let mut settings: SharedSettings = Arc::clone(&settings);
-        let window_weak = window_weak.clone();
-        main_window.on_refresh_output_ports(move || {
-            refresh_ports(window_weak.clone(), &mut midi, &mut settings, &PortType::Output)
+        main_window.on_refresh_ports(move |
+            connection_to: SlintConnectionTo, port_type: SlintPortType| {
+            let port_strategy = create_port_strategy(
+                connection_to, port_type);
+            refresh_ports(window_weak.clone(), &mut midi, &mut settings, &*port_strategy)
         });
     }
     {
@@ -249,6 +239,21 @@ fn init_ui_handlers(main_window: &MainWindow, midi: SharedMidi, settings: Shared
             update_pitch_table_no(index as usize, &mut settings)
         });
     }
+}
+
+fn create_port_strategy(connection_to: SlintConnectionTo, port_type: SlintPortType)
+                        -> Box<dyn PortStrategy> {
+    let port_strategy: Box<dyn PortStrategy> = match connection_to {
+        SlintConnectionTo::Editor => match port_type {
+            SlintPortType::Input => EditorInputStrategy::new().clone_box(),
+            SlintPortType::Output => EditorOutputStrategy::new().clone_box(),
+        },
+        SlintConnectionTo::Instrument => match port_type {
+            SlintPortType::Input => InstrumentInputStrategy::new().clone_box(),
+            SlintPortType::Output => InstrumentOutputStrategy::new().clone_box(),
+        }
+    };
+    port_strategy
 }
 
 fn update_pitch_table_no(index: usize, settings: &mut SharedSettings) {
