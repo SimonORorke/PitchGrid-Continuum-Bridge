@@ -378,17 +378,17 @@ fn show_no_port_connected(main_window: &MainWindow, settings: &mut SharedSetting
 }
 
 fn show_pitchgrid_connected(main_window: &MainWindow) {
-    show_pitchgrid_connection_status(
+    show_pitchgrid_status(
         main_window, "Pitchgrid OSC is connected", MessageType::Info);
 }
 
-fn show_pitchgrid_connection_status(
+fn show_pitchgrid_status(
     main_window: &MainWindow, message: impl Into<SharedString>, message_type: MessageType) {
-    main_window.invoke_show_pitchgrid_connection_status(message.into(), message_type);
+    main_window.invoke_show_pitchgrid_status(message.into(), message_type);
 }
 
 fn show_pitchgrid_disconnected(main_window: &MainWindow) {
-    show_pitchgrid_connection_status(
+    show_pitchgrid_status(
         main_window, "Pitchgrid OSC is not connected. OSC must be enabled in Pitchgrid.", 
         MessageType::Error);
 }

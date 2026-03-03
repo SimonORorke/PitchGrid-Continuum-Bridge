@@ -26,7 +26,7 @@ export component MainWindow inherits MagicWindow {
     width: 700px;
     // Needs to be big enough to include everything down to the first status bar line.
     // Expands automatically if the status message does not fit.
-    min_height: 505px;
+    min_height: 625px;
     title: window_title;
     icon: Globals.icon;
     forward-focus: editor;
@@ -54,15 +54,13 @@ export component MainWindow inherits MagicWindow {
         message_text.message_type = message_type;
     }
 
-    public function show_pitchgrid_connection_status(message: string, message_type: MessageType) {
-        pitchgrid_connection_status_text.text = message;
-        pitchgrid_connection_status_text.message_type = message_type;
+    public function show_pitchgrid_status(message: string, message_type: MessageType) {
+        pitchgrid_status_text.text = message;
+        pitchgrid_status_text.message_type = message_type;
     }
 
     in property editor_input_ports_model <=> editor.input_ports_model;
     in-out property <int> editor_input_selected_port_index <=> editor.input_selected_port_index;
-//    callback editor_input_connect_port <=> editor.input_connect_port;
-//    callback editor_input_refresh_ports <=> editor.input_refresh_ports;
     public function editor_input_focus() {
         editor.input_focus();
     }
@@ -83,8 +81,6 @@ export component MainWindow inherits MagicWindow {
 
     in property instru_input_ports_model <=> instr.input_ports_model;
     in-out property <int> instru_input_selected_port_index <=> instr.input_selected_port_index;
-//    callback instru_input_connect_port <=> instr.input_connect_port;
-//    callback instru_input_refresh_ports <=> instr.input_refresh_ports;
     public function instru_input_focus() {
         instr.input_focus();
     }
@@ -134,13 +130,6 @@ export component MainWindow inherits MagicWindow {
                 }
             }
         }
-        VerticalBox {
-            padding-top: 10px;
-            pitchgrid_connection_status_text := MessageText {
-                horizontal_alignment: center;
-                vertical_alignment: top;
-            }
-        }
         HorizontalLayout {
             padding_top: 5px;
             MagicText {
@@ -150,7 +139,6 @@ export component MainWindow inherits MagicWindow {
             }
             VerticalLayout {
                 padding_left: Globals.horizontal_padding;
-                padding_right: Globals.horizontal_padding * 2;
                 pitch_tables_combo := ComboBox {
                     current_index: root.selected_pitch_table_index;
                     changed current_index => {
@@ -160,19 +148,14 @@ export component MainWindow inherits MagicWindow {
                     width: 55px;
                 }
             }
-//            HorizontalLayout {
-//                alignment: end;
-//                padding-right: 20px;
-//                update_tuning_button := FilledButton {
-//                    text: "Update Tuning";
-//                    action: ButtonAction.primary;
-//                    height: Globals.control_height;
-//                    width: Globals.button_width;
-//                    clicked => {
-//                        root.update_tuning()
-//                    }
-//                }
-//            }
+            VerticalBox {
+                padding-top: 10px;
+                padding_right: 15px;
+                pitchgrid_status_text := MessageText {
+                    horizontal_alignment: right;
+                    vertical_alignment: top;
+                }
+            }
         }
         VerticalLayout {
             padding_top: 10px;
