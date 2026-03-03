@@ -13,7 +13,7 @@ import { Palette, VerticalBox, } from "std-widgets.slint";
 
 export enum SlintConnectionTo {
     editor,
-    instrument
+    instru
 }
 
 export enum SlintPortType {
@@ -191,10 +191,10 @@ export component MainWindow inherits MagicWindow {
             instr := MidiIo {
                 group_title: "From/To Instrument";
                 input_connect_port => {
-                    root.connect_port(SlintConnectionTo.instrument, SlintPortType.input)
+                    root.connect_port(SlintConnectionTo.instru, SlintPortType.input)
                 }
                 output_connect_port => {
-                    root.connect_port(SlintConnectionTo.instrument, SlintPortType.output)
+                    root.connect_port(SlintConnectionTo.instru, SlintPortType.output)
                 }
             }
         }

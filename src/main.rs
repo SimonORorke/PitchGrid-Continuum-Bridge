@@ -247,7 +247,7 @@ fn create_port_strategy(connection_to: SlintConnectionTo, port_type: SlintPortTy
             SlintPortType::Input => EditorInputStrategy::new().clone_box(),
             SlintPortType::Output => EditorOutputStrategy::new().clone_box(),
         },
-        SlintConnectionTo::Instrument => match port_type {
+        SlintConnectionTo::Instru => match port_type {
             SlintPortType::Input => InstrumentInputStrategy::new().clone_box(),
             SlintPortType::Output => InstrumentOutputStrategy::new().clone_box(),
         }
