@@ -46,10 +46,10 @@ lazy_static! {
 ///         skew: Skew factor
 ///         mode_offset: Mode offset
 ///         steps: Number of steps per period
-pub fn on_tuning_received(depth: i32, mode: i32, root_freq: f32, stretch: f32,
-                          skew: f32, mode_offset: i32, steps: i32) {
+pub fn update_tuning(depth: i32, mode: i32, root_freq: f32, stretch: f32,
+                     skew: f32, mode_offset: i32, steps: i32) {
     // println!(
-    //     "tuner.on_tuning_received: depth = {}; mode = {}; root_freq = {}; stretch = {}; \
+    //     "tuner.update_tuning: depth = {}; mode = {}; root_freq = {}; stretch = {}; \
     //     skew = {}; mode_offset = {}; steps = {}",
     //     depth, mode, root_freq, stretch, skew, mode_offset, steps);
     {
@@ -68,7 +68,9 @@ pub fn on_tuning_received(depth: i32, mode: i32, root_freq: f32, stretch: f32,
                 }
             }).collect());
     }
-    update_tuning()
+    set_to_note_numbers();
+    calculate_offsets();
+    send_pitch_table_to_instrument();
 }
 
 pub fn set_pitch_table_no(pitch_table_no: u8) {
@@ -207,13 +209,6 @@ fn set_to_note_numbers() {
             }
         }) as u8;
     }
-}
-
-fn update_tuning() {
-    // println!("tuner.update_tuning");
-    set_to_note_numbers();
-    calculate_offsets();
-    send_pitch_table_to_instrument()
 }
 
 pub fn pitch_table_index() -> usize {

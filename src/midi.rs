@@ -23,14 +23,14 @@ pub enum PortType {
 struct MidiData {
     editor_output_connection: Option<MidiOutputConnection>,
     instru_output_connection: Option<MidiOutputConnection>,
-    on_pitch_table_updated: Arc<Option<Box<dyn Fn() + Send + Sync + 'static>>>,
+    on_tuning_updated: Arc<Option<Box<dyn Fn() + Send + Sync + 'static>>>,
 }
 
 lazy_static! {
     static ref MIDI_DATA: Mutex<MidiData> = Mutex::new(MidiData {
         editor_output_connection: None,
         instru_output_connection: None,
-        on_pitch_table_updated: Arc::new(None),});
+        on_tuning_updated: Arc::new(None),});
 }
 
 pub struct Midi {
@@ -220,6 +220,15 @@ impl Midi {
         port_strategy.io(self)
     }
 
+    pub fn is_instru_input_connected(&self) -> bool {
+        self.instru_input_connection.is_some()
+    }
+
+    pub fn is_instru_output_connected(&self) -> bool {
+        let data = MIDI_DATA.lock().unwrap();
+        data.instru_output_connection.is_some()
+    }
+
     pub fn refresh_ports(
             &mut self, port_name: &str, port_strategy: &dyn PortStrategy)
                 -> Result<(), Box<dyn Error>> {
@@ -249,6 +258,12 @@ impl Midi {
         Self::send_channel_message(channel, MidiMessage::ProgramChange {
             program: program.into(),
         }, connection_to);
+    }
+
+    pub fn set_on_tuning_updated(
+        &mut self, callback: Box<dyn Fn() + Send + Sync + 'static>) {
+        let mut data = MIDI_DATA.lock().unwrap();
+        data.on_tuning_updated = Arc::new(Some(callback));
     }
 
     pub fn editor_input(&self) -> &Io<MidiInputPort> {
@@ -291,7 +306,7 @@ impl Midi {
                         // been updated and loaded.
                         let on_pitch_table_updated = {
                             let data = MIDI_DATA.lock().unwrap();
-                            data.on_pitch_table_updated.clone()
+                            data.on_tuning_updated.clone()
                         };
                         rayon::spawn(move || {
                             if let Some(callback) =

@@ -178,6 +178,7 @@ fn init(main_window: &MainWindow, midi: &SharedMidi, settings: &SharedSettings) 
             show_error(main_window, err.to_string());
             return;
         }
+        midi1.set_on_tuning_updated(Box::from(on_tuning_updated));
     }
     let editor_input_strategy = EditorInputStrategy::new();
     let editor_output_strategy = EditorOutputStrategy::new();
@@ -284,10 +285,12 @@ fn on_osc_tuning_received(depth: i32, mode: i32, root_freq: f32, stretch: f32,
     //     "main.on_osc_tuning_received: depth = {}; mode = {}; root_freq = {}; stretch = {}; \
     //     skew = {}; mode_offset = {}; steps = {}",
     //     depth, mode, root_freq, stretch, skew, mode_offset, steps);
-    tuner::on_tuning_received(depth, mode, root_freq, stretch, skew, mode_offset, steps);
     let data = MAIN_DATA.lock().unwrap();
     if let Some(main_window_weak) = &data.main_window_weak {
         with_main_window(main_window_weak.clone(), move |main_window| {
+            show_pitchgrid_status(main_window, 
+                                  "Updating instrument tuning", MessageType::Info);
+            tuner::update_tuning(depth, mode, root_freq, stretch, skew, mode_offset, steps);
             main_window.set_depth(format!("{depth}").into());
             main_window.set_root_freq(format!("{} Hz", round(root_freq as f64, 3)).into());
             // The stretch parameter is in octaves, so we need to multiply by 1200 to get the
@@ -296,6 +299,16 @@ fn on_osc_tuning_received(depth: i32, mode: i32, root_freq: f32, stretch: f32,
             main_window.set_skew(format!("{}", round(skew as f64, 5)).into());
             main_window.set_mode_offset(format!("{mode_offset}").into());
             main_window.set_steps(format!("{steps}").into());
+        });
+    }
+}
+
+fn on_tuning_updated() {
+    let data = MAIN_DATA.lock().unwrap();
+    if let Some(main_window_weak) = &data.main_window_weak {
+        with_main_window(main_window_weak.clone(), move |main_window| {
+            show_pitchgrid_status(main_window, 
+                                  "Instrument tuning updated", MessageType::Info);
         });
     }
 }
