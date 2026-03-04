@@ -261,7 +261,8 @@ impl Midi {
     }
 
     pub fn set_on_tuning_updated(
-        &mut self, callback: Box<dyn Fn() + Send + Sync + 'static>) {
+            &mut self, callback: Box<dyn Fn() + Send + Sync + 'static>) {
+        // println!("Midi.set_on_tuning_updated");
         let mut data = MIDI_DATA.lock().unwrap();
         data.on_tuning_updated = Arc::new(Some(callback));
     }
@@ -297,7 +298,8 @@ impl Midi {
                 MidiMessage::Controller { controller, .. } => {
                     let channel1 = u8::from(channel) + 1; // 1-based channel number.
                     // Call back if the pitch table has been updated and loaded.
-                    if channel1 == 16 && controller == 54 {
+                    if channel1 == 16 && controller == 51 {
+                        // println!("on_instru_message_received: pitch table updated");
                         // This means that the pitch table has been loaded,
                         // which will have been requested after the pitch table update
                         // was sent to the instrument.

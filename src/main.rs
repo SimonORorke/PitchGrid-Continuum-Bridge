@@ -30,15 +30,17 @@ slint::include_modules!();
 /// and also to the static refs that use them works around a problem with RustRover where
 /// Linter would sometimes falsely indicate compiler errors.
 struct MainData {
-    pub is_close_error_shown: Arc<AtomicBool>,
-    pub main_window_weak: Option<Weak<MainWindow>>,
-    pub osc: Osc,
+    is_close_error_shown: Arc<AtomicBool>,
+    main_window_weak: Option<Weak<MainWindow>>,
+    midi: Option<SharedMidi>,
+    osc: Osc,
 }
 
 lazy_static! {
     static ref MAIN_DATA: Mutex<MainData> = Mutex::new(MainData {
         is_close_error_shown: Arc::new(AtomicBool::new(false)),
         main_window_weak: None,
+        midi: None,
         osc: Osc::new(),
     });
 }
@@ -198,6 +200,7 @@ fn init(main_window: &MainWindow, midi: &SharedMidi, settings: &SharedSettings) 
     init_ui_handlers(&main_window, Arc::clone(&midi), Arc::clone(settings));
     let mut data = MAIN_DATA.lock().unwrap();
     data.main_window_weak = Some(main_window.as_weak().clone());
+    data.midi = Some(midi.clone());
     data.osc.start(Arc::new(on_osc_tuning_received), Arc::new(on_osc_connected_changed));
 }
 
@@ -286,10 +289,20 @@ fn on_osc_tuning_received(depth: i32, mode: i32, root_freq: f32, stretch: f32,
     //     skew = {}; mode_offset = {}; steps = {}",
     //     depth, mode, root_freq, stretch, skew, mode_offset, steps);
     let data = MAIN_DATA.lock().unwrap();
+    let midi = data.midi.clone().unwrap();
     if let Some(main_window_weak) = &data.main_window_weak {
         with_main_window(main_window_weak.clone(), move |main_window| {
-            show_pitchgrid_status(main_window, 
-                                  "Updating instrument tuning", MessageType::Info);
+            let midi_guard = midi.lock().unwrap();
+            if !midi_guard.is_instru_input_connected()
+               || !midi_guard.is_instru_output_connected() {
+                show_pitchgrid_status(
+                    main_window,
+                    "Cannot updating tuning. Connect instrument input/output.",
+                    MessageType::Error);
+                return;
+            }
+            show_pitchgrid_status(
+                main_window, "Updating instrument tuning", MessageType::Info);
             tuner::update_tuning(depth, mode, root_freq, stretch, skew, mode_offset, steps);
             main_window.set_depth(format!("{depth}").into());
             main_window.set_root_freq(format!("{} Hz", round(root_freq as f64, 3)).into());
@@ -304,6 +317,7 @@ fn on_osc_tuning_received(depth: i32, mode: i32, root_freq: f32, stretch: f32,
 }
 
 fn on_tuning_updated() {
+    // println!("main.on_tuning_updated");
     let data = MAIN_DATA.lock().unwrap();
     if let Some(main_window_weak) = &data.main_window_weak {
         with_main_window(main_window_weak.clone(), move |main_window| {
