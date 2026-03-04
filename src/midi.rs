@@ -80,6 +80,7 @@ impl Midi {
 
     fn connect_input_port(
             &mut self, index: usize, port_strategy: &dyn PortStrategy) -> Result<(), Box<dyn Error>> {
+        // println!("Midi.connect_input_port: start");
         self.disconnect_input_port(port_strategy.connection_to());
         let connection_to = *port_strategy.connection_to();
         let input: &mut Io<MidiInputPort> = match connection_to {
@@ -87,6 +88,7 @@ impl Midi {
             ConnectionTo::Instru => &mut self.instru_input,
         };
         if let Some(port) = input.ports().get(index) {
+            // println!("Midi.connect_input_port: found port");
             let port_name = port.name();
             let midi_port = port.midi_port();
             let midi_input = Self::create_midi_input();
@@ -107,10 +109,13 @@ impl Midi {
                         ConnectionTo::Editor => self.editor_input_connection = connection_option,
                         ConnectionTo::Instru => self.instru_input_connection = connection_option,
                     }
+                    // println!("Midi.connect_input_port: success");
                 }
-                Err(_) =>
+                Err(_) => {
+                    // println!("Midi.connect_input_port: error");
                     // See comment in connect_output_port.
                     return Err(port_strategy.msg_cannot_connect(&port_name).into())
+                }
             }
         }
         Ok(())
@@ -140,14 +145,19 @@ impl Midi {
                 Err(_) =>
                     // Devices that have their own MIDI drivers may support shared connections.
                     // iConnectivity devices do.
-                    // Also, the new Windows MIDI Services does by default.
-                    // I don't know about other operating systems.
                     // On 7th Feb 2026, I asked in the iConnectivity User Community FB group,
                     // in a post headed 'Exclusive lock on MIDI ports?',
                     // whether an iConnectivity might in future support exclusive connections,
                     // which would be useful for this application. There was no response.
                     // So on 14th Feb 2026, I raised a support ticket for the feature request.
                     // So far, no response.
+                    //
+                    // Also, the new Windows MIDI Services supports shared connections
+                    // ("multi-client") by default.
+                    // I don't know about other operating systems.
+                    // As of 4th Feb 2026, I now have Windows MIDI Services on my PC.
+                    // I don't see how to disable multi-client support.
+                    // So I currently cannot test exclusive connections any more.
                     return Err(port_strategy.msg_cannot_connect(&port_name).into())
             }
         }

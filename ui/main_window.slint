@@ -70,8 +70,6 @@ export component MainWindow inherits MagicWindow {
 
     in property editor_output_ports_model <=> editor.output_ports_model;
     in-out property <int> editor_output_selected_port_index <=> editor.output_selected_port_index;
-    callback editor_output_connect_port <=> editor.output_connect_port;
-    callback editor_output_refresh_ports <=> editor.output_refresh_ports;
     public function editor_output_focus() {
         editor.output_focus();
     }
@@ -90,8 +88,6 @@ export component MainWindow inherits MagicWindow {
 
     in property instru_output_ports_model <=> instr.output_ports_model;
     in-out property <int> instru_output_selected_port_index <=> instr.output_selected_port_index;
-    callback instru_output_connect_port <=> instr.output_connect_port;
-    callback instru_output_refresh_ports <=> instr.output_refresh_ports;
     public function instru_output_focus() {
         instr.output_focus();
     }
@@ -167,6 +163,12 @@ export component MainWindow inherits MagicWindow {
                 output_connect_port => {
                     root.connect_port(SlintConnectionTo.editor, SlintPortType.output)
                 }
+                input_refresh_ports => {
+                    root.refresh_ports(SlintConnectionTo.editor, SlintPortType.input)
+                }
+                output_refresh_ports => {
+                    root.refresh_ports(SlintConnectionTo.editor, SlintPortType.output)
+                }
             }
         }
         VerticalLayout {
@@ -178,6 +180,12 @@ export component MainWindow inherits MagicWindow {
                 }
                 output_connect_port => {
                     root.connect_port(SlintConnectionTo.instru, SlintPortType.output)
+                }
+                input_refresh_ports => {
+                    root.refresh_ports(SlintConnectionTo.instru, SlintPortType.input)
+                }
+                output_refresh_ports => {
+                    root.refresh_ports(SlintConnectionTo.instru, SlintPortType.output)
                 }
             }
         }
