@@ -53,8 +53,8 @@ fn main() {
 }
 
 fn connect_initial_port(
-    main_window: &MainWindow, midi: &mut SharedMidi,
-    settings: &mut SharedSettings, port_strategy: &dyn PortStrategy) {
+    main_window: &MainWindow, midi: &SharedMidi,
+    settings: &SharedSettings, port_strategy: &dyn PortStrategy) {
     // println!("main.connect_initial_port");
     // We have to limit the scope of the lock, as midi will have to be locked again in
     // connect_selected_port.
@@ -75,8 +75,8 @@ fn connect_initial_port(
     }
 }
 
-fn connect_port(main_window_weak: Weak<MainWindow>, midi: &mut SharedMidi,
-                settings: &mut SharedSettings, port_strategy: &(dyn PortStrategy + Send + Sync)) {
+fn connect_port(main_window_weak: Weak<MainWindow>, midi: &SharedMidi,
+                settings: &SharedSettings, port_strategy: &(dyn PortStrategy + Send + Sync)) {
     let mut midi = Arc::clone(midi);
     let mut settings = Arc::clone(settings);
     let port_strategy = port_strategy.clone_box();
@@ -89,8 +89,8 @@ fn connect_port(main_window_weak: Weak<MainWindow>, midi: &mut SharedMidi,
     });
 }
 
-fn connect_selected_port(main_window: &MainWindow, midi: &mut SharedMidi,
-                         settings: &mut SharedSettings, port_strategy: &dyn PortStrategy) {
+fn connect_selected_port(main_window: &MainWindow, midi: &SharedMidi,
+                         settings: &SharedSettings, port_strategy: &dyn PortStrategy) {
     // println!("main.connect_selected_port");
     let selected = port_strategy.get_selected_port_index(main_window);
     let index: usize = match usize::try_from(selected) {
@@ -127,7 +127,7 @@ fn connect_selected_port(main_window: &MainWindow, midi: &mut SharedMidi,
 
 fn handle_close_request(
         main_window_weak: Weak<MainWindow>, midi: &SharedMidi,
-        settings: &mut SharedSettings) -> CloseRequestResponse {
+        settings: &SharedSettings) -> CloseRequestResponse {
     let response = Arc::new(Mutex::new(CloseRequestResponse::HideWindow));
     let mut data = MAIN_DATA.lock().unwrap();
     if data.is_close_error_shown.load(Ordering::Relaxed) {
@@ -149,7 +149,7 @@ fn handle_close_request(
     *response.lock().unwrap()
 }
 
-fn init(main_window: &MainWindow, midi: &mut SharedMidi, settings: &mut SharedSettings) {
+fn init(main_window: &MainWindow, midi: &SharedMidi, settings: &SharedSettings) {
     // println!("main.init");
     let pitch_table_no: u8;
     {
@@ -255,7 +255,7 @@ fn create_port_strategy(connection_to: SlintConnectionTo, port_type: SlintPortTy
     port_strategy
 }
 
-fn update_pitch_table_no(index: usize, settings: &mut SharedSettings) {
+fn update_pitch_table_no(index: usize, settings: &SharedSettings) {
     let pitch_table_no = tuner::pitch_table_nos()[index];
     tuner::set_pitch_table_no(pitch_table_no);
     settings.lock().unwrap().pitch_table = pitch_table_no;
@@ -301,7 +301,7 @@ fn on_osc_tuning_received(depth: i32, mode: i32, root_freq: f32, stretch: f32,
 }
 
 fn refresh_ports(
-        main_window_weak: Weak<MainWindow>, midi: &SharedMidi, settings: &mut SharedSettings,
+        main_window_weak: Weak<MainWindow>, midi: &SharedMidi, settings: &SharedSettings,
         port_strategy: &dyn PortStrategy) {
     let midi = Arc::clone(midi);
     let mut settings = Arc::clone(settings);
@@ -348,7 +348,7 @@ fn set_pitch_tables_model(main_window: &MainWindow) {
     main_window.set_pitch_tables_model(slint::ModelRc::from(model));
 }
 
-fn show_connected_port_name(main_window: &MainWindow, settings: &mut SharedSettings,
+fn show_connected_port_name(main_window: &MainWindow, settings: &SharedSettings,
                             port_name: &str, port_strategy: &dyn PortStrategy) {
     let message_type = if port_name == PORT_NONE {
         MessageType::Warning }
@@ -372,7 +372,7 @@ fn show_message(main_window: &MainWindow, message: impl Into<SharedString>, mess
     main_window.invoke_show_message(message.into(), message_type);
 }
 
-fn show_no_port_connected(main_window: &MainWindow, settings: &mut SharedSettings,
+fn show_no_port_connected(main_window: &MainWindow, settings: &SharedSettings,
                           port_strategy: &dyn PortStrategy) {
     show_connected_port_name(main_window, settings, PORT_NONE, port_strategy);
 }
