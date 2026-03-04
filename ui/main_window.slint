@@ -134,6 +134,7 @@ export component MainWindow inherits MagicWindow {
                 width: 90px;
             }
             VerticalLayout {
+                padding_top: 5px;
                 padding_left: Globals.horizontal_padding;
                 pitch_tables_combo := ComboBox {
                     current_index: root.selected_pitch_table_index;
@@ -156,7 +157,7 @@ export component MainWindow inherits MagicWindow {
         VerticalLayout {
             padding_top: 10px;
             editor := MidiIo {
-                group_title: "From/to Editor (Instrument Ports)";
+                group_title: "From/To Editor (Instrument Ports)";
                 input_connect_port => {
                     root.connect_port(SlintConnectionTo.editor, SlintPortType.input)
                 }
