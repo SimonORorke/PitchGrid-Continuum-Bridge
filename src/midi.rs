@@ -23,14 +23,14 @@ pub enum PortType {
 struct MidiData {
     editor_output_connection: Option<MidiOutputConnection>,
     instru_output_connection: Option<MidiOutputConnection>,
-    on_tuning_updated: Arc<Option<Box<dyn Fn() + Send + Sync + 'static>>>,
+    tuning_updated_callbacks: Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>>,
 }
 
 lazy_static! {
     static ref MIDI_DATA: Mutex<MidiData> = Mutex::new(MidiData {
         editor_output_connection: None,
         instru_output_connection: None,
-        on_tuning_updated: Arc::new(None),});
+        tuning_updated_callbacks: Arc::new(Mutex::new(Vec::new())),});
 }
 
 pub struct Midi {
@@ -260,11 +260,12 @@ impl Midi {
         }, connection_to);
     }
 
-    pub fn set_on_tuning_updated(
+    pub fn add_tuning_updated_callback(
             &mut self, callback: Box<dyn Fn() + Send + Sync + 'static>) {
-        // println!("Midi.set_on_tuning_updated");
-        let mut data = MIDI_DATA.lock().unwrap();
-        data.on_tuning_updated = Arc::new(Some(callback));
+        // println!("Midi.add_tuning_updated_callback");
+        let callbacks =
+            MIDI_DATA.lock().unwrap().tuning_updated_callbacks.clone();
+        callbacks.lock().unwrap().push(callback);
     }
 
     pub fn editor_input(&self) -> &Io<MidiInputPort> {
@@ -299,7 +300,7 @@ impl Midi {
                     let channel1 = u8::from(channel) + 1; // 1-based channel number.
                     // Call back if the pitch table has been updated and loaded.
                     if channel1 == 16 && controller == 51 {
-                        // println!("on_instru_message_received: pitch table updated");
+                        println!("on_instru_message_received: pitch table updated");
                         // This means that the pitch table has been loaded,
                         // which will have been requested after the pitch table update
                         // was sent to the instrument.
@@ -308,11 +309,12 @@ impl Midi {
                         // been updated and loaded.
                         let on_pitch_table_updated = {
                             let data = MIDI_DATA.lock().unwrap();
-                            data.on_tuning_updated.clone()
+                            data.tuning_updated_callbacks.clone()
                         };
                         rayon::spawn(move || {
-                            if let Some(callback) =
-                                    on_pitch_table_updated.as_ref() {
+                            let callbacks = 
+                                on_pitch_table_updated.lock().unwrap();
+                            for callback in callbacks.iter() {
                                 callback();
                             }
                         });

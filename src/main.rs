@@ -14,10 +14,9 @@ use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
 use lazy_static::lazy_static;
-use round::round;
 use slint::{CloseRequestResponse, SharedString, Weak};
 use midi::{Midi, PortType};
-use crate::global::APP_TITLE;
+use crate::global::{APP_TITLE, SharedMidi};
 use crate::osc::Osc;
 use crate::port_strategy::{
     EditorInputStrategy, EditorOutputStrategy, 
@@ -180,7 +179,8 @@ fn init(main_window: &MainWindow, midi: &SharedMidi, settings: &SharedSettings) 
             show_error(main_window, err.to_string());
             return;
         }
-        midi1.set_on_tuning_updated(Box::from(on_tuning_updated));
+        // println!("main.init: Added tuning updated callback:");
+        midi1.add_tuning_updated_callback(Box::from(on_tuning_updated));
     }
     let editor_input_strategy = EditorInputStrategy::new();
     let editor_output_strategy = EditorOutputStrategy::new();
@@ -195,6 +195,7 @@ fn init(main_window: &MainWindow, midi: &SharedMidi, settings: &SharedSettings) 
     connect_initial_port(&main_window, midi, settings, &instru_input_strategy);
     connect_initial_port(&main_window, midi, settings, &instru_output_strategy);
     set_pitch_tables_model(&main_window);
+    tuner::set_midi(midi.clone());
     tuner::set_pitch_table_no(pitch_table_no);
     main_window.set_selected_pitch_table_index(tuner::pitch_table_index() as i32);
     init_ui_handlers(&main_window, Arc::clone(&midi), Arc::clone(settings));
@@ -284,44 +285,47 @@ fn on_osc_connected_changed() {
 
 fn on_osc_tuning_received(depth: i32, mode: i32, root_freq: f32, stretch: f32,
                           skew: f32, mode_offset: i32, steps: i32) {
-    // println!(
-    //     "main.on_osc_tuning_received: depth = {}; mode = {}; root_freq = {}; stretch = {}; \
-    //     skew = {}; mode_offset = {}; steps = {}",
-    //     depth, mode, root_freq, stretch, skew, mode_offset, steps);
+    println!(
+        "main.on_osc_tuning_received: depth = {}; mode = {}; root_freq = {}; stretch = {}; \
+        skew = {}; mode_offset = {}; steps = {}",
+        depth, mode, root_freq, stretch, skew, mode_offset, steps);
     let data = MAIN_DATA.lock().unwrap();
     let midi = data.midi.clone().unwrap();
+    let midi_guard = midi.lock().unwrap();
+    let can_update_tuning =
+        midi_guard.is_instru_input_connected() && midi_guard.is_instru_output_connected();
+    if can_update_tuning {
+        // So that this will be synchronous, do this outside the UI message loop (below).
+        tuner::on_tuning_received(depth, mode, root_freq, stretch, skew, mode_offset, steps);
+    }
     if let Some(main_window_weak) = &data.main_window_weak {
         with_main_window(main_window_weak.clone(), move |main_window| {
-            let midi_guard = midi.lock().unwrap();
-            if !midi_guard.is_instru_input_connected()
-               || !midi_guard.is_instru_output_connected() {
+            if can_update_tuning {
+                show_pitchgrid_status(
+                    main_window, "Updating instrument tuning", MessageType::Info);
+            } else {
                 show_pitchgrid_status(
                     main_window,
                     "Cannot updating tuning. Connect instrument input/output.",
                     MessageType::Error);
-                return;
             }
-            show_pitchgrid_status(
-                main_window, "Updating instrument tuning", MessageType::Info);
-            tuner::update_tuning(depth, mode, root_freq, stretch, skew, mode_offset, steps);
-            main_window.set_depth(format!("{depth}").into());
-            main_window.set_root_freq(format!("{} Hz", round(root_freq as f64, 3)).into());
-            // The stretch parameter is in octaves, so we need to multiply by 1200 to get the
-            // number of cents to display.
-            main_window.set_stretch(format!("{} ct", (stretch * 1200.0).round()).into());
-            main_window.set_skew(format!("{}", round(skew as f64, 5)).into());
-            main_window.set_mode_offset(format!("{mode_offset}").into());
-            main_window.set_steps(format!("{steps}").into());
         });
     }
 }
 
 fn on_tuning_updated() {
-    // println!("main.on_tuning_updated");
+    println!("main.on_tuning_updated");
     let data = MAIN_DATA.lock().unwrap();
     if let Some(main_window_weak) = &data.main_window_weak {
         with_main_window(main_window_weak.clone(), move |main_window| {
-            show_pitchgrid_status(main_window, 
+            let params = tuner::formatted_tuning_params();
+            main_window.set_depth(params.depth.into());
+            main_window.set_root_freq(params.root_freq.into());
+            main_window.set_stretch(params.stretch.into());
+            main_window.set_skew(params.skew.into());
+            main_window.set_mode_offset(params.mode_offset.into());
+            main_window.set_steps(params.steps.into());
+            show_pitchgrid_status(main_window,
                                   "Instrument tuning updated", MessageType::Info);
         });
     }
@@ -434,7 +438,6 @@ fn with_main_window(main_window_weak: Weak<MainWindow>,
     }).ok();
 }
 
-type SharedMidi = Arc<Mutex<Midi>>;
 type SharedSettings = Arc<Mutex<Settings>>;
 
 struct InputPortsModel(Vec<ComboBoxItem>);

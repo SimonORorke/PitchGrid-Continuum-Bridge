@@ -1,41 +1,71 @@
 use std::cmp::max;
 use std::sync::{Arc, Mutex};
-use std::sync::atomic::{AtomicU8, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use lazy_static::lazy_static;
 use round::round;
+use crate::global::SharedMidi;
 use crate::midi::{ConnectionTo, Midi};
 
 #[derive(Clone)]
-struct Note {
+struct Key {
+    /// The MIDI note number of the key (0-127).
     number: u8,
-    pitch: f32,
+    /// The pitch required for the note, in Hz.
+    required_pitch: f32,
+    /// The MIDI note number of the key with the closest concert tuning pitch
+    /// that is less than or equal to the required pitch.
     to_number: u8,
+    /// The offset ratio (0.0 to 1.0) as a fraction of a semitone, between the required pitch
+    /// and the closest concert tuning pitch that is less than or equal to it.
     offset_ratio: f32,
+    /// The upper 7 bits (MSB) of the offset ratio, as a 14-bit value,
+    /// for sending to the instrument via MIDI.
     offset_msb: u8,
+    /// The lower 7 bits (LSB) of the offset ratio, as a 14-bit value,
+    /// for sending to the instrument via MIDI.
     offset_lsb: u8,
 }
 
 
 struct TunerData {
-    pub notes:Arc<Vec<Note>>,
+    tuning_params: TuningParams,
+    midi: Option<SharedMidi>,
+    keys:Arc<Vec<Key>>,
+    is_already_updating: Arc<AtomicBool>,
+    is_another_update_pending: Arc<AtomicBool>,
     /// About the name Pitch Table.
     /// The EaganMatrix Overlay Developer's Guide calls them tuning grids.
     /// But naming is inconsistent in the Continuum User Guide.
     /// The main documentation calls them pitch tables or custom grids, though there are also
     /// scattered references to tuning grids.
     /// We call them pitch tables, as that has the best chance of being understood by users.
-    pub pitch_table_no: Arc<AtomicU8>,
+    pitch_table_no: Arc<AtomicU8>,
+}
+
+struct TuningParams {
+    depth: i32, mode: i32, root_freq: f32, stretch: f32,
+    skew: f32, mode_offset: i32, steps: i32,
+}
+
+pub struct FormattedTuningParams {
+    pub depth: String, pub root_freq: String, pub stretch: String,
+    pub skew: String, pub mode_offset: String, pub steps: String,
 }
 
 lazy_static! {
     static ref TUNER_DATA: Mutex<TunerData> = Mutex::new(TunerData {
-        notes: Arc::new(vec![]),
+        tuning_params: TuningParams {
+            depth: 0, mode: 0, root_freq: 0.0, stretch: 0.0, skew: 0.0, mode_offset: 0, steps: 0,
+        },
+        keys: Arc::new(vec![]),
+        is_already_updating: Arc::new(Default::default()),
+        is_another_update_pending: Arc::new(Default::default()),
+        midi: None,
         pitch_table_no: Arc::new(AtomicU8::new(default_pitch_table_no())),
     });
     static ref PITCH_TABLE_NOS: Vec<u8> = (80..88).collect();
-    static ref DEFAULT_NOTE_PITCHES: Vec<f32> = create_default_note_pitches();
+    static ref DEFAULT_KEY_PITCHES: Vec<f32> = create_default_key_pitches();
 }
-
 
 /// Update tuning parameters from the OSC message.
 ///     Args:
@@ -46,41 +76,55 @@ lazy_static! {
 ///         skew: Skew factor
 ///         mode_offset: Mode offset
 ///         steps: Number of steps per period
-pub fn update_tuning(depth: i32, mode: i32, root_freq: f32, stretch: f32,
-                     skew: f32, mode_offset: i32, steps: i32) {
+pub fn on_tuning_received(depth: i32, mode: i32, root_freq: f32, stretch: f32,
+                          skew: f32, mode_offset: i32, steps: i32) {
+    println!("tuner.on_tuning_received");
     // println!(
-    //     "tuner.update_tuning: depth = {}; mode = {}; root_freq = {}; stretch = {}; \
+    //     "tuner.on_tuning_received: depth = {}; mode = {}; root_freq = {}; stretch = {}; \
     //     skew = {}; mode_offset = {}; steps = {}",
     //     depth, mode, root_freq, stretch, skew, mode_offset, steps);
+    let update_now:bool;
     {
         let mut data = TUNER_DATA.lock().unwrap();
-        let note_pitches = calculate_note_pitches(
+        data.tuning_params.depth = depth;
+        data.tuning_params.mode = mode;
+        data.tuning_params.root_freq = root_freq;
+        data.tuning_params.stretch = stretch;
+        data.tuning_params.skew = skew;
+        data.tuning_params.mode_offset = mode_offset;
+        data.tuning_params.steps = steps;
+        let note_pitches = calculate_key_pitches(
             max(1, depth), mode, root_freq, stretch, skew, mode_offset, max(1, steps));
-        data.notes = Arc::new(note_pitches.iter().enumerate()
+        data.keys = Arc::new(note_pitches.iter().enumerate()
             .map(|(i, pitch)| {
-                Note {
+                Key {
                     number: i as u8,
-                    pitch: *pitch,
+                    required_pitch: *pitch,
                     to_number: 0,
                     offset_ratio: 0.0,
                     offset_msb: 0,
                     offset_lsb: 0,
                 }
             }).collect());
+        let is_already_updating = data.is_already_updating.load(Ordering::Relaxed);
+        if !is_already_updating {
+            data.is_already_updating.store(true, Ordering::Relaxed);
+            update_now = true;
+        } else {
+            data.is_another_update_pending.store(true, Ordering::Relaxed);
+            update_now = false;
+        }
     }
-    set_to_note_numbers();
-    calculate_offsets();
-    send_pitch_table_to_instrument();
+    if update_now {
+        update_tuning();
+    }
 }
 
-pub fn set_pitch_table_no(pitch_table_no: u8) {
-    TUNER_DATA.lock().unwrap().pitch_table_no.store(pitch_table_no, Ordering::Relaxed);
-}
-
-/// Calculates and returns the pitch of each note in the MIDI range,
+/// Calculates and returns the pitch required for each key in the MIDI range,
 /// given the tuning parameters.
-fn calculate_note_pitches(depth: i32, mode: i32, root_freq: f32, stretch: f32,
-                          skew: f32, mode_offset: i32, steps: i32) -> Vec<f32> {
+fn calculate_key_pitches(depth: i32, mode: i32, root_freq: f32, stretch: f32,
+                         skew: f32, mode_offset: i32, steps: i32) -> Vec<f32> {
+    // println!("tuner.calculate_key_pitches");
     let mos = ffi:: mos_from_g(
         depth,
         mode,
@@ -113,19 +157,51 @@ fn calculate_note_pitches(depth: i32, mode: i32, root_freq: f32, stretch: f32,
         .collect()
 }
 
-pub fn default_pitch_table_no() -> u8 { 80 }
+fn update_tuning() {
+    println!("tuner.update_tuning");
+    let data = TUNER_DATA.lock().unwrap();
+    let mut keys = (*data.keys).clone();
+    let pitch_table_no = data.pitch_table_no.load(Ordering::Relaxed);
+    set_to_key_numbers(&mut keys);
+    calculate_offsets(&mut keys);
+    send_pitch_table_to_instrument(&keys, pitch_table_no);
+}
+
+/// Sets the to_number field of each Key in TUNER_DATA.keys to
+/// the index of the pitch in DEFAULT_KEY_PITCHES
+/// that matches the Key's pitch.
+/// A match is when a pitch in TUNER_DATA.note_pitches is
+/// greater than or equal to the pitch in DEFAULT_KEY_PITCHES
+/// and less than the next pitch, if any, in DEFAULT_KEY_PITCHES.
+/// Pitches in both vectors are assumed to be sorted in ascending order.
+fn set_to_key_numbers(keys: &mut Vec<Key>) {
+    // println!("tuner.set_to_key_numbers");
+    // Exact match: Ok(i) → returns i ✓
+    // pitch < first: Err(0) → returns 0 ✓
+    // pitch between elements: Err(i) where i > 0 → returns i - 1 ✓
+    // pitch > last: Err(128) → returns 127 ✓
+    for key_being_matched in keys.iter_mut() {
+        key_being_matched.to_number = DEFAULT_KEY_PITCHES.binary_search_by(|&x|
+            x.partial_cmp(&key_being_matched.required_pitch).unwrap()).unwrap_or_else(|i| {
+            if i == 0 {
+                0  // Below first pitch
+            } else {
+                i - 1  // pitch is between DEFAULT_KEY_PITCHES[i-1] and [i]
+            }
+        }) as u8;
+    }
+}
 
 /// Calculates the offset ratio and 14-bit offset values for each note.
 /// The offset ratio is the offset specified as % of a semitone between
 /// the required pitch and the closest standard tuning pitch that is less than or equal to it.
-fn calculate_offsets() {
-    let mut data = TUNER_DATA.lock().unwrap();
-    let notes = Arc::make_mut(&mut data.notes);
-    for i in 0..notes.len() {
-        let note_pitch = notes[i].pitch;
+fn calculate_offsets(keys: &mut Vec<Key>) {
+    // println!("tuner.calculate_offsets");
+    for i in 0..keys.len() {
+        let note_pitch = keys[i].required_pitch;
         // Get the closest standard tuning pitch that is less than or equal to the
         // required note pitch.
-        let to_note_pitch = DEFAULT_NOTE_PITCHES[notes[i].to_number as usize];
+        let to_note_pitch = DEFAULT_KEY_PITCHES[keys[i].to_number as usize];
         // offset_ratio is the offset specified as % of a semitone between
         // note_pitch and to_note_pitch.
         let mut offset_ratio = 12.0 * (note_pitch / to_note_pitch).log2();
@@ -134,14 +210,14 @@ fn calculate_offsets() {
         } else if offset_ratio < 0.0 { // Shouldn't happen
             offset_ratio = 0.0; // Could happen with low notes.
         }
-        notes[i].offset_ratio = offset_ratio;
+        keys[i].offset_ratio = offset_ratio;
         // Convert offset_ratio (0.0 to 1.0) to 14-bit value (0 to 16,383)
         let offset_14bit = (offset_ratio * 16383.0).round() as u16;
         // Extract the upper 7 bits for MSB by shifting right 7 positions.
         // Extract the lower 7 bits for LSB using a mask.
         // Mask both with 0x7F to ensure they're 7-bit values.
-        notes[i].offset_msb = ((offset_14bit >> 7) & 0x7F) as u8;
-        notes[i].offset_lsb = (offset_14bit & 0x7F) as u8;
+        keys[i].offset_msb = ((offset_14bit >> 7) & 0x7F) as u8;
+        keys[i].offset_lsb = (offset_14bit & 0x7F) as u8;
         // println!(
         //     "note {}: pitch = {}; to_note = {}; to_note_pitch = {}; offset_ratio = {}; \
         //     offset_msb = {}, offset_lsb = {}",
@@ -150,30 +226,24 @@ fn calculate_offsets() {
     }
 }
 
-fn send_pitch_table_to_instrument() {
-    let notes: Vec<Note>;
-    let pitch_table_no: u8;
-    {
-        let data = TUNER_DATA.lock().unwrap();
-        notes = data.notes.to_vec();
-        pitch_table_no = data.pitch_table_no.load(Ordering::Relaxed);
-    }
+fn send_pitch_table_to_instrument(keys: &Vec<Key>, pitch_table_no: u8) {
+    // println!("tuner.send_pitch_table_to_instrument");
     // Select pitch table to update.
     send_control_change(16, 109, pitch_table_no);
-    // Tuning for each MIDI note
-    for note in notes {
-        // Base/From MIDI note
-        send_control_change(16, 38, note.number);
-        // Base/From MIDI note tuning MSB
+    // Tuning for each MIDI key
+    for key in keys {
+        // Base/From MIDI key
+        send_control_change(16, 38, key.number);
+        // Base/From MIDI key tuning MSB
         send_control_change(16, 38, 0);
-        // Base/From MIDI note tuning LSB
+        // Base/From MIDI key tuning LSB
         send_control_change(16, 38, 0);
-        // Re-tuned/To MIDI note
-        send_control_change(16, 38, note.to_number);
-        // Re-tuned/To MIDI note tuning MSB
-        send_control_change(16, 38, note.offset_msb);
-        // Re-tuned/To MIDI note tuning LSB
-        send_control_change(16, 38, note.offset_lsb);
+        // Re-tuned/To MIDI key
+        send_control_change(16, 38, key.to_number);
+        // Re-tuned/To MIDI key tuning MSB
+        send_control_change(16, 38, key.offset_msb);
+        // Re-tuned/To MIDI key tuning LSB
+        send_control_change(16, 38, key.offset_lsb);
     }
     // Save pitch table on instrument.
     send_control_change(16, 109, 101);
@@ -181,39 +251,52 @@ fn send_pitch_table_to_instrument() {
     send_control_change(16, 51, pitch_table_no);
 }
 
+pub fn formatted_tuning_params() -> FormattedTuningParams {
+    println!("tuner.formatted_tuning_params");
+    let data = TUNER_DATA.lock().unwrap();
+    FormattedTuningParams {
+        depth: format!("{}", data.tuning_params.depth),
+        root_freq: format!("{} Hz", round(data.tuning_params.root_freq as f64, 3)),
+        // The stretch parameter is in octaves, so we need to multiply by 1200 to get the
+        // number of cents to display.
+        stretch: format!("{} ct", (data.tuning_params.stretch * 1200.0).round()),
+        skew: format!("{}", round(data.tuning_params.skew as f64, 5)),
+        mode_offset: format!("{}", data.tuning_params.mode_offset),
+        steps: format!("{}", data.tuning_params.steps),
+    }
+}
+
+pub fn set_midi(midi: SharedMidi) {
+    // println!("tuner.set_midi");
+    midi.lock().unwrap().add_tuning_updated_callback(Box::from(on_tuning_updated));
+    TUNER_DATA.lock().unwrap().midi = Some(midi);
+}
+
+pub fn set_pitch_table_no(pitch_table_no: u8) {
+    TUNER_DATA.lock().unwrap().pitch_table_no.store(pitch_table_no, Ordering::Relaxed);
+}
+
+pub fn default_pitch_table_no() -> u8 { 80 }
+
+fn on_tuning_updated() {
+    println!("tuner.on_tuning_updated");
+    let data = TUNER_DATA.lock().unwrap();
+    let is_another_update_pending = data.is_another_update_pending.load(Ordering::Relaxed);
+    if is_another_update_pending {
+        data.is_another_update_pending.store(false, Ordering::Relaxed);
+        update_tuning();
+    } else {
+        data.is_already_updating.store(false, Ordering::Relaxed);
+    }
+}
+
 fn send_control_change(channel: u8, cc_no: u8, value: u8) {
     Midi::send_control_change(channel, cc_no, value, &ConnectionTo::Instru);
 }
 
-/// Sets the to_number field of each Note in TUNER_DATA.notes to
-/// the index of the note pitch in DEFAULT_NOTE_PITCHES
-/// that matches the Note's pitch.
-/// A match is when a pitch in TUNER_DATA.note_pitches is
-/// greater than or equal to the pitch in DEFAULT_NOTE_PITCHES
-/// and less than the next pitch, if any, in DEFAULT_NOTE_PITCHES.
-/// Pitches in both vectors are assumed to be sorted in ascending order.
-fn set_to_note_numbers() {
-    let mut data = TUNER_DATA.lock().unwrap();
-    let notes = Arc::make_mut(&mut data.notes);
-    // Exact match: Ok(i) → returns i ✓
-    // pitch < first: Err(0) → returns 0 ✓
-    // pitch between elements: Err(i) where i > 0 → returns i - 1 ✓
-    // pitch > last: Err(128) → returns 127 ✓
-    for note in notes.iter_mut() {
-        note.to_number = DEFAULT_NOTE_PITCHES.binary_search_by(|&x|
-            x.partial_cmp(&note.pitch).unwrap()).unwrap_or_else(|i| {
-            if i == 0 {
-                0  // Below first pitch
-            } else {
-                i - 1  // pitch is between DEFAULT_NOTE_PITCHES[i-1] and [i]
-            }
-        }) as u8;
-    }
-}
-
 pub fn pitch_table_index() -> usize {
     let pitch_table_no = TUNER_DATA.lock().unwrap().pitch_table_no.load(Ordering::Relaxed);
-    // Return the index of the pitch_table_NOS item that equals pitch_table_no.
+    // Return the index of the PITCH_TABLE_NOS item that equals pitch_table_no.
     PITCH_TABLE_NOS.iter().position(|&x| x == pitch_table_no).unwrap_or(0)
 }
 
@@ -221,11 +304,11 @@ pub fn pitch_table_nos() -> Vec<u8> {
     PITCH_TABLE_NOS.clone()
 }
 
-/// Returns the default note pitches in Hz, where the default scale is 12-TET
+/// Returns the default key pitches in Hz, where the default scale is 12-TET
 /// at standard concert pitch.
 #[allow(unused)] // The compiler thinks this function is unused,
-// even though it's used to initialise DEFAULT_NOTE_PITCHES.
-fn create_default_note_pitches() -> Vec<f32> {
+// even though it's used to initialise DEFAULT_KEY_PITCHES.
+fn create_default_key_pitches() -> Vec<f32> {
     vec![
         8.1758, 8.66196, 9.17703, 9.72272, 10.30086, 10.91339, 11.56233, 12.24986, 12.97828,
         13.75, 14.56762, 15.43385, 16.3516, 17.32392, 18.35405, 19.44544, 20.60172, 21.82677,
