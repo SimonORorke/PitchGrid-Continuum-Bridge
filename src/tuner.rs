@@ -12,11 +12,11 @@ struct Key {
     number: u8,
     /// The pitch required for the note, in Hz.
     required_pitch: f32,
-    /// The MIDI note number of the key with the closest concert tuning pitch
+    /// The MIDI note number of the key with the closest standard tuning pitch
     /// that is less than or equal to the required pitch.
     to_number: u8,
     /// The offset ratio (0.0 to 1.0) as a fraction of a semitone, between the required pitch
-    /// and the closest concert tuning pitch that is less than or equal to it.
+    /// and the closest standard tuning pitch that is less than or equal to it.
     offset_ratio: f32,
     /// The upper 7 bits (MSB) of the offset ratio, as a 14-bit value,
     /// for sending to the instrument via MIDI.
@@ -78,7 +78,7 @@ lazy_static! {
 ///         steps: Number of steps per period
 pub fn on_tuning_received(depth: i32, mode: i32, root_freq: f32, stretch: f32,
                           skew: f32, mode_offset: i32, steps: i32) {
-    println!("tuner.on_tuning_received");
+    // println!("tuner.on_tuning_received");
     // println!(
     //     "tuner.on_tuning_received: depth = {}; mode = {}; root_freq = {}; stretch = {}; \
     //     skew = {}; mode_offset = {}; steps = {}",
@@ -93,9 +93,9 @@ pub fn on_tuning_received(depth: i32, mode: i32, root_freq: f32, stretch: f32,
         data.tuning_params.skew = skew;
         data.tuning_params.mode_offset = mode_offset;
         data.tuning_params.steps = steps;
-        let note_pitches = calculate_key_pitches(
+        let key_pitches = calculate_key_pitches(
             max(1, depth), mode, root_freq, stretch, skew, mode_offset, max(1, steps));
-        data.keys = Arc::new(note_pitches.iter().enumerate()
+        data.keys = Arc::new(key_pitches.iter().enumerate()
             .map(|(i, pitch)| {
                 Key {
                     number: i as u8,
@@ -106,13 +106,24 @@ pub fn on_tuning_received(depth: i32, mode: i32, root_freq: f32, stretch: f32,
                     offset_lsb: 0,
                 }
             }).collect());
+        // If the player sweeps one of the tuning controls in PitchGrid,
+        // we will receive new tunings much faster than the instrument can update the tuning table,
+        // which takes in the order of half a second.
+        // If we were to keep sending tunings to the instrument regardless, its processor would
+        // be swamped, probably for minutes.
+        // The solution is to not send more updates to the instrument while another update is in
+        // progress and, once the update is complete, send the most recently received following
+        // tuning if there is one.
+        // That will work because we will have just overwritten any previous pending tuning with a
+        // new one.
         let is_already_updating = data.is_already_updating.load(Ordering::Relaxed);
-        if !is_already_updating {
-            data.is_already_updating.store(true, Ordering::Relaxed);
-            update_now = true;
-        } else {
+        // println!("tuner.on_tuning_received: is_already_updating = {is_already_updating}");
+        if is_already_updating {
             data.is_another_update_pending.store(true, Ordering::Relaxed);
             update_now = false;
+        } else {
+            data.is_already_updating.store(true, Ordering::Relaxed);
+            update_now = true;
         }
     }
     if update_now {
@@ -158,7 +169,7 @@ fn calculate_key_pitches(depth: i32, mode: i32, root_freq: f32, stretch: f32,
 }
 
 fn update_tuning() {
-    println!("tuner.update_tuning");
+    // println!("tuner.update_tuning");
     let data = TUNER_DATA.lock().unwrap();
     let mut keys = (*data.keys).clone();
     let pitch_table_no = data.pitch_table_no.load(Ordering::Relaxed);
@@ -252,7 +263,7 @@ fn send_pitch_table_to_instrument(keys: &Vec<Key>, pitch_table_no: u8) {
 }
 
 pub fn formatted_tuning_params() -> FormattedTuningParams {
-    println!("tuner.formatted_tuning_params");
+    // println!("tuner.formatted_tuning_params");
     let data = TUNER_DATA.lock().unwrap();
     FormattedTuningParams {
         depth: format!("{}", data.tuning_params.depth),
@@ -279,14 +290,23 @@ pub fn set_pitch_table_no(pitch_table_no: u8) {
 pub fn default_pitch_table_no() -> u8 { 80 }
 
 fn on_tuning_updated() {
-    println!("tuner.on_tuning_updated");
-    let data = TUNER_DATA.lock().unwrap();
-    let is_another_update_pending = data.is_another_update_pending.load(Ordering::Relaxed);
-    if is_another_update_pending {
-        data.is_another_update_pending.store(false, Ordering::Relaxed);
+    // println!("tuner.on_tuning_updated");
+    // See comment in on_tuning_received.
+    let update_again:bool;
+    {
+        let data = TUNER_DATA.lock().unwrap();
+        let is_another_update_pending = data.is_another_update_pending.load(Ordering::Relaxed);
+        // println!("tuner.on_tuning_updated: is_another_update_pending = {is_another_update_pending}");
+        if is_another_update_pending {
+            data.is_another_update_pending.store(false, Ordering::Relaxed);
+            update_again = true;
+        } else {
+            data.is_already_updating.store(false, Ordering::Relaxed);
+            update_again = false;
+        }
+    }
+    if update_again {
         update_tuning();
-    } else {
-        data.is_already_updating.store(false, Ordering::Relaxed);
     }
 }
 
@@ -305,7 +325,7 @@ pub fn pitch_table_nos() -> Vec<u8> {
 }
 
 /// Returns the default key pitches in Hz, where the default scale is 12-TET
-/// at standard concert pitch.
+/// at standard concert pitch A=440.
 #[allow(unused)] // The compiler thinks this function is unused,
 // even though it's used to initialise DEFAULT_KEY_PITCHES.
 fn create_default_key_pitches() -> Vec<f32> {

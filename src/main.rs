@@ -285,17 +285,16 @@ fn on_osc_connected_changed() {
 
 fn on_osc_tuning_received(depth: i32, mode: i32, root_freq: f32, stretch: f32,
                           skew: f32, mode_offset: i32, steps: i32) {
-    println!(
-        "main.on_osc_tuning_received: depth = {}; mode = {}; root_freq = {}; stretch = {}; \
-        skew = {}; mode_offset = {}; steps = {}",
-        depth, mode, root_freq, stretch, skew, mode_offset, steps);
+    // println!(
+    //     "main.on_osc_tuning_received: depth = {}; mode = {}; root_freq = {}; stretch = {}; \
+    //     skew = {}; mode_offset = {}; steps = {}",
+    //     depth, mode, root_freq, stretch, skew, mode_offset, steps);
     let data = MAIN_DATA.lock().unwrap();
     let midi = data.midi.clone().unwrap();
     let midi_guard = midi.lock().unwrap();
     let can_update_tuning =
         midi_guard.is_instru_input_connected() && midi_guard.is_instru_output_connected();
     if can_update_tuning {
-        // So that this will be synchronous, do this outside the UI message loop (below).
         tuner::on_tuning_received(depth, mode, root_freq, stretch, skew, mode_offset, steps);
     }
     if let Some(main_window_weak) = &data.main_window_weak {
@@ -314,7 +313,7 @@ fn on_osc_tuning_received(depth: i32, mode: i32, root_freq: f32, stretch: f32,
 }
 
 fn on_tuning_updated() {
-    println!("main.on_tuning_updated");
+    // println!("main.on_tuning_updated");
     let data = MAIN_DATA.lock().unwrap();
     if let Some(main_window_weak) = &data.main_window_weak {
         with_main_window(main_window_weak.clone(), move |main_window| {

@@ -300,7 +300,7 @@ impl Midi {
                     let channel1 = u8::from(channel) + 1; // 1-based channel number.
                     // Call back if the pitch table has been updated and loaded.
                     if channel1 == 16 && controller == 51 {
-                        println!("on_instru_message_received: pitch table updated");
+                        // println!("midi.on_instru_message_received: pitch table {value} updated");
                         // This means that the pitch table has been loaded,
                         // which will have been requested after the pitch table update
                         // was sent to the instrument.
@@ -311,6 +311,7 @@ impl Midi {
                             let data = MIDI_DATA.lock().unwrap();
                             data.tuning_updated_callbacks.clone()
                         };
+                        // Call the subscribed callback functions on a separate thread.
                         rayon::spawn(move || {
                             let callbacks = 
                                 on_pitch_table_updated.lock().unwrap();
