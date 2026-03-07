@@ -316,7 +316,7 @@ fn on_osc_tuning_received(depth: i32, mode: i32, root_freq: f32, stretch: f32,
     let midi = data.midi.clone().unwrap();
     let midi_guard = midi.lock().unwrap();
     let can_update_tuning =
-        midi_guard.is_instru_input_connected() && midi_guard.is_instru_output_connected();
+        midi_guard.is_input_connected() && midi_guard.is_output_connected();
     if can_update_tuning {
         tuner::on_tuning_received(depth, mode, root_freq, stretch, skew, mode_offset, steps);
     }

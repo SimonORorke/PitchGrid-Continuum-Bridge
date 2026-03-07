@@ -11,11 +11,6 @@ import { MidiIo } from "components/midi_io.slint";
 import { Globals } from "globals.slint";
 import { Palette, VerticalBox, } from "std-widgets.slint";
 
-export enum SlintConnectionTo {
-    editor,
-    instru
-}
-
 export enum SlintPortType {
     input,
     output
@@ -29,7 +24,7 @@ export component MainWindow inherits MagicWindow {
     min_height: 625px;
     title: window_title;
     icon: Globals.icon;
-    forward-focus: editor;
+    forward-focus: midi_io;
 
     in property depth <=> depth_value.text;
     in property root_freq <=> root_freq_value.text;
@@ -41,8 +36,8 @@ export component MainWindow inherits MagicWindow {
     in property pitch_tables_model <=> pitch_tables_combo.model;
     in property <string> window_title;
 
-    callback connect_port(connection_to: SlintConnectionTo, port_type: SlintPortType);
-    callback refresh_ports(connection_to: SlintConnectionTo, port_type: SlintPortType);
+    callback connect_port(port_type: SlintPortType);
+    callback refresh_ports(port_type: SlintPortType);
     callback selected_pitch_table_changed(index: int);
 
     function get_background_color() -> color {
@@ -59,40 +54,22 @@ export component MainWindow inherits MagicWindow {
         pitchgrid_status_text.message_type = message_type;
     }
 
-    in property editor_input_ports_model <=> editor.input_ports_model;
-    in-out property <int> editor_input_selected_port_index <=> editor.input_selected_port_index;
-    public function editor_input_focus() {
-        editor.input_focus();
+    in property input_ports_model <=> midi_io.input_ports_model;
+    in-out property <int> input_selected_port_index <=> midi_io.input_selected_port_index;
+    public function input_focus() {
+        midi_io.input_focus();
     }
-    public function editor_input_show_connected_port_name(name: string, message_type: MessageType) {
-        editor.input_show_connected_port_name(name, message_type);
-    }
-
-    in property editor_output_ports_model <=> editor.output_ports_model;
-    in-out property <int> editor_output_selected_port_index <=> editor.output_selected_port_index;
-    public function editor_output_focus() {
-        editor.output_focus();
-    }
-    public function editor_output_show_connected_port_name(name: string, message_type: MessageType) {
-        editor.output_show_connected_port_name(name, message_type);
+    public function input_show_connected_port_name(name: string, message_type: MessageType) {
+        midi_io.input_show_connected_port_name(name, message_type);
     }
 
-    in property instru_input_ports_model <=> instr.input_ports_model;
-    in-out property <int> instru_input_selected_port_index <=> instr.input_selected_port_index;
-    public function instru_input_focus() {
-        instr.input_focus();
+    in property output_ports_model <=> midi_io.output_ports_model;
+    in-out property <int> output_selected_port_index <=> midi_io.output_selected_port_index;
+    public function output_focus() {
+        midi_io.output_focus();
     }
-    public function instru_input_show_connected_port_name(name: string, message_type: MessageType) {
-        instr.input_show_connected_port_name(name, message_type);
-    }
-
-    in property instru_output_ports_model <=> instr.output_ports_model;
-    in-out property <int> instru_output_selected_port_index <=> instr.output_selected_port_index;
-    public function instru_output_focus() {
-        instr.output_focus();
-    }
-    public function instru_output_show_connected_port_name(name: string, message_type: MessageType) {
-        instr.output_show_connected_port_name(name, message_type);
+    public function output_show_connected_port_name(name: string, message_type: MessageType) {
+        midi_io.output_show_connected_port_name(name, message_type);
     }
 
     VerticalLayout {
@@ -156,37 +133,19 @@ export component MainWindow inherits MagicWindow {
         }
         VerticalLayout {
             padding_top: 10px;
-            editor := MidiIo {
-                group_title: "From/To Editor (Instrument Ports)";
+            midi_io := MidiIo {
+                group_title: "MIDI Devices Shared with Editor";
                 input_connect_port => {
-                    root.connect_port(SlintConnectionTo.editor, SlintPortType.input)
+                    root.connect_port(SlintPortType.input)
                 }
                 output_connect_port => {
-                    root.connect_port(SlintConnectionTo.editor, SlintPortType.output)
+                    root.connect_port(SlintPortType.output)
                 }
                 input_refresh_ports => {
-                    root.refresh_ports(SlintConnectionTo.editor, SlintPortType.input)
+                    root.refresh_ports(SlintPortType.input)
                 }
                 output_refresh_ports => {
-                    root.refresh_ports(SlintConnectionTo.editor, SlintPortType.output)
-                }
-            }
-        }
-        VerticalLayout {
-            padding_top: 15px;
-            instr := MidiIo {
-                group_title: "From/To Instrument";
-                input_connect_port => {
-                    root.connect_port(SlintConnectionTo.instru, SlintPortType.input)
-                }
-                output_connect_port => {
-                    root.connect_port(SlintConnectionTo.instru, SlintPortType.output)
-                }
-                input_refresh_ports => {
-                    root.refresh_ports(SlintConnectionTo.instru, SlintPortType.input)
-                }
-                output_refresh_ports => {
-                    root.refresh_ports(SlintConnectionTo.instru, SlintPortType.output)
+                    root.refresh_ports(SlintPortType.output)
                 }
             }
         }
