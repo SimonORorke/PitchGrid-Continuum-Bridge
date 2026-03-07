@@ -267,9 +267,16 @@ impl Midi {
             LiveEvent::Midi { channel, message } => match message {
                 MidiMessage::Controller { controller, value } => {
                     let channel1 = u8::from(channel) + 1; // 1-based channel number.
+                    if channel1 == 16
+                        // Ignore heartbeats
+                        && controller != 82 && controller != 111 && controller != 114
+                        && controller != 118 {
+                        println!("Midi.on_message_received: ch{} cc{} value {}",
+                                 channel1, controller, value);
+                    }
                     // Call back if the pitch table has been updated and loaded.
                     if channel1 == 16 && controller == 51 {
-                        // println!("midi.on_message_received: pitch table {value} updated");
+                        println!("midi.on_message_received: pitch table updated");
                         // This means that the pitch table has been loaded,
                         // which will have been requested after the pitch table update
                         // was sent to the instrument.
@@ -306,7 +313,7 @@ impl Midi {
             },
             _ => {}
         }
-        Self::send_message(message);
+        // Self::send_message(message);
     }
 
     /// Call the subscribed callback functions on a separate thread.
