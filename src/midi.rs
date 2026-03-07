@@ -326,17 +326,7 @@ impl Midi {
                     if channel1 == 16 && controller == 109 && value == 16 {
                         let data = MIDI_DATA.lock().unwrap();
                         data.is_preset_loading.store(true, Ordering::Relaxed);
-                        let on_preset_loading = {
-                            data.preset_loading_callbacks.clone()
-                        };
-                        // Call the subscribed callback functions on a separate thread.
-                        rayon::spawn(move || {
-                            let callbacks =
-                                on_preset_loading.lock().unwrap();
-                            for callback in callbacks.iter() {
-                                callback();
-                            }
-                        });
+                        Self::call_callbacks(data.preset_loading_callbacks.clone());
                     }
                 },
                 _ => {}
@@ -365,18 +355,8 @@ impl Midi {
                         // The instrument does not notify us to confirm that the pitch table
                         // has been updated. But now we effectively know that the pitch table has
                         // been updated and loaded.
-                        let on_pitch_table_updated = {
-                            let data = MIDI_DATA.lock().unwrap();
-                            data.tuning_updated_callbacks.clone()
-                        };
-                        // Call the subscribed callback functions on a separate thread.
-                        rayon::spawn(move || {
-                            let callbacks = 
-                                on_pitch_table_updated.lock().unwrap();
-                            for callback in callbacks.iter() {
-                                callback();
-                            }
-                        });
+                        let data = MIDI_DATA.lock().unwrap();
+                        Self::call_callbacks(data.tuning_updated_callbacks.clone());
                     }
                 },
                 MidiMessage::ProgramChange { .. } => {
@@ -389,17 +369,7 @@ impl Midi {
                             // This is the last item in the preset data sent when a preset
                             // has been loaded.
                             data.is_preset_loading.store(false, Ordering::Relaxed);
-                            let on_preset_loaded = {
-                                data.preset_loaded_callbacks.clone()
-                            };
-                            // Call the subscribed callback functions on a separate thread.
-                            rayon::spawn(move || {
-                                let callbacks =
-                                    on_preset_loaded.lock().unwrap();
-                                for callback in callbacks.iter() {
-                                    callback();
-                                }
-                            });
+                            Self::call_callbacks(data.preset_loaded_callbacks.clone());
                         }
                     }
                 },
@@ -408,6 +378,16 @@ impl Midi {
             _ => {}
         }
         Self::send_message(message, &ConnectionTo::Editor);
+    }
+
+    /// Call the subscribed callback functions on a separate thread.
+    fn call_callbacks(callbacks: Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>>) {
+        rayon::spawn(move || {
+            let callbacks_guard = callbacks.lock().unwrap();
+            for callback in callbacks_guard.iter() {
+                callback();
+            }
+        });
     }
 
     fn refresh_input_ports(&mut self, input_port_name: &str,
