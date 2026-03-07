@@ -19,8 +19,7 @@ use midi::{Midi, PortType};
 use crate::global::{APP_TITLE, SharedMidi};
 use crate::osc::Osc;
 use crate::port_strategy::{
-    EditorInputStrategy, EditorOutputStrategy, 
-    InstrumentInputStrategy, InstrumentOutputStrategy, PortStrategy};
+    InputStrategy, OutputStrategy, PortStrategy};
 use crate::settings::Settings;
 
 slint::include_modules!();
@@ -155,16 +154,12 @@ fn init(main_window: &MainWindow, midi: &SharedMidi, settings: &SharedSettings) 
     let pitch_table_no: u8;
     {
         let mut settings1 = settings.lock().unwrap();
-        let editor_input_port_name: String;
-        let editor_output_port_name: String;
-        let instru_input_port_name: String;
-        let instr_output_port_name: String;
+        let input_port_name: String;
+        let output_port_name: String;
         match settings1.read_from_file() {
             Ok(_) => {
-                editor_input_port_name = settings1.editor_midi_input_port.clone();
-                editor_output_port_name = settings1.editor_midi_output_port.clone();
-                instru_input_port_name = settings1.instrument_midi_input_port.clone();
-                instr_output_port_name = settings1.instrument_midi_output_port.clone();
+                input_port_name = settings1.midi_input_port.clone();
+                output_port_name = settings1.midi_output_port.clone();
                 pitch_table_no = max(tuner::default_pitch_table_no(), settings1.pitch_table);
             }
             Err(err) => {
@@ -174,8 +169,7 @@ fn init(main_window: &MainWindow, midi: &SharedMidi, settings: &SharedSettings) 
         }
         let mut midi1 = midi.lock().unwrap();
         if let Err(err) = midi1.init(
-            &editor_input_port_name, &editor_output_port_name,
-            &instru_input_port_name, &instr_output_port_name) {
+            &input_port_name, &output_port_name) {
             show_error(main_window, err.to_string());
             return;
         }
@@ -184,18 +178,12 @@ fn init(main_window: &MainWindow, midi: &SharedMidi, settings: &SharedSettings) 
         // println!("main.init: Added tuning updated callback:");
         midi1.add_tuning_updated_callback(Box::from(on_tuning_updated));
     }
-    let editor_input_strategy = EditorInputStrategy::new();
-    let editor_output_strategy = EditorOutputStrategy::new();
-    let instru_input_strategy = InstrumentInputStrategy::new();
-    let instru_output_strategy = InstrumentOutputStrategy::new();
-    set_ports_model(&main_window, midi, &editor_input_strategy);
-    set_ports_model(&main_window, midi, &editor_output_strategy);
-    set_ports_model(&main_window, midi, &instru_input_strategy);
-    set_ports_model(&main_window, midi, &instru_output_strategy);
-    connect_initial_port(&main_window, midi, settings, &editor_input_strategy);
-    connect_initial_port(&main_window, midi, settings, &editor_output_strategy);
-    connect_initial_port(&main_window, midi, settings, &instru_input_strategy);
-    connect_initial_port(&main_window, midi, settings, &instru_output_strategy);
+    let input_strategy = InputStrategy::new();
+    let output_strategy = OutputStrategy::new();
+    set_ports_model(&main_window, midi, &input_strategy);
+    set_ports_model(&main_window, midi, &output_strategy);
+    connect_initial_port(&main_window, midi, settings, &input_strategy);
+    connect_initial_port(&main_window, midi, settings, &output_strategy);
     set_pitch_tables_model(&main_window);
     tuner::set_midi(midi.clone());
     tuner::set_pitch_table_no(pitch_table_no);
@@ -221,10 +209,8 @@ fn init_ui_handlers(main_window: &MainWindow, midi: SharedMidi, settings: Shared
         let mut midi: SharedMidi = Arc::clone(&midi);
         let mut settings: SharedSettings = Arc::clone(&settings);
         let window_weak = window_weak.clone();
-        main_window.on_connect_port(move |
-            connection_to: SlintConnectionTo, port_type: SlintPortType| {
-            let port_strategy = create_port_strategy(
-                connection_to, port_type);
+        main_window.on_connect_port(move |port_type: SlintPortType| {
+            let port_strategy = create_port_strategy(port_type);
             connect_port(window_weak.clone(), &mut midi, &mut settings, &*port_strategy)
         });
     }
@@ -232,10 +218,8 @@ fn init_ui_handlers(main_window: &MainWindow, midi: SharedMidi, settings: Shared
         let mut midi: SharedMidi = Arc::clone(&midi);
         let mut settings: SharedSettings = Arc::clone(&settings);
         let window_weak = window_weak.clone();
-        main_window.on_refresh_ports(move |
-            connection_to: SlintConnectionTo, port_type: SlintPortType| {
-            let port_strategy = create_port_strategy(
-                connection_to, port_type);
+        main_window.on_refresh_ports(move |port_type: SlintPortType| {
+            let port_strategy = create_port_strategy(port_type);
             refresh_ports(window_weak.clone(), &mut midi, &mut settings, &*port_strategy)
         });
     }
@@ -247,19 +231,12 @@ fn init_ui_handlers(main_window: &MainWindow, midi: SharedMidi, settings: Shared
     }
 }
 
-fn create_port_strategy(connection_to: SlintConnectionTo, port_type: SlintPortType)
+fn create_port_strategy(port_type: SlintPortType)
                         -> Box<dyn PortStrategy> {
-    let port_strategy: Box<dyn PortStrategy> = match connection_to {
-        SlintConnectionTo::Editor => match port_type {
-            SlintPortType::Input => EditorInputStrategy::new().clone_box(),
-            SlintPortType::Output => EditorOutputStrategy::new().clone_box(),
-        },
-        SlintConnectionTo::Instru => match port_type {
-            SlintPortType::Input => InstrumentInputStrategy::new().clone_box(),
-            SlintPortType::Output => InstrumentOutputStrategy::new().clone_box(),
-        }
-    };
-    port_strategy
+    match port_type {
+        SlintPortType::Input => InputStrategy::new().clone_box(),
+        SlintPortType::Output => OutputStrategy::new().clone_box(),
+    }
 }
 
 fn update_pitch_table_no(index: usize, settings: &SharedSettings) {

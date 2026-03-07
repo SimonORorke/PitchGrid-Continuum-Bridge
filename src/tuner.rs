@@ -4,7 +4,7 @@ use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use lazy_static::lazy_static;
 use round::round;
 use crate::global::SharedMidi;
-use crate::midi::{ConnectionTo, Midi};
+use crate::midi::Midi;
 
 #[derive(Clone)]
 struct Key {
@@ -353,13 +353,13 @@ fn send_rounding_params(on: bool) {
 
 fn send_matrix_poke(poke_id: u8, poke_value: u8) {
     Midi::send_control_change(
-        16, 56, 20, &ConnectionTo::Instru); // Matrix Poke command
+        16, 56, 20); // Matrix Poke command
     Midi::send_polyphonic_aftertouch(
-        16, poke_id, poke_value, &ConnectionTo::Instru); // Perform the Poke
+        16, poke_id, poke_value); // Perform the Poke
 }
 
 fn send_control_change(channel: u8, cc_no: u8, value: u8) {
-    Midi::send_control_change(channel, cc_no, value, &ConnectionTo::Instru);
+    Midi::send_control_change(channel, cc_no, value);
 }
 
 pub fn pitch_table_index() -> usize {

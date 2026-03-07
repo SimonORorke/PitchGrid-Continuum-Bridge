@@ -29,22 +29,22 @@ pub trait PortStrategy: Send + Sync {
 }
 
 #[derive(Clone)]
-pub struct EditorInputStrategy {
+pub struct InputStrategy {
 }
 
-impl EditorInputStrategy {
+impl InputStrategy {
     pub fn new() -> Self {
         Self {}
     }
 }
 
-impl PortStrategy for EditorInputStrategy {
+impl PortStrategy for InputStrategy {
     fn port_type(&self) -> &PortType {
         &PortType::Input
     }
 
     fn io<'a>(&self, midi: &'a Midi) -> &'a dyn MidiIo {
-        midi.editor_input()
+        midi.input()
     }
 
     fn clone_box(&self) -> Box<dyn PortStrategy> {
@@ -52,32 +52,32 @@ impl PortStrategy for EditorInputStrategy {
     }
 
     fn focus_port(&self, main_window: &MainWindow) {
-        main_window.invoke_editor_input_focus();
+        main_window.invoke_input_focus();
     }
 
     fn port_setting<'a>(&self, settings: &'a Settings) -> &'a str {
-        &settings.editor_midi_input_port
+        &settings.midi_input_port
     }
 
     fn set_port_setting(&self, settings: &mut Settings, port_name: &str) {
-        settings.editor_midi_input_port = port_name.into();
+        settings.midi_input_port = port_name.into();
     }
 
     fn show_connected_port_name(&self, main_window: &MainWindow, port_name: &str,
                                 message_type: MessageType) {
-        main_window.invoke_editor_input_show_connected_port_name(port_name.into(), message_type);
+        main_window.invoke_input_show_connected_port_name(port_name.into(), message_type);
     }
 
     fn set_ports_model(&self, main_window: &MainWindow, model: ModelRc<ComboBoxItem>) {
-        main_window.set_editor_input_ports_model(model);
+        main_window.set_input_ports_model(model);
     }
 
     fn get_selected_port_index(&self, main_window: &MainWindow) -> i32 {
-        main_window.get_editor_input_selected_port_index()
+        main_window.get_input_selected_port_index()
     }
 
     fn set_selected_port_index(&self, main_window: &MainWindow, index: i32) {
-        main_window.set_editor_input_selected_port_index(index);
+        main_window.set_input_selected_port_index(index);
     }
 
     fn msg_cannot_connect(&self, port_name: &str) -> &str {
@@ -103,26 +103,22 @@ impl PortStrategy for EditorInputStrategy {
 }
 
 #[derive(Clone)]
-pub struct EditorOutputStrategy {
+pub struct OutputStrategy {
 }
 
-impl EditorOutputStrategy {
+impl OutputStrategy {
     pub fn new() -> Self {
         Self {}
     }
 }
 
-impl PortStrategy for EditorOutputStrategy {
-    fn connection_to(&self) -> &ConnectionTo {
-        &ConnectionTo::Editor
-    }
-
+impl PortStrategy for OutputStrategy {
     fn port_type(&self) -> &PortType {
         &PortType::Output
     }
 
     fn io<'a>(&self, midi: &'a Midi) -> &'a dyn MidiIo {
-        midi.editor_output()
+        midi.output()
     }
 
     fn clone_box(&self) -> Box<dyn PortStrategy> {
@@ -130,32 +126,32 @@ impl PortStrategy for EditorOutputStrategy {
     }
 
     fn focus_port(&self, main_window: &MainWindow) {
-        main_window.invoke_editor_output_focus();
+        main_window.invoke_output_focus();
     }
 
     fn port_setting<'a>(&self, settings: &'a Settings) -> &'a str {
-        &settings.editor_midi_output_port
+        &settings.midi_output_port
     }
 
     fn set_port_setting(&self, settings: &mut Settings, port_name: &str) {
-        settings.editor_midi_output_port = port_name.into();
+        settings.midi_output_port = port_name.into();
     }
 
     fn show_connected_port_name(&self, main_window: &MainWindow, port_name: &str,
                                 message_type: MessageType) {
-        main_window.invoke_editor_output_show_connected_port_name(port_name.into(), message_type);
+        main_window.invoke_output_show_connected_port_name(port_name.into(), message_type);
     }
 
     fn set_ports_model(&self, main_window: &MainWindow, model: ModelRc<ComboBoxItem>) {
-        main_window.set_editor_output_ports_model(model);
+        main_window.set_output_ports_model(model);
     }
 
     fn get_selected_port_index(&self, main_window: &MainWindow) -> i32 {
-        main_window.get_editor_output_selected_port_index()
+        main_window.get_output_selected_port_index()
     }
 
     fn set_selected_port_index(&self, main_window: &MainWindow, index: i32) {
-        main_window.set_editor_output_selected_port_index(index);
+        main_window.set_output_selected_port_index(index);
     }
 
     fn msg_cannot_connect(&self, port_name: &str) -> &str {
