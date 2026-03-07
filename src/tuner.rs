@@ -33,6 +33,7 @@ struct TunerData {
     keys:Arc<Vec<Key>>,
     is_already_updating: Arc<AtomicBool>,
     is_another_update_pending: Arc<AtomicBool>,
+    // is_pitchgrid_connected: Arc<AtomicBool>,
     /// About the name Pitch Table.
     /// The EaganMatrix Overlay Developer's Guide calls them tuning grids.
     /// But naming is inconsistent in the Continuum User Guide.
@@ -60,6 +61,7 @@ lazy_static! {
         keys: Arc::new(vec![]),
         is_already_updating: Arc::new(Default::default()),
         is_another_update_pending: Arc::new(Default::default()),
+        // is_pitchgrid_connected: Arc::new(Default::default()),
         midi: None,
         pitch_table_no: Arc::new(AtomicU8::new(default_pitch_table_no())),
     });
@@ -175,7 +177,13 @@ fn update_tuning() {
     let pitch_table_no = data.pitch_table_no.load(Ordering::Relaxed);
     set_to_key_numbers(&mut keys);
     calculate_offsets(&mut keys);
+    // To ensure that the tuning will be preserved when a new preset is loaded on the instrument,
+    // I tried switching Preset Loading Surface Processing between Replace and Preserve.
+    // However, this caused several problems, including the inability of the editor to load presets.
+    // preserve_surface_processing(false);
+    send_rounding_params(true);
     send_pitch_table_to_instrument(&keys, pitch_table_no);
+    // preserve_surface_processing(true);
 }
 
 /// Sets the to_number field of each Key in TUNER_DATA.keys to
@@ -277,6 +285,10 @@ pub fn formatted_tuning_params() -> FormattedTuningParams {
     }
 }
 
+// pub fn set_is_pitchgrid_connected(is_connected: bool) {
+//     TUNER_DATA.lock().unwrap().is_pitchgrid_connected.store(is_connected, Ordering::Relaxed);
+// }
+
 pub fn set_midi(midi: SharedMidi) {
     // println!("tuner.set_midi");
     midi.lock().unwrap().add_tuning_updated_callback(Box::from(on_tuning_updated));
@@ -308,6 +320,37 @@ fn on_tuning_updated() {
     if update_again {
         update_tuning();
     }
+}
+
+#[allow(dead_code)]
+fn preserve_surface_processing(on: bool) {
+    let poke_id:u8 = if on { 1 } else { 0 };
+    send_matrix_poke(56, poke_id); // PreservSurf
+    // Can I get away without having to do this?
+    // The editor does it.  But it seems not to make a difference here.
+    // Write current global settings to flash
+    // send_control_change(16, 109, 8); // Task curGloToFlash
+}
+
+fn send_rounding_params(on: bool) {
+    if on {
+        // Rounding Mode Normal
+        send_matrix_poke(10, 0); // RoundMode
+    }
+    // Initial Rounding
+    let initial_rounding_value:u8 = if on { 127 } else { 0 };
+    send_control_change(1, 28, initial_rounding_value); // RndIni
+    // Rounding Rate
+    let rounding_rate_value:u8 =
+        if on { 127 /* Immediate when initial rounding is on */ } else { 0 /* Off */ };
+    send_control_change(1, 25, rounding_rate_value); // RoundRate
+}
+
+fn send_matrix_poke(poke_id: u8, poke_value: u8) {
+    Midi::send_control_change(
+        16, 56, 20, &ConnectionTo::Instru); // Matrix Poke command
+    Midi::send_polyphonic_aftertouch(
+        16, poke_id, poke_value, &ConnectionTo::Instru); // Perform the Poke
 }
 
 fn send_control_change(channel: u8, cc_no: u8, value: u8) {

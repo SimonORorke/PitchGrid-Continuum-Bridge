@@ -250,6 +250,16 @@ impl Midi {
         }, connection_to);
     }
 
+    /// Send a MIDI polyphonic aftertouch (pressure) message.
+    /// Parameter `channel` is 1-based.
+    pub fn send_polyphonic_aftertouch(channel: u8, key: u8, pressure: u8, 
+                                      connection_to: &ConnectionTo) {
+        Self::send_channel_message(channel, MidiMessage::Aftertouch {
+            key: key.into(),
+            vel: pressure.into(),
+        }, connection_to);
+    }
+
     /// Send a MIDI program change message.
     /// Parameter `channel` is 1-based.
     /// Parameter `program` is 0-based.
