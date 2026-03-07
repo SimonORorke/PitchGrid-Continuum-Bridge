@@ -1,5 +1,6 @@
 use std::error::Error;
 use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicBool, Ordering};
 use lazy_static::lazy_static;
 use midir::{
     MidiInput, MidiInputConnection, MidiInputPort,
@@ -23,6 +24,9 @@ pub enum PortType {
 struct MidiData {
     editor_output_connection: Option<MidiOutputConnection>,
     instru_output_connection: Option<MidiOutputConnection>,
+    is_preset_loading: Arc<AtomicBool>,
+    preset_loaded_callbacks: Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>>,
+    preset_loading_callbacks: Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>>,
     tuning_updated_callbacks: Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>>,
 }
 
@@ -30,7 +34,11 @@ lazy_static! {
     static ref MIDI_DATA: Mutex<MidiData> = Mutex::new(MidiData {
         editor_output_connection: None,
         instru_output_connection: None,
-        tuning_updated_callbacks: Arc::new(Mutex::new(Vec::new())),});
+        is_preset_loading: Arc::new(Default::default()),
+        preset_loaded_callbacks: Arc::new(Mutex::new(Vec::new())),
+        preset_loading_callbacks: Arc::new(Mutex::new(Vec::new())),
+        tuning_updated_callbacks: Arc::new(Mutex::new(Vec::new())),
+    });
 }
 
 pub struct Midi {
@@ -270,6 +278,20 @@ impl Midi {
         }, connection_to);
     }
 
+    pub fn add_preset_loaded_callback(
+        &mut self, callback: Box<dyn Fn() + Send + Sync + 'static>) {
+        let callbacks =
+            MIDI_DATA.lock().unwrap().preset_loaded_callbacks.clone();
+        callbacks.lock().unwrap().push(callback);
+    }
+
+    pub fn add_preset_loading_callback(
+        &mut self, callback: Box<dyn Fn() + Send + Sync + 'static>) {
+        let callbacks =
+            MIDI_DATA.lock().unwrap().preset_loading_callbacks.clone();
+        callbacks.lock().unwrap().push(callback);
+    }
+
     pub fn add_tuning_updated_callback(
             &mut self, callback: Box<dyn Fn() + Send + Sync + 'static>) {
         // println!("Midi.add_tuning_updated_callback");
@@ -295,6 +317,32 @@ impl Midi {
     }
 
     fn on_editor_message_received(message: &[u8]) {
+        let event = LiveEvent::parse(message).unwrap();
+        match event {
+            LiveEvent::Midi { channel, message } => match message {
+                MidiMessage::Controller { controller, value } => {
+                    let channel1 = u8::from(channel) + 1; // 1-based channel number.
+                    // Call back if a preset load has been requested.
+                    if channel1 == 16 && controller == 109 && value == 16 {
+                        let data = MIDI_DATA.lock().unwrap();
+                        data.is_preset_loading.store(true, Ordering::Relaxed);
+                        let on_preset_loading = {
+                            data.preset_loading_callbacks.clone()
+                        };
+                        // Call the subscribed callback functions on a separate thread.
+                        rayon::spawn(move || {
+                            let callbacks =
+                                on_preset_loading.lock().unwrap();
+                            for callback in callbacks.iter() {
+                                callback();
+                            }
+                        });
+                    }
+                },
+                _ => {}
+            },
+            _ => {}
+        }
         Self::send_message(message, &ConnectionTo::Instru);
     }
 
@@ -329,6 +377,30 @@ impl Midi {
                                 callback();
                             }
                         });
+                    }
+                },
+                MidiMessage::ProgramChange { .. } => {
+                    let channel1 = u8::from(channel) + 1; // 1-based channel number.
+                    if channel1 == 16 {
+                        let data = MIDI_DATA.lock().unwrap();
+                        let is_preset_loading =
+                            data.is_preset_loading.load(Ordering::Relaxed);
+                        if is_preset_loading {
+                            // This is the last item in the preset data sent when a preset
+                            // has been loaded.
+                            data.is_preset_loading.store(false, Ordering::Relaxed);
+                            let on_preset_loaded = {
+                                data.preset_loaded_callbacks.clone()
+                            };
+                            // Call the subscribed callback functions on a separate thread.
+                            rayon::spawn(move || {
+                                let callbacks =
+                                    on_preset_loaded.lock().unwrap();
+                                for callback in callbacks.iter() {
+                                    callback();
+                                }
+                            });
+                        }
                     }
                 },
                 _ => {}
