@@ -280,6 +280,7 @@ impl Midi {
 
     pub fn add_preset_loaded_callback(
         &mut self, callback: Box<dyn Fn() + Send + Sync + 'static>) {
+        println!("Midi.add_preset_loaded_callback");
         let callbacks =
             MIDI_DATA.lock().unwrap().preset_loaded_callbacks.clone();
         callbacks.lock().unwrap().push(callback);
@@ -287,6 +288,7 @@ impl Midi {
 
     pub fn add_preset_loading_callback(
         &mut self, callback: Box<dyn Fn() + Send + Sync + 'static>) {
+        println!("Midi.add_preset_loading_callback");
         let callbacks =
             MIDI_DATA.lock().unwrap().preset_loading_callbacks.clone();
         callbacks.lock().unwrap().push(callback);
@@ -324,6 +326,7 @@ impl Midi {
                     let channel1 = u8::from(channel) + 1; // 1-based channel number.
                     // Call back if a preset load has been requested.
                     if channel1 == 16 && controller == 109 && value == 16 {
+                        println!("Midi.on_editor_message_received: preset load requested");
                         let data = MIDI_DATA.lock().unwrap();
                         data.is_preset_loading.store(true, Ordering::Relaxed);
                         Self::call_callbacks(data.preset_loading_callbacks.clone());
@@ -368,6 +371,7 @@ impl Midi {
                         if is_preset_loading {
                             // This is the last item in the preset data sent when a preset
                             // has been loaded.
+                            println!("Midi.on_editor_message_received: preset loaded");
                             data.is_preset_loading.store(false, Ordering::Relaxed);
                             Self::call_callbacks(data.preset_loaded_callbacks.clone());
                         }
