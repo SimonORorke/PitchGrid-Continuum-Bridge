@@ -1,6 +1,5 @@
 use std::error::Error;
 use std::sync::{Arc, Mutex};
-use std::sync::atomic::{AtomicBool, Ordering};
 use lazy_static::lazy_static;
 use midir::{
     MidiInput, MidiInputConnection, MidiInputPort,
@@ -17,18 +16,12 @@ pub enum PortType {
 
 struct MidiData {
     output_connection: Option<MidiOutputConnection>,
-    is_preset_loading: Arc<AtomicBool>,
-    preset_loaded_callbacks: Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>>,
-    preset_loading_callbacks: Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>>,
     tuning_updated_callbacks: Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>>,
 }
 
 lazy_static! {
     static ref MIDI_DATA: Mutex<MidiData> = Mutex::new(MidiData {
         output_connection: None,
-        is_preset_loading: Arc::new(Default::default()),
-        preset_loaded_callbacks: Arc::new(Mutex::new(Vec::new())),
-        preset_loading_callbacks: Arc::new(Mutex::new(Vec::new())),
         tuning_updated_callbacks: Arc::new(Mutex::new(Vec::new())),
     });
 }
@@ -229,22 +222,6 @@ impl Midi {
         });
     }
 
-    pub fn add_preset_loaded_callback(
-        &mut self, callback: Box<dyn Fn() + Send + Sync + 'static>) {
-        println!("Midi.add_preset_loaded_callback");
-        let callbacks =
-            MIDI_DATA.lock().unwrap().preset_loaded_callbacks.clone();
-        callbacks.lock().unwrap().push(callback);
-    }
-
-    pub fn add_preset_loading_callback(
-        &mut self, callback: Box<dyn Fn() + Send + Sync + 'static>) {
-        println!("Midi.add_preset_loading_callback");
-        let callbacks =
-            MIDI_DATA.lock().unwrap().preset_loading_callbacks.clone();
-        callbacks.lock().unwrap().push(callback);
-    }
-
     pub fn add_tuning_updated_callback(
             &mut self, callback: Box<dyn Fn() + Send + Sync + 'static>) {
         // println!("Midi.add_tuning_updated_callback");
@@ -265,7 +242,7 @@ impl Midi {
         let event = LiveEvent::parse(message).unwrap();
         match event {
             LiveEvent::Midi { channel, message } => match message {
-                MidiMessage::Controller { controller, value } => {
+                MidiMessage::Controller { controller, .. } => {
                     let channel1 = u8::from(channel) + 1; // 1-based channel number.
                     // if channel1 == 16
                     //     // Ignore heartbeats
@@ -276,7 +253,7 @@ impl Midi {
                     // }
                     // Call back if the pitch table has been updated and loaded.
                     if channel1 == 16 && controller == 51 {
-                        println!("midi.on_message_received: pitch table updated");
+                        // println!("midi.on_message_received: pitch table updated");
                         // This means that the pitch table has been loaded,
                         // which will have been requested after the pitch table update
                         // was sent to the instrument.
@@ -286,34 +263,11 @@ impl Midi {
                         let data = MIDI_DATA.lock().unwrap();
                         Self::call_callbacks(data.tuning_updated_callbacks.clone());
                     }
-                    // Call back if a preset load has been requested.
-                    if channel1 == 16 && controller == 109 && value == 16 {
-                        println!("Midi.on_message_received: preset load requested");
-                        let data = MIDI_DATA.lock().unwrap();
-                        data.is_preset_loading.store(true, Ordering::Relaxed);
-                        Self::call_callbacks(data.preset_loading_callbacks.clone());
-                    }
-                },
-                MidiMessage::ProgramChange { .. } => {
-                    let channel1 = u8::from(channel) + 1; // 1-based channel number.
-                    if channel1 == 16 {
-                        let data = MIDI_DATA.lock().unwrap();
-                        let is_preset_loading =
-                            data.is_preset_loading.load(Ordering::Relaxed);
-                        if is_preset_loading {
-                            // This is the last item in the preset data sent when a preset
-                            // has been loaded.
-                            println!("Midi.on_message_received: preset loaded");
-                            data.is_preset_loading.store(false, Ordering::Relaxed);
-                            Self::call_callbacks(data.preset_loaded_callbacks.clone());
-                        }
-                    }
                 },
                 _ => {}
             },
             _ => {}
         }
-        // Self::send_message(message);
     }
 
     /// Call the subscribed callback functions on a separate thread.

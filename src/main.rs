@@ -150,7 +150,7 @@ fn handle_close_request(
 }
 
 fn init(main_window: &MainWindow, midi: &SharedMidi, settings: &SharedSettings) {
-    println!("main.init");
+    // println!("main.init");
     let pitch_table_no: u8;
     {
         let mut settings1 = settings.lock().unwrap();
@@ -173,8 +173,6 @@ fn init(main_window: &MainWindow, midi: &SharedMidi, settings: &SharedSettings) 
             show_error(main_window, err.to_string());
             return;
         }
-        midi1.add_preset_loaded_callback(Box::from(on_instru_preset_loaded));
-        midi1.add_preset_loading_callback(Box::from(on_instru_preset_loading));
         // println!("main.init: Added tuning updated callback:");
         midi1.add_tuning_updated_callback(Box::from(on_tuning_updated));
     }
@@ -243,27 +241,6 @@ fn update_pitch_table_no(index: usize, settings: &SharedSettings) {
     let pitch_table_no = tuner::pitch_table_nos()[index];
     tuner::set_pitch_table_no(pitch_table_no);
     settings.lock().unwrap().pitch_table = pitch_table_no;
-}
-
-fn on_instru_preset_loaded() {
-    let data = MAIN_DATA.lock().unwrap();
-    if let Some(main_window_weak) = &data.main_window_weak {
-        with_main_window(main_window_weak.clone(), move |main_window| {
-            show_pitchgrid_status(main_window,
-                "Instrument preset loaded: retuning...", MessageType::Info);
-        });
-    }
-    tuner::retune();
-}
-
-fn on_instru_preset_loading() {
-    let data = MAIN_DATA.lock().unwrap();
-    if let Some(main_window_weak) = &data.main_window_weak {
-        with_main_window(main_window_weak.clone(), move |main_window| {
-            show_pitchgrid_status(main_window,
-                "Instrument preset loading: retune pending...", MessageType::Info);
-        });
-    }
 }
 
 fn on_osc_connected_changed() {

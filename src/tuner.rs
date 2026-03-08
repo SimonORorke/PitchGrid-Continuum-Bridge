@@ -285,15 +285,6 @@ pub fn formatted_tuning_params() -> FormattedTuningParams {
     }
 }
 
-/// Send the same tuning to the instrument again.
-pub fn retune() {
-    update_tuning();
-}
-
-// pub fn set_is_pitchgrid_connected(is_connected: bool) {
-//     TUNER_DATA.lock().unwrap().is_pitchgrid_connected.store(is_connected, Ordering::Relaxed);
-// }
-
 pub fn set_midi(midi: SharedMidi) {
     // println!("tuner.set_midi");
     midi.lock().unwrap().add_tuning_updated_callback(Box::from(on_tuning_updated));
