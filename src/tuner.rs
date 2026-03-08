@@ -4,7 +4,7 @@ use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use lazy_static::lazy_static;
 use round::round;
 use crate::global::SharedMidi;
-use crate::midi::Midi;
+use crate::midi::{Midi, PresetLoading};
 
 #[derive(Clone)]
 struct Key {
@@ -180,10 +180,10 @@ fn update_tuning() {
     // To ensure that the tuning will be preserved when a new preset is loaded on the instrument,
     // set Preset Loading Surface Processing before updating the instrument's tuning and then
     // set it to Preserve after.
-    preserve_surface_processing(false);
+    send_surface_processing(PresetLoading::Replace);
     send_rounding_params(true);
-    send_pitch_table_to_instrument(&keys, pitch_table_no);
-    preserve_surface_processing(true);
+    send_pitch_table(&keys, pitch_table_no);
+    send_surface_processing(PresetLoading::Preserve);
 }
 
 /// Sets the to_number field of each Key in TUNER_DATA.keys to
@@ -245,7 +245,7 @@ fn calculate_offsets(keys: &mut Vec<Key>) {
     }
 }
 
-fn send_pitch_table_to_instrument(keys: &Vec<Key>, pitch_table_no: u8) {
+fn send_pitch_table(keys: &Vec<Key>, pitch_table_no: u8) {
     // println!("tuner.send_pitch_table_to_instrument");
     // Select pitch table to update.
     send_control_change(16, 109, pitch_table_no);
@@ -318,12 +318,11 @@ fn on_tuning_updated() {
     }
 }
 
-#[allow(dead_code)]
-fn preserve_surface_processing(on: bool) {
-    let poke_id:u8 = if on { 1 } else { 0 };
+/// Send Preset Loading Surface Processing (global)
+fn send_surface_processing(on_preset_loading: PresetLoading) {
+    let poke_id = on_preset_loading as u8;
     send_matrix_poke(56, poke_id); // PreservSurf
-    // Can I get away without having to do this?
-    // The editor does it.  But it seems not to make a difference here.
+    // The editor then does this.  But it seems not to make a difference here.
     // Write current global settings to flash
     // send_control_change(16, 109, 8); // Task curGloToFlash
 }

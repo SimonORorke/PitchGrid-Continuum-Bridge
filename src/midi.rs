@@ -1,5 +1,6 @@
 use std::error::Error;
 use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicBool, Ordering};
 use lazy_static::lazy_static;
 use midir::{
     MidiInput, MidiInputConnection, MidiInputPort,
@@ -14,13 +15,23 @@ pub enum PortType {
     Output,
 }
 
+#[derive(Clone, Copy, Debug)]
+pub enum PresetLoading {
+    Replace = 0,
+    Preserve = 1,
+}
+
 struct MidiData {
+    initial_surface_processing: Arc<Mutex<Option<PresetLoading>>>,
+    is_streaming_initial_matrix: Arc<AtomicBool>,
     output_connection: Option<MidiOutputConnection>,
     tuning_updated_callbacks: Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>>,
 }
 
 lazy_static! {
     static ref MIDI_DATA: Mutex<MidiData> = Mutex::new(MidiData {
+        initial_surface_processing: Arc::new(Mutex::new(None)),
+        is_streaming_initial_matrix: Arc::new(Default::default()),
         output_connection: None,
         tuning_updated_callbacks: Arc::new(Mutex::new(Vec::new())),
     });
@@ -242,26 +253,59 @@ impl Midi {
         let event = LiveEvent::parse(message).unwrap();
         match event {
             LiveEvent::Midi { channel, message } => match message {
-                MidiMessage::Controller { controller, .. } => {
+                MidiMessage::Controller { controller, value } => {
                     let channel1 = u8::from(channel) + 1; // 1-based channel number.
-                    // if channel1 == 16
-                    //     // Ignore heartbeats
-                    //     && controller != 82 && controller != 111 && controller != 114
-                    //     && controller != 118 {
-                    //     println!("Midi.on_message_received: ch{} cc{} value {}",
-                    //              channel1, controller, value);
-                    // }
-                    // Call back if the pitch table has been updated and loaded.
-                    if channel1 == 16 && controller == 51 {
-                        // println!("midi.on_message_received: pitch table updated");
-                        // This means that the pitch table has been loaded,
-                        // which will have been requested after the pitch table update
-                        // was sent to the instrument.
-                        // The instrument does not notify us to confirm that the pitch table
-                        // has been updated. But now we effectively know that the pitch table has
-                        // been updated and loaded.
+                    if channel1 == 16 {
+                        // if controller != 82 && controller != 111 && controller != 114
+                        //     && controller != 118 {  // Heartbeats ignored
+                        //     println!("Midi.on_message_received: ch{} cc{} value {}",
+                        //              channel1, controller, value);
+                        // }
+                        if controller == 51 {
+                            // The pitch table has been updated and loaded.
+                            // This message means that the pitch table has been loaded,
+                            // which will have been requested after the pitch table update
+                            // was sent to the instrument.
+                            // The instrument does not notify us to confirm that the pitch table
+                            // has been updated. But now we effectively know that the pitch table has
+                            // been updated and loaded.
+                            // println!("midi.on_message_received: pitch table updated");
+                            let data = MIDI_DATA.lock().unwrap();
+                            Self::call_callbacks(data.tuning_updated_callbacks.clone());
+                        }
+                        if controller == 56 && value == 20 {
+                            // s_Mat_Poke: Start of Matrix stream
+                            let data = MIDI_DATA.lock().unwrap();
+                            let initial_surface_processing =
+                                data.initial_surface_processing.lock().unwrap();
+                            if initial_surface_processing.is_none() {
+                                println!("Midi.on_message_received: Start of initial matrix stream");
+                                data.is_streaming_initial_matrix.store(true, Ordering::Relaxed);
+                            }
+                        }
+                    }
+                },
+                MidiMessage::Aftertouch { key, vel } => {
+                    let channel1 = u8::from(channel) + 1; // 1-based channel number.
+                    if channel1 == 16 && key == 56 {
+                        // PreservSurf: Preset Loading Surface Processing (global)
                         let data = MIDI_DATA.lock().unwrap();
-                        Self::call_callbacks(data.tuning_updated_callbacks.clone());
+                        let is_streaming_initial_matrix =
+                            data.is_streaming_initial_matrix.load(Ordering::Relaxed);
+                        if is_streaming_initial_matrix {
+                            let mut initial_surface_processing =
+                                data.initial_surface_processing.lock().unwrap();
+                            let preset_loading: PresetLoading = match u8::from(vel) {
+                                0 => PresetLoading::Replace,
+                                _ => PresetLoading::Preserve,
+                            };
+                            *initial_surface_processing = Option::from(preset_loading);
+                            // We are not waiting for anything else from the matrix stream,
+                            // and it does not have an end-of-stream message.
+                            data.is_streaming_initial_matrix.store(false, Ordering::Relaxed);
+                            println!("Midi.on_message_received: initial_surface_processing = {:?}",
+                                     preset_loading);
+                        }
                     }
                 },
                 _ => {}
