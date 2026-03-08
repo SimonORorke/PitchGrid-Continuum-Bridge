@@ -178,12 +178,12 @@ fn update_tuning() {
     set_to_key_numbers(&mut keys);
     calculate_offsets(&mut keys);
     // To ensure that the tuning will be preserved when a new preset is loaded on the instrument,
-    // I tried switching Preset Loading Surface Processing between Replace and Preserve.
-    // However, this caused several problems, including the inability of the editor to load presets.
-    // preserve_surface_processing(false);
+    // set Preset Loading Surface Processing before updating the instrument's tuning and then
+    // set it to Preserve after.
+    preserve_surface_processing(false);
     send_rounding_params(true);
     send_pitch_table_to_instrument(&keys, pitch_table_no);
-    // preserve_surface_processing(true);
+    preserve_surface_processing(true);
 }
 
 /// Sets the to_number field of each Key in TUNER_DATA.keys to

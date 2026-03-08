@@ -267,13 +267,13 @@ impl Midi {
             LiveEvent::Midi { channel, message } => match message {
                 MidiMessage::Controller { controller, value } => {
                     let channel1 = u8::from(channel) + 1; // 1-based channel number.
-                    if channel1 == 16
-                        // Ignore heartbeats
-                        && controller != 82 && controller != 111 && controller != 114
-                        && controller != 118 {
-                        println!("Midi.on_message_received: ch{} cc{} value {}",
-                                 channel1, controller, value);
-                    }
+                    // if channel1 == 16
+                    //     // Ignore heartbeats
+                    //     && controller != 82 && controller != 111 && controller != 114
+                    //     && controller != 118 {
+                    //     println!("Midi.on_message_received: ch{} cc{} value {}",
+                    //              channel1, controller, value);
+                    // }
                     // Call back if the pitch table has been updated and loaded.
                     if channel1 == 16 && controller == 51 {
                         println!("midi.on_message_received: pitch table updated");

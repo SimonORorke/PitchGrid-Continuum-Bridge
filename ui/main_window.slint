@@ -134,7 +134,7 @@ export component MainWindow inherits MagicWindow {
         VerticalLayout {
             padding_top: 10px;
             midi_io := MidiIo {
-                group_title: "MIDI Devices Shared with Editor";
+                group_title: "From/To Editor All Data External Ports";
                 input_connect_port => {
                     root.connect_port(SlintPortType.input)
                 }
