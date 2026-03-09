@@ -22,7 +22,11 @@ pub enum PresetLoading {
 }
 
 struct MidiData {
+    config_received_callbacks: Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>>,
+    // has_config_been_received: Arc<AtomicBool>,
+    /// Initial Preset Loading Surface Processing global setting
     initial_surface_processing: Arc<Mutex<Option<PresetLoading>>>,
+    is_getting_config: Arc<AtomicBool>,
     is_streaming_initial_matrix: Arc<AtomicBool>,
     output_connection: Option<MidiOutputConnection>,
     tuning_updated_callbacks: Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>>,
@@ -30,7 +34,10 @@ struct MidiData {
 
 lazy_static! {
     static ref MIDI_DATA: Mutex<MidiData> = Mutex::new(MidiData {
+        config_received_callbacks: Arc::new(Mutex::new(Vec::new())),
+        // has_config_been_received: Arc::new(Default::default()),
         initial_surface_processing: Arc::new(Mutex::new(None)),
+        is_getting_config: Arc::new(Default::default()),
         is_streaming_initial_matrix: Arc::new(Default::default()),
         output_connection: None,
         tuning_updated_callbacks: Arc::new(Mutex::new(Vec::new())),
@@ -71,6 +78,11 @@ impl Midi {
         }
         Ok(())
     }
+
+    // pub fn has_config_been_received(&mut self) -> bool {
+    //     let data = MIDI_DATA.lock().unwrap();
+    //     data.has_config_been_received.load(Ordering::Relaxed)
+    // }
 
     fn connect_input_port(
             &mut self, index: usize, port_strategy: &dyn PortStrategy) -> Result<(), Box<dyn Error>> {
@@ -205,6 +217,17 @@ impl Midi {
         Ok(())
     }
 
+    /// Request instrument configuration data.
+    /// We currently only need the Preset Loading Surface Processing global setting.
+    /// But the only way to get it is to request all the current preset and config data.
+    pub fn request_config(&self) {
+        let data = MIDI_DATA.lock().unwrap();
+        data.initial_surface_processing.lock().unwrap().take();
+        data.is_getting_config.store(false, Ordering::Relaxed);
+        data.is_streaming_initial_matrix.store(false, Ordering::Relaxed);
+        Self::send_control_change(16, 109, 16);  // configToMidi
+    }
+
     /// Send a MIDI control change message.
     /// Parameter `channel` is 1-based.
     pub fn send_control_change(channel: u8, cc_no: u8, value: u8) {
@@ -231,6 +254,14 @@ impl Midi {
         Self::send_channel_message(channel, MidiMessage::ProgramChange {
             program: program.into(),
         });
+    }
+
+    pub fn add_config_received_callback(
+        &mut self, callback: Box<dyn Fn() + Send + Sync + 'static>) {
+        // println!("Midi.add_tuning_updated_callback");
+        let callbacks =
+            MIDI_DATA.lock().unwrap().config_received_callbacks.clone();
+        callbacks.lock().unwrap().push(callback);
     }
 
     pub fn add_tuning_updated_callback(
@@ -308,21 +339,21 @@ impl Midi {
                         }
                     }
                 },
-                // MidiMessage::ProgramChange { .. } => {
-                //     let channel1 = u8::from(channel) + 1; // 1-based channel number.
-                //     if channel1 == 16 {
-                //         let data = MIDI_DATA.lock().unwrap();
-                //         let is_preset_loading =
-                //             data.is_preset_loading.load(Ordering::Relaxed);
-                //         if is_preset_loading {
-                //             // This is the last item in the preset data sent when a preset
-                //             // has been loaded.
-                //             println!("Midi.on_message_received: preset loaded");
-                //             data.is_preset_loading.store(false, Ordering::Relaxed);
-                //             Self::call_callbacks(data.preset_loaded_callbacks.clone());
-                //         }
-                //     }
-                // },
+                MidiMessage::ProgramChange { .. } => {
+                    let channel1 = u8::from(channel) + 1; // 1-based channel number.
+                    if channel1 == 16 {
+                        let data = MIDI_DATA.lock().unwrap();
+                        let is_getting_config =
+                            data.is_getting_config.load(Ordering::Relaxed);
+                        if is_getting_config {
+                            // This is the last item sent when config has been requested.
+                            println!("Midi.on_message_received: config received");
+                            data.is_getting_config.store(false, Ordering::Relaxed);
+                            // data.has_config_been_received.store(true, Ordering::Relaxed);
+                            Self::call_callbacks(data.config_received_callbacks.clone());
+                        }
+                    }
+                },
                 _ => {}
             },
             _ => {}
