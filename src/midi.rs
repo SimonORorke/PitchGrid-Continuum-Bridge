@@ -184,11 +184,11 @@ impl Midi {
         port_strategy.io(self)
     }
 
-    pub fn is_input_connected(&self) -> bool {
-        self.input_connection.is_some()
-    }
-
-    pub fn is_output_connected(&self) -> bool {
+    /// Return whether both input and output ports are connected.
+    pub fn is_connected(&self) -> bool {
+        if self.input_connection.is_none() {
+            return false;
+        }
         let data = MIDI_DATA.lock().unwrap();
         data.output_connection.is_some()
     }
@@ -308,6 +308,21 @@ impl Midi {
                         }
                     }
                 },
+                // MidiMessage::ProgramChange { .. } => {
+                //     let channel1 = u8::from(channel) + 1; // 1-based channel number.
+                //     if channel1 == 16 {
+                //         let data = MIDI_DATA.lock().unwrap();
+                //         let is_preset_loading =
+                //             data.is_preset_loading.load(Ordering::Relaxed);
+                //         if is_preset_loading {
+                //             // This is the last item in the preset data sent when a preset
+                //             // has been loaded.
+                //             println!("Midi.on_message_received: preset loaded");
+                //             data.is_preset_loading.store(false, Ordering::Relaxed);
+                //             Self::call_callbacks(data.preset_loaded_callbacks.clone());
+                //         }
+                //     }
+                // },
                 _ => {}
             },
             _ => {}

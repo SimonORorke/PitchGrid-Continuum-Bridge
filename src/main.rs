@@ -85,6 +85,12 @@ fn connect_port(main_window_weak: Weak<MainWindow>, midi: &SharedMidi,
         if let Some(port) = midi.lock().unwrap().io(&*port_strategy).port() {
             let port_name: &str = &port.name();
             show_info(main_window, port_strategy.msg_connected(port_name));
+            let midi_guard = midi.lock().unwrap();
+            if midi_guard.is_connected() {
+                show_pitchgrid_status(
+                    main_window, "Restart this application to connect to PitchGrid",
+                    MessageType::Error);
+            }
         }
     });
 }
@@ -190,7 +196,10 @@ fn init(main_window: &MainWindow, midi: &SharedMidi, settings: &SharedSettings) 
     let mut data = MAIN_DATA.lock().unwrap();
     data.main_window_weak = Some(main_window.as_weak().clone());
     data.midi = Some(midi.clone());
-    data.osc.start(Arc::new(on_osc_tuning_received), Arc::new(on_osc_connected_changed));
+    let midi_guard = midi.lock().unwrap();
+    if midi_guard.is_connected() {
+        data.osc.start(Arc::new(on_osc_tuning_received), Arc::new(on_osc_connected_changed));
+    }
 }
 
 fn init_ui_handlers(main_window: &MainWindow, midi: SharedMidi, settings: SharedSettings) {
@@ -269,8 +278,7 @@ fn on_osc_tuning_received(depth: i32, mode: i32, root_freq: f32, stretch: f32,
     let data = MAIN_DATA.lock().unwrap();
     let midi = data.midi.clone().unwrap();
     let midi_guard = midi.lock().unwrap();
-    let can_update_tuning =
-        midi_guard.is_input_connected() && midi_guard.is_output_connected();
+    let can_update_tuning = midi_guard.is_connected();
     if can_update_tuning {
         tuner::on_tuning_received(depth, mode, root_freq, stretch, skew, mode_offset, steps);
     }

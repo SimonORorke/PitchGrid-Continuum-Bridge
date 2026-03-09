@@ -1,6 +1,7 @@
 ﻿use std::io::{ErrorKind};
 use std::net::{Ipv4Addr, SocketAddrV4, UdpSocket};
 use std::sync::{Arc, Mutex};
+use std::sync::mpsc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 use rosc::{decoder, encoder, OscMessage, OscPacket, OscType};
@@ -15,6 +16,7 @@ use rosc::{decoder, encoder, OscMessage, OscPacket, OscType};
 pub struct Osc {
     is_connected: Arc<AtomicBool>,
     last_ack_time: Arc<Mutex<Option<Instant>>>,
+    stopper_senders: Vec<mpsc::Sender<()>>,
 }
 
 impl Osc {
@@ -22,6 +24,7 @@ impl Osc {
         Self {
             is_connected: Arc::new(AtomicBool::new(false)),
             last_ack_time: Arc::new(Mutex::new(None)),
+            stopper_senders: vec![],
         }
     }
 
@@ -37,26 +40,45 @@ impl Osc {
         if is_connected.load(Ordering::SeqCst) {
             panic!("PitchGrid is already connected.");
         }
+        let mut stopper_receivers: Vec<mpsc::Receiver<()>> = vec![];
+        for _ in 0..3 {
+            let (stopper_sender, stopper_receiver) = mpsc::channel();
+            stopper_receivers.push(stopper_receiver);
+            self.stopper_senders.push(stopper_sender);
+        }
+        let mut stopper_receivers_iter = stopper_receivers.into_iter();
+        let heartbeat_stopper = stopper_receivers_iter.next().unwrap();
+        let listen_stopper = stopper_receivers_iter.next().unwrap();
+        let monitor_stopper = stopper_receivers_iter.next().unwrap();
+
         let socket = UdpSocket::bind(Self::create_socket_addr(LISTENING_PORT)).unwrap();
         // println!("Osc.start: bound socket to {}", socket.local_addr().unwrap());
         let send_socket = socket.try_clone().unwrap();
         let listen_socket = socket;
         let last_ack_time = self.last_ack_time.clone();
         rayon::spawn(move || {
-            Self::send_heartbeats(send_socket);
+            Self::send_heartbeats(send_socket, heartbeat_stopper);
         });
         let last_ack_time_clone = self.last_ack_time.clone();
         rayon::spawn(move || {
-            Self::listen(listen_socket, last_ack_time, tuning_received_callback);
+            Self::listen(listen_socket, last_ack_time, tuning_received_callback, listen_stopper);
         });
         rayon::spawn(move || {
-            Self::monitor_connection(is_connected, last_ack_time_clone, connected_changed_callback);
+            Self::monitor_connection(is_connected, last_ack_time_clone, connected_changed_callback,
+                                     monitor_stopper);
         });
     }
 
     pub fn stop(&mut self) {
-        // println!("Osc.stop");
+        println!("Osc.stop: starting");
         self.is_connected.store(false, Ordering::SeqCst);
+        // Stop the threads.
+        for stopper_sender in self.stopper_senders.drain(..) {
+            stopper_sender.send(()).unwrap();
+        }
+        let last_ack_time_clone = self.last_ack_time.clone();
+        *last_ack_time_clone.lock().unwrap() = None;
+        println!("Osc.stop: stopped OSC");
     }
 
     pub fn is_connected(&self) -> bool {
@@ -90,11 +112,17 @@ impl Osc {
     fn listen(
         socket: UdpSocket,
         last_ack_time: Arc<Mutex<Option<Instant>>>,
-        tuning_received_callback: SharedTuningReceivedCallback) {
+        tuning_received_callback: SharedTuningReceivedCallback,
+        stopper_receiver: mpsc::Receiver<()>) {
         socket.set_read_timeout(Some(Duration::from_millis(500))).unwrap();
         // println!("Osc.listen: starting, listening on {}", socket.local_addr().unwrap());
         let mut buf = [0u8; decoder::MTU];
         loop {
+            // Check for stop signal
+            if let Ok(_) = stopper_receiver.try_recv() {
+                // Interrupted
+                return;
+            }
             // println!("Osc.listen: Waiting for packet...");
             match socket.recv_from(&mut buf) {
                 Ok((size, _addr)) => {
@@ -157,7 +185,8 @@ impl Osc {
     /// So, if we don't receive any messages for 2 seconds, PitchGrid is probably not running.
     fn monitor_connection(is_connected: Arc<AtomicBool>,
                           last_ack_time: Arc<Mutex<Option<Instant>>>,
-                          connected_changed_callback: SharedConnectedChangedCallback) {
+                          connected_changed_callback: SharedConnectedChangedCallback,
+                          stopper_receiver: mpsc::Receiver<()>) {
         // println!("Osc.monitor_connection: starting");
         let mut has_initially_not_connected_callback_been_called = false;
         loop {
@@ -189,13 +218,18 @@ impl Osc {
                 is_connected.store(true, Ordering::SeqCst);
                 Self::call_connected_changed_callback(connected_changed_callback.clone());
             }
-            std::thread::sleep(Duration::from_millis(500));
+            if let Ok(_) = stopper_receiver.recv_timeout(Duration::from_millis(500)) {
+                // Sleep was interrupted
+                return;
+            }
+            // Slept for 1s, proceeding
+            // std::thread::sleep(Duration::from_millis(500));
         }
     }
 
     /// PitchGrid will send us messages if we send a heartbeat message at least every 2 seconds.
     /// So send PitchGrid a heartbeat message every second.
-    fn send_heartbeats(socket: UdpSocket) {
+    fn send_heartbeats(socket: UdpSocket, stopper_receiver: mpsc::Receiver<()>) {
         // println!("Osc.send_heartbeats: starting");
         let msg_buf = encoder::encode(&OscPacket::Message(OscMessage {
             addr: HANDSHAKE_ADDR.to_string(),
@@ -212,7 +246,12 @@ impl Osc {
                     // println!("Osc.send_heartbeats: ERROR sending: {}", e);
                 }
             }
-            std::thread::sleep(Duration::from_secs(1));
+            if let Ok(_) = stopper_receiver.recv_timeout(Duration::from_secs(1)) {
+                // Sleep was interrupted
+                return;
+            }
+            // Slept for 1s, proceeding
+            // std::thread::sleep(Duration::from_secs(1));
         }
     }
 }
