@@ -180,10 +180,10 @@ fn update_tuning() {
     // To ensure that the tuning will be preserved when a new preset is loaded on the instrument,
     // set Preset Loading Surface Processing before updating the instrument's tuning and then
     // set it to Preserve after.
-    send_surface_processing(PresetLoading::Replace);
+    Midi::send_surface_processing(PresetLoading::Replace);
     send_rounding_params(true);
     send_pitch_table(&keys, pitch_table_no);
-    send_surface_processing(PresetLoading::Preserve);
+    Midi::send_surface_processing(PresetLoading::Preserve);
 }
 
 /// Sets the to_number field of each Key in TUNER_DATA.keys to
@@ -248,26 +248,26 @@ fn calculate_offsets(keys: &mut Vec<Key>) {
 fn send_pitch_table(keys: &Vec<Key>, pitch_table_no: u8) {
     // println!("tuner.send_pitch_table_to_instrument");
     // Select pitch table to update.
-    send_control_change(16, 109, pitch_table_no);
+    Midi::send_control_change(16, 109, pitch_table_no);
     // Tuning for each MIDI key
     for key in keys {
         // Base/From MIDI key
-        send_control_change(16, 38, key.number);
+        Midi::send_control_change(16, 38, key.number);
         // Base/From MIDI key tuning MSB
-        send_control_change(16, 38, 0);
+        Midi::send_control_change(16, 38, 0);
         // Base/From MIDI key tuning LSB
-        send_control_change(16, 38, 0);
+        Midi::send_control_change(16, 38, 0);
         // Re-tuned/To MIDI key
-        send_control_change(16, 38, key.to_number);
+        Midi::send_control_change(16, 38, key.to_number);
         // Re-tuned/To MIDI key tuning MSB
-        send_control_change(16, 38, key.offset_msb);
+        Midi::send_control_change(16, 38, key.offset_msb);
         // Re-tuned/To MIDI key tuning LSB
-        send_control_change(16, 38, key.offset_lsb);
+        Midi::send_control_change(16, 38, key.offset_lsb);
     }
     // Save pitch table on instrument.
-    send_control_change(16, 109, 101);
+    Midi::send_control_change(16, 109, 101);
     // Set active pitch table for performance.
-    send_control_change(16, 51, pitch_table_no);
+    Midi::send_control_change(16, 51, pitch_table_no);
 }
 
 pub fn formatted_tuning_params() -> FormattedTuningParams {
@@ -318,38 +318,18 @@ fn on_tuning_updated() {
     }
 }
 
-/// Send Preset Loading Surface Processing (global)
-fn send_surface_processing(on_preset_loading: PresetLoading) {
-    let poke_id = on_preset_loading as u8;
-    send_matrix_poke(56, poke_id); // PreservSurf
-    // The editor then does this.  But it seems not to make a difference here.
-    // Write current global settings to flash
-    // send_control_change(16, 109, 8); // Task curGloToFlash
-}
-
 fn send_rounding_params(on: bool) {
     if on {
         // Rounding Mode Normal
-        send_matrix_poke(10, 0); // RoundMode
+        Midi::send_matrix_poke(10, 0); // RoundMode
     }
     // Initial Rounding
     let initial_rounding_value:u8 = if on { 127 } else { 0 };
-    send_control_change(1, 28, initial_rounding_value); // RndIni
+    Midi::send_control_change(1, 28, initial_rounding_value); // RndIni
     // Rounding Rate
     let rounding_rate_value:u8 =
         if on { 127 /* Immediate when initial rounding is on */ } else { 0 /* Off */ };
-    send_control_change(1, 25, rounding_rate_value); // RoundRate
-}
-
-fn send_matrix_poke(poke_id: u8, poke_value: u8) {
-    Midi::send_control_change(
-        16, 56, 20); // Matrix Poke command
-    Midi::send_polyphonic_aftertouch(
-        16, poke_id, poke_value); // Perform the Poke
-}
-
-fn send_control_change(channel: u8, cc_no: u8, value: u8) {
-    Midi::send_control_change(channel, cc_no, value);
+    Midi::send_control_change(1, 25, rounding_rate_value); // RoundRate
 }
 
 pub fn pitch_table_index() -> usize {

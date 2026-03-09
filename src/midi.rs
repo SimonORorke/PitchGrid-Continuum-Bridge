@@ -26,8 +26,10 @@ struct MidiData {
     // has_config_been_received: Arc<AtomicBool>,
     /// Initial Preset Loading Surface Processing global setting
     initial_surface_processing: Arc<Mutex<Option<PresetLoading>>>,
+    instru_connected_changed_callbacks: Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>>,
     is_getting_config: Arc<AtomicBool>,
     is_streaming_initial_matrix: Arc<AtomicBool>,
+    is_instru_connected: Arc<AtomicBool>,
     output_connection: Option<MidiOutputConnection>,
     tuning_updated_callbacks: Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>>,
 }
@@ -37,8 +39,10 @@ lazy_static! {
         config_received_callbacks: Arc::new(Mutex::new(Vec::new())),
         // has_config_been_received: Arc::new(Default::default()),
         initial_surface_processing: Arc::new(Mutex::new(None)),
+        instru_connected_changed_callbacks: Arc::new(Mutex::new(vec![])),
         is_getting_config: Arc::new(Default::default()),
         is_streaming_initial_matrix: Arc::new(Default::default()),
+        is_instru_connected: Arc::new(Default::default()),
         output_connection: None,
         tuning_updated_callbacks: Arc::new(Mutex::new(Vec::new())),
     });
@@ -64,8 +68,48 @@ impl Midi {
         }
     }
 
+    pub fn add_config_received_callback(
+        &mut self, callback: Box<dyn Fn() + Send + Sync + 'static>) {
+        // println!("Midi.add_tuning_updated_callback");
+        let callbacks =
+            MIDI_DATA.lock().unwrap().config_received_callbacks.clone();
+        callbacks.lock().unwrap().push(callback);
+    }
+
+    pub fn add_instru_connected_changed_callback(
+        &mut self, callback: Box<dyn Fn() + Send + Sync + 'static>) {
+        // println!("Midi.add_tuning_updated_callback");
+        let callbacks =
+            MIDI_DATA.lock().unwrap().instru_connected_changed_callbacks.clone();
+        callbacks.lock().unwrap().push(callback);
+    }
+
+    pub fn add_tuning_updated_callback(
+        &mut self, callback: Box<dyn Fn() + Send + Sync + 'static>) {
+        // println!("Midi.add_tuning_updated_callback");
+        let callbacks =
+            MIDI_DATA.lock().unwrap().tuning_updated_callbacks.clone();
+        callbacks.lock().unwrap().push(callback);
+    }
+
+    /// Return whether both input and output ports are connected.
+    pub fn are_ports_connected(&self) -> bool {
+        if self.input_connection.is_none() {
+            return false;
+        }
+        let data = MIDI_DATA.lock().unwrap();
+        data.output_connection.is_some()
+    }
+
     pub fn close(&mut self) {
         // println!("Midi.close");
+        let data = MIDI_DATA.lock().unwrap();
+        if data.output_connection.is_some() {
+            if let Some(initial_surface_processing) =
+                *data.initial_surface_processing.lock().unwrap() {
+                Self::send_surface_processing(initial_surface_processing);
+            }
+        }
         self.disconnect_input_port();
         self.disconnect_output_port();
     }
@@ -79,10 +123,104 @@ impl Midi {
         Ok(())
     }
 
-    // pub fn has_config_been_received(&mut self) -> bool {
-    //     let data = MIDI_DATA.lock().unwrap();
-    //     data.has_config_been_received.load(Ordering::Relaxed)
-    // }
+    pub fn init(&mut self,
+                input_port_name: &str, output_port_name: &str)
+                -> Result<(), Box<dyn Error>> {
+        self.input.populate_ports(input_port_name)?;
+        self.output.populate_ports(output_port_name)?;
+        Ok(())
+    }
+
+    pub fn input(&self) -> &Io<MidiInputPort> {
+        &self.input
+    }
+
+    pub fn io(&self, port_strategy: &dyn PortStrategy) -> &dyn MidiIo {
+        port_strategy.io(self)
+    }
+
+    pub fn output(&self) -> &Io<MidiOutputPort> {
+        &self.output
+    }
+
+    pub fn refresh_ports(
+        &mut self, port_name: &str, port_strategy: &dyn PortStrategy)
+        -> Result<(), Box<dyn Error>> {
+        match port_strategy.port_type() {
+            PortType::Input => self.refresh_input_ports(
+                port_name)?,
+            PortType::Output => self.refresh_output_ports(
+                port_name)?,
+        }
+        Ok(())
+    }
+
+    /// Request instrument configuration data.
+    /// We currently only need the Preset Loading Surface Processing global setting.
+    /// But the only way to get it is to request all the current preset and config data.
+    pub fn request_config(&self) {
+        println!("Midi.request_config");
+        let data = MIDI_DATA.lock().unwrap();
+        println!("Midi.request_config: Got data");
+        *data.initial_surface_processing.lock().unwrap() = None;
+        data.is_getting_config.store(true, Ordering::Relaxed);
+        data.is_streaming_initial_matrix.store(false, Ordering::Relaxed);
+        Self::send_control_change(16, 109, 16);  // configToMidi
+    }
+
+    /// Send a MIDI control change message.
+    /// Parameter `channel` is 1-based.
+    pub fn send_control_change(channel: u8, cc_no: u8, value: u8) {
+        Self::send_channel_message(channel, MidiMessage::Controller {
+            controller: cc_no.into(),
+            value: value.into(),
+        });
+    }
+
+    pub fn send_matrix_poke(poke_id: u8, poke_value: u8) {
+        Self::send_control_change(
+            16, 56, 20); // Matrix Poke command
+        Self::send_polyphonic_aftertouch(
+            16, poke_id, poke_value); // Perform the Poke
+    }
+
+    /// Send a MIDI polyphonic aftertouch (pressure) message.
+    /// Parameter `channel` is 1-based.
+    pub fn send_polyphonic_aftertouch(channel: u8, key: u8, pressure: u8) {
+        Self::send_channel_message(channel, MidiMessage::Aftertouch {
+            key: key.into(),
+            vel: pressure.into(),
+        });
+    }
+
+    /// Send a MIDI program change message.
+    /// Parameter `channel` is 1-based.
+    /// Parameter `program` is 0-based.
+    #[allow(dead_code)]
+    pub fn send_program_change(channel: u8, program: u8) {
+        Self::send_channel_message(channel, MidiMessage::ProgramChange {
+            program: program.into(),
+        });
+    }
+
+    /// Send Preset Loading Surface Processing global setting.
+    pub fn send_surface_processing(on_preset_loading: PresetLoading) {
+        let poke_id = on_preset_loading as u8;
+        Self::send_matrix_poke(56, poke_id); // PreservSurf
+        // The editor then does this.  But it seems not to make a difference here.
+        // Write current global settings to flash
+        // send_control_change(16, 109, 8); // Task curGloToFlash
+    }
+
+    /// Call the subscribed callback functions on a separate thread.
+    fn call_callbacks(callbacks: Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>>) {
+        rayon::spawn(move || {
+            let callbacks_guard = callbacks.lock().unwrap();
+            for callback in callbacks_guard.iter() {
+                callback();
+            }
+        });
+    }
 
     fn connect_input_port(
             &mut self, index: usize, port_strategy: &dyn PortStrategy) -> Result<(), Box<dyn Error>> {
@@ -184,102 +322,6 @@ impl Midi {
         }
     }
 
-    pub fn init(&mut self,
-                input_port_name: &str, output_port_name: &str)
-                    -> Result<(), Box<dyn Error>> {
-        self.input.populate_ports(input_port_name)?;
-        self.output.populate_ports(output_port_name)?;
-        Ok(())
-    }
-
-    pub fn io(&self, port_strategy: &dyn PortStrategy) -> &dyn MidiIo {
-        port_strategy.io(self)
-    }
-
-    /// Return whether both input and output ports are connected.
-    pub fn is_connected(&self) -> bool {
-        if self.input_connection.is_none() {
-            return false;
-        }
-        let data = MIDI_DATA.lock().unwrap();
-        data.output_connection.is_some()
-    }
-
-    pub fn refresh_ports(
-            &mut self, port_name: &str, port_strategy: &dyn PortStrategy)
-                -> Result<(), Box<dyn Error>> {
-        match port_strategy.port_type() {
-            PortType::Input => self.refresh_input_ports(
-                port_name)?,
-            PortType::Output => self.refresh_output_ports(
-                port_name)?,
-        }
-        Ok(())
-    }
-
-    /// Request instrument configuration data.
-    /// We currently only need the Preset Loading Surface Processing global setting.
-    /// But the only way to get it is to request all the current preset and config data.
-    pub fn request_config(&self) {
-        let data = MIDI_DATA.lock().unwrap();
-        data.initial_surface_processing.lock().unwrap().take();
-        data.is_getting_config.store(false, Ordering::Relaxed);
-        data.is_streaming_initial_matrix.store(false, Ordering::Relaxed);
-        Self::send_control_change(16, 109, 16);  // configToMidi
-    }
-
-    /// Send a MIDI control change message.
-    /// Parameter `channel` is 1-based.
-    pub fn send_control_change(channel: u8, cc_no: u8, value: u8) {
-        Self::send_channel_message(channel, MidiMessage::Controller {
-            controller: cc_no.into(),
-            value: value.into(),
-        });
-    }
-
-    /// Send a MIDI polyphonic aftertouch (pressure) message.
-    /// Parameter `channel` is 1-based.
-    pub fn send_polyphonic_aftertouch(channel: u8, key: u8, pressure: u8) {
-        Self::send_channel_message(channel, MidiMessage::Aftertouch {
-            key: key.into(),
-            vel: pressure.into(),
-        });
-    }
-
-    /// Send a MIDI program change message.
-    /// Parameter `channel` is 1-based.
-    /// Parameter `program` is 0-based.
-    #[allow(dead_code)]
-    pub fn send_program_change(channel: u8, program: u8) {
-        Self::send_channel_message(channel, MidiMessage::ProgramChange {
-            program: program.into(),
-        });
-    }
-
-    pub fn add_config_received_callback(
-        &mut self, callback: Box<dyn Fn() + Send + Sync + 'static>) {
-        // println!("Midi.add_tuning_updated_callback");
-        let callbacks =
-            MIDI_DATA.lock().unwrap().config_received_callbacks.clone();
-        callbacks.lock().unwrap().push(callback);
-    }
-
-    pub fn add_tuning_updated_callback(
-            &mut self, callback: Box<dyn Fn() + Send + Sync + 'static>) {
-        // println!("Midi.add_tuning_updated_callback");
-        let callbacks =
-            MIDI_DATA.lock().unwrap().tuning_updated_callbacks.clone();
-        callbacks.lock().unwrap().push(callback);
-    }
-
-    pub fn input(&self) -> &Io<MidiInputPort> {
-        &self.input
-    }
-
-    pub fn output(&self) -> &Io<MidiOutputPort> {
-        &self.output
-    }
-
     fn on_message_received(message: &[u8]) {
         let event = LiveEvent::parse(message).unwrap();
         match event {
@@ -306,7 +348,9 @@ impl Midi {
                         }
                         if controller == 56 && value == 20 {
                             // s_Mat_Poke: Start of Matrix stream
+                            println!("midi.on_message_received: Start of Matrix stream");
                             let data = MIDI_DATA.lock().unwrap();
+                            println!("midi.on_message_received: Got data");
                             let initial_surface_processing =
                                 data.initial_surface_processing.lock().unwrap();
                             if initial_surface_processing.is_none() {
@@ -358,16 +402,6 @@ impl Midi {
             },
             _ => {}
         }
-    }
-
-    /// Call the subscribed callback functions on a separate thread.
-    fn call_callbacks(callbacks: Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>>) {
-        rayon::spawn(move || {
-            let callbacks_guard = callbacks.lock().unwrap();
-            for callback in callbacks_guard.iter() {
-                callback();
-            }
-        });
     }
 
     fn refresh_input_ports(&mut self, input_port_name: &str) -> Result<(), Box<dyn Error>> {

@@ -88,7 +88,7 @@ fn connect_port(main_window_weak: Weak<MainWindow>, midi: &SharedMidi, osc: &Sha
             let port_name: &str = &port.name();
             show_info(main_window, port_strategy.msg_connected(port_name));
             let midi_guard = midi.lock().unwrap();
-            if midi_guard.is_connected() {
+            if midi_guard.are_ports_connected() {
                 show_pitchgrid_status(
                     main_window, "Restart this application to connect to PitchGrid",
                     MessageType::Error);
@@ -136,13 +136,17 @@ fn connect_selected_port(main_window: &MainWindow, midi: &SharedMidi,
 fn handle_close_request(
         main_window_weak: Weak<MainWindow>, midi: &SharedMidi,
         settings: &SharedSettings) -> CloseRequestResponse {
+    println!("main.handle_close_request");
     let response = Arc::new(Mutex::new(CloseRequestResponse::HideWindow));
     let data = MAIN_DATA.lock().unwrap();
+    println!("main.handle_close_request: Got data");
     if data.is_close_error_shown.load(Ordering::Relaxed) {
         // If a close error message is already shown, allow the window to be closed.
         return *response.lock().unwrap()
     }
+    println!("main.handle_close_request: Getting Midi");
     Arc::clone(midi).lock().unwrap().close();
+    println!("main.handle_close_request: Got Midi");
     let is_close_error_shown = Arc::clone(&data.is_close_error_shown);
     let response_clone = Arc::clone(&response);
     let settings1 = Arc::clone(settings);
@@ -153,12 +157,14 @@ fn handle_close_request(
             is_close_error_shown.store(true, Ordering::Relaxed);
         }
     });
+    println!("main.handle_close_request: Stopping OSC");
     data.osc.lock().unwrap().stop();
+    println!("main.handle_close_request: Stopped OSC");
     *response.lock().unwrap()
 }
 
 fn init(main_window: &MainWindow, midi: &SharedMidi, settings: &SharedSettings) {
-    // println!("main.init");
+    println!("main.init");
     let pitch_table_no: u8;
     {
         let mut settings1 = settings.lock().unwrap();
@@ -203,16 +209,19 @@ fn init(main_window: &MainWindow, midi: &SharedMidi, settings: &SharedSettings) 
         osc = data.osc.clone();
     }
     init_ui_handlers(&main_window, Arc::clone(&midi), osc, Arc::clone(settings));
-    let is_midi_connected = midi.lock().unwrap().is_connected();
-    if is_midi_connected {
-        show_message(main_window, "Getting instrument config...", MessageType::Info);
-        midi.lock().unwrap().request_config()
-        // data.osc.start(Arc::new(on_osc_tuning_received), Arc::new(on_osc_connected_changed));
-    }
+    // println!("main.init: Checking if MIDI is connected");
+    // let is_midi_connected = midi.lock().unwrap().are_ports_connected();
+    // if is_midi_connected {
+    //     println!("main.init: Showing Getting instrument config message");
+    //     show_message(main_window, "Getting instrument config...", MessageType::Info);
+    //     // println!("main.init: Requesting config");
+    //     // midi.lock().unwrap().request_config()
+    // }
 }
 
 fn init_ui_handlers(main_window: &MainWindow, midi: SharedMidi, osc: SharedOsc,
                     settings: SharedSettings) {
+    println!("main.init_ui_handlers");
     let window_weak = main_window.as_weak();
     {
         let mut midi: SharedMidi = Arc::clone(&midi);
@@ -248,6 +257,7 @@ fn init_ui_handlers(main_window: &MainWindow, midi: SharedMidi, osc: SharedOsc,
             update_pitch_table_no(index as usize, &mut settings)
         });
     }
+    println!("main.init_ui_handlers: Done");
 }
 
 fn create_port_strategy(port_type: SlintPortType)
@@ -290,7 +300,7 @@ fn on_osc_tuning_received(depth: i32, mode: i32, root_freq: f32, stretch: f32,
     let data = MAIN_DATA.lock().unwrap();
     let midi = data.midi.clone().unwrap();
     let midi_guard = midi.lock().unwrap();
-    let can_update_tuning = midi_guard.is_connected();
+    let can_update_tuning = midi_guard.are_ports_connected();
     if can_update_tuning {
         tuner::on_tuning_received(depth, mode, root_freq, stretch, skew, mode_offset, steps);
     }

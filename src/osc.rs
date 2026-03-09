@@ -223,7 +223,6 @@ impl Osc {
                 return;
             }
             // Slept for 1s, proceeding
-            // std::thread::sleep(Duration::from_millis(500));
         }
     }
 
@@ -251,7 +250,6 @@ impl Osc {
                 return;
             }
             // Slept for 1s, proceeding
-            // std::thread::sleep(Duration::from_secs(1));
         }
     }
 }
