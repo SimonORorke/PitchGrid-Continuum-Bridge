@@ -209,14 +209,14 @@ fn init(main_window: &MainWindow, midi: &SharedMidi, settings: &SharedSettings) 
         osc = data.osc.clone();
     }
     init_ui_handlers(&main_window, Arc::clone(&midi), osc, Arc::clone(settings));
-    // println!("main.init: Checking if MIDI is connected");
-    // let is_midi_connected = midi.lock().unwrap().are_ports_connected();
-    // if is_midi_connected {
-    //     println!("main.init: Showing Getting instrument config message");
-    //     show_message(main_window, "Getting instrument config...", MessageType::Info);
-    //     // println!("main.init: Requesting config");
-    //     // midi.lock().unwrap().request_config()
-    // }
+    println!("main.init: Checking if MIDI is connected");
+    let is_midi_connected = midi.lock().unwrap().are_ports_connected();
+    if is_midi_connected {
+        println!("main.init: Showing Getting instrument config message");
+        show_message(main_window, "Getting instrument config...", MessageType::Info);
+        println!("main.init: Requesting config");
+        midi.lock().unwrap().request_config()
+    }
 }
 
 fn init_ui_handlers(main_window: &MainWindow, midi: SharedMidi, osc: SharedOsc,

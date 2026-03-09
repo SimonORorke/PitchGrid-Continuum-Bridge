@@ -160,11 +160,13 @@ impl Midi {
     /// But the only way to get it is to request all the current preset and config data.
     pub fn request_config(&self) {
         println!("Midi.request_config");
-        let data = MIDI_DATA.lock().unwrap();
-        println!("Midi.request_config: Got data");
-        *data.initial_surface_processing.lock().unwrap() = None;
-        data.is_getting_config.store(true, Ordering::Relaxed);
-        data.is_streaming_initial_matrix.store(false, Ordering::Relaxed);
+        {
+            let data = MIDI_DATA.lock().unwrap();
+            println!("Midi.request_config: Got data");
+            *data.initial_surface_processing.lock().unwrap() = None;
+            data.is_getting_config.store(true, Ordering::Relaxed);
+            data.is_streaming_initial_matrix.store(false, Ordering::Relaxed);
+        }
         Self::send_control_change(16, 109, 16);  // configToMidi
     }
 
@@ -431,8 +433,10 @@ impl Midi {
     }
 
     fn send_message(message: &[u8]) {
+        println!("Midi.send_message");
         let mut data = MIDI_DATA.lock().unwrap();
-        let connection_option = 
+        println!("Midi.send_message: Got data");
+        let connection_option =
             data.output_connection.as_mut();
         if let Some(connection) = connection_option {
             connection.send(message)
