@@ -1,14 +1,14 @@
-use std::error::Error;
-use std::sync::{Arc, Mutex};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::Instant;
-use lazy_static::lazy_static;
-use midir::{
-    MidiInput, MidiInputConnection, MidiInputPort,
-    MidiOutput, MidiOutputConnection, MidiOutputPort};
-use midly::{live::LiveEvent, MidiMessage};
 use crate::midi_ports::{Io, MidiIo};
 use crate::port_strategy::PortStrategy;
+use lazy_static::lazy_static;
+use midir::{
+    MidiInput, MidiInputConnection, MidiInputPort, MidiOutput, MidiOutputConnection, MidiOutputPort,
+};
+use midly::{MidiMessage, live::LiveEvent};
+use std::error::Error;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
+use std::time::Instant;
 
 struct MidiData {
     config_received_callbacks: Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>>,
@@ -19,7 +19,6 @@ struct MidiData {
     is_streaming_initial_matrix: Arc<AtomicBool>,
     is_instru_connected: Arc<AtomicBool>,
     last_message_received_time: Arc<Mutex<Option<Instant>>>,
-    output_connection: Option<MidiOutputConnection>,
     tuning_updated_callbacks: Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>>,
 }
 
@@ -33,9 +32,9 @@ lazy_static! {
         is_streaming_initial_matrix: Arc::new(Default::default()),
         is_instru_connected: Arc::new(Default::default()),
         last_message_received_time: Arc::new(Mutex::new(None)),
-        output_connection: None,
         tuning_updated_callbacks: Arc::new(Mutex::new(Vec::new())),
     });
+    static ref OUTPUT_CONNECTION: Mutex<Option<MidiOutputConnection>> = Mutex::new(None);
 }
 
 pub struct Midi {
@@ -47,35 +46,37 @@ pub struct Midi {
 impl Midi {
     pub fn new() -> Self {
         Self {
-            input: Io::<MidiInputPort>::new(
-                Box::new(Self::create_midi_input())),
-            output: Io::<MidiOutputPort>::new(
-                Box::new(Self::create_midi_output())),
+            input: Io::<MidiInputPort>::new(Box::new(Self::create_midi_input())),
+            output: Io::<MidiOutputPort>::new(Box::new(Self::create_midi_output())),
             input_connection: None,
         }
     }
 
     pub fn add_config_received_callback(
-        &mut self, callback: Box<dyn Fn() + Send + Sync + 'static>) {
+        &mut self,
+        callback: Box<dyn Fn() + Send + Sync + 'static>,
+    ) {
         // println!("Midi.add_tuning_updated_callback");
-        let callbacks =
-            MIDI_DATA.lock().unwrap().config_received_callbacks.clone();
+        let callbacks = MIDI_DATA.lock().unwrap().config_received_callbacks.clone();
         callbacks.lock().unwrap().push(callback);
     }
 
     pub fn add_instru_connected_changed_callback(
-        &mut self, callback: Box<dyn Fn() + Send + Sync + 'static>) {
+        &mut self,
+        callback: Box<dyn Fn() + Send + Sync + 'static>,
+    ) {
         // println!("Midi.add_tuning_updated_callback");
-        let callbacks =
-            MIDI_DATA.lock().unwrap().instru_connected_changed_callbacks.clone();
+        let callbacks = MIDI_DATA
+            .lock()
+            .unwrap()
+            .instru_connected_changed_callbacks
+            .clone();
         callbacks.lock().unwrap().push(callback);
     }
 
-    pub fn add_tuning_updated_callback(
-        &mut self, callback: Box<dyn Fn() + Send + Sync + 'static>) {
+    pub fn add_tuning_updated_callback(&mut self, callback: Box<dyn Fn() + Send + Sync + 'static>) {
         // println!("Midi.add_tuning_updated_callback");
-        let callbacks =
-            MIDI_DATA.lock().unwrap().tuning_updated_callbacks.clone();
+        let callbacks = MIDI_DATA.lock().unwrap().tuning_updated_callbacks.clone();
         callbacks.lock().unwrap().push(callback);
     }
 
@@ -84,8 +85,7 @@ impl Midi {
         if self.input_connection.is_none() {
             return false;
         }
-        let data = MIDI_DATA.lock().unwrap();
-        data.output_connection.is_some()
+        OUTPUT_CONNECTION.lock().unwrap().is_some()
     }
 
     pub fn close(&mut self) {
@@ -93,16 +93,13 @@ impl Midi {
         {
             let data = MIDI_DATA.lock().unwrap();
             println!("Midi.close: Got data");
-            if data.output_connection.is_some() {
+            if OUTPUT_CONNECTION.lock().unwrap().is_some() {
                 println!("Midi.close: Cloning initial_surface_processing");
-                let initial_surface_processing =
-                    Arc::clone(&data.initial_surface_processing);
+                let initial_surface_processing = Arc::clone(&data.initial_surface_processing);
                 println!("Midi.close: Getting initial_surface_processing guard");
-                let initial_surface_processing_guard =
-                    initial_surface_processing.lock().unwrap();
+                let initial_surface_processing_guard = initial_surface_processing.lock().unwrap();
                 println!("Midi.close: Getting initial_surface_processing");
-                if let Some(initial_surface_processing) =
-                    *initial_surface_processing_guard {
+                if let Some(initial_surface_processing) = *initial_surface_processing_guard {
                     println!("Midi.close: send_surface_processing data");
                     Self::send_surface_processing(initial_surface_processing);
                 }
@@ -113,7 +110,10 @@ impl Midi {
     }
 
     pub fn connect_port(
-        &mut self, index: usize, port_strategy: &dyn PortStrategy) -> Result<(), Box<dyn Error>> {
+        &mut self,
+        index: usize,
+        port_strategy: &dyn PortStrategy,
+    ) -> Result<(), Box<dyn Error>> {
         match port_strategy.port_type() {
             PortType::Input => self.connect_input_port(index, port_strategy)?,
             PortType::Output => self.connect_output_port(index, port_strategy)?,
@@ -121,9 +121,11 @@ impl Midi {
         Ok(())
     }
 
-    pub fn init(&mut self,
-                input_port_name: &str, output_port_name: &str)
-                -> Result<(), Box<dyn Error>> {
+    pub fn init(
+        &mut self,
+        input_port_name: &str,
+        output_port_name: &str,
+    ) -> Result<(), Box<dyn Error>> {
         self.input.populate_ports(input_port_name)?;
         self.output.populate_ports(output_port_name)?;
         Ok(())
@@ -142,13 +144,13 @@ impl Midi {
     }
 
     pub fn refresh_ports(
-        &mut self, port_name: &str, port_strategy: &dyn PortStrategy)
-        -> Result<(), Box<dyn Error>> {
+        &mut self,
+        port_name: &str,
+        port_strategy: &dyn PortStrategy,
+    ) -> Result<(), Box<dyn Error>> {
         match port_strategy.port_type() {
-            PortType::Input => self.refresh_input_ports(
-                port_name)?,
-            PortType::Output => self.refresh_output_ports(
-                port_name)?,
+            PortType::Input => self.refresh_input_ports(port_name)?,
+            PortType::Output => self.refresh_output_ports(port_name)?,
         }
         Ok(())
     }
@@ -163,34 +165,39 @@ impl Midi {
             println!("Midi.request_config: Got data");
             *data.initial_surface_processing.lock().unwrap() = None;
             data.is_getting_config.store(true, Ordering::Relaxed);
-            data.is_streaming_initial_matrix.store(false, Ordering::Relaxed);
+            data.is_streaming_initial_matrix
+                .store(false, Ordering::Relaxed);
         }
-        Self::send_control_change(16, 109, 16);  // configToMidi
+        Self::send_control_change(16, 109, 16); // configToMidi
     }
 
     /// Send a MIDI control change message.
     /// Parameter `channel` is 1-based.
     pub fn send_control_change(channel: u8, cc_no: u8, value: u8) {
-        Self::send_channel_message(channel, MidiMessage::Controller {
-            controller: cc_no.into(),
-            value: value.into(),
-        });
+        Self::send_channel_message(
+            channel,
+            MidiMessage::Controller {
+                controller: cc_no.into(),
+                value: value.into(),
+            },
+        );
     }
 
     pub fn send_matrix_poke(poke_id: u8, poke_value: u8) {
-        Self::send_control_change(
-            16, 56, 20); // Matrix Poke command
-        Self::send_polyphonic_aftertouch(
-            16, poke_id, poke_value); // Perform the Poke
+        Self::send_control_change(16, 56, 20); // Matrix Poke command
+        Self::send_polyphonic_aftertouch(16, poke_id, poke_value); // Perform the Poke
     }
 
     /// Send a MIDI polyphonic aftertouch (pressure) message.
     /// Parameter `channel` is 1-based.
     pub fn send_polyphonic_aftertouch(channel: u8, key: u8, pressure: u8) {
-        Self::send_channel_message(channel, MidiMessage::Aftertouch {
-            key: key.into(),
-            vel: pressure.into(),
-        });
+        Self::send_channel_message(
+            channel,
+            MidiMessage::Aftertouch {
+                key: key.into(),
+                vel: pressure.into(),
+            },
+        );
     }
 
     /// Send a MIDI program change message.
@@ -198,9 +205,12 @@ impl Midi {
     /// Parameter `program` is 0-based.
     #[allow(dead_code)]
     pub fn send_program_change(channel: u8, program: u8) {
-        Self::send_channel_message(channel, MidiMessage::ProgramChange {
-            program: program.into(),
-        });
+        Self::send_channel_message(
+            channel,
+            MidiMessage::ProgramChange {
+                program: program.into(),
+            },
+        );
     }
 
     /// Send Preset Loading Surface Processing global setting.
@@ -223,7 +233,10 @@ impl Midi {
     }
 
     fn connect_input_port(
-            &mut self, index: usize, port_strategy: &dyn PortStrategy) -> Result<(), Box<dyn Error>> {
+        &mut self,
+        index: usize,
+        port_strategy: &dyn PortStrategy,
+    ) -> Result<(), Box<dyn Error>> {
         // println!("Midi.connect_input_port: start");
         self.disconnect_input_port();
         let input: &mut Io<MidiInputPort> = &mut self.input;
@@ -235,10 +248,9 @@ impl Midi {
             match midi_input.connect(
                 midi_port,
                 &port_name,
-                move |_, message, _| {
-                    Self::on_message_received(message)
-                },
-                ()) {
+                move |_, message, _| Self::on_message_received(message),
+                (),
+            ) {
                 Ok(connection) => {
                     input.set_port(port.clone());
                     let connection_option = Option::from(connection);
@@ -248,15 +260,18 @@ impl Midi {
                 Err(_) => {
                     // println!("Midi.connect_input_port: error");
                     // See comment in connect_output_port.
-                    return Err(port_strategy.msg_cannot_connect(&port_name).into())
+                    return Err(port_strategy.msg_cannot_connect(&port_name).into());
                 }
             }
         }
         Ok(())
     }
 
-    fn connect_output_port(&mut self, index: usize, port_strategy: &dyn PortStrategy)
-            -> Result<(), Box<dyn Error>> {
+    fn connect_output_port(
+        &mut self,
+        index: usize,
+        port_strategy: &dyn PortStrategy,
+    ) -> Result<(), Box<dyn Error>> {
         self.disconnect_output_port();
         let output: &mut Io<MidiOutputPort> = &mut self.output;
         if let Some(port) = output.ports().get(index) {
@@ -265,27 +280,28 @@ impl Midi {
             let midi_output = Self::create_midi_output();
             match midi_output.connect(midi_port, &port_name) {
                 Ok(connection) => {
-                    let mut data = MIDI_DATA.lock()?;
-                    data.output_connection = Option::from(connection);
+                    *OUTPUT_CONNECTION.lock()? = Option::from(connection);
                     output.set_port(port.clone());
                 }
                 Err(_) =>
-                    // Devices that have their own MIDI drivers may support shared connections.
-                    // iConnectivity devices do.
-                    // On 7th Feb 2026, I asked in the iConnectivity User Community FB group,
-                    // in a post headed 'Exclusive lock on MIDI ports?',
-                    // whether an iConnectivity might in future support exclusive connections,
-                    // which would be useful for this application. There was no response.
-                    // So on 14th Feb 2026, I raised a support ticket for the feature request.
-                    // So far, no response.
-                    //
-                    // Also, the new Windows MIDI Services supports shared connections
-                    // ("multi-client") by default.
-                    // I don't know about other operating systems.
-                    // As of 4th Feb 2026, I now have Windows MIDI Services on my PC.
-                    // I don't see how to disable multi-client support.
-                    // So I currently cannot test exclusive connections any more.
-                    return Err(port_strategy.msg_cannot_connect(&port_name).into())
+                // Devices that have their own MIDI drivers may support shared connections.
+                // iConnectivity devices do.
+                // On 7th Feb 2026, I asked in the iConnectivity User Community FB group,
+                // in a post headed 'Exclusive lock on MIDI ports?',
+                // whether an iConnectivity might in future support exclusive connections,
+                // which would be useful for this application. There was no response.
+                // So on 14th Feb 2026, I raised a support ticket for the feature request.
+                // So far, no response.
+                //
+                // Also, the new Windows MIDI Services supports shared connections
+                // ("multi-client") by default.
+                // I don't know about other operating systems.
+                // As of 4th Feb 2026, I now have Windows MIDI Services on my PC.
+                // I don't see how to disable multi-client support.
+                // So I currently cannot test exclusive connections any more.
+                {
+                    return Err(port_strategy.msg_cannot_connect(&port_name).into());
+                }
             }
         }
         Ok(())
@@ -301,8 +317,7 @@ impl Midi {
 
     fn disconnect_input_port(&mut self) {
         // println!("Midi.disconnect_input_port start");
-        let input_connection =
-            self.input_connection.take();
+        let input_connection = self.input_connection.take();
         if let Some(connection) = input_connection {
             connection.close();
             let input = &mut self.input;
@@ -312,9 +327,7 @@ impl Midi {
 
     fn disconnect_output_port(&mut self) {
         // println!("Midi.disconnect_output_port start");
-        let mut data = MIDI_DATA.lock().unwrap();
-        let output_connection = 
-            data.output_connection.take();
+        let output_connection = OUTPUT_CONNECTION.lock().unwrap().take();
         if let Some(connection) = output_connection {
             connection.close();
             let output = &mut self.output;
@@ -323,7 +336,7 @@ impl Midi {
     }
 
     fn log_message_received_time() {
-        let mut data = MIDI_DATA.lock().unwrap();
+        let data = MIDI_DATA.lock().unwrap();
         let now = Instant::now();
         *data.last_message_received_time.lock().unwrap() = Some(now);
         let has_instru_just_connected = !data.is_instru_connected.load(Ordering::Relaxed);
@@ -366,12 +379,15 @@ impl Midi {
                             let initial_surface_processing =
                                 data.initial_surface_processing.lock().unwrap();
                             if initial_surface_processing.is_none() {
-                                println!("Midi.on_message_received: Start of initial matrix stream");
-                                data.is_streaming_initial_matrix.store(true, Ordering::Relaxed);
+                                println!(
+                                    "Midi.on_message_received: Start of initial matrix stream"
+                                );
+                                data.is_streaming_initial_matrix
+                                    .store(true, Ordering::Relaxed);
                             }
                         }
                     }
-                },
+                }
                 MidiMessage::Aftertouch { key, vel } => {
                     let channel1 = u8::from(channel) + 1; // 1-based channel number.
                     if channel1 == 16 && key == 56 {
@@ -389,18 +405,20 @@ impl Midi {
                             *initial_surface_processing = Option::from(preset_loading);
                             // We are not waiting for anything else from the matrix stream,
                             // and it does not have an end-of-stream message.
-                            data.is_streaming_initial_matrix.store(false, Ordering::Relaxed);
-                            println!("Midi.on_message_received: initial_surface_processing = {:?}",
-                                     preset_loading);
+                            data.is_streaming_initial_matrix
+                                .store(false, Ordering::Relaxed);
+                            println!(
+                                "Midi.on_message_received: initial_surface_processing = {:?}",
+                                preset_loading
+                            );
                         }
                     }
-                },
+                }
                 MidiMessage::ProgramChange { .. } => {
                     let channel1 = u8::from(channel) + 1; // 1-based channel number.
                     if channel1 == 16 {
                         let data = MIDI_DATA.lock().unwrap();
-                        let is_getting_config =
-                            data.is_getting_config.load(Ordering::Relaxed);
+                        let is_getting_config = data.is_getting_config.load(Ordering::Relaxed);
                         if is_getting_config {
                             // This is the last item sent when config has been requested.
                             println!("Midi.on_message_received: config received");
@@ -409,7 +427,7 @@ impl Midi {
                             Self::call_callbacks(data.config_received_callbacks.clone());
                         }
                     }
-                },
+                }
                 _ => {}
             },
             _ => {}
@@ -444,12 +462,12 @@ impl Midi {
 
     fn send_message(message: &[u8]) {
         println!("Midi.send_message");
-        let mut data = MIDI_DATA.lock().unwrap();
-        println!("Midi.send_message: Got data");
-        let connection_option =
-            data.output_connection.as_mut();
-        if let Some(connection) = connection_option {
-            connection.send(message)
+        let mut connection_option =
+            OUTPUT_CONNECTION.lock().unwrap();
+        println!("Midi.send_message: Got connection");
+        if let Some(connection) = connection_option.as_mut() {
+            connection
+                .send(message)
                 .unwrap_or_else(|_| println!("Error when sending message ..."));
         }
     }
