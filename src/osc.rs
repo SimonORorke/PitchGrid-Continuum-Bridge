@@ -182,7 +182,7 @@ impl Osc {
 
     /// Monitors the connection status of the socket.
     /// PitchGrid will send us messages if we send a heartbeat message at least every 2 seconds.
-    /// So, if we don't receive any messages for 2 seconds, PitchGrid is probably not running.
+    /// So, if we don't receive any messages for 2 seconds, PitchGrid is probably not connected.
     fn monitor_connection(is_connected: Arc<AtomicBool>,
                           last_ack_time: Arc<Mutex<Option<Instant>>>,
                           connected_changed_callback: SharedConnectedChangedCallback,

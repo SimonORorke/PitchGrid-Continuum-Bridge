@@ -1,6 +1,7 @@
 use std::error::Error;
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Instant;
 use lazy_static::lazy_static;
 use midir::{
     MidiInput, MidiInputConnection, MidiInputPort,
@@ -9,27 +10,15 @@ use midly::{live::LiveEvent, MidiMessage};
 use crate::midi_ports::{Io, MidiIo};
 use crate::port_strategy::PortStrategy;
 
-#[derive(Clone, Copy)]
-pub enum PortType {
-    Input,
-    Output,
-}
-
-#[derive(Clone, Copy, Debug)]
-pub enum PresetLoading {
-    Replace = 0,
-    Preserve = 1,
-}
-
 struct MidiData {
     config_received_callbacks: Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>>,
-    // has_config_been_received: Arc<AtomicBool>,
     /// Initial Preset Loading Surface Processing global setting
     initial_surface_processing: Arc<Mutex<Option<PresetLoading>>>,
     instru_connected_changed_callbacks: Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>>,
     is_getting_config: Arc<AtomicBool>,
     is_streaming_initial_matrix: Arc<AtomicBool>,
     is_instru_connected: Arc<AtomicBool>,
+    last_message_received_time: Arc<Mutex<Option<Instant>>>,
     output_connection: Option<MidiOutputConnection>,
     tuning_updated_callbacks: Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>>,
 }
@@ -43,6 +32,7 @@ lazy_static! {
         is_getting_config: Arc::new(Default::default()),
         is_streaming_initial_matrix: Arc::new(Default::default()),
         is_instru_connected: Arc::new(Default::default()),
+        last_message_received_time: Arc::new(Mutex::new(None)),
         output_connection: None,
         tuning_updated_callbacks: Arc::new(Mutex::new(Vec::new())),
     });
@@ -55,9 +45,6 @@ pub struct Midi {
 }
 
 impl Midi {
-    const INPUT_CLIENT_NAME: &str = "My MIDI Input";
-    const OUTPUT_CLIENT_NAME: &str = "My MIDI Output";
-
     pub fn new() -> Self {
         Self {
             input: Io::<MidiInputPort>::new(
@@ -335,7 +322,19 @@ impl Midi {
         }
     }
 
+    fn log_message_received_time() {
+        let mut data = MIDI_DATA.lock().unwrap();
+        let now = Instant::now();
+        *data.last_message_received_time.lock().unwrap() = Some(now);
+        let has_instru_just_connected = !data.is_instru_connected.load(Ordering::Relaxed);
+        data.is_instru_connected.store(true, Ordering::Relaxed);
+        if has_instru_just_connected {
+            Self::call_callbacks(data.instru_connected_changed_callbacks.clone());
+        }
+    }
+
     fn on_message_received(message: &[u8]) {
+        Self::log_message_received_time();
         let event = LiveEvent::parse(message).unwrap();
         match event {
             LiveEvent::Midi { channel, message } => match message {
@@ -454,4 +453,19 @@ impl Midi {
                 .unwrap_or_else(|_| println!("Error when sending message ..."));
         }
     }
+
+    const INPUT_CLIENT_NAME: &str = "My MIDI Input";
+    const OUTPUT_CLIENT_NAME: &str = "My MIDI Output";
+}
+
+#[derive(Clone, Copy)]
+pub enum PortType {
+    Input,
+    Output,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum PresetLoading {
+    Replace = 0,
+    Preserve = 1,
 }

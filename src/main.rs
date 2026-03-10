@@ -137,7 +137,8 @@ fn handle_close_request(
     main_window_weak: Weak<MainWindow>, midi: &SharedMidi,
     settings: &SharedSettings) -> CloseRequestResponse {
     println!("main.handle_close_request");
-    let response = Arc::new(Mutex::new(CloseRequestResponse::HideWindow));
+    let response =
+        Arc::new(Mutex::new(CloseRequestResponse::HideWindow));
     let data = MAIN_DATA.lock().unwrap();
     println!("main.handle_close_request: Got data");
     if data.is_close_error_shown.load(Ordering::Relaxed) {
