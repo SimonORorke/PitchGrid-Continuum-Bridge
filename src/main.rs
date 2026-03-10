@@ -46,9 +46,9 @@ lazy_static! {
 fn main() {
     let main_window = MainWindow::new().unwrap();
     main_window.set_window_title(APP_TITLE.into());
-    let mut midi: SharedMidi = Arc::new(Mutex::new(Midi::new()));
-    let mut settings: SharedSettings = Arc::new(Mutex::new(Settings::new()));
-    init(&main_window, &mut midi, &mut settings);
+    let midi: SharedMidi = Arc::new(Mutex::new(Midi::new()));
+    let settings: SharedSettings = Arc::new(Mutex::new(Settings::new()));
+    init(&main_window, &midi, &settings);
     main_window.run().unwrap();
 }
 
@@ -77,13 +77,13 @@ fn connect_initial_port(
 
 fn connect_port(main_window_weak: Weak<MainWindow>, midi: &SharedMidi, osc: &SharedOsc,
                 settings: &SharedSettings, port_strategy: &(dyn PortStrategy + Send + Sync)) {
-    let mut midi = Arc::clone(midi);
+    let midi = Arc::clone(midi);
     let osc = Arc::clone(osc);
-    let mut settings = Arc::clone(settings);
+    let settings = Arc::clone(settings);
     let port_strategy = port_strategy.clone_box();
     with_main_window(main_window_weak, move |main_window| {
         stop_osc(&main_window, &osc);
-        connect_selected_port(main_window, &mut midi, &mut settings, &*port_strategy);
+        connect_selected_port(main_window, &midi, &settings, &*port_strategy);
         if let Some(port) = midi.lock().unwrap().io(&*port_strategy).port() {
             let port_name: &str = &port.name();
             show_info(main_window, port_strategy.msg_connected(port_name));
@@ -228,37 +228,37 @@ fn init_ui_handlers(main_window: &MainWindow, midi: SharedMidi, osc: SharedOsc,
     println!("main.init_ui_handlers");
     let window_weak = main_window.as_weak();
     {
-        let mut midi: SharedMidi = Arc::clone(&midi);
-        let mut settings: SharedSettings = Arc::clone(&settings);
+        let midi: SharedMidi = Arc::clone(&midi);
+        let settings: SharedSettings = Arc::clone(&settings);
         let window_weak = window_weak.clone();
         main_window.window().on_close_requested(move || {
-            handle_close_request(window_weak.clone(), &mut midi, &mut settings)
+            handle_close_request(window_weak.clone(), &midi, &settings)
         });
     }
     {
-        let mut midi: SharedMidi = Arc::clone(&midi);
-        let mut osc: SharedOsc = Arc::clone(&osc);
-        let mut settings: SharedSettings = Arc::clone(&settings);
+        let midi: SharedMidi = Arc::clone(&midi);
+        let osc: SharedOsc = Arc::clone(&osc);
+        let settings: SharedSettings = Arc::clone(&settings);
         let window_weak = window_weak.clone();
         main_window.on_connect_port(move |port_type: SlintPortType| {
             let port_strategy = create_port_strategy(port_type);
-            connect_port(window_weak.clone(), &mut midi, &mut osc, &mut settings, &*port_strategy)
+            connect_port(window_weak.clone(), &midi, &osc, &settings, &*port_strategy)
         });
     }
     {
-        let mut midi: SharedMidi = Arc::clone(&midi);
-        let mut osc: SharedOsc = Arc::clone(&osc);
-        let mut settings: SharedSettings = Arc::clone(&settings);
+        let midi: SharedMidi = Arc::clone(&midi);
+        let osc: SharedOsc = Arc::clone(&osc);
+        let settings: SharedSettings = Arc::clone(&settings);
         let window_weak = window_weak.clone();
         main_window.on_refresh_ports(move |port_type: SlintPortType| {
             let port_strategy = create_port_strategy(port_type);
-            refresh_ports(window_weak.clone(), &mut midi, &mut osc, &mut settings, &*port_strategy)
+            refresh_ports(window_weak.clone(), &midi, &osc, &settings, &*port_strategy)
         });
     }
     {
-        let mut settings: SharedSettings = Arc::clone(&settings);
+        let settings: SharedSettings = Arc::clone(&settings);
         main_window.on_selected_pitch_table_changed(move |index| {
-            update_pitch_table_no(index as usize, &mut settings)
+            update_pitch_table_no(index as usize, &settings)
         });
     }
     println!("main.init_ui_handlers: Done");
@@ -366,7 +366,7 @@ fn refresh_ports(
         osc: &SharedOsc, settings: &SharedSettings, port_strategy: &dyn PortStrategy) {
     let midi = Arc::clone(midi);
     let osc = Arc::clone(osc);
-    let mut settings = Arc::clone(settings);
+    let settings = Arc::clone(settings);
     let port_strategy = port_strategy.clone_box();
     with_main_window(main_window_weak, move |main_window| {
         let port_name = port_strategy.port_setting(&settings.lock().unwrap()).to_string();
@@ -377,7 +377,7 @@ fn refresh_ports(
         }
         stop_osc(&main_window, &osc);
         set_ports_model(&main_window, &midi, &*port_strategy);
-        show_no_port_connected(main_window, &mut settings, &*port_strategy);
+        show_no_port_connected(main_window, &settings, &*port_strategy);
         show_warning(main_window, port_strategy.msg_refreshed_reconnect());
     });
 }
