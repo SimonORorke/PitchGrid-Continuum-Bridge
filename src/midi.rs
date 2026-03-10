@@ -6,36 +6,10 @@ use midir::{
 };
 use midly::{MidiMessage, live::LiveEvent};
 use std::error::Error;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
-use std::time::Instant;
-
-struct MidiData {
-    config_received_callbacks: Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>>,
-    /// Initial Preset Loading Surface Processing global setting
-    initial_surface_processing: Arc<Mutex<Option<PresetLoading>>>,
-    instru_connected_changed_callbacks: Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>>,
-    is_getting_config: Arc<AtomicBool>,
-    is_streaming_initial_matrix: Arc<AtomicBool>,
-    is_instru_connected: Arc<AtomicBool>,
-    last_message_received_time: Arc<Mutex<Option<Instant>>>,
-    tuning_updated_callbacks: Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>>,
-}
-
-lazy_static! {
-    static ref MIDI_DATA: Mutex<MidiData> = Mutex::new(MidiData {
-        config_received_callbacks: Arc::new(Mutex::new(Vec::new())),
-        // has_config_been_received: Arc::new(Default::default()),
-        initial_surface_processing: Arc::new(Mutex::new(None)),
-        instru_connected_changed_callbacks: Arc::new(Mutex::new(vec![])),
-        is_getting_config: Arc::new(Default::default()),
-        is_streaming_initial_matrix: Arc::new(Default::default()),
-        is_instru_connected: Arc::new(Default::default()),
-        last_message_received_time: Arc::new(Mutex::new(None)),
-        tuning_updated_callbacks: Arc::new(Mutex::new(Vec::new())),
-    });
-    static ref OUTPUT_CONNECTION: Mutex<Option<MidiOutputConnection>> = Mutex::new(None);
-}
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc;
+use std::time::{Duration, Instant};
 
 pub struct Midi {
     input: Io<MidiInputPort>,
@@ -57,8 +31,7 @@ impl Midi {
         callback: Box<dyn Fn() + Send + Sync + 'static>,
     ) {
         // println!("Midi.add_tuning_updated_callback");
-        let callbacks = MIDI_DATA.lock().unwrap().config_received_callbacks.clone();
-        callbacks.lock().unwrap().push(callback);
+        CONFIG_RECEIVED_CALLBACKS.lock().unwrap().push(callback);
     }
 
     pub fn add_instru_connected_changed_callback(
@@ -66,18 +39,12 @@ impl Midi {
         callback: Box<dyn Fn() + Send + Sync + 'static>,
     ) {
         // println!("Midi.add_tuning_updated_callback");
-        let callbacks = MIDI_DATA
-            .lock()
-            .unwrap()
-            .instru_connected_changed_callbacks
-            .clone();
-        callbacks.lock().unwrap().push(callback);
+        INSTRU_CONNECTED_CHANGED_CALLBACKS.lock().unwrap().push(callback);
     }
 
     pub fn add_tuning_updated_callback(&mut self, callback: Box<dyn Fn() + Send + Sync + 'static>) {
         // println!("Midi.add_tuning_updated_callback");
-        let callbacks = MIDI_DATA.lock().unwrap().tuning_updated_callbacks.clone();
-        callbacks.lock().unwrap().push(callback);
+        TUNING_UPDATED_CALLBACKS.lock().unwrap().push(callback);
     }
 
     /// Return whether both input and output ports are connected.
@@ -91,11 +58,9 @@ impl Midi {
     pub fn close(&mut self) {
         println!("Midi.close");
         {
-            let data = MIDI_DATA.lock().unwrap();
-            println!("Midi.close: Got data");
             if OUTPUT_CONNECTION.lock().unwrap().is_some() {
                 println!("Midi.close: Cloning initial_surface_processing");
-                let initial_surface_processing = Arc::clone(&data.initial_surface_processing);
+                let initial_surface_processing = Arc::clone(&INITIAL_SURFACE_PROCESSING);
                 println!("Midi.close: Getting initial_surface_processing guard");
                 let initial_surface_processing_guard = initial_surface_processing.lock().unwrap();
                 println!("Midi.close: Getting initial_surface_processing");
@@ -161,12 +126,10 @@ impl Midi {
     pub fn request_config(&self) {
         println!("Midi.request_config");
         {
-            let data = MIDI_DATA.lock().unwrap();
             println!("Midi.request_config: Got data");
-            *data.initial_surface_processing.lock().unwrap() = None;
-            data.is_getting_config.store(true, Ordering::Relaxed);
-            data.is_streaming_initial_matrix
-                .store(false, Ordering::Relaxed);
+            *INITIAL_SURFACE_PROCESSING.lock().unwrap() = None;
+            IS_GETTING_CONFIG.store(true, Ordering::Relaxed);
+            IS_STREAMING_INITIAL_MATRIX.store(false, Ordering::Relaxed);
         }
         Self::send_control_change(16, 109, 16); // configToMidi
     }
@@ -336,13 +299,44 @@ impl Midi {
     }
 
     fn log_message_received_time() {
-        let data = MIDI_DATA.lock().unwrap();
         let now = Instant::now();
-        *data.last_message_received_time.lock().unwrap() = Some(now);
-        let has_instru_just_connected = !data.is_instru_connected.load(Ordering::Relaxed);
-        data.is_instru_connected.store(true, Ordering::Relaxed);
+        *LAST_MESSAGE_RECEIVED_TIME.lock().unwrap() = Some(now);
+        let has_instru_just_connected = !IS_INSTRU_CONNECTED.load(Ordering::Relaxed);
+        IS_INSTRU_CONNECTED.store(true, Ordering::Relaxed);
         if has_instru_just_connected {
-            Self::call_callbacks(data.instru_connected_changed_callbacks.clone());
+            Self::call_callbacks(INSTRU_CONNECTED_CHANGED_CALLBACKS.clone());
+        }
+    }
+
+    /// Monitor the connection status of the instrument.
+    /// When the instrument has nothing else to send, it will send a sequence of heartbeat messages
+    /// once a second. So, if we have not heard from the instrument for two seconds,
+    /// we assume it has disconnected.
+    fn monitor_instru_connection(stopper_receiver: mpsc::Receiver<()>) {
+        let mut has_initially_not_connected_callback_been_called = false;
+        loop {
+            let is_instru_connected = IS_INSTRU_CONNECTED.load(Ordering::Relaxed);
+            if is_instru_connected {
+                let now = Instant::now();
+                let last_message_received_time =
+                    *LAST_MESSAGE_RECEIVED_TIME.lock().unwrap();
+                if let Some(last_message_received_time) = last_message_received_time {
+                    let duration = now.duration_since(last_message_received_time);
+                    let seconds = duration.as_secs();
+                    if seconds > 2 {
+                        IS_INSTRU_CONNECTED.store(false, Ordering::Relaxed);
+                        Self::call_callbacks(INSTRU_CONNECTED_CHANGED_CALLBACKS.clone());
+                    }
+                }
+            } else if !has_initially_not_connected_callback_been_called {
+                has_initially_not_connected_callback_been_called = true;
+                Self::call_callbacks(INSTRU_CONNECTED_CHANGED_CALLBACKS.clone());
+            }
+            if let Ok(_) = stopper_receiver.recv_timeout(Duration::from_millis(500)) {
+                // Sleep was interrupted
+                return;
+            }
+            // Slept for 500ms, proceeding
         }
     }
 
@@ -368,22 +362,19 @@ impl Midi {
                             // has been updated. But now we effectively know that the pitch table has
                             // been updated and loaded.
                             // println!("midi.on_message_received: pitch table updated");
-                            let data = MIDI_DATA.lock().unwrap();
-                            Self::call_callbacks(data.tuning_updated_callbacks.clone());
+                            Self::call_callbacks(TUNING_UPDATED_CALLBACKS.clone());
                         }
                         if controller == 56 && value == 20 {
                             // s_Mat_Poke: Start of Matrix stream
                             println!("midi.on_message_received: Start of Matrix stream");
-                            let data = MIDI_DATA.lock().unwrap();
                             println!("midi.on_message_received: Got data");
                             let initial_surface_processing =
-                                data.initial_surface_processing.lock().unwrap();
+                                INITIAL_SURFACE_PROCESSING.lock().unwrap();
                             if initial_surface_processing.is_none() {
                                 println!(
                                     "Midi.on_message_received: Start of initial matrix stream"
                                 );
-                                data.is_streaming_initial_matrix
-                                    .store(true, Ordering::Relaxed);
+                                IS_STREAMING_INITIAL_MATRIX.store(true, Ordering::Relaxed);
                             }
                         }
                     }
@@ -392,12 +383,11 @@ impl Midi {
                     let channel1 = u8::from(channel) + 1; // 1-based channel number.
                     if channel1 == 16 && key == 56 {
                         // PreservSurf: Preset Loading Surface Processing (global)
-                        let data = MIDI_DATA.lock().unwrap();
                         let is_streaming_initial_matrix =
-                            data.is_streaming_initial_matrix.load(Ordering::Relaxed);
+                            IS_STREAMING_INITIAL_MATRIX.load(Ordering::Relaxed);
                         if is_streaming_initial_matrix {
                             let mut initial_surface_processing =
-                                data.initial_surface_processing.lock().unwrap();
+                                INITIAL_SURFACE_PROCESSING.lock().unwrap();
                             let preset_loading: PresetLoading = match u8::from(vel) {
                                 0 => PresetLoading::Replace,
                                 _ => PresetLoading::Preserve,
@@ -405,8 +395,7 @@ impl Midi {
                             *initial_surface_processing = Option::from(preset_loading);
                             // We are not waiting for anything else from the matrix stream,
                             // and it does not have an end-of-stream message.
-                            data.is_streaming_initial_matrix
-                                .store(false, Ordering::Relaxed);
+                            IS_STREAMING_INITIAL_MATRIX.store(false, Ordering::Relaxed);
                             println!(
                                 "Midi.on_message_received: initial_surface_processing = {:?}",
                                 preset_loading
@@ -417,14 +406,13 @@ impl Midi {
                 MidiMessage::ProgramChange { .. } => {
                     let channel1 = u8::from(channel) + 1; // 1-based channel number.
                     if channel1 == 16 {
-                        let data = MIDI_DATA.lock().unwrap();
-                        let is_getting_config = data.is_getting_config.load(Ordering::Relaxed);
+                        let is_getting_config = IS_GETTING_CONFIG.load(Ordering::Relaxed);
                         if is_getting_config {
                             // This is the last item sent when config has been requested.
                             println!("Midi.on_message_received: config received");
-                            data.is_getting_config.store(false, Ordering::Relaxed);
+                            IS_GETTING_CONFIG.store(false, Ordering::Relaxed);
                             // data.has_config_been_received.store(true, Ordering::Relaxed);
-                            Self::call_callbacks(data.config_received_callbacks.clone());
+                            Self::call_callbacks(CONFIG_RECEIVED_CALLBACKS.clone());
                         }
                     }
                 }
@@ -486,4 +474,22 @@ pub enum PortType {
 pub enum PresetLoading {
     Replace = 0,
     Preserve = 1,
+}
+
+lazy_static! {
+    static ref CONFIG_RECEIVED_CALLBACKS:
+        Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>> = Arc::new(Mutex::new(Vec::new()));
+    /// Initial Preset Loading Surface Processing global setting
+    static ref INITIAL_SURFACE_PROCESSING:
+        Arc<Mutex<Option<PresetLoading>>> = Arc::new(Mutex::new(None));
+    static ref INSTRU_CONNECTED_CHANGED_CALLBACKS:
+        Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>> = Arc::new(Mutex::new(Vec::new()));
+    static ref IS_GETTING_CONFIG: AtomicBool = AtomicBool::new(false);
+    static ref IS_INSTRU_CONNECTED: AtomicBool = AtomicBool::new(false);
+    static ref IS_STREAMING_INITIAL_MATRIX: AtomicBool = AtomicBool::new(false);
+    static ref LAST_MESSAGE_RECEIVED_TIME: Mutex<Option<Instant>> = Mutex::new(None);
+    static ref OUTPUT_CONNECTION: Mutex<Option<MidiOutputConnection>> = Mutex::new(None);
+    static ref STOPPER_SENDERS: Mutex<Vec<mpsc::Sender<()>>> = Mutex::new(Vec::new());
+    static ref TUNING_UPDATED_CALLBACKS:
+        Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>> = Arc::new(Mutex::new(Vec::new()));
 }

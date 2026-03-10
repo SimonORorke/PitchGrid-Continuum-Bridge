@@ -22,27 +22,6 @@ use crate::port_strategy::{
     InputStrategy, OutputStrategy, PortStrategy};
 use crate::settings::Settings;
 
-slint::include_modules!();
-
-/// Giving separate names to this shared data struct and those in modules
-/// and also to the static refs that use them works around a problem with RustRover where
-/// Linter would sometimes falsely indicate compiler errors.
-struct MainData {
-    is_close_error_shown: Arc<AtomicBool>,
-    main_window_weak: Option<Weak<MainWindow>>,
-    midi: Option<SharedMidi>,
-    osc: SharedOsc,
-}
-
-lazy_static! {
-    static ref MAIN_DATA: Mutex<MainData> = Mutex::new(MainData {
-        is_close_error_shown: Arc::new(AtomicBool::new(false)),
-        main_window_weak: None,
-        midi: None,
-        osc: Arc::new(Mutex::new(Osc::new())),
-    });
-}
-
 fn main() {
     let main_window = MainWindow::new().unwrap();
     main_window.set_window_title(APP_TITLE.into());
@@ -139,9 +118,8 @@ fn handle_close_request(
     println!("main.handle_close_request");
     let response =
         Arc::new(Mutex::new(CloseRequestResponse::HideWindow));
-    let data = MAIN_DATA.lock().unwrap();
     println!("main.handle_close_request: Got data");
-    if data.is_close_error_shown.load(Ordering::Relaxed) {
+    if IS_CLOSE_ERROR_SHOWN.load(Ordering::Relaxed) {
         // If a close error message is already shown, allow the window to be closed.
         return *response.lock().unwrap()
     }
@@ -152,18 +130,17 @@ fn handle_close_request(
     println!("main.handle_close_request: Got Midi, closing");
     midi_guard.close();
     println!("main.handle_close_request: Closed Midi.");
-    let is_close_error_shown = Arc::clone(&data.is_close_error_shown);
     let response_clone = Arc::clone(&response);
     let settings1 = Arc::clone(settings);
     with_main_window(main_window_weak, move |main_window| {
         if let Err(err) = settings1.lock().unwrap().write_to_file() {
             *response_clone.lock().unwrap() = CloseRequestResponse::KeepWindowShown;
             show_error(main_window, err.to_string());
-            is_close_error_shown.store(true, Ordering::Relaxed);
+            IS_CLOSE_ERROR_SHOWN.store(true, Ordering::Relaxed);
         }
     });
     println!("main.handle_close_request: Stopping OSC");
-    data.osc.lock().unwrap().stop();
+    OSC.lock().unwrap().stop();
     println!("main.handle_close_request: Stopped OSC");
     *response.lock().unwrap()
 }
@@ -208,10 +185,9 @@ fn init(main_window: &MainWindow, midi: &SharedMidi, settings: &SharedSettings) 
     main_window.set_selected_pitch_table_index(tuner::pitch_table_index() as i32);
     let osc: SharedOsc;
     {
-        let mut data = MAIN_DATA.lock().unwrap();
-        data.main_window_weak = Some(main_window.as_weak().clone());
-        data.midi = Some(midi.clone());
-        osc = data.osc.clone();
+        *MAIN_WINDOW_WEAK.lock().unwrap() = Some(main_window.as_weak().clone());
+        *MIDI.lock().unwrap() = Some(midi.clone());
+        osc = OSC.clone();
     }
     init_ui_handlers(&main_window, Arc::clone(&midi), osc, Arc::clone(settings));
     println!("main.init: Checking if MIDI is connected");
@@ -280,10 +256,10 @@ fn update_pitch_table_no(index: usize, settings: &SharedSettings) {
 }
 
 fn on_osc_connected_changed() {
-    let data = MAIN_DATA.lock().unwrap();
-    if let Some(main_window_weak) = &data.main_window_weak {
+    let main_window_weak_guard = MAIN_WINDOW_WEAK.lock().unwrap();
+    if let Some(main_window_weak) = &*main_window_weak_guard {
         // println!("main.on_osc_connected_changed: Found main_window_weak");
-        let is_connected = data.osc.lock().unwrap().is_connected();
+        let is_connected = OSC.lock().unwrap().is_connected();
         // println!("main.on_osc_connected_changed: Connected = {}", is_connected);
         with_main_window(main_window_weak.clone(), move |main_window| {
             // println!("main.on_osc_connected_changed: Found main_window");
@@ -302,14 +278,14 @@ fn on_osc_tuning_received(depth: i32, mode: i32, root_freq: f32, stretch: f32,
     //     "main.on_osc_tuning_received: depth = {}; mode = {}; root_freq = {}; stretch = {}; \
     //     skew = {}; mode_offset = {}; steps = {}",
     //     depth, mode, root_freq, stretch, skew, mode_offset, steps);
-    let data = MAIN_DATA.lock().unwrap();
-    let midi = data.midi.clone().unwrap();
+    let midi = MIDI.lock().unwrap().clone().unwrap();
     let midi_guard = midi.lock().unwrap();
     let can_update_tuning = midi_guard.are_ports_connected();
     if can_update_tuning {
         tuner::on_tuning_received(depth, mode, root_freq, stretch, skew, mode_offset, steps);
     }
-    if let Some(main_window_weak) = &data.main_window_weak {
+    let main_window_weak_guard = MAIN_WINDOW_WEAK.lock().unwrap();
+    if let Some(main_window_weak) = &*main_window_weak_guard {
         with_main_window(main_window_weak.clone(), move |main_window| {
             if can_update_tuning {
                 show_pitchgrid_status(
@@ -325,15 +301,14 @@ fn on_osc_tuning_received(depth: i32, mode: i32, root_freq: f32, stretch: f32,
 }
 
 fn on_config_received() {
-    let data = MAIN_DATA.lock().unwrap();
-    //let main_window_weak = &data.main_window_weak.unwrap();
-    if let Some(main_window_weak) = &data.main_window_weak {
+    let main_window_weak_guard = MAIN_WINDOW_WEAK.lock().unwrap();
+    if let Some(main_window_weak) = &*main_window_weak_guard {
         with_main_window(main_window_weak.clone(), move |main_window| {
             // Remove Getting instrument config... message.
             show_message(main_window, "", MessageType::Info);
         });
     }
-    data.osc.lock().unwrap().start(
+    OSC.lock().unwrap().start(
         Arc::new(on_osc_tuning_received), Arc::new(on_osc_connected_changed));
 }
 
@@ -346,8 +321,8 @@ fn stop_osc(main_window: &MainWindow, osc: &SharedOsc) {
 
 fn on_tuning_updated() {
     // println!("main.on_tuning_updated");
-    let data = MAIN_DATA.lock().unwrap();
-    if let Some(main_window_weak) = &data.main_window_weak {
+    let main_window_weak_guard = MAIN_WINDOW_WEAK.lock().unwrap();
+    if let Some(main_window_weak) = &*main_window_weak_guard {
         with_main_window(main_window_weak.clone(), move |main_window| {
             let params = tuner::formatted_tuning_params();
             main_window.set_depth(params.depth.into());
@@ -524,3 +499,12 @@ impl slint::Model for TuningGridsModel {
 }
 
 const PORT_NONE: &str = "[None]";
+
+slint::include_modules!();
+
+lazy_static! {
+    static ref IS_CLOSE_ERROR_SHOWN: AtomicBool = AtomicBool::new(false);
+    static ref MAIN_WINDOW_WEAK: Mutex<Option<Weak<MainWindow>>> = Mutex::new(None);
+    static ref MIDI: Mutex<Option<SharedMidi>> = Mutex::new(None);
+    static ref OSC: SharedOsc = Arc::new(Mutex::new(Osc::new()));
+}
