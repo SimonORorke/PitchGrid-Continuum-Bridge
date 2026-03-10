@@ -198,7 +198,11 @@ impl Osc {
                     has_initially_not_connected_callback_been_called = true;
                     Self::call_connected_changed_callback(connected_changed_callback.clone());
                 }
-                std::thread::sleep(Duration::from_millis(500));
+                if let Ok(_) = stopper_receiver.recv_timeout(Duration::from_millis(500)) {
+                    // Sleep was interrupted
+                    return;
+                }
+                // Slept for 500ms, proceeding
                 continue;
             }
             let last_ack_time = maybe_last_ack_time.unwrap();
@@ -222,7 +226,7 @@ impl Osc {
                 // Sleep was interrupted
                 return;
             }
-            // Slept for 1s, proceeding
+            // Slept for 500ms, proceeding
         }
     }
 
