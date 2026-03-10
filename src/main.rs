@@ -134,8 +134,8 @@ fn connect_selected_port(main_window: &MainWindow, midi: &SharedMidi,
 }
 
 fn handle_close_request(
-        main_window_weak: Weak<MainWindow>, midi: &SharedMidi,
-        settings: &SharedSettings) -> CloseRequestResponse {
+    main_window_weak: Weak<MainWindow>, midi: &SharedMidi,
+    settings: &SharedSettings) -> CloseRequestResponse {
     println!("main.handle_close_request");
     let response = Arc::new(Mutex::new(CloseRequestResponse::HideWindow));
     let data = MAIN_DATA.lock().unwrap();
@@ -144,9 +144,13 @@ fn handle_close_request(
         // If a close error message is already shown, allow the window to be closed.
         return *response.lock().unwrap()
     }
-    println!("main.handle_close_request: Getting Midi");
-    Arc::clone(midi).lock().unwrap().close();
-    println!("main.handle_close_request: Got Midi");
+    println!("main.handle_close_request: Cloning Midi");
+    let midi_clone = Arc::clone(midi);
+    println!("main.handle_close_request: Getting Midi guard");
+    let mut midi_guard = midi_clone.lock().unwrap();
+    println!("main.handle_close_request: Got Midi, closing");
+    midi_guard.close();
+    println!("main.handle_close_request: Closed Midi.");
     let is_close_error_shown = Arc::clone(&data.is_close_error_shown);
     let response_clone = Arc::clone(&response);
     let settings1 = Arc::clone(settings);

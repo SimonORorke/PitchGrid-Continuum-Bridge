@@ -102,12 +102,23 @@ impl Midi {
     }
 
     pub fn close(&mut self) {
-        // println!("Midi.close");
-        let data = MIDI_DATA.lock().unwrap();
-        if data.output_connection.is_some() {
-            if let Some(initial_surface_processing) =
-                *data.initial_surface_processing.lock().unwrap() {
-                Self::send_surface_processing(initial_surface_processing);
+        println!("Midi.close");
+        {
+            let data = MIDI_DATA.lock().unwrap();
+            println!("Midi.close: Got data");
+            if data.output_connection.is_some() {
+                println!("Midi.close: Cloning initial_surface_processing");
+                let initial_surface_processing =
+                    Arc::clone(&data.initial_surface_processing);
+                println!("Midi.close: Getting initial_surface_processing guard");
+                let initial_surface_processing_guard =
+                    initial_surface_processing.lock().unwrap();
+                println!("Midi.close: Getting initial_surface_processing");
+                if let Some(initial_surface_processing) =
+                    *initial_surface_processing_guard {
+                    println!("Midi.close: send_surface_processing data");
+                    Self::send_surface_processing(initial_surface_processing);
+                }
             }
         }
         self.disconnect_input_port();
