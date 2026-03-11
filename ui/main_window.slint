@@ -19,9 +19,9 @@ export enum SlintPortType {
 export component MainWindow inherits MagicWindow {
     background: get_background_color();
     width: 700px;
-    // Needs to be big enough to include everything down to the first status bar line.
+    // Needs to be big enough to include everything down to the second status bar line.
     // Expands automatically if the status message does not fit.
-    min_height: 410px;
+    min_height: 420px;
     title: window_title;
     icon: Globals.icon;
     forward-focus: midi_io;
@@ -150,9 +150,9 @@ export component MainWindow inherits MagicWindow {
             }
         }
         HorizontalLayout {
-            padding_top: 10px;
-            padding_bottom: 5px;
+            padding_top: 5px;
             HorizontalLayout {
+                padding_top: 10px;
                 alignment: start; // Centres the message text.
                 Image {
                     source: Globals.icon;
@@ -160,14 +160,15 @@ export component MainWindow inherits MagicWindow {
                 }
             }
             VerticalBox {
-                padding-top: 5px;
+                alignment: end;
+                padding-top: 15px;
                 message_text := MessageText {
                     horizontal_alignment: center;
-                    vertical_alignment: top;
                 }
             }
             HorizontalLayout {
                 alignment: end;
+                padding_top: 10px;
                 padding-right: 10px;
                 FilledButton {
                     prefix_icon: @image-url("images/menu-svgrepo-com.svg");

@@ -12,17 +12,21 @@ use std::sync::mpsc;
 use std::time::{Duration, Instant};
 
 pub struct Midi {
+    connection_monitor_stopper_senders: Vec<mpsc::Sender<()>>,
     input: Io<MidiInputPort>,
-    output: Io<MidiOutputPort>,
     input_connection: Option<MidiInputConnection<()>>,
+    is_connection_monitor_running: bool,
+    output: Io<MidiOutputPort>,
 }
 
 impl Midi {
     pub fn new() -> Self {
         Self {
+            connection_monitor_stopper_senders: vec![],
             input: Io::<MidiInputPort>::new(Box::new(Self::create_midi_input())),
-            output: Io::<MidiOutputPort>::new(Box::new(Self::create_midi_output())),
             input_connection: None,
+            is_connection_monitor_running: false,
+            output: Io::<MidiOutputPort>::new(Box::new(Self::create_midi_output())),
         }
     }
 
@@ -59,13 +63,15 @@ impl Midi {
         println!("Midi.close");
         {
             if OUTPUT_CONNECTION.lock().unwrap().is_some() {
-                println!("Midi.close: Cloning initial_surface_processing");
+                // println!("Midi.close: Cloning initial_surface_processing");
                 let initial_surface_processing = Arc::clone(&INITIAL_SURFACE_PROCESSING);
-                println!("Midi.close: Getting initial_surface_processing guard");
-                let initial_surface_processing_guard = initial_surface_processing.lock().unwrap();
-                println!("Midi.close: Getting initial_surface_processing");
+                // println!("Midi.close: Getting initial_surface_processing guard");
+                let initial_surface_processing_guard =
+                    initial_surface_processing.lock().unwrap();
+                // println!("Midi.close: Getting initial_surface_processing");
                 if let Some(initial_surface_processing) = *initial_surface_processing_guard {
-                    println!("Midi.close: send_surface_processing data");
+                    println!("Midi.close: Sending surface processing {:?}",
+                             initial_surface_processing);
                     Self::send_surface_processing(initial_surface_processing);
                 }
             }
@@ -104,6 +110,10 @@ impl Midi {
         port_strategy.io(self)
     }
 
+    pub fn is_instru_connected(&self) -> bool {
+        IS_INSTRU_CONNECTED.load(Ordering::Relaxed)
+    }
+
     pub fn output(&self) -> &Io<MidiOutputPort> {
         &self.output
     }
@@ -126,7 +136,6 @@ impl Midi {
     pub fn request_config(&self) {
         println!("Midi.request_config");
         {
-            println!("Midi.request_config: Got data");
             *INITIAL_SURFACE_PROCESSING.lock().unwrap() = None;
             IS_GETTING_CONFIG.store(true, Ordering::Relaxed);
             IS_STREAMING_INITIAL_MATRIX.store(false, Ordering::Relaxed);
@@ -177,16 +186,43 @@ impl Midi {
     }
 
     /// Send Preset Loading Surface Processing global setting.
+    /// Haken Editor's display of the setting may not be updated.
     pub fn send_surface_processing(on_preset_loading: PresetLoading) {
         let poke_id = on_preset_loading as u8;
         Self::send_matrix_poke(56, poke_id); // PreservSurf
-        // The editor then does this.  But it seems not to make a difference here.
+        // The editor then does this. It seems not to make a difference here.
+        // But let's do it anyway.
         // Write current global settings to flash
-        // send_control_change(16, 109, 8); // Task curGloToFlash
+        Self::send_control_change(16, 109, 8); // curGloToFlash
+    }
+
+    pub fn start_instru_connection_monitor(&mut self) {
+        println!("Midi.start_instru_connection_monitor");
+        let (stopper_sender, stopper_receiver) = mpsc::channel();
+        self.connection_monitor_stopper_senders.push(stopper_sender);
+        rayon::spawn(move || {
+            Self::monitor_instru_connection(stopper_receiver);
+        });
+        self.is_connection_monitor_running = true;
+    }
+
+    pub fn stop_instru_connection_monitor(&mut self) {
+        println!("Midi.stop_instru_connection_monitor");
+        if self.is_connection_monitor_running {
+            println!("Midi.stop_instru_connection_monitor: Already stopped.");
+            return;
+        }
+        for stopper_sender in self.connection_monitor_stopper_senders.iter() {
+            stopper_sender.send(()).unwrap_or_else(|_| {
+                println!("Midi.stop_instru_connection_monitor: Failed to send stop signal to instrument connection monitor");
+            });
+        }
+        println!("Midi.stop_instru_connection_monitor: Stopped monitor thread.");
+        self.is_connection_monitor_running = false;
     }
 
     /// Call the subscribed callback functions on a separate thread.
-    fn call_callbacks(callbacks: Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>>) {
+    fn call_back(callbacks: Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>>) {
         rayon::spawn(move || {
             let callbacks_guard = callbacks.lock().unwrap();
             for callback in callbacks_guard.iter() {
@@ -304,7 +340,7 @@ impl Midi {
         let has_instru_just_connected = !IS_INSTRU_CONNECTED.load(Ordering::Relaxed);
         IS_INSTRU_CONNECTED.store(true, Ordering::Relaxed);
         if has_instru_just_connected {
-            Self::call_callbacks(INSTRU_CONNECTED_CHANGED_CALLBACKS.clone());
+            Self::call_back(INSTRU_CONNECTED_CHANGED_CALLBACKS.clone());
         }
     }
 
@@ -313,10 +349,10 @@ impl Midi {
     /// once a second. So, if we have not heard from the instrument for two seconds,
     /// we assume it has disconnected.
     fn monitor_instru_connection(stopper_receiver: mpsc::Receiver<()>) {
+        let start_time = Instant::now();
         let mut has_initially_not_connected_callback_been_called = false;
         loop {
-            let is_instru_connected = IS_INSTRU_CONNECTED.load(Ordering::Relaxed);
-            if is_instru_connected {
+            if IS_INSTRU_CONNECTED.load(Ordering::Relaxed) {
                 let now = Instant::now();
                 let last_message_received_time =
                     *LAST_MESSAGE_RECEIVED_TIME.lock().unwrap();
@@ -324,13 +360,24 @@ impl Midi {
                     let duration = now.duration_since(last_message_received_time);
                     let seconds = duration.as_secs();
                     if seconds > 2 {
+                        println!("midi.monitor_instru_connection: Instrument disconnected.");
                         IS_INSTRU_CONNECTED.store(false, Ordering::Relaxed);
-                        Self::call_callbacks(INSTRU_CONNECTED_CHANGED_CALLBACKS.clone());
+                        Self::call_back(INSTRU_CONNECTED_CHANGED_CALLBACKS.clone());
                     }
                 }
             } else if !has_initially_not_connected_callback_been_called {
-                has_initially_not_connected_callback_been_called = true;
-                Self::call_callbacks(INSTRU_CONNECTED_CHANGED_CALLBACKS.clone());
+                let now = Instant::now();
+                let duration = now.duration_since(start_time);
+                let seconds = duration.as_secs();
+                // Give a chance for the instrument heartbeat messages to arrive.
+                if seconds > 2 {
+                    println!("midi.monitor_instru_connection: Instrument not connected for 2 seconds on startup.");
+                    // Not connected for 2 seconds after application start.
+                    // So we can assume that the instrument is not yet connected.
+                    // Provide an opportunity for a helpful message to be displayed.
+                    Self::call_back(INSTRU_CONNECTED_CHANGED_CALLBACKS.clone());
+                    has_initially_not_connected_callback_been_called = true;
+                }
             }
             if let Ok(_) = stopper_receiver.recv_timeout(Duration::from_millis(500)) {
                 // Sleep was interrupted
@@ -362,18 +409,19 @@ impl Midi {
                             // has been updated. But now we effectively know that the pitch table has
                             // been updated and loaded.
                             // println!("midi.on_message_received: pitch table updated");
-                            Self::call_callbacks(TUNING_UPDATED_CALLBACKS.clone());
+                            Self::call_back(TUNING_UPDATED_CALLBACKS.clone());
                         }
                         if controller == 56 && value == 20 {
                             // s_Mat_Poke: Start of Matrix stream
-                            println!("midi.on_message_received: Start of Matrix stream");
-                            println!("midi.on_message_received: Got data");
+                            // println!("midi.on_message_received: Start of Matrix stream");
                             let initial_surface_processing =
                                 INITIAL_SURFACE_PROCESSING.lock().unwrap();
                             if initial_surface_processing.is_none() {
-                                println!(
-                                    "Midi.on_message_received: Start of initial matrix stream"
-                                );
+                                // println!(
+                                //     "Midi.on_message_received: Start of initial matrix stream"
+                                // );
+                                // For unknown reason, this happens twice before
+                                // initial_surface_processing is stored. Threading problem?
                                 IS_STREAMING_INITIAL_MATRIX.store(true, Ordering::Relaxed);
                             }
                         }
@@ -412,7 +460,7 @@ impl Midi {
                             println!("Midi.on_message_received: config received");
                             IS_GETTING_CONFIG.store(false, Ordering::Relaxed);
                             // data.has_config_been_received.store(true, Ordering::Relaxed);
-                            Self::call_callbacks(CONFIG_RECEIVED_CALLBACKS.clone());
+                            Self::call_back(CONFIG_RECEIVED_CALLBACKS.clone());
                         }
                     }
                 }
@@ -449,10 +497,10 @@ impl Midi {
     }
 
     fn send_message(message: &[u8]) {
-        println!("Midi.send_message");
+        // println!("Midi.send_message");
         let mut connection_option =
             OUTPUT_CONNECTION.lock().unwrap();
-        println!("Midi.send_message: Got connection");
+        // println!("Midi.send_message: Got connection");
         if let Some(connection) = connection_option.as_mut() {
             connection
                 .send(message)
@@ -489,7 +537,6 @@ lazy_static! {
     static ref IS_STREAMING_INITIAL_MATRIX: AtomicBool = AtomicBool::new(false);
     static ref LAST_MESSAGE_RECEIVED_TIME: Mutex<Option<Instant>> = Mutex::new(None);
     static ref OUTPUT_CONNECTION: Mutex<Option<MidiOutputConnection>> = Mutex::new(None);
-    static ref STOPPER_SENDERS: Mutex<Vec<mpsc::Sender<()>>> = Mutex::new(Vec::new());
     static ref TUNING_UPDATED_CALLBACKS:
         Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>> = Arc::new(Mutex::new(Vec::new()));
 }

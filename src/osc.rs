@@ -70,7 +70,7 @@ impl Osc {
     }
 
     pub fn stop(&mut self) {
-        println!("Osc.stop: starting");
+        // println!("Osc.stop");
         self.is_connected.store(false, Ordering::SeqCst);
         // Stop the threads.
         for stopper_sender in self.stopper_senders.drain(..) {
@@ -78,7 +78,7 @@ impl Osc {
         }
         let last_ack_time_clone = self.last_ack_time.clone();
         *last_ack_time_clone.lock().unwrap() = None;
-        println!("Osc.stop: stopped OSC");
+        // println!("Osc.stop: stopped OSC");
     }
 
     pub fn is_connected(&self) -> bool {
