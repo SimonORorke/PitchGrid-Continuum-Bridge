@@ -64,12 +64,12 @@ fn connect_port(main_window_weak: Weak<MainWindow>, midi: &SharedMidi, osc: &Sha
     let port_strategy = port_strategy.clone_box();
     println!("main.connect_port: Stopping OSC and instrument connection monitor");
     stop_osc_and_instru_connection_monitor(&midi, &osc);
-    // TODO: Like in init_ui_handlers.
-    let has_port_been_connected = connect_selected_port(main_window_weak, &midi, &settings, &*port_strategy);
+    // Like in init_ui_handlers.
+    // let has_port_been_connected = connect_selected_port(main_window_weak, &midi, &settings, &*port_strategy);
     with_main_window(main_window_weak, move |main_window| {
         show_pitchgrid_disconnected(&main_window);
         println!("main.connect_port: Connecting port");
-        //connect_selected_port(main_window, &midi, &settings, &*port_strategy);
+        connect_selected_port(main_window, &midi, &settings, &*port_strategy);
         if let Some(port) = midi.lock().unwrap().io(&*port_strategy).port() {
             let port_name: &str = &port.name();
             show_info(main_window, port_strategy.msg_connected(port_name));
@@ -90,7 +90,7 @@ fn connect_port(main_window_weak: Weak<MainWindow>, midi: &SharedMidi, osc: &Sha
 }
 
 fn connect_selected_port(main_window: &MainWindow, midi: &SharedMidi,
-                         settings: &SharedSettings, port_strategy: &dyn PortStrategy) -> bool {
+                         settings: &SharedSettings, port_strategy: &dyn PortStrategy) {
     println!("main.connect_selected_port");
     let selected = port_strategy.get_selected_port_index(main_window);
     let index: usize = match usize::try_from(selected) {
@@ -99,7 +99,7 @@ fn connect_selected_port(main_window: &MainWindow, midi: &SharedMidi,
             // A port has not been selected. That's impossible with the UI as it is.
             show_no_port_connected(main_window, settings, port_strategy);
             show_error(main_window, port_strategy.msg_not_selected());
-            return false;
+            return;
         }
     };
     // Do all Midi borrowing/mutation inside a tight scope, then update UI after.
@@ -107,7 +107,7 @@ fn connect_selected_port(main_window: &MainWindow, midi: &SharedMidi,
         let mut midi_guard = midi.lock().unwrap();
         let Some(name) = midi_guard.io(port_strategy).port_names().get(index).cloned()
         else {
-            return false;
+            return;
         };
         match midi_guard.connect_port(index, port_strategy) {
             Ok(()) => Ok(name),
@@ -117,12 +117,10 @@ fn connect_selected_port(main_window: &MainWindow, midi: &SharedMidi,
     match ui_action {
         Ok(name) => {
             show_connected_port_name(main_window, settings, &name, port_strategy);
-            return true;
         }
         Err(message) => {
             show_no_port_connected(main_window, settings, port_strategy);
             show_error(main_window, message);
-            return false;
         }
     }
     println!("main.connect_selected_port: Done");
