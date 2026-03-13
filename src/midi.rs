@@ -1,5 +1,3 @@
-use crate::midi_ports::{Io, MidiIo};
-use crate::port_strategy::PortStrategy;
 use lazy_static::lazy_static;
 use midir::{
     MidiInput, MidiInputConnection, MidiInputPort, MidiOutput, MidiOutputConnection, MidiOutputPort,
@@ -10,6 +8,9 @@ use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
+use crate::global::{PortType, PresetLoading};
+use crate::midi_ports::{Io, MidiIo};
+use crate::port_strategy::PortStrategy;
 
 pub struct Midi {
     connection_monitor_stopper_senders: Vec<mpsc::Sender<()>>,
@@ -510,18 +511,6 @@ impl Midi {
 
     const INPUT_CLIENT_NAME: &str = "My MIDI Input";
     const OUTPUT_CLIENT_NAME: &str = "My MIDI Output";
-}
-
-#[derive(Clone, Copy)]
-pub enum PortType {
-    Input,
-    Output,
-}
-
-#[derive(Clone, Copy, Debug)]
-pub enum PresetLoading {
-    Replace = 0,
-    Preserve = 1,
 }
 
 lazy_static! {

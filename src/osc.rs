@@ -5,6 +5,7 @@ use std::sync::mpsc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 use rosc::{decoder, encoder, OscMessage, OscPacket, OscType};
+use crate::controller::Controller;
 
 /// The socket addresses are as per the PitchGrid plugin docs:
 ///     Connection Details
@@ -258,10 +259,11 @@ impl Osc {
     }
 }
 
-type SharedConnectedChangedCallback = Arc<dyn Fn() + Send + Sync + 'static>;
+pub type SharedConnectedChangedCallback = Box<dyn Fn(&Controller) + Send + Sync + 'static>;
 
-type SharedTuningReceivedCallback =
-Arc<dyn Fn(
+pub type SharedTuningReceivedCallback =
+Box<dyn Fn(
+    &Controller,
     i32, // depth
     i32, // mode
     f32, // root_freq

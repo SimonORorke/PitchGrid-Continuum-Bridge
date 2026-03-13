@@ -6,7 +6,7 @@
     MagicText,
     OutlineButton,
 } from "@vivi/magic.slint";
-import { MessageText, MessageType } from "text.slint";
+import { MessageText, SlintMessageType } from "text.slint";
 import { VerticalBox, } from "std-widgets.slint";
 import { Globals, } from "../globals.slint";
 
@@ -24,7 +24,7 @@ export component MidiIo inherits GroupBox {
     public function input_focus() {
         input_ports_combo.focus();
     }
-    public function input_show_connected_port_name(name: string, message_type: MessageType) {
+    public function input_show_connected_port_name(name: string, message_type: SlintMessageType) {
         input_connected_port_name_text.text = name;
         input_connected_port_name_text.message_type = message_type;
     }
@@ -36,7 +36,7 @@ export component MidiIo inherits GroupBox {
     public function output_focus() {
         output_ports_combo.focus();
     }
-    public function output_show_connected_port_name(name: string, message_type: MessageType) {
+    public function output_show_connected_port_name(name: string, message_type: SlintMessageType) {
         output_connected_port_name_text.text = name;
         output_connected_port_name_text.message_type = message_type;
     }

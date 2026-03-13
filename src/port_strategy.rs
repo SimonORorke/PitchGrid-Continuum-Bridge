@@ -1,5 +1,5 @@
 ﻿use slint::ModelRc;
-use crate::{MainWindow, ComboBoxItem, MessageType};
+use crate::{MainWindow, ComboBoxItem, SlintMessageType};
 use crate::midi::{Midi, PortType};
 use crate::midi_ports::MidiIo;
 use crate::settings::Settings;
@@ -17,7 +17,7 @@ pub trait PortStrategy: Send + Sync {
     fn port_setting<'a>(&self, settings: &'a Settings) -> &'a str;
     fn set_port_setting(&self, settings: &mut Settings, port_name: &str);
     fn show_connected_port_name(
-        &self, main_window: &MainWindow, port_name: &str, message_type: MessageType);
+        &self, main_window: &MainWindow, port_name: &str, message_type: SlintMessageType);
     fn set_ports_model(&self, main_window: &MainWindow, model: ModelRc<ComboBoxItem>);
     fn get_selected_port_index(&self, main_window: &MainWindow) -> i32;
     fn set_selected_port_index(&self, main_window: &MainWindow, index: i32);
@@ -64,7 +64,7 @@ impl PortStrategy for InputStrategy {
     }
 
     fn show_connected_port_name(&self, main_window: &MainWindow, port_name: &str,
-                                message_type: MessageType) {
+                                message_type: SlintMessageType) {
         main_window.invoke_input_show_connected_port_name(port_name.into(), message_type);
     }
 
@@ -138,7 +138,7 @@ impl PortStrategy for OutputStrategy {
     }
 
     fn show_connected_port_name(&self, main_window: &MainWindow, port_name: &str,
-                                message_type: MessageType) {
+                                message_type: SlintMessageType) {
         main_window.invoke_output_show_connected_port_name(port_name.into(), message_type);
     }
 

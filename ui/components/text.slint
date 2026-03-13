@@ -3,7 +3,7 @@ import { MagicText } from "@vivi/magic.slint";
 import { Globals } from "../globals.slint";
 import { Catppuccin, CatppuccinPalette } from "../styling.slint";
 
-export enum MessageType {
+export enum SlintMessageType {
     Error,
     Info,
     Highlight,
@@ -11,7 +11,7 @@ export enum MessageType {
 }
 
 export component MessageText inherits MagicText {
-    in property <MessageType> message_type;
+    in property <SlintMessageType> message_type;
 
     color: get_color();
     wrap: TextWrap.word-wrap;
@@ -20,11 +20,11 @@ export component MessageText inherits MagicText {
         let catppuccin_palette = Palette.color_scheme == ColorScheme.light
             ? Catppuccin.latte
             : Catppuccin.macchiato;
-        if (root.message_type == MessageType.Error) {
+        if (root.message_type == SlintMessageType.Error) {
             return catppuccin_palette.red;
-        } else if (root.message_type == MessageType.Info) {
+        } else if (root.message_type == SlintMessageType.Info) {
             return catppuccin_palette.blue;
-        } else if (root.message_type == MessageType.Highlight) {
+        } else if (root.message_type == SlintMessageType.Highlight) {
             return catppuccin_palette.green;
         } else { // Warning
             return catppuccin_palette.peach;
@@ -42,5 +42,5 @@ export component ParamValue inherits MessageText {
     width: Globals.param_width;
     horizontal_alignment: center;
     vertical_alignment: top;
-    message_type: MessageType.Highlight;
+    message_type: SlintMessageType.Highlight;
 }

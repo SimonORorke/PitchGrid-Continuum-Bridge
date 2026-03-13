@@ -6,7 +6,7 @@ import {
     MagicText,
     MagicWindow,
 } from "@vivi/magic.slint";
-import { MessageText, MessageType, ParamName, ParamValue } from "components/text.slint";
+import { MessageText, SlintMessageType, ParamName, ParamValue } from "components/text.slint";
 import { MidiIo } from "components/midi_io.slint";
 import { Globals } from "globals.slint";
 import { Palette, VerticalBox, } from "std-widgets.slint";
@@ -44,12 +44,12 @@ export component MainWindow inherits MagicWindow {
         return Palette.color_scheme == ColorScheme.light ? #BDDFCC : #123735;
     }
 
-    public function show_message(message: string, message_type: MessageType) {
+    public function show_message(message: string, message_type: SlintMessageType) {
         message_text.text = message;
         message_text.message_type = message_type;
     }
 
-    public function show_pitchgrid_status(message: string, message_type: MessageType) {
+    public function show_pitchgrid_status(message: string, message_type: SlintMessageType) {
         pitchgrid_status_text.text = message;
         pitchgrid_status_text.message_type = message_type;
     }
@@ -59,7 +59,7 @@ export component MainWindow inherits MagicWindow {
     public function input_focus() {
         midi_io.input_focus();
     }
-    public function input_show_connected_port_name(name: string, message_type: MessageType) {
+    public function input_show_connected_port_name(name: string, message_type: SlintMessageType) {
         midi_io.input_show_connected_port_name(name, message_type);
     }
 
@@ -68,7 +68,7 @@ export component MainWindow inherits MagicWindow {
     public function output_focus() {
         midi_io.output_focus();
     }
-    public function output_show_connected_port_name(name: string, message_type: MessageType) {
+    public function output_show_connected_port_name(name: string, message_type: SlintMessageType) {
         midi_io.output_show_connected_port_name(name, message_type);
     }
 
