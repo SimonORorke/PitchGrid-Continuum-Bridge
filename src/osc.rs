@@ -5,7 +5,6 @@ use std::sync::mpsc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 use rosc::{decoder, encoder, OscMessage, OscPacket, OscType};
-use crate::controller::Controller;
 
 /// The socket addresses are as per the PitchGrid plugin docs:
 ///     Connection Details
@@ -33,9 +32,7 @@ impl Osc {
         SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), port)
     }
 
-    pub fn start(&mut self,
-                 tuning_received_callback: SharedTuningReceivedCallback,
-                 connected_changed_callback: SharedConnectedChangedCallback) {
+    pub fn start(&mut self, callbacks: Arc<dyn OscCallbacks>) {
         // println!("Osc.start");
         let is_connected = self.is_connected.clone();
         if is_connected.load(Ordering::SeqCst) {
@@ -61,11 +58,13 @@ impl Osc {
             Self::send_heartbeats(send_socket, heartbeat_stopper);
         });
         let last_ack_time_clone = self.last_ack_time.clone();
+        let callbacks_clone1 = callbacks.clone();
         rayon::spawn(move || {
-            Self::listen(listen_socket, last_ack_time, tuning_received_callback, listen_stopper);
+            Self::listen(listen_socket, last_ack_time, callbacks_clone1, listen_stopper);
         });
+        let callbacks_clone2 = callbacks.clone();
         rayon::spawn(move || {
-            Self::monitor_connection(is_connected, last_ack_time_clone, connected_changed_callback,
+            Self::monitor_connection(is_connected, last_ack_time_clone, callbacks_clone2,
                                      monitor_stopper);
         });
     }
@@ -86,12 +85,7 @@ impl Osc {
         self.is_connected.load(Ordering::SeqCst)
     }
 
-    fn call_connected_changed_callback(
-        connected_changed_callback: SharedConnectedChangedCallback) {
-        connected_changed_callback();
-    }
-
-    fn handle_tuning(args: Vec<OscType>, tuning_received_callback: SharedTuningReceivedCallback) {
+    fn handle_tuning(args: Vec<OscType>, callbacks: Arc<dyn OscCallbacks>) {
         // println!("Osc.handle_tuning");
         if let [
             OscType::Int(depth),
@@ -103,7 +97,8 @@ impl Osc {
             OscType::Int(steps),
         ] = args[..] {
             rayon::spawn(move || {
-                tuning_received_callback(depth, mode, root_freq, stretch, skew, mode_offset, steps);
+                callbacks.on_osc_tuning_received(
+                    depth, mode, root_freq, stretch, skew, mode_offset, steps);
             });
         } else {
             println!("Osc.handle_tuning Invalid tuning arguments.");
@@ -113,7 +108,7 @@ impl Osc {
     fn listen(
         socket: UdpSocket,
         last_ack_time: Arc<Mutex<Option<Instant>>>,
-        tuning_received_callback: SharedTuningReceivedCallback,
+        callbacks: Arc<dyn OscCallbacks>,
         stopper_receiver: mpsc::Receiver<()>) {
         socket.set_read_timeout(Some(Duration::from_millis(500))).unwrap();
         // println!("Osc.listen: starting, listening on {}", socket.local_addr().unwrap());
@@ -147,7 +142,7 @@ impl Osc {
                                 TUNING_ADDR => {
                                     // println!("Osc.listen: Received {TUNING_ADDR}");
                                     // println!("    args: {:?}", msg.args);
-                                    Self::handle_tuning(msg.args, tuning_received_callback.clone());
+                                    Self::handle_tuning(msg.args, callbacks.clone());
                                 }
                                 _ => {
                                     println!("Osc.listen: Received unknown address: {}", msg.addr);
@@ -186,7 +181,7 @@ impl Osc {
     /// So, if we don't receive any messages for 2 seconds, PitchGrid is probably not connected.
     fn monitor_connection(is_connected: Arc<AtomicBool>,
                           last_ack_time: Arc<Mutex<Option<Instant>>>,
-                          connected_changed_callback: SharedConnectedChangedCallback,
+                          callbacks: Arc<dyn OscCallbacks>,
                           stopper_receiver: mpsc::Receiver<()>) {
         // println!("Osc.monitor_connection: starting");
         let mut has_initially_not_connected_callback_been_called = false;
@@ -197,7 +192,7 @@ impl Osc {
             if maybe_last_ack_time.is_none() {
                 if !has_initially_not_connected_callback_been_called {
                     has_initially_not_connected_callback_been_called = true;
-                    Self::call_connected_changed_callback(connected_changed_callback.clone());
+                    callbacks.on_osc_connected_changed();
                 }
                 if let Ok(_) = stopper_receiver.recv_timeout(Duration::from_millis(500)) {
                     // Sleep was interrupted
@@ -215,13 +210,13 @@ impl Osc {
                 // println!("Osc.monitor_connection: not connected");
                 is_connected.store(false, Ordering::SeqCst);
                 if was_connected {
-                    Self::call_connected_changed_callback(connected_changed_callback.clone());
+                    callbacks.on_osc_connected_changed();
                 }
             } else if time_since_ack <= Duration::from_secs(2)
                 && !was_connected { // Reconnected
                 // println!("Osc.monitor_connection: connected");
                 is_connected.store(true, Ordering::SeqCst);
-                Self::call_connected_changed_callback(connected_changed_callback.clone());
+                callbacks.on_osc_connected_changed();
             }
             if let Ok(_) = stopper_receiver.recv_timeout(Duration::from_millis(500)) {
                 // Sleep was interrupted
@@ -259,19 +254,18 @@ impl Osc {
     }
 }
 
-pub type SharedConnectedChangedCallback = Box<dyn Fn(&Controller) + Send + Sync + 'static>;
+pub trait OscCallbacks: Send + Sync {
+    fn on_osc_connected_changed(&self);
 
-pub type SharedTuningReceivedCallback =
-Box<dyn Fn(
-    &Controller,
-    i32, // depth
-    i32, // mode
-    f32, // root_freq
-    f32, // stretch
-    f32, // skew
-    i32, // mode_offset
-    i32 // steps
-) + Send + Sync + 'static>;
+    fn on_osc_tuning_received(&self,
+                              depth: i32,
+                              mode: i32,
+                              root_freq: f32,
+                              stretch: f32,
+                              skew: f32,
+                              mode_offset: i32,
+                              steps: i32);
+}
 
 const HANDSHAKE_ACK_ADDR: &str = "/pitchgrid/heartbeat/ack";
 const HANDSHAKE_ADDR: &str = "/pitchgrid/heartbeat";

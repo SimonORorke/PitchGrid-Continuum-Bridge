@@ -3,8 +3,8 @@ use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use lazy_static::lazy_static;
 use round::round;
-use crate::global::SharedMidi;
-use crate::midi::{Midi, PresetLoading};
+use crate::global::{PresetLoading, SharedMidi};
+use crate::midi::Midi;
 
 #[derive(Clone)]
 struct Key {
