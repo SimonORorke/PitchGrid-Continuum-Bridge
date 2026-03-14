@@ -33,7 +33,14 @@ fn main() {
     set_controller(controller.clone());
     init_ui_handlers(&main_window, controller.clone());
     set_pitch_tables_model(&main_window);
-    controller.lock().unwrap().init();
+
+    // Initialize controller after the window is shown, using a timer to ensure
+    // the event loop is running
+    let controller_clone = controller.clone();
+    slint::Timer::single_shot(std::time::Duration::from_millis(0), move || {
+        controller_clone.lock().unwrap().init();
+    });
+
     main_window.run().unwrap();
 }
 

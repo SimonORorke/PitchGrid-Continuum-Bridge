@@ -66,12 +66,17 @@ impl Controller {
                 controller.lock().unwrap().on_tuning_updated();
             }
         }));
+        drop(midi_guard); // Release MIDI lock before calling port_names which needs to acquire it
         let input_strategy = InputStrategy::new();
         let output_strategy = OutputStrategy::new();
-        println!("controller.init: Setting input ports model");
-        self.callbacks.set_ports_model(self, &input_strategy);
+        println!("controller.init: Getting input port names");
+        let input_port_names = self.port_names(&input_strategy);
+        println!("controller.init: Got {} input port names", input_port_names.len());
+        println!("controller.init: About to call callbacks.set_ports_model");
+        self.callbacks.set_ports_model(&input_port_names, &input_strategy);
+        println!("controller.init: Called callbacks.set_ports_model");
         println!("controller.init: Setting output ports model");
-        self.callbacks.set_ports_model(self, &output_strategy);
+        self.callbacks.set_ports_model(&self.port_names(&output_strategy), &output_strategy);
         println!("controller.init: Connecting initial ports");
         self.connect_initial_port(&input_strategy);
         self.connect_initial_port(&output_strategy);
@@ -79,6 +84,7 @@ impl Controller {
         tuner::set_midi(midi.clone());
         tuner::set_pitch_table_no(pitch_table_no);
         self.callbacks.set_selected_pitch_table_index(tuner::pitch_table_index() as i32);
+        let mut midi_guard = midi.lock().unwrap();
         if midi_guard.are_ports_connected() {
             self.show_info("Checking instrument connection...");
             midi_guard.start_instru_connection_monitor();
@@ -174,7 +180,7 @@ impl Controller {
         }
     }
 
-    pub fn port_names(&self, port_strategy: &dyn PortStrategy) -> Vec<String> {
+    fn port_names(&self, port_strategy: &dyn PortStrategy) -> Vec<String> {
         let midi = self.midi_static_clone();
         // println!("controller.port_names: Got midi");
         let midi_guard = midi.lock().unwrap();
@@ -193,7 +199,7 @@ impl Controller {
             return;
         }
         self.show_pitchgrid_disconnected();
-        self.callbacks.set_ports_model(&self, &*port_strategy);
+        self.callbacks.set_ports_model(&self.port_names(&*port_strategy), &*port_strategy);
         self.show_no_port_connected(&*port_strategy);
         self.show_warning(port_strategy.msg_refreshed_reconnect());
     }
@@ -364,7 +370,7 @@ pub trait ControllerCallbacks: Send + Sync {
     fn focus_port(&self, port_strategy: &dyn PortStrategy);
     fn get_selected_port_index(&self, port_strategy: &dyn PortStrategy) -> usize;
     fn set_selected_port_index(&self, index: usize, port_strategy: &dyn PortStrategy);
-    fn set_ports_model(&self, controller: &Controller, port_strategy: &dyn PortStrategy);
+    fn set_ports_model(&self, port_names: &Vec<String>, port_strategy: &dyn PortStrategy);
     fn show_connected_port_name(&self, name: &str, msg_type: MessageType, port_strategy: &dyn PortStrategy);
     fn show_message(&self, msg: &str, msg_type: MessageType);
     fn show_pitchgrid_status(&self, status: &str, msg_type: MessageType);
