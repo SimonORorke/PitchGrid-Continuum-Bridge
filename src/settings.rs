@@ -77,9 +77,6 @@ impl Settings {
                 Box::new(std::io::Error::new(e.kind(),
                 format!("Error writing settings file '{path}': {e}"))));
         }
-        // println!("Settings.write_to_file:");
-        // println!("    self.midi_input_port = {}", self.midi_input_port);
-        // println!("    self.midi_output_port = {}", self.midi_output_port);
         Ok(())
     }
 }
