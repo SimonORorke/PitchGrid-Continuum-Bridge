@@ -88,6 +88,7 @@ impl Controller {
         self.callbacks.set_selected_pitch_table_index(tuner::pitch_table_index() as i32);
         let mut midi_guard = midi.lock().unwrap();
         if midi_guard.are_ports_connected() {
+            // println!("controller.init: Showing Checking instrument connection");
             self.show_info("Checking instrument connection...");
             midi_guard.start_instru_connection_monitor();
         }
@@ -244,6 +245,7 @@ impl Controller {
     }
 
     fn on_instru_connected_changed(&self) {
+        // println!("controller.on_instru_connected_changed");
         let midi = self.midi_static_clone();
         let midi_guard = midi.lock().unwrap();
         if midi_guard.is_instru_connected() {
@@ -251,15 +253,17 @@ impl Controller {
             midi_guard.request_config();
             return;
         }
-        // Instrument is not connected. Stop OSC.
+        // Instrument is not connected. Stop OSC if running.
+        // println!("controller.on_instru_connected_changed: Instrument is not connected.");
         let osc = self.osc_static_clone();
         let mut osc_guard = osc.lock().unwrap();
-        if osc_guard.is_connected() {
+        if osc_guard.is_running() {
             // println!("controller.on_instru_connected_changed: Stopping OSC");
             osc_guard.stop();
             self.show_warning(
                 "Instrument is disconnected; closed PitchGrid connection.");
         } else if midi_guard.are_ports_connected() {
+            // println!("controller.on_instru_connected_changed: Showing The instrument is not connected");
             // This probably means the instrument is not connected on application start.
             // So show a helpful message.
             self.show_warning(
@@ -328,15 +332,16 @@ impl Controller {
     }
 
     fn show_warning(&self, message: &str) {
+        // println!("controller.show_warning: {}", message);
         self.callbacks.show_message(message, MessageType::Warning);
     }
     
     fn stop_osc_and_instru_connection_monitor(&self, midi: &SharedMidi, osc: &SharedOsc) {
-        println!("controller.stop_osc_and_instru_connection_monitor");
+        // println!("controller.stop_osc_and_instru_connection_monitor");
         let mut midi_guard = midi.lock().unwrap();
         midi_guard.stop_instru_connection_monitor();
         osc.lock().unwrap().stop();
-        println!("controller.stop_osc_and_instru_connection_monitor: Done");
+        // println!("controller.stop_osc_and_instru_connection_monitor: Done");
     }
 }
 
@@ -357,7 +362,7 @@ impl OscCallbacks for Controller {
     fn on_osc_connected_changed(&self) {
         let osc = self.osc_static_clone();
         let osc_guard = osc.lock().unwrap();
-        if osc_guard.is_connected() {
+        if osc_guard.is_pitchgrid_connected() {
             self.show_pitchgrid_connected();
             self.show_info("PitchGrid and instrument are connected.");
         } else {

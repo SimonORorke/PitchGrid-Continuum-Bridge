@@ -89,28 +89,39 @@ impl ControllerCallbacks for UiMethods {
         // println!("UiMethods.set_ports_model: END");
     }
 
-    fn show_connected_port_name(&self, name: &str, msg_type: MessageType, port_strategy: &dyn PortStrategy) {
+    fn show_connected_port_name(&self, name: &str, message_type: MessageType, port_strategy: &dyn PortStrategy) {
         let port_strategy = port_strategy.clone_box();
         let port_name = name.to_string();
         self.with_main_window(move |main_window| {
             port_strategy.show_connected_port_name(
-                main_window, &port_name, slint_message_type(msg_type));
+                main_window, &port_name, slint_message_type(message_type));
         });
     }
 
-    fn show_message(&self, msg: &str, msg_type: MessageType) {
-        let message = msg.to_string();
-        self.with_main_window(move |main_window| {
-            main_window.invoke_show_message(message.into(), slint_message_type(msg_type));
-        });
+    fn show_message(&self, message: &str, message_type: MessageType) {
+        // println!("UiMethods.show_message: {}", message);
+        let message = message.to_string();
+        let weak = self.main_window.clone();
+        slint::invoke_from_event_loop(move || {
+            if let Some(main_window) = weak.upgrade() {
+                // println!("UiMethods.show_message: Got main_window. Calling main_window.invoke_show_message");
+                main_window.invoke_show_message(message.into(), slint_message_type(message_type));
+                // println!("UiMethods.show_message: Message shown");
+            } else {
+                // println!("UiMethods.show_message: Failed to upgrade main_window");
+            }
+        }).unwrap();
     }
 
-    fn show_pitchgrid_status(&self, status: &str, msg_type: MessageType) {
+    fn show_pitchgrid_status(&self, status: &str, message_type: MessageType) {
         let message = status.to_string();
-        self.with_main_window(move |main_window| {
-            main_window.invoke_show_pitchgrid_status(message.into(),
-                                                     slint_message_type(msg_type));
-        });
+        let weak = self.main_window.clone();
+        slint::invoke_from_event_loop(move || {
+            if let Some(main_window) = weak.upgrade() {
+                main_window.invoke_show_pitchgrid_status(message.into(),
+                                                         slint_message_type(message_type));
+            }
+        }).unwrap();
     }
 
     fn show_tuning(&self) {

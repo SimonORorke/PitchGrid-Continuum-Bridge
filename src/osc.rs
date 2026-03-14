@@ -14,7 +14,8 @@ use rosc::{decoder, encoder, OscMessage, OscPacket, OscType};
 ///         Heartbeat requirement: Client must send /pitchgrid/heartbeat at least once
 ///             every 2 seconds to maintain connection
 pub struct Osc {
-    is_connected: Arc<AtomicBool>,
+    is_pitchgrid_connected: Arc<AtomicBool>,
+    is_running: bool,
     last_ack_time: Arc<Mutex<Option<Instant>>>,
     stopper_senders: Vec<mpsc::Sender<()>>,
 }
@@ -22,7 +23,8 @@ pub struct Osc {
 impl Osc {
     pub fn new() -> Self {
         Self {
-            is_connected: Arc::new(AtomicBool::new(false)),
+            is_pitchgrid_connected: Arc::new(AtomicBool::new(false)),
+            is_running: false,
             last_ack_time: Arc::new(Mutex::new(None)),
             stopper_senders: vec![],
         }
@@ -34,7 +36,7 @@ impl Osc {
 
     pub fn start(&mut self, callbacks: Arc<dyn OscCallbacks>) {
         // println!("Osc.start");
-        let is_connected = self.is_connected.clone();
+        let is_connected = self.is_pitchgrid_connected.clone();
         if is_connected.load(Ordering::SeqCst) {
             panic!("PitchGrid is already connected.");
         }
@@ -54,6 +56,8 @@ impl Osc {
         let send_socket = socket.try_clone().unwrap();
         let listen_socket = socket;
         let last_ack_time = self.last_ack_time.clone();
+        self.is_running = true;
+
         rayon::spawn(move || {
             Self::send_heartbeats(send_socket, heartbeat_stopper);
         });
@@ -71,18 +75,23 @@ impl Osc {
 
     pub fn stop(&mut self) {
         // println!("Osc.stop");
-        self.is_connected.store(false, Ordering::SeqCst);
+        self.is_pitchgrid_connected.store(false, Ordering::SeqCst);
         // Stop the threads.
         for stopper_sender in self.stopper_senders.drain(..) {
             stopper_sender.send(()).unwrap();
         }
         let last_ack_time_clone = self.last_ack_time.clone();
         *last_ack_time_clone.lock().unwrap() = None;
+        self.is_running = false;
         // println!("Osc.stop: stopped OSC");
     }
 
-    pub fn is_connected(&self) -> bool {
-        self.is_connected.load(Ordering::SeqCst)
+    pub fn is_pitchgrid_connected(&self) -> bool {
+        self.is_pitchgrid_connected.load(Ordering::SeqCst)
+    }
+
+    pub fn is_running(&self) -> bool {
+        self.is_running
     }
 
     fn handle_tuning(args: Vec<OscType>, callbacks: Arc<dyn OscCallbacks>) {
