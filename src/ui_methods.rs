@@ -57,11 +57,13 @@ impl ControllerCallbacks for UiMethods {
     }
 
     fn set_ports_model(&self, controller: &Controller, port_strategy: &dyn PortStrategy) {
+        println!("UiMethods.set_ports_model");
         let port_items: Vec<ComboBoxItem> =
             controller.port_names(port_strategy)
                 .iter()
                 .map(|text| ComboBoxItem { text: text.into() })
                 .collect();
+        println!("UiMethods.set_ports_model: Getting port type");
         let port_type = port_strategy.port_type().clone();
         let port_strategy = port_strategy.clone_box();
         self.with_main_window(move |main_window| {

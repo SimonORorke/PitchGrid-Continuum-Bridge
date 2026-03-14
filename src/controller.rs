@@ -26,9 +26,11 @@ impl Controller {
     }
 
     pub fn init(&mut self) {
+        println!("controller.init");
         let pitch_table_no: u8;
         let input_port_name: String;
         let output_port_name: String;
+        println!("controller.init: Reading settings");
         match self.settings.read_from_file() {
             Ok(_) => {
                 input_port_name = self.settings.midi_input_port.clone();
@@ -40,6 +42,7 @@ impl Controller {
                 return;
             }
         }
+        println!("controller.init: Getting midi");
         let midi = self.midi_static_clone();
         let mut midi_guard = midi.lock().unwrap();
         if let Err(err) = midi_guard.init(
@@ -47,6 +50,7 @@ impl Controller {
             self.show_error(&err.to_string());
             return;
         }
+        println!("controller.init: Adding callbacks");
         midi_guard.add_config_received_callback(Box::new(|| {
             if let Some(controller) = CONTROLLER.get() {
                 controller.lock().unwrap().on_config_received();
@@ -64,10 +68,14 @@ impl Controller {
         }));
         let input_strategy = InputStrategy::new();
         let output_strategy = OutputStrategy::new();
+        println!("controller.init: Setting input ports model");
         self.callbacks.set_ports_model(self, &input_strategy);
+        println!("controller.init: Setting output ports model");
         self.callbacks.set_ports_model(self, &output_strategy);
+        println!("controller.init: Connecting initial ports");
         self.connect_initial_port(&input_strategy);
         self.connect_initial_port(&output_strategy);
+        println!("controller.init: Configuring tuner");
         tuner::set_midi(midi.clone());
         tuner::set_pitch_table_no(pitch_table_no);
         self.callbacks.set_selected_pitch_table_index(tuner::pitch_table_index() as i32);
@@ -75,6 +83,7 @@ impl Controller {
             self.show_info("Checking instrument connection...");
             midi_guard.start_instru_connection_monitor();
         }
+        println!("controller.init: Done");
     }
 
     #[allow(clippy::unwrap_used)]
@@ -167,7 +176,7 @@ impl Controller {
 
     pub fn port_names(&self, port_strategy: &dyn PortStrategy) -> Vec<String> {
         let midi = self.midi_static_clone();
-        println!("main.on_instru_connected_changed: Got midi");
+        // println!("controller.port_names: Got midi");
         let midi_guard = midi.lock().unwrap();
         midi_guard.io(port_strategy).port_names()
     }
@@ -220,7 +229,7 @@ impl Controller {
         let osc = self.osc_static_clone();
         let mut osc_guard = osc.lock().unwrap();
         if osc_guard.is_connected() {
-            println!("main.on_instru_connected_changed: Stopping OSC");
+            // println!("controller.on_instru_connected_changed: Stopping OSC");
             osc_guard.stop();
             self.show_warning(
                 "Instrument is disconnected; closed PitchGrid connection.");
