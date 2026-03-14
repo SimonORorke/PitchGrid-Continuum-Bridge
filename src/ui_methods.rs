@@ -20,13 +20,13 @@ impl UiMethods {
     where
         F: FnOnce(&MainWindow),
     {
-        println!("UiMethods.with_main_window: Attempting to upgrade main_window");
+        // println!("UiMethods.with_main_window: Attempting to upgrade main_window");
         if let Some(main_window) = self.main_window.upgrade() {
-            println!("UiMethods.with_main_window: Successfully upgraded, calling closure");
+            // println!("UiMethods.with_main_window: Successfully upgraded, calling closure");
             f(&main_window);
-            println!("UiMethods.with_main_window: Closure completed");
+            // println!("UiMethods.with_main_window: Closure completed");
         } else {
-            println!("UiMethods.with_main_window: Failed to upgrade main_window");
+            // println!("UiMethods.with_main_window: Failed to upgrade main_window");
         }
     }
 }
@@ -55,24 +55,20 @@ impl ControllerCallbacks for UiMethods {
     }
 
     fn set_ports_model(&self, port_names: &Vec<String>, port_strategy: &dyn PortStrategy) {
-        println!("UiMethods.set_ports_model: START");
-        // print the strings in port_names to the console
-        for port_name in port_names {
-            println!("Port name: {}", port_name);
-        }
-        println!("UiMethods.set_ports_model: Creating port items from port names");
+        // println!("UiMethods.set_ports_model: START");
+        // println!("UiMethods.set_ports_model: Creating port items from port names");
         let port_items: Vec<ComboBoxItem> =
             port_names
                 .iter()
                 .map(|text| ComboBoxItem { text: text.into() })
                 .collect();
-        println!("UiMethods.set_ports_model: Getting port type");
+        // println!("UiMethods.set_ports_model: Getting port type");
         let port_type = port_strategy.port_type().clone();
-        println!("UiMethods.set_ports_model: Cloning port_strategy");
+        // println!("UiMethods.set_ports_model: Cloning port_strategy");
         let port_strategy = port_strategy.clone_box();
-        println!("UiMethods.set_ports_model: Calling with_main_window");
+        // println!("UiMethods.set_ports_model: Calling with_main_window");
         self.with_main_window(move |main_window| {
-            println!("UiMethods.set_ports_model: Inside with_main_window closure");
+            // println!("UiMethods.set_ports_model: Inside with_main_window closure");
             let model = match port_type {
                 PortType::Input => {
                     let input_model = Rc::new(MainInputPortsModel(port_items.clone()));
@@ -83,11 +79,11 @@ impl ControllerCallbacks for UiMethods {
                     slint::ModelRc::from(output_model)
                 },
             };
-            println!("UiMethods.set_ports_model: Calling port_strategy.set_ports_model");
+            // println!("UiMethods.set_ports_model: Calling port_strategy.set_ports_model");
             port_strategy.set_ports_model(main_window, model);
-            println!("UiMethods.set_ports_model: Done with port_strategy.set_ports_model");
+            // println!("UiMethods.set_ports_model: Done with port_strategy.set_ports_model");
         });
-        println!("UiMethods.set_ports_model: END");
+        // println!("UiMethods.set_ports_model: END");
     }
 
     fn show_connected_port_name(&self, name: &str, msg_type: MessageType, port_strategy: &dyn PortStrategy) {

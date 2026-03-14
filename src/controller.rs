@@ -26,11 +26,11 @@ impl Controller {
     }
 
     pub fn init(&mut self) {
-        println!("controller.init");
+        // println!("controller.init");
         let pitch_table_no: u8;
         let input_port_name: String;
         let output_port_name: String;
-        println!("controller.init: Reading settings");
+        // println!("controller.init: Reading settings");
         match self.settings.read_from_file() {
             Ok(_) => {
                 input_port_name = self.settings.midi_input_port.clone();
@@ -42,7 +42,7 @@ impl Controller {
                 return;
             }
         }
-        println!("controller.init: Getting midi");
+        // println!("controller.init: Getting midi");
         let midi = self.midi_static_clone();
         let mut midi_guard = midi.lock().unwrap();
         if let Err(err) = midi_guard.init(
@@ -50,7 +50,7 @@ impl Controller {
             self.show_error(&err.to_string());
             return;
         }
-        println!("controller.init: Adding callbacks");
+        // println!("controller.init: Adding callbacks");
         midi_guard.add_config_received_callback(Box::new(|| {
             if let Some(controller) = CONTROLLER.get() {
                 controller.lock().unwrap().on_config_received();
@@ -69,18 +69,18 @@ impl Controller {
         drop(midi_guard); // Release MIDI lock before calling port_names which needs to acquire it
         let input_strategy = InputStrategy::new();
         let output_strategy = OutputStrategy::new();
-        println!("controller.init: Getting input port names");
+        // println!("controller.init: Getting input port names");
         let input_port_names = self.port_names(&input_strategy);
-        println!("controller.init: Got {} input port names", input_port_names.len());
-        println!("controller.init: About to call callbacks.set_ports_model");
+        // println!("controller.init: Got {} input port names", input_port_names.len());
+        // println!("controller.init: About to call callbacks.set_ports_model");
         self.callbacks.set_ports_model(&input_port_names, &input_strategy);
-        println!("controller.init: Called callbacks.set_ports_model");
-        println!("controller.init: Setting output ports model");
+        // println!("controller.init: Called callbacks.set_ports_model");
+        // println!("controller.init: Setting output ports model");
         self.callbacks.set_ports_model(&self.port_names(&output_strategy), &output_strategy);
-        println!("controller.init: Connecting initial ports");
+        // println!("controller.init: Connecting initial ports");
         self.connect_initial_port(&input_strategy);
         self.connect_initial_port(&output_strategy);
-        println!("controller.init: Configuring tuner");
+        // println!("controller.init: Configuring tuner");
         tuner::set_midi(midi.clone());
         tuner::set_pitch_table_no(pitch_table_no);
         self.callbacks.set_selected_pitch_table_index(tuner::pitch_table_index() as i32);
@@ -89,12 +89,14 @@ impl Controller {
             self.show_info("Checking instrument connection...");
             midi_guard.start_instru_connection_monitor();
         }
-        println!("controller.init: Done");
+        // println!("controller.init: Done");
     }
 
     #[allow(clippy::unwrap_used)]
     pub fn close(&mut self) -> Result<(), Box<dyn Error>> {
         let midi = self.midi_static_clone();
+        // There is no way to avoid this unwrap, but there seems not to be a way of stopping
+        // RustRover from suggesting it should be replaced with '?'.
         let mut midi_guard = midi.lock().unwrap();
         midi_guard.close();
         drop(midi_guard);
