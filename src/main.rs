@@ -22,6 +22,8 @@ use port_strategy::{
     InputStrategy, OutputStrategy, PortStrategy};
 use ui_methods::UiMethods;
 
+/// main.rs is part of the view in the Model-View-Controller (MVC) pattern.
+/// See Controller's doc comment for more information on how the project implements MVC.
 fn main() {
     let main_window = MainWindow::new().unwrap();
     *MAIN_WINDOW_WEAK.lock().unwrap() = Some(main_window.as_weak().clone());

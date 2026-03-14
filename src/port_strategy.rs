@@ -5,6 +5,10 @@ use crate::midi::Midi;
 use crate::midi_ports::MidiIo;
 use crate::settings::Settings;
 
+/// This trait is used to implement strategies that depend on whether a MIDI port is input or
+/// output.
+/// In the Model-View-Controller (MVC) pattern, it contains both view and controller methods.
+/// See Controller's doc comment for more information on how the project implements MVC.
 pub trait PortStrategy: Send + Sync {
     fn port_type(&self) -> &PortType;
     fn io<'a>(&self, midi: &'a Midi) -> &'a dyn MidiIo;

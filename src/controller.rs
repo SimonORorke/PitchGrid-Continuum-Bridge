@@ -10,8 +10,10 @@ use crate::port_strategy::{
 use crate::settings::Settings;
 use crate::tuner;
 
-/// This is the controller in the Model-View-Controller (MVC) pattern.
-/// The Slint UI, main and UiMethods are the view. Everything else is the model.
+/// This is the main controller in the Model-View-Controller (MVC) pattern.
+/// PortStrategy contains both view and controller methods.
+/// The Slint UI, main.rs and UiMethods are the remainder of the view.
+/// Everything else is the model.
 pub struct Controller {
     callbacks: Box<dyn ControllerCallbacks>,
     settings: Settings,
