@@ -11,12 +11,12 @@ use crate::tuner;
 /// It is part of the view in the Model-View-Controller (MVC) pattern.
 /// See Controller's doc comment for more information on how the project implements MVC.
 pub struct UiMethods {
-    main_window: Weak<MainWindow>,
+    main_window_weak: Weak<MainWindow>,
 }
 
 impl UiMethods {
-    pub fn new(main_window: Weak<MainWindow>) -> Self {
-        Self { main_window }
+    pub fn new(main_window_weak: Weak<MainWindow>) -> Self {
+        Self { main_window_weak }
     }
 
     fn with_main_window<F>(&self, f: F)
@@ -24,7 +24,7 @@ impl UiMethods {
         F: FnOnce(&MainWindow),
     {
         // println!("UiMethods.with_main_window: Attempting to upgrade main_window");
-        if let Some(main_window) = self.main_window.upgrade() {
+        if let Some(main_window) = self.main_window_weak.upgrade() {
             // println!("UiMethods.with_main_window: Successfully upgraded, calling closure");
             f(&main_window);
             // println!("UiMethods.with_main_window: Closure completed");
@@ -43,7 +43,7 @@ impl ControllerCallbacks for UiMethods {
     }
 
     fn get_selected_port_index(&self, port_strategy: &dyn PortStrategy) -> usize {
-        if let Some(main_window) = self.main_window.upgrade() {
+        if let Some(main_window) = self.main_window_weak.upgrade() {
             port_strategy.get_selected_port_index(&main_window) as usize
         } else {
             0
@@ -89,7 +89,8 @@ impl ControllerCallbacks for UiMethods {
         // println!("UiMethods.set_ports_model: END");
     }
 
-    fn show_connected_port_name(&self, name: &str, message_type: MessageType, port_strategy: &dyn PortStrategy) {
+    fn show_connected_port_name(&self, name: &str, message_type: MessageType,
+                                port_strategy: &dyn PortStrategy) {
         let port_strategy = port_strategy.clone_box();
         let port_name = name.to_string();
         self.with_main_window(move |main_window| {
@@ -101,7 +102,7 @@ impl ControllerCallbacks for UiMethods {
     fn show_message(&self, message: &str, message_type: MessageType) {
         // println!("UiMethods.show_message: {}", message);
         let message = message.to_string();
-        let weak = self.main_window.clone();
+        let weak = self.main_window_weak.clone();
         slint::invoke_from_event_loop(move || {
             if let Some(main_window) = weak.upgrade() {
                 // println!("UiMethods.show_message: Got main_window. Calling main_window.invoke_show_message");
@@ -115,7 +116,7 @@ impl ControllerCallbacks for UiMethods {
 
     fn show_pitchgrid_status(&self, status: &str, message_type: MessageType) {
         let message = status.to_string();
-        let weak = self.main_window.clone();
+        let weak = self.main_window_weak.clone();
         slint::invoke_from_event_loop(move || {
             if let Some(main_window) = weak.upgrade() {
                 main_window.invoke_show_pitchgrid_status(message.into(),
