@@ -76,7 +76,7 @@ fn init_ui_handlers(main_window: &MainWindow, controller: SharedController) {
 }
 
 fn handle_close_request(controller: &SharedController) -> CloseRequestResponse {
-    println!("main.handle_close_request");
+    // println!("main.handle_close_request");
     let response =
         Arc::new(Mutex::new(CloseRequestResponse::HideWindow));
     if IS_CLOSE_ERROR_SHOWN.load(Ordering::Relaxed) {

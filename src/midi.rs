@@ -61,18 +61,20 @@ impl Midi {
     }
 
     pub fn close(&mut self) {
-        println!("Midi.close");
+        // println!("Midi.close");
         {
             if OUTPUT_CONNECTION.lock().unwrap().is_some() {
                 // println!("Midi.close: Cloning initial_surface_processing");
-                let initial_surface_processing = Arc::clone(&INITIAL_SURFACE_PROCESSING);
+                let initial_surface_processing =
+                    Arc::clone(&INITIAL_SURFACE_PROCESSING);
                 // println!("Midi.close: Getting initial_surface_processing guard");
                 let initial_surface_processing_guard =
                     initial_surface_processing.lock().unwrap();
                 // println!("Midi.close: Getting initial_surface_processing");
-                if let Some(initial_surface_processing) = *initial_surface_processing_guard {
-                    println!("Midi.close: Sending surface processing {:?}",
-                             initial_surface_processing);
+                if let Some(initial_surface_processing) =
+                        *initial_surface_processing_guard {
+                    // println!("Midi.close: Sending surface processing {:?}",
+                    //          initial_surface_processing);
                     Self::send_surface_processing(initial_surface_processing);
                 }
             }
@@ -208,18 +210,19 @@ impl Midi {
     }
 
     pub fn stop_instru_connection_monitor(&mut self) {
-        println!("Midi.stop_instru_connection_monitor");
+        // println!("Midi.stop_instru_connection_monitor");
         if self.is_connection_monitor_running {
-            println!("Midi.stop_instru_connection_monitor: Already stopped.");
+            // println!("Midi.stop_instru_connection_monitor: Already stopped.");
             return;
         }
         for stopper_sender in self.connection_monitor_stopper_senders.iter() {
             stopper_sender.send(()).unwrap_or_else(|_| {
-                println!("Midi.stop_instru_connection_monitor: Failed to send stop signal to instrument connection monitor");
+                // println!("Midi.stop_instru_connection_monitor: Failed to send stop signal to instrument connection monitor");
             });
         }
-        println!("Midi.stop_instru_connection_monitor: Stopped monitor thread.");
+        // println!("Midi.stop_instru_connection_monitor: Stopped monitor thread.");
         self.is_connection_monitor_running = false;
+        // println!("Midi.stop_instru_connection_monitor: Done.");
     }
 
     /// Call the subscribed callback functions on a separate thread.
