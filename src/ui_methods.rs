@@ -19,6 +19,8 @@ impl UiMethods {
         Self { main_window_weak }
     }
 
+    /// Provide the specified closure with a MainWindow instance.
+    /// This method supports invocation from both the UI event loop and non-UI threads.
     fn with_main_window<F>(&self, f: F)
     where
         F: FnOnce(&MainWindow) + Send + 'static,
