@@ -200,7 +200,7 @@ impl Midi {
     }
 
     pub fn start_instru_connection_monitor(&mut self) {
-        println!("Midi.start_instru_connection_monitor");
+        // println!("Midi.start_instru_connection_monitor");
         let (stopper_sender, stopper_receiver) = mpsc::channel();
         self.connection_monitor_stopper_senders.push(stopper_sender);
         rayon::spawn(move || {
@@ -375,7 +375,7 @@ impl Midi {
                 let seconds = duration.as_secs();
                 // Give a chance for the instrument heartbeat messages to arrive.
                 if seconds > 2 {
-                    println!("midi.monitor_instru_connection: Instrument not connected for 2 seconds on startup.");
+                    // println!("midi.monitor_instru_connection: Instrument not connected for 2 seconds on startup.");
                     // Not connected for 2 seconds after application start.
                     // So we can assume that the instrument is not yet connected.
                     // Provide an opportunity for a helpful message to be displayed.

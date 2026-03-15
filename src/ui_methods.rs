@@ -21,16 +21,14 @@ impl UiMethods {
 
     fn with_main_window<F>(&self, f: F)
     where
-        F: FnOnce(&MainWindow),
+        F: FnOnce(&MainWindow) + Send + 'static,
     {
-        // println!("UiMethods.with_main_window: Attempting to upgrade main_window");
-        if let Some(main_window) = self.main_window_weak.upgrade() {
-            // println!("UiMethods.with_main_window: Successfully upgraded, calling closure");
-            f(&main_window);
-            // println!("UiMethods.with_main_window: Closure completed");
-        } else {
-            // println!("UiMethods.with_main_window: Failed to upgrade main_window");
-        }
+        let weak = self.main_window_weak.clone();
+        slint::invoke_from_event_loop(move || {
+            if let Some(main_window) = weak.upgrade() {
+                f(&main_window);
+            }
+        }).unwrap();
     }
 }
 
@@ -102,27 +100,17 @@ impl ControllerCallbacks for UiMethods {
     fn show_message(&self, message: &str, message_type: MessageType) {
         // println!("UiMethods.show_message: {}", message);
         let message = message.to_string();
-        let weak = self.main_window_weak.clone();
-        slint::invoke_from_event_loop(move || {
-            if let Some(main_window) = weak.upgrade() {
-                // println!("UiMethods.show_message: Got main_window. Calling main_window.invoke_show_message");
-                main_window.invoke_show_message(message.into(), slint_message_type(message_type));
-                // println!("UiMethods.show_message: Message shown");
-            } else {
-                // println!("UiMethods.show_message: Failed to upgrade main_window");
-            }
-        }).unwrap();
+        self.with_main_window(move |main_window| {
+            main_window.invoke_show_message(message.into(), slint_message_type(message_type));
+        });
     }
 
     fn show_pitchgrid_status(&self, status: &str, message_type: MessageType) {
         let message = status.to_string();
-        let weak = self.main_window_weak.clone();
-        slint::invoke_from_event_loop(move || {
-            if let Some(main_window) = weak.upgrade() {
-                main_window.invoke_show_pitchgrid_status(message.into(),
-                                                         slint_message_type(message_type));
-            }
-        }).unwrap();
+        self.with_main_window(move |main_window| {
+            main_window.invoke_show_pitchgrid_status(message.into(),
+                                                     slint_message_type(message_type));
+        });
     }
 
     fn show_tuning(&self) {
