@@ -20,4 +20,4 @@ pub enum PresetLoading {
 }
 
 pub type SharedMidi = Arc<Mutex<Midi>>;
-pub const APP_TITLE: &str = "PitchGrid-Continuum Companion";
+pub const APP_TITLE: &str = "PitchGrid-Continuum Bridge";
