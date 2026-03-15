@@ -55,7 +55,8 @@ impl Settings {
         self.midi_input_port = settings.midi_input_port;
         self.midi_output_port = settings.midi_output_port;
         self.pitch_table = settings.pitch_table;
-        // println!("Settings.read_from_file: self.midi_input_port = {}", self.midi_input_port);
+        println!("Settings.read_from_file: self.midi_input_port = {}; self.midi_output_port = {}; \
+        self.pitch_table = {:?};", self.midi_input_port, self.midi_output_port, self.pitch_table);
         Ok(())
     }
 
@@ -77,6 +78,8 @@ impl Settings {
                 Box::new(std::io::Error::new(e.kind(),
                 format!("Error writing settings file '{path}': {e}"))));
         }
+        println!("Settings.write_to_file: self.midi_input_port = {}; self.midi_output_port = {}; \
+        self.pitch_table = {:?};", self.midi_input_port, self.midi_output_port, self.pitch_table);
         Ok(())
     }
 }
