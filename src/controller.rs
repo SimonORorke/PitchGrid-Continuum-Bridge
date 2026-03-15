@@ -225,6 +225,11 @@ impl Controller {
         self.show_warning(port_strategy.msg_refreshed_reconnect());
     }
 
+    /// Sets a thread-safe singleton controller instance.
+    pub fn set_controller(controller: SharedController) {
+        CONTROLLER.set(controller).ok();
+    }
+
     pub fn set_pitch_table_no(&mut self, index: usize) {
         let pitch_table_no = tuner::pitch_table_nos()[index];
         tuner::set_pitch_table_no(pitch_table_no);
@@ -408,10 +413,6 @@ type SharedOsc = Arc<Mutex<Osc>>;
 type SharedController = Arc<Mutex<Controller>>;
 
 static CONTROLLER: OnceLock<SharedController> = OnceLock::new();
-
-pub fn set_controller(controller: SharedController) {
-    CONTROLLER.set(controller).ok();
-}
 
 lazy_static! {
     static ref MIDI: SharedMidi = Arc::new(Mutex::new(Midi::new()));

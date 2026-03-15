@@ -16,7 +16,7 @@ use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
 use lazy_static::lazy_static;
 use slint::{CloseRequestResponse, Weak};
-use controller::{Controller, set_controller};
+use controller::{Controller};
 use global::APP_TITLE;
 use port_strategy::{
     InputStrategy, OutputStrategy, PortStrategy};
@@ -32,7 +32,7 @@ fn main() {
     let controller: SharedController = Arc::new(Mutex::new(Controller::new(
         Box::new(ui_methods)
     )));
-    set_controller(controller.clone());
+    Controller::set_controller(controller.clone());
     init_ui_handlers(&main_window, controller.clone());
     set_pitch_tables_model(&main_window);
 
