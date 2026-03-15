@@ -19,7 +19,7 @@ impl UiMethods {
         Self { main_window_weak }
     }
 
-    /// Provide the specified closure with a MainWindow instance.
+    /// Provide the specified closure with a MainWindow instance without returning a result.
     /// This method supports invocation from both the UI event loop and non-UI threads.
     fn with_main_window<F>(&self, f: F)
     where
@@ -32,6 +32,27 @@ impl UiMethods {
             }
         }).unwrap();
     }
+
+    /// Provide the specified closure with a MainWindow instance and return its result.
+    /// Blocks the calling thread until the closure completes on the UI event loop.
+    /// Must be called from a non-UI thread to avoid deadlock.
+    fn with_main_window_result<T, F>(&self, f: F) -> T
+    where
+        T: Send + Default + 'static,
+        F: FnOnce(&MainWindow) -> T + Send + 'static,
+    {
+        let (tx, rx) = std::sync::mpsc::sync_channel(1);
+        let weak = self.main_window_weak.clone();
+        slint::invoke_from_event_loop(move || {
+            let result = if let Some(main_window) = weak.upgrade() {
+                f(&main_window)
+            } else {
+                T::default()
+            };
+            tx.send(result).ok();
+        }).unwrap();
+        rx.recv().unwrap_or_default()
+    }
 }
 
 impl ControllerCallbacks for UiMethods {
@@ -43,16 +64,20 @@ impl ControllerCallbacks for UiMethods {
     }
 
     fn get_selected_port_index(&self, port_strategy: &dyn PortStrategy) -> usize {
-        if let Some(main_window) = self.main_window_weak.upgrade() {
-            port_strategy.get_selected_port_index(&main_window) as usize
-        } else {
-            0
-        }
+        println!("UiMethods.get_selected_port_index: {:?}", port_strategy.port_type());
+        let port_strategy = port_strategy.clone_box();
+        let index = self.with_main_window_result(move |main_window| {
+            port_strategy.get_selected_port_index(main_window) as usize
+        });
+        println!("UiMethods.get_selected_port_index: returning selected port index {}", index);
+        index
     }
 
     fn set_selected_port_index(&self, index: usize, port_strategy: &dyn PortStrategy) {
+        println!("UiMethods.set_selected_port_index: index = {}, port_strategy = {:?}", index, port_strategy.port_type());
         let port_strategy = port_strategy.clone_box();
         self.with_main_window(move |main_window| {
+            println!("UiMethods.set_selected_port_index: Setting selected port index");
             port_strategy.set_selected_port_index(main_window, index as i32);
         });
     }

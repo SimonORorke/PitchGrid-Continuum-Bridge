@@ -7,7 +7,7 @@ pub enum MessageType {
     Warning
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum PortType {
     Input,
     Output,

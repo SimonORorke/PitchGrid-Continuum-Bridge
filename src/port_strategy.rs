@@ -78,10 +78,13 @@ impl PortStrategy for InputStrategy {
     }
 
     fn get_selected_port_index(&self, main_window: &MainWindow) -> i32 {
-        main_window.get_input_selected_port_index()
+        let index = main_window.get_input_selected_port_index();
+        println!("InputStrategy.get_selected_port_index: returning selected port index {}", index);
+        index
     }
 
     fn set_selected_port_index(&self, main_window: &MainWindow, index: i32) {
+        println!("InputStrategy.set_selected_port_index: Setting selected port index to {}", index);
         main_window.set_input_selected_port_index(index);
     }
 
@@ -152,10 +155,13 @@ impl PortStrategy for OutputStrategy {
     }
 
     fn get_selected_port_index(&self, main_window: &MainWindow) -> i32 {
-        main_window.get_output_selected_port_index()
+        let index = main_window.get_output_selected_port_index();
+        println!("OutputStrategy.get_selected_port_index: returning selected port index {}", index);
+        index
     }
 
     fn set_selected_port_index(&self, main_window: &MainWindow, index: i32) {
+        println!("OutputStrategy.set_selected_port_index: Setting selected port index to {}", index);
         main_window.set_output_selected_port_index(index);
     }
 

@@ -28,11 +28,11 @@ impl Controller {
     }
 
     pub fn init(&mut self) {
-        // println!("controller.init");
+        // println!("Controller.init");
         let pitch_table_no: u8;
         let input_port_name: String;
         let output_port_name: String;
-        // println!("controller.init: Reading settings");
+        // println!("Controller.init: Reading settings");
         match self.settings.read_from_file() {
             Ok(_) => {
                 input_port_name = self.settings.midi_input_port.clone();
@@ -44,7 +44,7 @@ impl Controller {
                 return;
             }
         }
-        // println!("controller.init: Getting midi");
+        // println!("Controller.init: Getting midi");
         let midi = self.midi_static_clone();
         let mut midi_guard = midi.lock().unwrap();
         if let Err(err) = midi_guard.init(
@@ -52,7 +52,7 @@ impl Controller {
             self.show_error(&err.to_string());
             return;
         }
-        // println!("controller.init: Adding callbacks");
+        // println!("Controller.init: Adding callbacks");
         midi_guard.add_config_received_callback(Box::new(|| {
             if let Some(controller) = CONTROLLER.get() {
                 controller.lock().unwrap().on_config_received();
@@ -71,28 +71,28 @@ impl Controller {
         drop(midi_guard); // Release MIDI lock before calling port_names which needs to acquire it
         let input_strategy = InputStrategy::new();
         let output_strategy = OutputStrategy::new();
-        // println!("controller.init: Getting input port names");
+        // println!("Controller.init: Getting input port names");
         let input_port_names = self.port_names(&input_strategy);
-        // println!("controller.init: Got {} input port names", input_port_names.len());
-        // println!("controller.init: About to call callbacks.set_ports_model");
+        // println!("Controller.init: Got {} input port names", input_port_names.len());
+        // println!("Controller.init: About to call callbacks.set_ports_model");
         self.callbacks.set_ports_model(&input_port_names, &input_strategy);
-        // println!("controller.init: Called callbacks.set_ports_model");
-        // println!("controller.init: Setting output ports model");
+        // println!("Controller.init: Called callbacks.set_ports_model");
+        // println!("Controller.init: Setting output ports model");
         self.callbacks.set_ports_model(&self.port_names(&output_strategy), &output_strategy);
-        // println!("controller.init: Connecting initial ports");
+        // println!("Controller.init: Connecting initial ports");
         self.connect_initial_port(&input_strategy);
         self.connect_initial_port(&output_strategy);
-        // println!("controller.init: Configuring tuner");
+        // println!("Controller.init: Configuring tuner");
         tuner::set_midi(midi.clone());
         tuner::set_pitch_table_no(pitch_table_no);
         self.callbacks.set_selected_pitch_table_index(tuner::pitch_table_index() as i32);
         let mut midi_guard = midi.lock().unwrap();
         if midi_guard.are_ports_connected() {
-            // println!("controller.init: Showing Checking instrument connection");
+            // println!("Controller.init: Showing Checking instrument connection");
             self.show_info("Checking instrument connection...");
             midi_guard.start_instru_connection_monitor();
         }
-        // println!("controller.init: Done");
+        // println!("Controller.init: Done");
     }
 
     #[allow(clippy::unwrap_used)]
@@ -119,6 +119,7 @@ impl Controller {
     }
 
     fn connect_initial_port(&mut self, port_strategy: &dyn PortStrategy) {
+        println!("Controller.connect_initial_port: {:?}", port_strategy.port_type());
         let midi = self.midi_static_clone();
         let maybe_index = {
             let midi_guard = midi.lock().unwrap();
@@ -126,6 +127,7 @@ impl Controller {
                 .map(|port| port.index())
         };
         if let Some(index) = maybe_index {
+            println!("Controller.connect_initial_port: Setting selected port index to {}", index);
             self.callbacks.set_selected_port_index(index, port_strategy);
             self.connect_selected_port(&midi, port_strategy);
         } else {
@@ -136,36 +138,36 @@ impl Controller {
     }
 
     pub fn connect_port(&mut self, port_strategy: &dyn PortStrategy) {
-        // println!("controller.connect_port");
+        // println!("Controller.connect_port");
         let midi = self.midi_static_clone();
         let osc = self.osc_static_clone();
         let port_strategy = port_strategy.clone_box();
-        // println!("controller.connect_port: Stopping OSC and instrument connection monitor");
+        // println!("Controller.connect_port: Stopping OSC and instrument connection monitor");
         self.stop_osc_and_instru_connection_monitor(&midi, &osc);
-        // println!("controller.connect_port: Showing PitchGrid disconnected");
+        // println!("Controller.connect_port: Showing PitchGrid disconnected");
         self.show_pitchgrid_disconnected();
-        // println!("controller.connect_port: Connecting selected port");
+        // println!("Controller.connect_port: Connecting selected port");
         self.connect_selected_port(&midi, &*port_strategy);
-        // println!("controller.connect_port: Getting port");
+        // println!("Controller.connect_port: Getting port");
         let port_name_opt: Option<String> = midi.lock().unwrap()
             .io(&*port_strategy)
             .port()
             .map(|p| p.name().to_string());
-        // println!("controller.connect_port: Got port");
+        // println!("Controller.connect_port: Got port");
         if let Some(port_name) = port_name_opt {
             self.show_info(port_strategy.msg_connected(&port_name));
-            // println!("controller.connect_port: Getting midi_guard");
+            // println!("Controller.connect_port: Getting midi_guard");
             let midi_guard = midi.lock().unwrap();
-            // println!("controller.connect_port: Got midi_guard");
+            // println!("Controller.connect_port: Got midi_guard");
             if midi_guard.are_ports_connected() {
                 self.show_warning("Restart this application to connect to PitchGrid");
             }
         }
-        // println!("controller.connect_port: Done");
+        // println!("Controller.connect_port: Done");
     }
 
     fn connect_selected_port(&mut self, midi: &SharedMidi, port_strategy: &dyn PortStrategy) {
-        // println!("controller.connect_selected_port");
+        println!("Controller.connect_selected_port: {:?}", port_strategy.port_type());
         let selected = self.callbacks.get_selected_port_index(port_strategy);
         let index: usize = match usize::try_from(selected) {
             Ok(i) => i,
@@ -176,11 +178,11 @@ impl Controller {
                 return;
             }
         };
-        // println!("controller.connect_selected_port: Port selected.");
+        println!("Controller.connect_selected_port: Selected port index = {}", index);
         let ui_action: Result<String, String> = {
-            // println!("controller.connect_selected_port: Getting midi_guard.");
+            // println!("Controller.connect_selected_port: Getting midi_guard.");
             let mut midi_guard = midi.lock().unwrap();
-            // println!("controller.connect_selected_port: Got midi_guard.");
+            // println!("Controller.connect_selected_port: Got midi_guard.");
             let Some(name) = midi_guard.io(port_strategy).port_names().get(index).cloned()
             else {
                 return;
@@ -203,7 +205,7 @@ impl Controller {
 
     fn port_names(&self, port_strategy: &dyn PortStrategy) -> Vec<String> {
         let midi = self.midi_static_clone();
-        // println!("controller.port_names: Got midi");
+        // println!("Controller.port_names: Got midi");
         let midi_guard = midi.lock().unwrap();
         midi_guard.io(port_strategy).port_names()
     }
@@ -250,7 +252,7 @@ impl Controller {
     }
 
     fn on_instru_connected_changed(&self) {
-        // println!("controller.on_instru_connected_changed");
+        // println!("Controller.on_instru_connected_changed");
         let midi = self.midi_static_clone();
         let midi_guard = midi.lock().unwrap();
         if midi_guard.is_instru_connected() {
@@ -259,16 +261,16 @@ impl Controller {
             return;
         }
         // Instrument is not connected. Stop OSC if running.
-        // println!("controller.on_instru_connected_changed: Instrument is not connected.");
+        // println!("Controller.on_instru_connected_changed: Instrument is not connected.");
         let osc = self.osc_static_clone();
         let mut osc_guard = osc.lock().unwrap();
         if osc_guard.is_running() {
-            // println!("controller.on_instru_connected_changed: Stopping OSC");
+            // println!("Controller.on_instru_connected_changed: Stopping OSC");
             osc_guard.stop();
             self.show_warning(
                 "Instrument is disconnected; closed PitchGrid connection.");
         } else if midi_guard.are_ports_connected() {
-            // println!("controller.on_instru_connected_changed: Showing The instrument is not connected");
+            // println!("Controller.on_instru_connected_changed: Showing The instrument is not connected");
             // This probably means the instrument is not connected on application start.
             // So show a helpful message.
             self.show_warning(
@@ -337,16 +339,16 @@ impl Controller {
     }
 
     fn show_warning(&self, message: &str) {
-        // println!("controller.show_warning: {}", message);
+        // println!("Controller.show_warning: {}", message);
         self.callbacks.show_message(message, MessageType::Warning);
     }
     
     fn stop_osc_and_instru_connection_monitor(&self, midi: &SharedMidi, osc: &SharedOsc) {
-        // println!("controller.stop_osc_and_instru_connection_monitor");
+        // println!("Controller.stop_osc_and_instru_connection_monitor");
         let mut midi_guard = midi.lock().unwrap();
         midi_guard.stop_instru_connection_monitor();
         osc.lock().unwrap().stop();
-        // println!("controller.stop_osc_and_instru_connection_monitor: Done");
+        // println!("Controller.stop_osc_and_instru_connection_monitor: Done");
     }
 }
 

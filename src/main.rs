@@ -36,10 +36,10 @@ fn main() {
     init_ui_handlers(&main_window, controller.clone());
     set_pitch_tables_model(&main_window);
 
-    // Initialize controller after the window is shown, using a timer to ensure
-    // the event loop is running
+    // Initialize controller on a background thread so that UI callbacks within
+    // init() can use invoke_from_event_loop without deadlocking.
     let controller_clone = controller.clone();
-    slint::Timer::single_shot(std::time::Duration::from_millis(0), move || {
+    rayon::spawn(move || {
         controller_clone.lock().unwrap().init();
     });
 
@@ -53,24 +53,35 @@ fn init_ui_handlers(main_window: &MainWindow, controller: SharedController) {
             handle_close_request(&controller)
         });
     }
+    // All Controller methods must be called from non-UI threads to avoid deadlock.
+    // See the UiMethods.with_main_window_result doc comment for more information.
     {
         let controller: SharedController = Arc::clone(&controller);
         main_window.on_connect_port(move |port_type: SlintPortType| {
+            let controller = controller.clone();
             let port_strategy = create_port_strategy(port_type);
-            controller.lock().unwrap().connect_port(&*port_strategy)
+            rayon::spawn(move || {
+                controller.lock().unwrap().connect_port(&*port_strategy);
+            });
         });
     }
     {
         let controller: SharedController = Arc::clone(&controller);
         main_window.on_refresh_ports(move |port_type: SlintPortType| {
+            let controller = controller.clone();
             let port_strategy = create_port_strategy(port_type);
-            controller.lock().unwrap().refresh_ports(&*port_strategy)
+            rayon::spawn(move || {
+                controller.lock().unwrap().refresh_ports(&*port_strategy);
+            });
         });
     }
     {
         let controller: SharedController = Arc::clone(&controller);
         main_window.on_selected_pitch_table_changed(move |index| {
-            controller.lock().unwrap().set_pitch_table_no(index as usize)
+            let controller = controller.clone();
+            rayon::spawn(move || {
+                controller.lock().unwrap().set_pitch_table_no(index as usize);
+            });
         });
     }
 }
@@ -84,6 +95,8 @@ fn handle_close_request(controller: &SharedController) -> CloseRequestResponse {
         return *response.lock().unwrap()
     }
     let response_clone = Arc::clone(&response);
+    // Controller.close() won't deadlock, as it does not access the GUI.
+    // So it is safe to call it from the UI event loop thread.
     if let Err(_) = controller.lock().unwrap().close() {
         *response_clone.lock().unwrap() = CloseRequestResponse::KeepWindowShown;
         IS_CLOSE_ERROR_SHOWN.store(true, Ordering::Relaxed);
