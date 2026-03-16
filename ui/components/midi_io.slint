@@ -20,7 +20,7 @@ export component MidiIo inherits GroupBox {
     in property input_devices_model <=> input_devices_combo.model;
     in-out property <int> input_selected_port_index;
     callback input_connect_port();
-    callback input_refresh_ports();
+    callback input_refresh_devices();
     public function input_focus() {
         input_devices_combo.focus();
     }
@@ -32,7 +32,7 @@ export component MidiIo inherits GroupBox {
     in property output_devices_model <=> output_devices_combo.model;
     in-out property <int> output_selected_port_index;
     callback output_connect_port();
-    callback output_refresh_ports();
+    callback output_refresh_devices();
     public function output_focus() {
         output_devices_combo.focus();
     }
@@ -95,7 +95,7 @@ export component MidiIo inherits GroupBox {
                 OutlineButton {
                     text: "Refresh Ports";
                     clicked => {
-                        root.input_refresh_ports()
+                        root.input_refresh_devices()
                     }
                     height: Globals.control_height;
                     width: Globals.button_width;
@@ -154,7 +154,7 @@ export component MidiIo inherits GroupBox {
                 OutlineButton {
                     text: "Refresh Ports";
                     clicked => {
-                        root.output_refresh_ports()
+                        root.output_refresh_devices()
                     }
                     height: Globals.control_height;
                     width: Globals.button_width;

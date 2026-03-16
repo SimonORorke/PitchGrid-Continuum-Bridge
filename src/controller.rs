@@ -210,7 +210,7 @@ impl Controller {
         midi_guard.io(port_strategy).device_names()
     }
 
-    pub fn refresh_ports(&mut self, port_strategy: &dyn PortStrategy) {
+    pub fn refresh_devices(&mut self, port_strategy: &dyn PortStrategy) {
         let midi = self.midi_static_clone();
         let osc = self.osc_static_clone();
         let port_strategy = port_strategy.clone_box();

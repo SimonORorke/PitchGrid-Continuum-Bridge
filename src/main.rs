@@ -67,11 +67,11 @@ fn init_ui_handlers(main_window: &MainWindow, controller: SharedController) {
     }
     {
         let controller: SharedController = Arc::clone(&controller);
-        main_window.on_refresh_ports(move |port_type: SlintPortType| {
+        main_window.on_refresh_devices(move |port_type: SlintPortType| {
             let controller = controller.clone();
             let port_strategy = create_port_strategy(port_type);
             rayon::spawn(move || {
-                controller.lock().unwrap().refresh_ports(&*port_strategy);
+                controller.lock().unwrap().refresh_devices(&*port_strategy);
             });
         });
     }
