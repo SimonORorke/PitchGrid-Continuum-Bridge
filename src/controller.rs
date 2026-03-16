@@ -119,7 +119,7 @@ impl Controller {
     }
 
     fn connect_initial_port(&mut self, port_strategy: &dyn PortStrategy) {
-        println!("Controller.connect_initial_port: {:?}", port_strategy.port_type());
+        // println!("Controller.connect_initial_port: {:?}", port_strategy.port_type());
         let midi = self.midi_static_clone();
         let maybe_index = {
             let midi_guard = midi.lock().unwrap();
@@ -127,7 +127,7 @@ impl Controller {
                 .map(|port| port.index())
         };
         if let Some(index) = maybe_index {
-            println!("Controller.connect_initial_port: Setting selected port index to {}", index);
+            // println!("Controller.connect_initial_port: Setting selected port index to {}", index);
             self.callbacks.set_selected_port_index(index, port_strategy);
             self.connect_selected_port(&midi, port_strategy);
         } else {
@@ -167,7 +167,7 @@ impl Controller {
     }
 
     fn connect_selected_port(&mut self, midi: &SharedMidi, port_strategy: &dyn PortStrategy) {
-        println!("Controller.connect_selected_port: {:?}", port_strategy.port_type());
+        // println!("Controller.connect_selected_port: {:?}", port_strategy.port_type());
         let selected = self.callbacks.get_selected_port_index(port_strategy);
         let index: usize = match usize::try_from(selected) {
             Ok(i) => i,
@@ -178,7 +178,7 @@ impl Controller {
                 return;
             }
         };
-        println!("Controller.connect_selected_port: Selected port index = {}", index);
+        // println!("Controller.connect_selected_port: Selected port index = {}", index);
         let ui_action: Result<String, String> = {
             // println!("Controller.connect_selected_port: Getting midi_guard.");
             let mut midi_guard = midi.lock().unwrap();
@@ -216,7 +216,7 @@ impl Controller {
         let port_strategy = port_strategy.clone_box();
         self.stop_osc_and_instru_connection_monitor(&midi, &osc);
         let device_name = port_strategy.port_setting(&self.settings).to_string();
-        if let Err(err) = midi.lock().unwrap().refresh_ports(
+        if let Err(err) = midi.lock().unwrap().refresh_devices(
             &device_name, &*port_strategy) {
             self.show_error(&err.to_string());
             return;
@@ -283,6 +283,7 @@ impl Controller {
     }
 
     fn on_tuning_updated(&self) {
+        // println!("Controller.on_tuning_updated");
         self.callbacks.show_tuning();
         self.callbacks.show_pitchgrid_status("Instrument tuning updated", MessageType::Info);
     }
@@ -354,12 +355,14 @@ impl Controller {
 
 impl OscCallbacks for Mutex<Controller> {
     fn on_osc_connected_changed(&self) {
+        // println!("OscCallbacks for Mutex<Controller>.on_osc_connected_changed");
         let controller = self.lock().unwrap();
         controller.on_osc_connected_changed();
     }
 
     fn on_osc_tuning_received(&self, depth: i32, mode: i32, root_freq: f32, stretch: f32,
                               skew: f32, mode_offset: i32, steps: i32) {
+        // println!("OscCallbacks for Mutex<Controller>.on_osc_tuning_received");
         let controller = self.lock().unwrap();
         controller.on_osc_tuning_received(depth, mode, root_freq, stretch, skew, mode_offset, steps);
     }
@@ -367,18 +370,24 @@ impl OscCallbacks for Mutex<Controller> {
 
 impl OscCallbacks for Controller {
     fn on_osc_connected_changed(&self) {
+        // println!("Controller.on_osc_connected_changed");
+        let midi = self.midi_static_clone();
+        let midi_guard = midi.lock().unwrap();
         let osc = self.osc_static_clone();
         let osc_guard = osc.lock().unwrap();
         if osc_guard.is_pitchgrid_connected() {
+            midi_guard.set_is_pitchgrid_connected(true);
             self.show_pitchgrid_connected();
             self.show_info("PitchGrid and instrument are connected.");
         } else {
+            midi_guard.set_is_pitchgrid_connected(false);
             self.show_pitchgrid_not_connected();
         }
     }
 
     fn on_osc_tuning_received(&self, depth: i32, mode: i32, root_freq: f32, stretch: f32,
                               skew: f32, mode_offset: i32, steps: i32) {
+        println!("Controller.on_osc_tuning_received");
         // println!(
         //     "controller.on_osc_tuning_received: depth = {}; mode = {}; root_freq = {}; stretch = {}; \
         //     skew = {}; mode_offset = {}; steps = {}",

@@ -6,69 +6,6 @@ use round::round;
 use crate::global::{PresetLoading, SharedMidi};
 use crate::midi::Midi;
 
-#[derive(Clone)]
-struct Key {
-    /// The MIDI note number of the key (0-127).
-    number: u8,
-    /// The pitch required for the note, in Hz.
-    required_pitch: f32,
-    /// The MIDI note number of the key with the closest standard tuning pitch
-    /// that is less than or equal to the required pitch.
-    to_number: u8,
-    /// The offset ratio (0.0 to 1.0) as a fraction of a semitone, between the required pitch
-    /// and the closest standard tuning pitch that is less than or equal to it.
-    offset_ratio: f32,
-    /// The upper 7 bits (MSB) of the offset ratio, as a 14-bit value,
-    /// for sending to the instrument via MIDI.
-    offset_msb: u8,
-    /// The lower 7 bits (LSB) of the offset ratio, as a 14-bit value,
-    /// for sending to the instrument via MIDI.
-    offset_lsb: u8,
-}
-
-
-struct TunerData {
-    tuning_params: TuningParams,
-    midi: Option<SharedMidi>,
-    keys:Arc<Vec<Key>>,
-    is_already_updating: Arc<AtomicBool>,
-    is_another_update_pending: Arc<AtomicBool>,
-    // is_pitchgrid_connected: Arc<AtomicBool>,
-    /// About the name Pitch Table.
-    /// The EaganMatrix Overlay Developer's Guide calls them tuning grids.
-    /// But naming is inconsistent in the Continuum User Guide.
-    /// The main documentation calls them pitch tables or custom grids, though there are also
-    /// scattered references to tuning grids.
-    /// We call them pitch tables, as that has the best chance of being understood by users.
-    pitch_table_no: Arc<AtomicU8>,
-}
-
-struct TuningParams {
-    depth: i32, mode: i32, root_freq: f32, stretch: f32,
-    skew: f32, mode_offset: i32, steps: i32,
-}
-
-pub struct FormattedTuningParams {
-    pub depth: String, pub root_freq: String, pub stretch: String,
-    pub skew: String, pub mode_offset: String, pub steps: String,
-}
-
-lazy_static! {
-    static ref TUNER_DATA: Mutex<TunerData> = Mutex::new(TunerData {
-        tuning_params: TuningParams {
-            depth: 0, mode: 0, root_freq: 0.0, stretch: 0.0, skew: 0.0, mode_offset: 0, steps: 0,
-        },
-        keys: Arc::new(vec![]),
-        is_already_updating: Arc::new(Default::default()),
-        is_another_update_pending: Arc::new(Default::default()),
-        // is_pitchgrid_connected: Arc::new(Default::default()),
-        midi: None,
-        pitch_table_no: Arc::new(AtomicU8::new(default_pitch_table_no())),
-    });
-    static ref PITCH_TABLE_NOS: Vec<u8> = (80..88).collect();
-    static ref DEFAULT_KEY_PITCHES: Vec<f32> = create_default_key_pitches();
-}
-
 /// Update tuning parameters from the OSC message.
 ///     Args:
 ///         depth: MOS depth (generation)
@@ -80,7 +17,6 @@ lazy_static! {
 ///         steps: Number of steps per period
 pub fn on_tuning_received(depth: i32, mode: i32, root_freq: f32, stretch: f32,
                           skew: f32, mode_offset: i32, steps: i32) {
-    // println!("tuner.on_tuning_received");
     // println!(
     //     "tuner.on_tuning_received: depth = {}; mode = {}; root_freq = {}; stretch = {}; \
     //     skew = {}; mode_offset = {}; steps = {}",
@@ -171,7 +107,7 @@ fn calculate_key_pitches(depth: i32, mode: i32, root_freq: f32, stretch: f32,
 }
 
 fn update_tuning() {
-    // println!("tuner.update_tuning");
+    println!("tuner.update_tuning");
     let data = TUNER_DATA.lock().unwrap();
     let mut keys = (*data.keys).clone();
     let pitch_table_no = data.pitch_table_no.load(Ordering::Relaxed);
@@ -395,4 +331,66 @@ mod ffi {
 
         fn vector2d(x: f64, y: f64) -> UniquePtr<Vector2d>;
     }
+}
+
+#[derive(Clone)]
+struct Key {
+    /// The MIDI note number of the key (0-127).
+    number: u8,
+    /// The pitch required for the note, in Hz.
+    required_pitch: f32,
+    /// The MIDI note number of the key with the closest standard tuning pitch
+    /// that is less than or equal to the required pitch.
+    to_number: u8,
+    /// The offset ratio (0.0 to 1.0) as a fraction of a semitone, between the required pitch
+    /// and the closest standard tuning pitch that is less than or equal to it.
+    offset_ratio: f32,
+    /// The upper 7 bits (MSB) of the offset ratio, as a 14-bit value,
+    /// for sending to the instrument via MIDI.
+    offset_msb: u8,
+    /// The lower 7 bits (LSB) of the offset ratio, as a 14-bit value,
+    /// for sending to the instrument via MIDI.
+    offset_lsb: u8,
+}
+
+struct TunerData {
+    tuning_params: TuningParams,
+    midi: Option<SharedMidi>,
+    keys:Arc<Vec<Key>>,
+    is_already_updating: Arc<AtomicBool>,
+    is_another_update_pending: Arc<AtomicBool>,
+    // is_pitchgrid_connected: Arc<AtomicBool>,
+    /// About the name Pitch Table.
+    /// The EaganMatrix Overlay Developer's Guide calls them tuning grids.
+    /// But naming is inconsistent in the Continuum User Guide.
+    /// The main documentation calls them pitch tables or custom grids, though there are also
+    /// scattered references to tuning grids.
+    /// We call them pitch tables, as that has the best chance of being understood by users.
+    pitch_table_no: Arc<AtomicU8>,
+}
+
+struct TuningParams {
+    depth: i32, mode: i32, root_freq: f32, stretch: f32,
+    skew: f32, mode_offset: i32, steps: i32,
+}
+
+pub struct FormattedTuningParams {
+    pub depth: String, pub root_freq: String, pub stretch: String,
+    pub skew: String, pub mode_offset: String, pub steps: String,
+}
+
+lazy_static! {
+    static ref TUNER_DATA: Mutex<TunerData> = Mutex::new(TunerData {
+        tuning_params: TuningParams {
+            depth: 0, mode: 0, root_freq: 0.0, stretch: 0.0, skew: 0.0, mode_offset: 0, steps: 0,
+        },
+        keys: Arc::new(vec![]),
+        is_already_updating: Arc::new(Default::default()),
+        is_another_update_pending: Arc::new(Default::default()),
+        // is_pitchgrid_connected: Arc::new(Default::default()),
+        midi: None,
+        pitch_table_no: Arc::new(AtomicU8::new(default_pitch_table_no())),
+    });
+    static ref PITCH_TABLE_NOS: Vec<u8> = (80..88).collect();
+    static ref DEFAULT_KEY_PITCHES: Vec<f32> = create_default_key_pitches();
 }

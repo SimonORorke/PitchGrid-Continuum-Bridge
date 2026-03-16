@@ -121,7 +121,7 @@ impl Midi {
         &self.output
     }
 
-    pub fn refresh_ports(
+    pub fn refresh_devices(
         &mut self,
         device_name: &str,
         port_strategy: &dyn PortStrategy,
@@ -137,7 +137,7 @@ impl Midi {
     /// We currently only need the Preset Loading Surface Processing global setting.
     /// But the only way to get it is to request all the current preset and config data.
     pub fn request_config(&self) {
-        println!("Midi.request_config");
+        // println!("Midi.request_config");
         {
             *INITIAL_SURFACE_PROCESSING.lock().unwrap() = None;
             IS_GETTING_CONFIG.store(true, Ordering::Relaxed);
@@ -197,6 +197,10 @@ impl Midi {
         // But let's do it anyway.
         // Write current global settings to flash
         Self::send_control_change(16, 109, 8); // curGloToFlash
+    }
+
+    pub fn set_is_pitchgrid_connected(&self, is_connected: bool) {
+        IS_PITCHGRID_CONNECTED.store(is_connected, Ordering::Relaxed);
     }
 
     pub fn start_instru_connection_monitor(&mut self) {
@@ -364,7 +368,7 @@ impl Midi {
                     let duration = now.duration_since(last_message_received_time);
                     let seconds = duration.as_secs();
                     if seconds > 2 {
-                        println!("midi.monitor_instru_connection: Instrument disconnected.");
+                        // println!("midi.monitor_instru_connection: Instrument disconnected.");
                         IS_INSTRU_CONNECTED.store(false, Ordering::Relaxed);
                         Self::call_back(INSTRU_CONNECTED_CHANGED_CALLBACKS.clone());
                     }
@@ -410,20 +414,27 @@ impl Midi {
                             // which will have been requested after the pitch table update
                             // was sent to the instrument.
                             // The instrument does not notify us to confirm that the pitch table
-                            // has been updated. But now we effectively know that the pitch table has
-                            // been updated and loaded.
-                            // println!("midi.on_message_received: pitch table updated");
-                            Self::call_back(TUNING_UPDATED_CALLBACKS.clone());
+                            // has been updated. But now we effectively know that the pitch table
+                            // has been updated and loaded.
+                            // However, this message is also received as part of instrument config.
+                            // We really only need to notify the UI if we have just requested
+                            // a pitch table update, i.e when a tuning update has been received
+                            // from PitchGrid. But it should be good enough if we just
+                            // skip the notification if PitchGrid is not connected.
+                            // println!("midi.on_message_received: Pitch table loaded");
+                            if IS_PITCHGRID_CONNECTED.load(Ordering::Relaxed) {
+                                Self::call_back(TUNING_UPDATED_CALLBACKS.clone());
+                            }
                         }
                         if controller == 56 && value == 20 {
                             // s_Mat_Poke: Start of Matrix stream
-                            println!("midi.on_message_received: Start of Matrix stream");
+                            // println!("midi.on_message_received: Start of Matrix stream");
                             IS_STREAMING_MATRIX.store(true, Ordering::Relaxed);
                             let initial_surface_processing =
                                 INITIAL_SURFACE_PROCESSING.lock().unwrap();
                             if initial_surface_processing.is_none() {
-                                println!(
-                                    "Midi.on_message_received: Start of initial matrix stream");
+                                // println!(
+                                //     "Midi.on_message_received: Start of initial matrix stream");
                                 // This can happens twice before
                                 // initial_surface_processing is stored.
                                 // Probably when the editor is opened after this application,
@@ -438,7 +449,7 @@ impl Midi {
                     if channel1 == 16 && key == 56 {
                         if IS_STREAMING_MATRIX.load(Ordering::Relaxed) {
                             // PreservSurf: Preset Loading Surface Processing (global)
-                            println!("Midi.on_message_received: Surface Processing");
+                            // println!("Midi.on_message_received: Surface Processing");
                             if IS_STREAMING_INITIAL_MATRIX.load(Ordering::Relaxed) {
                                 let mut initial_surface_processing =
                                     INITIAL_SURFACE_PROCESSING.lock().unwrap();
@@ -450,9 +461,9 @@ impl Midi {
                                 // We are not waiting for anything else from the matrix stream,
                                 // and it does not have an end-of-stream message.
                                 IS_STREAMING_INITIAL_MATRIX.store(false, Ordering::Relaxed);
-                                println!(
-                                    "Midi.on_message_received: initial_surface_processing = {:?}",
-                                    preset_loading);
+                                // println!(
+                                //     "Midi.on_message_received: initial_surface_processing = {:?}",
+                                //     preset_loading);
                             }
                         }
                         IS_STREAMING_MATRIX.store(false, Ordering::Relaxed);
@@ -464,7 +475,7 @@ impl Midi {
                         let is_getting_config = IS_GETTING_CONFIG.load(Ordering::Relaxed);
                         if is_getting_config {
                             // This is the last item sent when config has been requested.
-                            println!("Midi.on_message_received: config received");
+                            // println!("Midi.on_message_received: config received");
                             IS_GETTING_CONFIG.store(false, Ordering::Relaxed);
                             // data.has_config_been_received.store(true, Ordering::Relaxed);
                             Self::call_back(CONFIG_RECEIVED_CALLBACKS.clone());
@@ -529,6 +540,7 @@ lazy_static! {
         Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>> = Arc::new(Mutex::new(Vec::new()));
     static ref IS_GETTING_CONFIG: AtomicBool = AtomicBool::new(false);
     static ref IS_INSTRU_CONNECTED: AtomicBool = AtomicBool::new(false);
+    static ref IS_PITCHGRID_CONNECTED: AtomicBool = AtomicBool::new(false);
     static ref IS_STREAMING_INITIAL_MATRIX: AtomicBool = AtomicBool::new(false);
     static ref IS_STREAMING_MATRIX: AtomicBool = AtomicBool::new(false);
     static ref LAST_MESSAGE_RECEIVED_TIME: Mutex<Option<Instant>> = Mutex::new(None);
