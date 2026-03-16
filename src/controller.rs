@@ -387,7 +387,7 @@ impl OscCallbacks for Controller {
 
     fn on_osc_tuning_received(&self, depth: i32, mode: i32, root_freq: f32, stretch: f32,
                               skew: f32, mode_offset: i32, steps: i32) {
-        println!("Controller.on_osc_tuning_received");
+        // println!("Controller.on_osc_tuning_received");
         // println!(
         //     "controller.on_osc_tuning_received: depth = {}; mode = {}; root_freq = {}; stretch = {}; \
         //     skew = {}; mode_offset = {}; steps = {}",

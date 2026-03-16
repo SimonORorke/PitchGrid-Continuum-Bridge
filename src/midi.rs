@@ -521,8 +521,11 @@ impl Midi {
         // println!("Midi.send_message: Got connection");
         if let Some(connection) = connection_option.as_mut() {
             connection
-                .send(message)
-                .unwrap_or_else(|_| println!("Error when sending message ..."));
+                // unwrap_or_else sometimes freezes when showing the error message on close.
+                // unwrap will panic on error, which may give use better diagnostics.
+                .send(message).unwrap()
+                // .send(message)
+                // .unwrap_or_else(|_| println!("Error when sending message ..."));
         }
     }
 
