@@ -107,7 +107,7 @@ fn calculate_key_pitches(depth: i32, mode: i32, root_freq: f32, stretch: f32,
 }
 
 fn update_tuning() {
-    println!("tuner.update_tuning");
+    // println!("tuner.update_tuning");
     let data = TUNER_DATA.lock().unwrap();
     let mut keys = (*data.keys).clone();
     let pitch_table_no = data.pitch_table_no.load(Ordering::Relaxed);

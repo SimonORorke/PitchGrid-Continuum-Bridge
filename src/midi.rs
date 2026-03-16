@@ -139,9 +139,7 @@ impl Midi {
     pub fn request_config(&self) {
         // println!("Midi.request_config");
         {
-            *INITIAL_SURFACE_PROCESSING.lock().unwrap() = None;
             IS_GETTING_CONFIG.store(true, Ordering::Relaxed);
-            IS_STREAMING_INITIAL_MATRIX.store(false, Ordering::Relaxed);
         }
         Self::send_control_change(16, 109, 16); // configToMidi
     }
@@ -425,48 +423,37 @@ impl Midi {
                             if IS_PITCHGRID_CONNECTED.load(Ordering::Relaxed) {
                                 Self::call_back(TUNING_UPDATED_CALLBACKS.clone());
                             }
+                            return;
                         }
                         if controller == 56 && value == 20 {
                             // s_Mat_Poke: Start of Matrix stream
                             // println!("midi.on_message_received: Start of Matrix stream");
-                            IS_STREAMING_MATRIX.store(true, Ordering::Relaxed);
-                            let initial_surface_processing =
-                                INITIAL_SURFACE_PROCESSING.lock().unwrap();
-                            if initial_surface_processing.is_none() {
-                                // println!(
-                                //     "Midi.on_message_received: Start of initial matrix stream");
-                                // This can happens twice before
-                                // initial_surface_processing is stored.
-                                // Probably when the editor is opened after this application,
-                                // as the editor will also request the config on startup.
-                                IS_STREAMING_INITIAL_MATRIX.store(true, Ordering::Relaxed);
-                            }
+                            IS_MATRIX_STREAMING.store(true, Ordering::Relaxed);
                         }
                     }
                 }
                 MidiMessage::Aftertouch { key, vel } => {
                     let channel1 = u8::from(channel) + 1; // 1-based channel number.
                     if channel1 == 16 && key == 56 {
-                        if IS_STREAMING_MATRIX.load(Ordering::Relaxed) {
+                        if IS_MATRIX_STREAMING.load(Ordering::Relaxed) {
                             // PreservSurf: Preset Loading Surface Processing (global)
                             // println!("Midi.on_message_received: Surface Processing");
-                            if IS_STREAMING_INITIAL_MATRIX.load(Ordering::Relaxed) {
-                                let mut initial_surface_processing =
-                                    INITIAL_SURFACE_PROCESSING.lock().unwrap();
+                            let mut initial_surface_processing =
+                                INITIAL_SURFACE_PROCESSING.lock().unwrap();
+                            if initial_surface_processing.is_none() {
                                 let preset_loading: PresetLoading = match u8::from(vel) {
                                     0 => PresetLoading::Replace,
                                     _ => PresetLoading::Preserve,
                                 };
                                 *initial_surface_processing = Option::from(preset_loading);
-                                // We are not waiting for anything else from the matrix stream,
-                                // and it does not have an end-of-stream message.
-                                IS_STREAMING_INITIAL_MATRIX.store(false, Ordering::Relaxed);
-                                // println!(
-                                //     "Midi.on_message_received: initial_surface_processing = {:?}",
-                                //     preset_loading);
+                                println!(
+                                    "Midi.on_message_received: initial_surface_processing = {:?}",
+                                    preset_loading);
                             }
+                            // We are not waiting for anything else from the matrix stream,
+                            // and it does not have an end-of-stream message.
+                            IS_MATRIX_STREAMING.store(false, Ordering::Relaxed);
                         }
-                        IS_STREAMING_MATRIX.store(false, Ordering::Relaxed);
                     }
                 }
                 MidiMessage::ProgramChange { .. } => {
@@ -477,7 +464,6 @@ impl Midi {
                             // This is the last item sent when config has been requested.
                             // println!("Midi.on_message_received: config received");
                             IS_GETTING_CONFIG.store(false, Ordering::Relaxed);
-                            // data.has_config_been_received.store(true, Ordering::Relaxed);
                             Self::call_back(CONFIG_RECEIVED_CALLBACKS.clone());
                         }
                     }
@@ -543,9 +529,8 @@ lazy_static! {
         Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>> = Arc::new(Mutex::new(Vec::new()));
     static ref IS_GETTING_CONFIG: AtomicBool = AtomicBool::new(false);
     static ref IS_INSTRU_CONNECTED: AtomicBool = AtomicBool::new(false);
+    static ref IS_MATRIX_STREAMING: AtomicBool = AtomicBool::new(false);
     static ref IS_PITCHGRID_CONNECTED: AtomicBool = AtomicBool::new(false);
-    static ref IS_STREAMING_INITIAL_MATRIX: AtomicBool = AtomicBool::new(false);
-    static ref IS_STREAMING_MATRIX: AtomicBool = AtomicBool::new(false);
     static ref LAST_MESSAGE_RECEIVED_TIME: Mutex<Option<Instant>> = Mutex::new(None);
     static ref OUTPUT_CONNECTION: Mutex<Option<MidiOutputConnection>> = Mutex::new(None);
     static ref TUNING_UPDATED_CALLBACKS:

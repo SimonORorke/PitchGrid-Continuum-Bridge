@@ -257,6 +257,9 @@ impl Controller {
         let midi_guard = midi.lock().unwrap();
         if midi_guard.is_instru_connected() {
             self.show_info("Instrument is connected. Getting instrument config...");
+            // Ideally, we should not request config if the editor has just loaded,
+            // as it will already be receiving config data.
+            // That looks complicated, so we will allow a redundant request, for now at least.
             midi_guard.request_config();
             return;
         }
