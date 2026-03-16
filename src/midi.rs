@@ -9,7 +9,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
 use crate::global::{PortType, PresetLoading};
-use crate::midi_ports::{Io, MidiIo};
+use crate::midi_ports::{Io, IIo};
 use crate::port_strategy::PortStrategy;
 
 pub struct Midi {
@@ -97,11 +97,11 @@ impl Midi {
 
     pub fn init(
         &mut self,
-        input_port_name: &str,
-        output_port_name: &str,
+        input_device_name: &str,
+        output_device_name: &str,
     ) -> Result<(), Box<dyn Error>> {
-        self.input.populate_ports(input_port_name)?;
-        self.output.populate_ports(output_port_name)?;
+        self.input.populate_devices(input_device_name)?;
+        self.output.populate_devices(output_device_name)?;
         Ok(())
     }
 
@@ -109,7 +109,7 @@ impl Midi {
         &self.input
     }
 
-    pub fn io(&self, port_strategy: &dyn PortStrategy) -> &dyn MidiIo {
+    pub fn io(&self, port_strategy: &dyn PortStrategy) -> &dyn IIo {
         port_strategy.io(self)
     }
 
@@ -123,12 +123,12 @@ impl Midi {
 
     pub fn refresh_ports(
         &mut self,
-        port_name: &str,
+        device_name: &str,
         port_strategy: &dyn PortStrategy,
     ) -> Result<(), Box<dyn Error>> {
         match port_strategy.port_type() {
-            PortType::Input => self.refresh_input_ports(port_name)?,
-            PortType::Output => self.refresh_output_ports(port_name)?,
+            PortType::Input => self.refresh_input_devices(device_name)?,
+            PortType::Output => self.refresh_output_devices(device_name)?,
         }
         Ok(())
     }
@@ -245,12 +245,12 @@ impl Midi {
         let input: &mut Io<MidiInputPort> = &mut self.input;
         if let Some(port) = input.ports().get(index) {
             // println!("Midi.connect_input_port: found port");
-            let port_name = port.name();
+            let device_name = port.device_name();
             let midi_port = port.midi_port();
             let midi_input = Self::create_midi_input();
             match midi_input.connect(
                 midi_port,
-                &port_name,
+                &device_name,
                 move |_, message, _| Self::on_message_received(message),
                 (),
             ) {
@@ -263,7 +263,7 @@ impl Midi {
                 Err(_) => {
                     // println!("Midi.connect_input_port: error");
                     // See comment in connect_output_port.
-                    return Err(port_strategy.msg_cannot_connect(&port_name).into());
+                    return Err(port_strategy.msg_cannot_connect(&device_name).into());
                 }
             }
         }
@@ -278,10 +278,10 @@ impl Midi {
         self.disconnect_output_port();
         let output: &mut Io<MidiOutputPort> = &mut self.output;
         if let Some(port) = output.ports().get(index) {
-            let port_name = port.name();
+            let device_name = port.device_name();
             let midi_port = port.midi_port();
             let midi_output = Self::create_midi_output();
-            match midi_output.connect(midi_port, &port_name) {
+            match midi_output.connect(midi_port, &device_name) {
                 Ok(connection) => {
                     *OUTPUT_CONNECTION.lock()? = Option::from(connection);
                     output.set_port(port.clone());
@@ -303,7 +303,7 @@ impl Midi {
                 // I don't see how to disable multi-client support.
                 // So I currently cannot test exclusive connections any more.
                 {
-                    return Err(port_strategy.msg_cannot_connect(&port_name).into());
+                    return Err(port_strategy.msg_cannot_connect(&device_name).into());
                 }
             }
         }
@@ -477,17 +477,17 @@ impl Midi {
         }
     }
 
-    fn refresh_input_ports(&mut self, input_port_name: &str) -> Result<(), Box<dyn Error>> {
-        // println!("Midi.refresh_input_ports: start");
+    fn refresh_input_devices(&mut self, input_device_name: &str) -> Result<(), Box<dyn Error>> {
+        // println!("Midi.refresh_input_devices: start");
         self.disconnect_input_port();
-        self.input.populate_ports(input_port_name)?;
+        self.input.populate_devices(input_device_name)?;
         Ok(())
     }
 
-    fn refresh_output_ports(&mut self, output_port_name: &str) -> Result<(), Box<dyn Error>> {
-        // println!("Midi.refresh_output_ports: start");
+    fn refresh_output_devices(&mut self, output_device_name: &str) -> Result<(), Box<dyn Error>> {
+        // println!("Midi.refresh_output_devices: start");
         self.disconnect_output_port();
-        self.output.populate_ports(output_port_name)?;
+        self.output.populate_devices(output_device_name)?;
         Ok(())
     }
 

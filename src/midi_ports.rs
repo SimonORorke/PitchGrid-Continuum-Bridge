@@ -1,36 +1,37 @@
 use std::error::Error;
+use midir::MidiIO;
 
 #[derive(Clone)]
 pub struct Port<T: ?Sized> {
     index: usize,
-    name: String,
+    device_name: String,
     midi_port: Box<T>,
 }
 
 impl<T> Port<T> {
     pub fn index(&self) -> usize { self.index }
-    pub fn name(&self) -> String { self.name.clone() }
+    pub fn device_name(&self) -> String { self.device_name.clone() }
     pub fn midi_port(&self) -> &T { &self.midi_port }
 }
 
-pub trait IoPort {
+pub trait IoDevice {
     fn index(&self) -> usize;
     fn name(&self) -> String;
 }
 
-impl<T: ?Sized> IoPort for Port<T> {
+impl<T: ?Sized> IoDevice for Port<T> {
     fn index(&self) -> usize { self.index }
-    fn name(&self) -> String { self.name.clone() }
+    fn name(&self) -> String { self.device_name.clone() }
 }
 
 pub struct Io<T> {
-    midi_io: Box<dyn midir::MidiIO<Port=T> + Send>,
+    midi_io: Box<dyn MidiIO<Port=T> + Send>,
     port: Box<Option<Port<T>>>,
     ports: Box<Vec<Port<T>>>,
 }
 
 impl<T: Clone + Send + 'static> Io<T> {
-    pub fn new(midi_io: Box<dyn midir::MidiIO<Port=T> + Send>) -> Self {
+    pub fn new(midi_io: Box<dyn MidiIO<Port=T> + Send>) -> Self {
         Self { midi_io, port: Box::new(None), ports: Box::new(Vec::new()) }
     }
 
@@ -47,28 +48,29 @@ impl<T: Clone + Send + 'static> Io<T> {
     }
 }
 
-pub trait MidiIo: Send {
-    fn port(&self) -> Option<&dyn IoPort>;
-    fn port_names(&self) -> Vec<String>;
-    fn populate_ports(&mut self, persisted_port_name: &str) -> Result<(), Box<dyn Error>>;
+/// Not "MidiIo", which is too similar to the midir trait MidiIO.
+pub trait IIo: Send {
+    fn device(&self) -> Option<&dyn IoDevice>;
+    fn device_names(&self) -> Vec<String>;
+    fn populate_devices(&mut self, persisted_device_name: &str) -> Result<(), Box<dyn Error>>;
 }
 
-impl<T: Clone + Send + 'static> MidiIo for Io<T> {
-    fn port(&self) -> Option<&dyn IoPort> {
+impl<T: Clone + Send + 'static> IIo for Io<T> {
+    fn device(&self) -> Option<&dyn IoDevice> {
         self.port
             .as_ref()               // Box<Option<...>> -> &Option<...>
             .as_ref()               // &Option<...> -> Option<&...>
-            .map(|p| p as &dyn IoPort)
+            .map(|p| p as &dyn IoDevice)
     }
 
-    fn port_names(&self) -> Vec<String> {
+    fn device_names(&self) -> Vec<String> {
         self.ports
             .iter()
-            .map(|port| port.name.clone())
+            .map(|port| port.device_name.clone())
             .collect()
     }
 
-    fn populate_ports(&mut self, persisted_port_name: &str) -> Result<(), Box<dyn Error>> {
+    fn populate_devices(&mut self, persisted_device_name: &str) -> Result<(), Box<dyn Error>> {
         self.ports.clear();
         self.ports.extend(
             self.midi_io.ports().iter()
@@ -77,7 +79,7 @@ impl<T: Clone + Send + 'static> MidiIo for Io<T> {
                     let name = self.midi_io.port_name(port).unwrap_or_default();
                     Port {
                         index,
-                        name,
+                        device_name: name,
                         midi_port: Box::new(port.clone()),
                     }
                 })
@@ -85,7 +87,7 @@ impl<T: Clone + Send + 'static> MidiIo for Io<T> {
         self.port = Box::new(
             self.ports
                 .iter()
-                .find(|port| port.name == persisted_port_name)
+                .find(|port| port.device_name == persisted_device_name)
                 .cloned()
         );
         Ok(())

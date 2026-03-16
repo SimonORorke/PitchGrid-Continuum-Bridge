@@ -54,22 +54,22 @@ export component MainWindow inherits MagicWindow {
         pitchgrid_status_text.message_type = message_type;
     }
 
-    in property input_ports_model <=> midi_io.input_ports_model;
+    in property input_devices_model <=> midi_io.input_devices_model;
     in-out property <int> input_selected_port_index <=> midi_io.input_selected_port_index;
     public function input_focus() {
         midi_io.input_focus();
     }
-    public function input_show_connected_port_name(name: string, message_type: SlintMessageType) {
-        midi_io.input_show_connected_port_name(name, message_type);
+    public function input_show_connected_device_name(name: string, message_type: SlintMessageType) {
+        midi_io.input_show_connected_device_name(name, message_type);
     }
 
-    in property output_ports_model <=> midi_io.output_ports_model;
+    in property output_devices_model <=> midi_io.output_devices_model;
     in-out property <int> output_selected_port_index <=> midi_io.output_selected_port_index;
     public function output_focus() {
         midi_io.output_focus();
     }
-    public function output_show_connected_port_name(name: string, message_type: SlintMessageType) {
-        midi_io.output_show_connected_port_name(name, message_type);
+    public function output_show_connected_device_name(name: string, message_type: SlintMessageType) {
+        midi_io.output_show_connected_device_name(name, message_type);
     }
 
     VerticalLayout {

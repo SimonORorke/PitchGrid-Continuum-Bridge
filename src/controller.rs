@@ -30,13 +30,13 @@ impl Controller {
     pub fn init(&mut self) {
         // println!("Controller.init");
         let pitch_table_no: u8;
-        let input_port_name: String;
-        let output_port_name: String;
+        let input_device_name: String;
+        let output_device_name: String;
         // println!("Controller.init: Reading settings");
         match self.settings.read_from_file() {
             Ok(_) => {
-                input_port_name = self.settings.midi_input_port.clone();
-                output_port_name = self.settings.midi_output_port.clone();
+                input_device_name = self.settings.midi_input_device.clone();
+                output_device_name = self.settings.midi_output_device.clone();
                 pitch_table_no = max(tuner::default_pitch_table_no(), self.settings.pitch_table);
             }
             Err(err) => {
@@ -48,7 +48,7 @@ impl Controller {
         let midi = self.midi_static_clone();
         let mut midi_guard = midi.lock().unwrap();
         if let Err(err) = midi_guard.init(
-            &input_port_name, &output_port_name) {
+            &input_device_name, &output_device_name) {
             self.show_error(&err.to_string());
             return;
         }
@@ -68,17 +68,17 @@ impl Controller {
                 controller.lock().unwrap().on_tuning_updated();
             }
         }));
-        drop(midi_guard); // Release MIDI lock before calling port_names which needs to acquire it
+        drop(midi_guard); // Release MIDI lock before calling device_names which needs to acquire it
         let input_strategy = InputStrategy::new();
         let output_strategy = OutputStrategy::new();
         // println!("Controller.init: Getting input port names");
-        let input_port_names = self.port_names(&input_strategy);
-        // println!("Controller.init: Got {} input port names", input_port_names.len());
+        let input_device_names = self.device_names(&input_strategy);
+        // println!("Controller.init: Got {} input port names", input_device_names.len());
         // println!("Controller.init: About to call callbacks.set_ports_model");
-        self.callbacks.set_ports_model(&input_port_names, &input_strategy);
+        self.callbacks.set_ports_model(&input_device_names, &input_strategy);
         // println!("Controller.init: Called callbacks.set_ports_model");
         // println!("Controller.init: Setting output ports model");
-        self.callbacks.set_ports_model(&self.port_names(&output_strategy), &output_strategy);
+        self.callbacks.set_ports_model(&self.device_names(&output_strategy), &output_strategy);
         // println!("Controller.init: Connecting initial ports");
         self.connect_initial_port(&input_strategy);
         self.connect_initial_port(&output_strategy);
@@ -123,7 +123,7 @@ impl Controller {
         let midi = self.midi_static_clone();
         let maybe_index = {
             let midi_guard = midi.lock().unwrap();
-            midi_guard.io(port_strategy).port().as_ref()
+            midi_guard.io(port_strategy).device().as_ref()
                 .map(|port| port.index())
         };
         if let Some(index) = maybe_index {
@@ -149,13 +149,13 @@ impl Controller {
         // println!("Controller.connect_port: Connecting selected port");
         self.connect_selected_port(&midi, &*port_strategy);
         // println!("Controller.connect_port: Getting port");
-        let port_name_opt: Option<String> = midi.lock().unwrap()
+        let device_name_opt: Option<String> = midi.lock().unwrap()
             .io(&*port_strategy)
-            .port()
+            .device()
             .map(|p| p.name().to_string());
         // println!("Controller.connect_port: Got port");
-        if let Some(port_name) = port_name_opt {
-            self.show_info(port_strategy.msg_connected(&port_name));
+        if let Some(device_name) = device_name_opt {
+            self.show_info(port_strategy.msg_connected(&device_name));
             // println!("Controller.connect_port: Getting midi_guard");
             let midi_guard = midi.lock().unwrap();
             // println!("Controller.connect_port: Got midi_guard");
@@ -183,7 +183,7 @@ impl Controller {
             // println!("Controller.connect_selected_port: Getting midi_guard.");
             let mut midi_guard = midi.lock().unwrap();
             // println!("Controller.connect_selected_port: Got midi_guard.");
-            let Some(name) = midi_guard.io(port_strategy).port_names().get(index).cloned()
+            let Some(name) = midi_guard.io(port_strategy).device_names().get(index).cloned()
             else {
                 return;
             };
@@ -194,7 +194,7 @@ impl Controller {
         };
         match ui_action {
             Ok(name) => {
-                self.show_connected_port_name(&name, port_strategy);
+                self.show_connected_device_name(&name, port_strategy);
             }
             Err(message) => {
                 self.show_no_port_connected(port_strategy);
@@ -203,11 +203,11 @@ impl Controller {
         }
     }
 
-    fn port_names(&self, port_strategy: &dyn PortStrategy) -> Vec<String> {
+    fn device_names(&self, port_strategy: &dyn PortStrategy) -> Vec<String> {
         let midi = self.midi_static_clone();
-        // println!("Controller.port_names: Got midi");
+        // println!("Controller.device_names: Got midi");
         let midi_guard = midi.lock().unwrap();
-        midi_guard.io(port_strategy).port_names()
+        midi_guard.io(port_strategy).device_names()
     }
 
     pub fn refresh_ports(&mut self, port_strategy: &dyn PortStrategy) {
@@ -215,14 +215,14 @@ impl Controller {
         let osc = self.osc_static_clone();
         let port_strategy = port_strategy.clone_box();
         self.stop_osc_and_instru_connection_monitor(&midi, &osc);
-        let port_name = port_strategy.port_setting(&self.settings).to_string();
+        let device_name = port_strategy.port_setting(&self.settings).to_string();
         if let Err(err) = midi.lock().unwrap().refresh_ports(
-            &port_name, &*port_strategy) {
+            &device_name, &*port_strategy) {
             self.show_error(&err.to_string());
             return;
         }
         self.show_pitchgrid_disconnected();
-        self.callbacks.set_ports_model(&self.port_names(&*port_strategy), &*port_strategy);
+        self.callbacks.set_ports_model(&self.device_names(&*port_strategy), &*port_strategy);
         self.show_no_port_connected(&*port_strategy);
         self.show_warning(port_strategy.msg_refreshed_reconnect());
     }
@@ -291,20 +291,20 @@ impl Controller {
         Arc::clone(&OSC)
     }
 
-    fn show_connected_port_name(
-        &mut self, port_name: &str, port_strategy: &dyn PortStrategy) {
-        let message_type = if port_name == PORT_NONE {
+    fn show_connected_device_name(
+        &mut self, device_name: &str, port_strategy: &dyn PortStrategy) {
+        let message_type = if device_name == PORT_NONE {
             MessageType::Warning
         } else {
             MessageType::Info
         };
-        let port_setting = if port_name == PORT_NONE {
+        let port_setting = if device_name == PORT_NONE {
             ""
         } else {
-            port_name
+            device_name
         };
         port_strategy.set_port_setting(&mut self.settings, port_setting);
-        self.callbacks.show_connected_port_name(port_name, message_type, port_strategy);
+        self.callbacks.show_connected_device_name(device_name, message_type, port_strategy);
     }
 
     fn show_error(&self, message: &str) {
@@ -317,7 +317,7 @@ impl Controller {
 
     fn show_no_port_connected(
         &mut self, port_strategy: &dyn PortStrategy) {
-        self.show_connected_port_name(PORT_NONE, port_strategy);
+        self.show_connected_device_name(PORT_NONE, port_strategy);
     }
     
     fn show_pitchgrid_connected(&self) {
@@ -403,8 +403,8 @@ pub trait ControllerCallbacks: Send + Sync {
     fn focus_port(&self, port_strategy: &dyn PortStrategy);
     fn get_selected_port_index(&self, port_strategy: &dyn PortStrategy) -> usize;
     fn set_selected_port_index(&self, index: usize, port_strategy: &dyn PortStrategy);
-    fn set_ports_model(&self, port_names: &Vec<String>, port_strategy: &dyn PortStrategy);
-    fn show_connected_port_name(&self, name: &str, msg_type: MessageType, port_strategy: &dyn PortStrategy);
+    fn set_ports_model(&self, device_names: &Vec<String>, port_strategy: &dyn PortStrategy);
+    fn show_connected_device_name(&self, name: &str, msg_type: MessageType, port_strategy: &dyn PortStrategy);
     fn show_message(&self, msg: &str, msg_type: MessageType);
     fn show_pitchgrid_status(&self, status: &str, msg_type: MessageType);
     fn show_tuning(&self);

@@ -82,11 +82,11 @@ impl ControllerCallbacks for UiMethods {
         });
     }
 
-    fn set_ports_model(&self, port_names: &Vec<String>, port_strategy: &dyn PortStrategy) {
+    fn set_ports_model(&self, device_names: &Vec<String>, port_strategy: &dyn PortStrategy) {
         // println!("UiMethods.set_ports_model: START");
         // println!("UiMethods.set_ports_model: Creating port items from port names");
         let port_items: Vec<ComboBoxItem> =
-            port_names
+            device_names
                 .iter()
                 .map(|text| ComboBoxItem { text: text.into() })
                 .collect();
@@ -114,13 +114,13 @@ impl ControllerCallbacks for UiMethods {
         // println!("UiMethods.set_ports_model: END");
     }
 
-    fn show_connected_port_name(&self, name: &str, message_type: MessageType,
+    fn show_connected_device_name(&self, name: &str, message_type: MessageType,
                                 port_strategy: &dyn PortStrategy) {
         let port_strategy = port_strategy.clone_box();
-        let port_name = name.to_string();
+        let device_name = name.to_string();
         self.with_main_window(move |main_window| {
-            port_strategy.show_connected_port_name(
-                main_window, &port_name, slint_message_type(message_type));
+            port_strategy.show_connected_device_name(
+                main_window, &device_name, slint_message_type(message_type));
         });
     }
 

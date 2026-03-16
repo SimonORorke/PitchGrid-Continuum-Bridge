@@ -5,16 +5,16 @@ use crate::global::APP_TITLE;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Settings {
-    pub midi_input_port: String,
-    pub midi_output_port: String,
+    pub midi_input_device: String,
+    pub midi_output_device: String,
     pub pitch_table: u8,
 }
 
 impl Settings {
     pub fn new() -> Self {
         Self {
-            midi_input_port: String::new(),
-            midi_output_port: String::new(),
+            midi_input_device: String::new(),
+            midi_output_device: String::new(),
             pitch_table: 0,
         }
     }
@@ -52,11 +52,11 @@ impl Settings {
                 return Ok(());
             }
         };
-        self.midi_input_port = settings.midi_input_port;
-        self.midi_output_port = settings.midi_output_port;
+        self.midi_input_device = settings.midi_input_device;
+        self.midi_output_device = settings.midi_output_device;
         self.pitch_table = settings.pitch_table;
-        println!("Settings.read_from_file: self.midi_input_port = {}; self.midi_output_port = {}; \
-        self.pitch_table = {:?};", self.midi_input_port, self.midi_output_port, self.pitch_table);
+        println!("Settings.read_from_file: self.midi_input_device = {}; self.midi_output_device = {}; \
+        self.pitch_table = {:?};", self.midi_input_device, self.midi_output_device, self.pitch_table);
         Ok(())
     }
 
@@ -78,8 +78,8 @@ impl Settings {
                 Box::new(std::io::Error::new(e.kind(),
                 format!("Error writing settings file '{path}': {e}"))));
         }
-        println!("Settings.write_to_file: self.midi_input_port = {}; self.midi_output_port = {}; \
-        self.pitch_table = {:?};", self.midi_input_port, self.midi_output_port, self.pitch_table);
+        println!("Settings.write_to_file: self.midi_input_device = {}; self.midi_output_device = {}; \
+        self.pitch_table = {:?};", self.midi_input_device, self.midi_output_device, self.pitch_table);
         Ok(())
     }
 }

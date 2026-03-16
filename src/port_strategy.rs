@@ -2,7 +2,7 @@
 use crate::{MainWindow, ComboBoxItem, SlintMessageType};
 use crate::global::PortType;
 use crate::midi::Midi;
-use crate::midi_ports::MidiIo;
+use crate::midi_ports::IIo;
 use crate::settings::Settings;
 
 /// This trait is used to implement strategies that depend on whether a MIDI port is input or
@@ -11,7 +11,7 @@ use crate::settings::Settings;
 /// See Controller's doc comment for more information on how the project implements MVC.
 pub trait PortStrategy: Send + Sync {
     fn port_type(&self) -> &PortType;
-    fn io<'a>(&self, midi: &'a Midi) -> &'a dyn MidiIo;
+    fn io<'a>(&self, midi: &'a Midi) -> &'a dyn IIo;
 
     /// Makes a clone of the current strategy that needs to be used when cross-threading.
     /// The code is the same for all strategies. But the compiler does not allow it to be
@@ -20,15 +20,15 @@ pub trait PortStrategy: Send + Sync {
 
     fn focus_port(&self, main_window: &MainWindow);
     fn port_setting<'a>(&self, settings: &'a Settings) -> &'a str;
-    fn set_port_setting(&self, settings: &mut Settings, port_name: &str);
-    fn show_connected_port_name(
-        &self, main_window: &MainWindow, port_name: &str, message_type: SlintMessageType);
+    fn set_port_setting(&self, settings: &mut Settings, device_name: &str);
+    fn show_connected_device_name(
+        &self, main_window: &MainWindow, device_name: &str, message_type: SlintMessageType);
     fn set_ports_model(&self, main_window: &MainWindow, model: ModelRc<ComboBoxItem>);
     fn get_selected_port_index(&self, main_window: &MainWindow) -> i32;
     fn set_selected_port_index(&self, main_window: &MainWindow, index: i32);
-    fn msg_cannot_connect(&self, port_name: &str) -> &str;
+    fn msg_cannot_connect(&self, device_name: &str) -> &str;
     fn msg_connect(&self) -> &str;
-    fn msg_connected(&self, port_name: &str) -> &str;
+    fn msg_connected(&self, device_name: &str) -> &str;
     fn msg_not_selected(&self) -> &str;
     fn msg_refreshed_reconnect(&self) -> &str;
 }
@@ -48,7 +48,7 @@ impl PortStrategy for InputStrategy {
         &PortType::Input
     }
 
-    fn io<'a>(&self, midi: &'a Midi) -> &'a dyn MidiIo {
+    fn io<'a>(&self, midi: &'a Midi) -> &'a dyn IIo {
         midi.input()
     }
 
@@ -61,20 +61,20 @@ impl PortStrategy for InputStrategy {
     }
 
     fn port_setting<'a>(&self, settings: &'a Settings) -> &'a str {
-        &settings.midi_input_port
+        &settings.midi_input_device
     }
 
-    fn set_port_setting(&self, settings: &mut Settings, port_name: &str) {
-        settings.midi_input_port = port_name.into();
+    fn set_port_setting(&self, settings: &mut Settings, device_name: &str) {
+        settings.midi_input_device = device_name.into();
     }
 
-    fn show_connected_port_name(&self, main_window: &MainWindow, port_name: &str,
+    fn show_connected_device_name(&self, main_window: &MainWindow, device_name: &str,
                                 message_type: SlintMessageType) {
-        main_window.invoke_input_show_connected_port_name(port_name.into(), message_type);
+        main_window.invoke_input_show_connected_device_name(device_name.into(), message_type);
     }
 
     fn set_ports_model(&self, main_window: &MainWindow, model: ModelRc<ComboBoxItem>) {
-        main_window.set_input_ports_model(model);
+        main_window.set_input_devices_model(model);
     }
 
     fn get_selected_port_index(&self, main_window: &MainWindow) -> i32 {
@@ -88,17 +88,17 @@ impl PortStrategy for InputStrategy {
         main_window.set_input_selected_port_index(index);
     }
 
-    fn msg_cannot_connect(&self, port_name: &str) -> &str {
+    fn msg_cannot_connect(&self, device_name: &str) -> &str {
         Box::leak(format!("Cannot connect MIDI input port {}. The port may be in use.",
-                          port_name).into_boxed_str())
+                          device_name).into_boxed_str())
     }
 
     fn msg_connect(&self) -> &str {
         "Connect MIDI input port"
     }
 
-    fn msg_connected(&self, port_name: &str) -> &str {
-        Box::leak(format!("Connected MIDI input port {}", port_name).into_boxed_str())
+    fn msg_connected(&self, device_name: &str) -> &str {
+        Box::leak(format!("Connected MIDI input port {}", device_name).into_boxed_str())
     }
 
     fn msg_not_selected(&self) -> &str {
@@ -125,7 +125,7 @@ impl PortStrategy for OutputStrategy {
         &PortType::Output
     }
 
-    fn io<'a>(&self, midi: &'a Midi) -> &'a dyn MidiIo {
+    fn io<'a>(&self, midi: &'a Midi) -> &'a dyn IIo {
         midi.output()
     }
 
@@ -138,20 +138,20 @@ impl PortStrategy for OutputStrategy {
     }
 
     fn port_setting<'a>(&self, settings: &'a Settings) -> &'a str {
-        &settings.midi_output_port
+        &settings.midi_output_device
     }
 
-    fn set_port_setting(&self, settings: &mut Settings, port_name: &str) {
-        settings.midi_output_port = port_name.into();
+    fn set_port_setting(&self, settings: &mut Settings, device_name: &str) {
+        settings.midi_output_device = device_name.into();
     }
 
-    fn show_connected_port_name(&self, main_window: &MainWindow, port_name: &str,
+    fn show_connected_device_name(&self, main_window: &MainWindow, device_name: &str,
                                 message_type: SlintMessageType) {
-        main_window.invoke_output_show_connected_port_name(port_name.into(), message_type);
+        main_window.invoke_output_show_connected_device_name(device_name.into(), message_type);
     }
 
     fn set_ports_model(&self, main_window: &MainWindow, model: ModelRc<ComboBoxItem>) {
-        main_window.set_output_ports_model(model);
+        main_window.set_output_devices_model(model);
     }
 
     fn get_selected_port_index(&self, main_window: &MainWindow) -> i32 {
@@ -165,17 +165,17 @@ impl PortStrategy for OutputStrategy {
         main_window.set_output_selected_port_index(index);
     }
 
-    fn msg_cannot_connect(&self, port_name: &str) -> &str {
+    fn msg_cannot_connect(&self, device_name: &str) -> &str {
         Box::leak(format!("Cannot connect MIDI output port {}. The port may be in use.",
-                          port_name).into_boxed_str())
+                          device_name).into_boxed_str())
     }
 
     fn msg_connect(&self) -> &str {
         "Connect MIDI output port"
     }
 
-    fn msg_connected(&self, port_name: &str) -> &str {
-        Box::leak(format!("Connected MIDI output port {}", port_name).into_boxed_str())
+    fn msg_connected(&self, device_name: &str) -> &str {
+        Box::leak(format!("Connected MIDI output port {}", device_name).into_boxed_str())
     }
 
     fn msg_not_selected(&self) -> &str {
