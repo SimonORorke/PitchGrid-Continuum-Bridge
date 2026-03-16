@@ -21,7 +21,7 @@ export component MainWindow inherits MagicWindow {
     width: 700px;
     // Needs to be big enough to include everything down to the second status bar line.
     // Expands automatically if the status message does not fit.
-    min_height: 420px;
+    min_height: 440px;
     title: window_title;
     icon: Globals.icon;
     forward-focus: midi_io;
@@ -122,13 +122,13 @@ export component MainWindow inherits MagicWindow {
                     width: 55px;
                 }
             }
-            VerticalBox {
-                padding-top: 10px;
-                padding_right: 15px;
-                pitchgrid_status_text := MessageText {
-                    horizontal_alignment: right;
-                    vertical_alignment: top;
-                }
+        }
+        VerticalBox {
+            height: 25px;
+            padding-top: 5px;
+            pitchgrid_status_text := MessageText {
+                horizontal_alignment: center;
+                vertical_alignment: top;
             }
         }
         VerticalLayout {
