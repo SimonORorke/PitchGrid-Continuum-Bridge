@@ -23,7 +23,7 @@ pub trait PortStrategy: Send + Sync {
     fn set_port_setting(&self, settings: &mut Settings, device_name: &str);
     fn show_connected_device_name(
         &self, main_window: &MainWindow, device_name: &str, message_type: SlintMessageType);
-    fn set_ports_model(&self, main_window: &MainWindow, model: ModelRc<ComboBoxItem>);
+    fn set_devices_model(&self, main_window: &MainWindow, model: ModelRc<ComboBoxItem>);
     fn get_selected_port_index(&self, main_window: &MainWindow) -> i32;
     fn set_selected_port_index(&self, main_window: &MainWindow, index: i32);
     fn msg_cannot_connect(&self, device_name: &str) -> &str;
@@ -73,7 +73,7 @@ impl PortStrategy for InputStrategy {
         main_window.invoke_input_show_connected_device_name(device_name.into(), message_type);
     }
 
-    fn set_ports_model(&self, main_window: &MainWindow, model: ModelRc<ComboBoxItem>) {
+    fn set_devices_model(&self, main_window: &MainWindow, model: ModelRc<ComboBoxItem>) {
         main_window.set_input_devices_model(model);
     }
 
@@ -150,7 +150,7 @@ impl PortStrategy for OutputStrategy {
         main_window.invoke_output_show_connected_device_name(device_name.into(), message_type);
     }
 
-    fn set_ports_model(&self, main_window: &MainWindow, model: ModelRc<ComboBoxItem>) {
+    fn set_devices_model(&self, main_window: &MainWindow, model: ModelRc<ComboBoxItem>) {
         main_window.set_output_devices_model(model);
     }
 

@@ -74,11 +74,11 @@ impl Controller {
         // println!("Controller.init: Getting input port names");
         let input_device_names = self.device_names(&input_strategy);
         // println!("Controller.init: Got {} input port names", input_device_names.len());
-        // println!("Controller.init: About to call callbacks.set_ports_model");
-        self.callbacks.set_ports_model(&input_device_names, &input_strategy);
-        // println!("Controller.init: Called callbacks.set_ports_model");
+        // println!("Controller.init: About to call callbacks.set_devices_model");
+        self.callbacks.set_devices_model(&input_device_names, &input_strategy);
+        // println!("Controller.init: Called callbacks.set_devices_model");
         // println!("Controller.init: Setting output ports model");
-        self.callbacks.set_ports_model(&self.device_names(&output_strategy), &output_strategy);
+        self.callbacks.set_devices_model(&self.device_names(&output_strategy), &output_strategy);
         // println!("Controller.init: Connecting initial ports");
         self.connect_initial_port(&input_strategy);
         self.connect_initial_port(&output_strategy);
@@ -222,7 +222,7 @@ impl Controller {
             return;
         }
         self.show_pitchgrid_disconnected();
-        self.callbacks.set_ports_model(&self.device_names(&*port_strategy), &*port_strategy);
+        self.callbacks.set_devices_model(&self.device_names(&*port_strategy), &*port_strategy);
         self.show_no_port_connected(&*port_strategy);
         self.show_warning(port_strategy.msg_refreshed_reconnect());
     }
@@ -417,7 +417,7 @@ pub trait ControllerCallbacks: Send + Sync {
     fn focus_port(&self, port_strategy: &dyn PortStrategy);
     fn get_selected_port_index(&self, port_strategy: &dyn PortStrategy) -> usize;
     fn set_selected_port_index(&self, index: usize, port_strategy: &dyn PortStrategy);
-    fn set_ports_model(&self, device_names: &Vec<String>, port_strategy: &dyn PortStrategy);
+    fn set_devices_model(&self, device_names: &Vec<String>, port_strategy: &dyn PortStrategy);
     fn show_connected_device_name(&self, name: &str, msg_type: MessageType, port_strategy: &dyn PortStrategy);
     fn show_message(&self, msg: &str, msg_type: MessageType);
     fn show_pitchgrid_status(&self, status: &str, msg_type: MessageType);

@@ -82,36 +82,36 @@ impl ControllerCallbacks for UiMethods {
         });
     }
 
-    fn set_ports_model(&self, device_names: &Vec<String>, port_strategy: &dyn PortStrategy) {
-        // println!("UiMethods.set_ports_model: START");
-        // println!("UiMethods.set_ports_model: Creating port items from port names");
-        let port_items: Vec<ComboBoxItem> =
+    fn set_devices_model(&self, device_names: &Vec<String>, port_strategy: &dyn PortStrategy) {
+        // println!("UiMethods.set_devices_model: START");
+        // println!("UiMethods.set_devices_model: Creating port items from port names");
+        let device_items: Vec<ComboBoxItem> =
             device_names
                 .iter()
                 .map(|text| ComboBoxItem { text: text.into() })
                 .collect();
-        // println!("UiMethods.set_ports_model: Getting port type");
+        // println!("UiMethods.set_devices_model: Getting port type");
         let port_type = port_strategy.port_type().clone();
-        // println!("UiMethods.set_ports_model: Cloning port_strategy");
+        // println!("UiMethods.set_devices_model: Cloning port_strategy");
         let port_strategy = port_strategy.clone_box();
-        // println!("UiMethods.set_ports_model: Calling with_main_window");
+        // println!("UiMethods.set_devices_model: Calling with_main_window");
         self.with_main_window(move |main_window| {
-            // println!("UiMethods.set_ports_model: Inside with_main_window closure");
+            // println!("UiMethods.set_devices_model: Inside with_main_window closure");
             let model = match port_type {
                 PortType::Input => {
-                    let input_model = Rc::new(MainInputPortsModel(port_items.clone()));
+                    let input_model = Rc::new(MainInputPortsModel(device_items.clone()));
                     slint::ModelRc::from(input_model)
                 },
                 PortType::Output => {
-                    let output_model = Rc::new(MainOutputPortsModel(port_items.clone()));
+                    let output_model = Rc::new(MainOutputPortsModel(device_items.clone()));
                     slint::ModelRc::from(output_model)
                 },
             };
-            // println!("UiMethods.set_ports_model: Calling port_strategy.set_ports_model");
-            port_strategy.set_ports_model(main_window, model);
-            // println!("UiMethods.set_ports_model: Done with port_strategy.set_ports_model");
+            // println!("UiMethods.set_devices_model: Calling port_strategy.set_devices_model");
+            port_strategy.set_devices_model(main_window, model);
+            // println!("UiMethods.set_devices_model: Done with port_strategy.set_devices_model");
         });
-        // println!("UiMethods.set_ports_model: END");
+        // println!("UiMethods.set_devices_model: END");
     }
 
     fn show_connected_device_name(&self, name: &str, message_type: MessageType,
