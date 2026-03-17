@@ -409,17 +409,10 @@ impl Midi {
                         //              channel1, controller, value);
                         // }
                         if controller == 51 {
-                            // The pitch table has been updated and loaded.
-                            // This message means that the pitch table has been loaded,
-                            // which will have been requested after the pitch table update
-                            // was sent to the instrument.
-                            // The instrument does not notify us to confirm that the pitch table
-                            // has been updated. But now we effectively know that the pitch table
-                            // has been updated and loaded.
-                            // However, this message is also received as part of instrument config.
-                            // We really only need to notify the UI if we have just requested
-                            // a pitch table update, i.e when a tuning update has been received
-                            // from PitchGrid.
+                            // A pitch table has been loaded.
+                            // This message is received as part of instrument config,
+                            // and when a pitch table update sent to the instrument has been
+                            // completed and loaded.
                             // println!("midi.on_message_received: Pitch table loaded");
                             if IS_UPDATING_TUNING.load(Ordering::Relaxed) {
                                 println!("midi.on_message_received: Pitch table update confirmed");
