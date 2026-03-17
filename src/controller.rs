@@ -58,6 +58,11 @@ impl Controller {
                 controller.lock().unwrap().on_config_received();
             }
         }));
+        midi_guard.add_editor_data_download_completed_callback(Box::new(|| {
+            if let Some(controller) = CONTROLLER.get() {
+                controller.lock().unwrap().on_editor_data_download_completed();
+            }
+        }));
         midi_guard.add_instru_connected_changed_callback(Box::new(|| {
             if let Some(controller) = CONTROLLER.get() {
                 controller.lock().unwrap().on_instru_connected_changed();
@@ -257,16 +262,20 @@ impl Controller {
         }
     }
 
+    fn on_editor_data_download_completed(&self) {
+        // println!("Controller.on_editor_data_download_completed");
+        let midi = self.midi_static_clone();
+        let midi_guard = midi.lock().unwrap();
+        self.show_info("Getting instrument config...");
+        midi_guard.request_config();
+    }
+
     fn on_instru_connected_changed(&self) {
         // println!("Controller.on_instru_connected_changed");
         let midi = self.midi_static_clone();
         let midi_guard = midi.lock().unwrap();
         if midi_guard.is_instru_connected() {
-            self.show_info("Instrument is connected. Getting instrument config...");
-            // Ideally, we should not request config if the editor has just loaded,
-            // as it will already be receiving config data.
-            // That looks complicated, so we will allow a redundant request, for now at least.
-            midi_guard.request_config();
+            self.show_info("Awaiting editor data download completion...");
             return;
         }
         // Instrument is not connected. Stop OSC if running.

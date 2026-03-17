@@ -1,3 +1,4 @@
+use std::cmp::PartialEq;
 use lazy_static::lazy_static;
 use midir::{
     MidiInput, MidiInputConnection, MidiInputPort, MidiOutput, MidiOutputConnection, MidiOutputPort,
@@ -35,8 +36,16 @@ impl Midi {
         &mut self,
         callback: Box<dyn Fn() + Send + Sync + 'static>,
     ) {
-        // println!("Midi.add_tuning_updated_callback");
+        // println!("Midi.add_config_received_callback");
         CONFIG_RECEIVED_CALLBACKS.lock().unwrap().push(callback);
+    }
+
+    pub fn add_editor_data_download_completed_callback(
+        &mut self,
+        callback: Box<dyn Fn() + Send + Sync + 'static>,
+    ) {
+        // println!("Midi.add_editor_data_download_completed_callback");
+        EDITOR_DATA_DOWNLOAD_COMPLETED_CALLBACKS.lock().unwrap().push(callback);
     }
 
     pub fn add_instru_connected_changed_callback(
@@ -349,6 +358,7 @@ impl Midi {
         IS_INSTRU_CONNECTED.store(true, Ordering::Relaxed);
         if has_instru_just_connected {
             Self::call_back(INSTRU_CONNECTED_CHANGED_CALLBACKS.clone());
+            IS_AWAITING_EDITOR_DATA_DOWNLOAD_COMPLETED.store(true, Ordering::Relaxed);
         }
     }
 
@@ -419,6 +429,17 @@ impl Midi {
                                 IS_UPDATING_TUNING.store(false, Ordering::Relaxed);
                                 Self::call_back(TUNING_UPDATED_CALLBACKS.clone());
                             }
+                            return;
+                        }
+                        if controller == 109 {
+                            if value == 54 {
+                                *DOWNLOAD_STATUS.lock().unwrap() = DownloadStatus::BeginUserNames;
+                                return;
+                            }
+                            if value == 55 {
+                                *DOWNLOAD_STATUS.lock().unwrap() = DownloadStatus::EndUserNames;
+                                return;
+                            }
                         }
                         if controller == 56 && value == 20 {
                             // s_Mat_Poke: Start of Matrix stream
@@ -474,6 +495,11 @@ impl Midi {
                             // println!("Midi.on_message_received: config received");
                             IS_GETTING_CONFIG.store(false, Ordering::Relaxed);
                             Self::call_back(CONFIG_RECEIVED_CALLBACKS.clone());
+                            return;
+                        }
+                        let download_status = *DOWNLOAD_STATUS.lock().unwrap();
+                        if download_status == DownloadStatus::EndUserNames {
+                            *DOWNLOAD_STATUS.lock().unwrap() = DownloadStatus::None;
                         }
                     }
                 }
@@ -528,14 +554,26 @@ impl Midi {
     const OUTPUT_CLIENT_NAME: &str = "My MIDI Output";
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum DownloadStatus {
+    None,
+    BeginUserNames,
+    EndUserNames,
+    EndConfig,
+}
+
 lazy_static! {
     static ref CONFIG_RECEIVED_CALLBACKS:
+        Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>> = Arc::new(Mutex::new(Vec::new()));
+    static ref DOWNLOAD_STATUS: Arc<Mutex<DownloadStatus>> = Arc::new(Mutex::new(DownloadStatus::None));
+    static ref EDITOR_DATA_DOWNLOAD_COMPLETED_CALLBACKS:
         Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>> = Arc::new(Mutex::new(Vec::new()));
     /// Initial Preset Loading Surface Processing global setting
     static ref INITIAL_SURFACE_PROCESSING:
         Arc<Mutex<Option<PresetLoading>>> = Arc::new(Mutex::new(None));
     static ref INSTRU_CONNECTED_CHANGED_CALLBACKS:
         Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>> = Arc::new(Mutex::new(Vec::new()));
+    static ref IS_AWAITING_EDITOR_DATA_DOWNLOAD_COMPLETED: AtomicBool = AtomicBool::new(false);
     static ref IS_GETTING_CONFIG: AtomicBool = AtomicBool::new(false);
     static ref IS_INITIAL_MATRIX_STREAMING: AtomicBool = AtomicBool::new(false);
     static ref IS_INSTRU_CONNECTED: AtomicBool = AtomicBool::new(false);
