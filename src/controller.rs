@@ -363,10 +363,10 @@ impl Controller {
 }
 
 impl OscCallbacks for Mutex<Controller> {
-    fn on_osc_connected_changed(&self) {
-        // println!("OscCallbacks for Mutex<Controller>.on_osc_connected_changed");
+    fn on_osc_pitchgrid_connected_changed(&self) {
+        // println!("OscCallbacks for Mutex<Controller>.on_osc_pitchgrid_connected_changed");
         let controller = self.lock().unwrap();
-        controller.on_osc_connected_changed();
+        controller.on_osc_pitchgrid_connected_changed();
     }
 
     fn on_osc_tuning_received(&self, depth: i32, mode: i32, root_freq: f32, stretch: f32,
@@ -378,8 +378,8 @@ impl OscCallbacks for Mutex<Controller> {
 }
 
 impl OscCallbacks for Controller {
-    fn on_osc_connected_changed(&self) {
-        // println!("Controller.on_osc_connected_changed");
+    fn on_osc_pitchgrid_connected_changed(&self) {
+        // println!("Controller.on_osc_pitchgrid_connected_changed");
         let osc = self.osc_static_clone();
         let osc_guard = osc.lock().unwrap();
         if osc_guard.is_pitchgrid_connected() {

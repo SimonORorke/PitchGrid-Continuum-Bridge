@@ -201,7 +201,7 @@ impl Osc {
             if maybe_last_ack_time.is_none() {
                 if !has_initially_not_connected_callback_been_called {
                     has_initially_not_connected_callback_been_called = true;
-                    callbacks.on_osc_connected_changed();
+                    callbacks.on_osc_pitchgrid_connected_changed();
                 }
                 if let Ok(_) = stopper_receiver.recv_timeout(Duration::from_millis(500)) {
                     // Sleep was interrupted
@@ -219,13 +219,13 @@ impl Osc {
                 // println!("Osc.monitor_connection: not connected");
                 is_connected.store(false, Ordering::SeqCst);
                 if was_connected {
-                    callbacks.on_osc_connected_changed();
+                    callbacks.on_osc_pitchgrid_connected_changed();
                 }
             } else if time_since_ack <= Duration::from_secs(2)
                 && !was_connected { // Reconnected
                 // println!("Osc.monitor_connection: connected");
                 is_connected.store(true, Ordering::SeqCst);
-                callbacks.on_osc_connected_changed();
+                callbacks.on_osc_pitchgrid_connected_changed();
             }
             if let Ok(_) = stopper_receiver.recv_timeout(Duration::from_millis(500)) {
                 // Sleep was interrupted
@@ -264,7 +264,7 @@ impl Osc {
 }
 
 pub trait OscCallbacks: Send + Sync {
-    fn on_osc_connected_changed(&self);
+    fn on_osc_pitchgrid_connected_changed(&self);
 
     fn on_osc_tuning_received(&self,
                               depth: i32,
