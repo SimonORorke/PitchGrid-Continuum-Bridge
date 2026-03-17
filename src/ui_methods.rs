@@ -1,7 +1,7 @@
 ﻿use std::rc::Rc;
 use slint::Weak;
-use crate::{MainWindow, ComboBoxItem, SlintMessageType, InputPortsModel as MainInputPortsModel,
-            OutputPortsModel as MainOutputPortsModel};
+use crate::{MainWindow, ComboBoxItem, SlintMessageType, InputDevicesModel as MainInputDevicesModel,
+            OutputDevicesModel as MainOutputDevicesModel};
 use crate::controller::ControllerCallbacks;
 use crate::global::{MessageType, PortType};
 use crate::port_strategy::PortStrategy;
@@ -99,11 +99,11 @@ impl ControllerCallbacks for UiMethods {
             // println!("UiMethods.set_devices_model: Inside with_main_window closure");
             let model = match port_type {
                 PortType::Input => {
-                    let input_model = Rc::new(MainInputPortsModel(device_items.clone()));
+                    let input_model = Rc::new(MainInputDevicesModel(device_items.clone()));
                     slint::ModelRc::from(input_model)
                 },
                 PortType::Output => {
-                    let output_model = Rc::new(MainOutputPortsModel(device_items.clone()));
+                    let output_model = Rc::new(MainOutputDevicesModel(device_items.clone()));
                     slint::ModelRc::from(output_model)
                 },
             };

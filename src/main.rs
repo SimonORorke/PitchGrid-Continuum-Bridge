@@ -142,9 +142,9 @@ fn set_pitch_tables_model(main_window: &MainWindow) {
 
 type SharedController = Arc<Mutex<Controller>>;
 
-pub struct InputPortsModel(pub Vec<ComboBoxItem>);
+pub struct InputDevicesModel(pub Vec<ComboBoxItem>);
 
-impl slint::Model for InputPortsModel {
+impl slint::Model for InputDevicesModel {
     type Data = ComboBoxItem;
     fn row_count(&self) -> usize {
         self.0.len()
@@ -157,9 +157,9 @@ impl slint::Model for InputPortsModel {
     }
 }
 
-pub struct OutputPortsModel(pub Vec<ComboBoxItem>);
+pub struct OutputDevicesModel(pub Vec<ComboBoxItem>);
 
-impl slint::Model for OutputPortsModel {
+impl slint::Model for OutputDevicesModel {
     type Data = ComboBoxItem;
     fn row_count(&self) -> usize {
         self.0.len()
