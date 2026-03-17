@@ -126,6 +126,7 @@ fn update_tuning() {
     let pitch_table_no = data.pitch_table_no.load(Ordering::Relaxed);
     set_to_key_numbers(&mut keys);
     calculate_offsets(&mut keys);
+    Midi::on_updating_tuning();
     // To ensure that the tuning will be preserved when a new preset is loaded on the instrument,
     // set Preset Loading Surface Processing before updating the instrument's tuning and then
     // set it to Preserve after.

@@ -137,7 +137,7 @@ impl Midi {
     /// We currently only need the Preset Loading Surface Processing global setting.
     /// But the only way to get it is to request all the current preset and config data.
     pub fn request_config(&self) {
-        // println!("Midi.request_config");
+        println!("Midi.request_config");
         {
             *INITIAL_SURFACE_PROCESSING.lock().unwrap() = None;
             IS_GETTING_CONFIG.store(true, Ordering::Relaxed);
@@ -199,10 +199,6 @@ impl Midi {
         Self::send_control_change(16, 109, 8); // curGloToFlash
     }
 
-    pub fn set_is_pitchgrid_connected(&self, is_connected: bool) {
-        IS_PITCHGRID_CONNECTED.store(is_connected, Ordering::Relaxed);
-    }
-
     pub fn start_instru_connection_monitor(&mut self) {
         // println!("Midi.start_instru_connection_monitor");
         let (stopper_sender, stopper_receiver) = mpsc::channel();
@@ -227,6 +223,10 @@ impl Midi {
         // println!("Midi.stop_instru_connection_monitor: Stopped monitor thread.");
         self.is_connection_monitor_running = false;
         // println!("Midi.stop_instru_connection_monitor: Done.");
+    }
+
+    pub fn on_updating_tuning() {
+        IS_UPDATING_TUNING.store(true, Ordering::Relaxed);
     }
 
     /// Call the subscribed callback functions on a separate thread.
@@ -419,10 +419,11 @@ impl Midi {
                             // However, this message is also received as part of instrument config.
                             // We really only need to notify the UI if we have just requested
                             // a pitch table update, i.e when a tuning update has been received
-                            // from PitchGrid. But it should be good enough if we just
-                            // skip the notification if PitchGrid is not connected.
+                            // from PitchGrid.
                             // println!("midi.on_message_received: Pitch table loaded");
-                            if IS_PITCHGRID_CONNECTED.load(Ordering::Relaxed) {
+                            if IS_UPDATING_TUNING.load(Ordering::Relaxed) {
+                                println!("midi.on_message_received: Pitch table update confirmed");
+                                IS_UPDATING_TUNING.store(false, Ordering::Relaxed);
                                 Self::call_back(TUNING_UPDATED_CALLBACKS.clone());
                             }
                         }
@@ -546,7 +547,7 @@ lazy_static! {
     static ref IS_INITIAL_MATRIX_STREAMING: AtomicBool = AtomicBool::new(false);
     static ref IS_INSTRU_CONNECTED: AtomicBool = AtomicBool::new(false);
     static ref IS_MATRIX_STREAMING: AtomicBool = AtomicBool::new(false);
-    static ref IS_PITCHGRID_CONNECTED: AtomicBool = AtomicBool::new(false);
+    static ref IS_UPDATING_TUNING: AtomicBool = AtomicBool::new(false);
     static ref LAST_MESSAGE_RECEIVED_TIME: Mutex<Option<Instant>> = Mutex::new(None);
     static ref OUTPUT_CONNECTION: Mutex<Option<MidiOutputConnection>> = Mutex::new(None);
     static ref TUNING_UPDATED_CALLBACKS:

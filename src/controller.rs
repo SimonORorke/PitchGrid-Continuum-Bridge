@@ -380,16 +380,12 @@ impl OscCallbacks for Mutex<Controller> {
 impl OscCallbacks for Controller {
     fn on_osc_connected_changed(&self) {
         // println!("Controller.on_osc_connected_changed");
-        let midi = self.midi_static_clone();
-        let midi_guard = midi.lock().unwrap();
         let osc = self.osc_static_clone();
         let osc_guard = osc.lock().unwrap();
         if osc_guard.is_pitchgrid_connected() {
-            midi_guard.set_is_pitchgrid_connected(true);
             self.show_pitchgrid_connected();
             self.show_info("PitchGrid and instrument are connected.");
         } else {
-            midi_guard.set_is_pitchgrid_connected(false);
             self.show_pitchgrid_not_connected();
         }
     }
