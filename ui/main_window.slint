@@ -31,13 +31,16 @@ export component MainWindow inherits MagicWindow {
     in property stretch <=> stretch_value.text;
     in property skew <=> skew_value.text;
     in property mode_offset <=> mode_offset_value.text;
+    in property <int> selected_override_index;
     in property <int> selected_pitch_table_index;
     in property steps <=> steps_value.text;
+    in property overrides_model <=> overrides_combo.model;
     in property pitch_tables_model <=> pitch_tables_combo.model;
     in property <string> window_title;
 
     callback connect_port(port_type: SlintPortType);
     callback refresh_devices(port_type: SlintPortType);
+    callback selected_override_changed(index: int);
     callback selected_pitch_table_changed(index: int);
 
     function get_background_color() -> color {
@@ -120,6 +123,27 @@ export component MainWindow inherits MagicWindow {
                     }
                     height: Globals.control_height;
                     width: 55px;
+                }
+            }
+            HorizontalLayout {
+                alignment: end;
+                padding_right: 10px;
+                MagicText {
+                    text: "Root Freq Override:";
+                    vertical_alignment: center;
+                    width: 155px;
+                }
+                VerticalLayout {
+                    padding_top: 5px;
+                    padding_left: Globals.horizontal_padding;
+                    overrides_combo := ComboBox {
+                        current_index: root.selected_override_index;
+                        changed current_index => {
+                            root.selected_override_changed(self.current_index);
+                        }
+                        height: Globals.control_height;
+                        width: 55px;
+                    }
                 }
             }
         }

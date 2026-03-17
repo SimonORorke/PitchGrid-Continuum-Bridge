@@ -1,6 +1,6 @@
 use std::cmp::max;
 use std::sync::{Arc, Mutex};
-use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU8, AtomicUsize, Ordering};
 use lazy_static::lazy_static;
 use round::round;
 use crate::global::{PresetLoading, SharedMidi};
@@ -74,6 +74,19 @@ pub fn on_tuning_received(depth: i32, mode: i32, root_freq: f32, stretch: f32,
 fn calculate_key_pitches(depth: i32, mode: i32, root_freq: f32, stretch: f32,
                          skew: f32, mode_offset: i32, steps: i32) -> Vec<f32> {
     // println!("tuner.calculate_key_pitches");
+    let root_freq = {
+        if ROOT_FREQ_OVERRIDE_NOTE_NO.load(Ordering::Relaxed) == 0 {
+            // Override not required
+            println!("tuner.calculate_key_pitches: Override not required");
+            root_freq
+        } else {
+            let note_no = ROOT_FREQ_OVERRIDE_NOTE_NO.load(Ordering::Relaxed);
+            let pitch = DEFAULT_KEY_PITCHES[note_no];
+            println!("tuner.calculate_key_pitches: Overriding root freq with note {}, pitch {} Hz",
+                     note_no, pitch);
+            pitch
+        }
+    };
     let mos = ffi:: mos_from_g(
         depth,
         mode,
@@ -227,6 +240,18 @@ pub fn set_midi(midi: SharedMidi) {
     TUNER_DATA.lock().unwrap().midi = Some(midi);
 }
 
+pub fn set_root_freq_override(index: usize) {
+    let note_no = {
+        if index == 0 {
+            0usize // No override
+        } else {
+            index + 53 // E.g. for middle C, index = 7 note_no = 60.
+        }
+    };
+    println!("tuner.set_root_freq_override: index = {}, note_no = {}", index, note_no);
+    ROOT_FREQ_OVERRIDE_NOTE_NO.store(note_no, Ordering::Relaxed);
+}
+
 pub fn set_pitch_table_no(pitch_table_no: u8) {
     TUNER_DATA.lock().unwrap().pitch_table_no.store(pitch_table_no, Ordering::Relaxed);
 }
@@ -272,6 +297,15 @@ pub fn pitch_table_index() -> usize {
     let pitch_table_no = TUNER_DATA.lock().unwrap().pitch_table_no.load(Ordering::Relaxed);
     // Return the index of the PITCH_TABLE_NOS item that equals pitch_table_no.
     PITCH_TABLE_NOS.iter().position(|&x| x == pitch_table_no).unwrap_or(0)
+}
+
+pub fn override_names() -> Vec<String> {
+    vec!["".to_string(),
+         "F#".to_string(), "G".to_string(), "G#".to_string(),
+         "A".to_string(), "A#".to_string(), "B".to_string(),
+         "C".to_string(),
+         "C#".to_string(),"D".to_string(), "D#".to_string(),
+         "E".to_string(), "F".to_string(), ]
 }
 
 pub fn pitch_table_nos() -> Vec<u8> {
@@ -359,7 +393,6 @@ struct TunerData {
     keys:Arc<Vec<Key>>,
     is_already_updating: Arc<AtomicBool>,
     is_another_update_pending: Arc<AtomicBool>,
-    // is_pitchgrid_connected: Arc<AtomicBool>,
     /// About the name Pitch Table.
     /// The EaganMatrix Overlay Developer's Guide calls them tuning grids.
     /// But naming is inconsistent in the Continuum User Guide.
@@ -387,10 +420,10 @@ lazy_static! {
         keys: Arc::new(vec![]),
         is_already_updating: Arc::new(Default::default()),
         is_another_update_pending: Arc::new(Default::default()),
-        // is_pitchgrid_connected: Arc::new(Default::default()),
         midi: None,
         pitch_table_no: Arc::new(AtomicU8::new(default_pitch_table_no())),
     });
-    static ref PITCH_TABLE_NOS: Vec<u8> = (80..88).collect();
     static ref DEFAULT_KEY_PITCHES: Vec<f32> = create_default_key_pitches();
+    static ref PITCH_TABLE_NOS: Vec<u8> = (80..88).collect();
+    static ref ROOT_FREQ_OVERRIDE_NOTE_NO: AtomicUsize = AtomicUsize::new(0);
 }

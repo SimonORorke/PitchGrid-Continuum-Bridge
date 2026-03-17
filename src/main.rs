@@ -34,6 +34,7 @@ fn main() {
     )));
     Controller::set_controller(controller.clone());
     init_ui_handlers(&main_window, controller.clone());
+    set_overrides_model(&main_window);
     set_pitch_tables_model(&main_window);
 
     // Initialize controller on a background thread so that UI callbacks within
@@ -77,6 +78,15 @@ fn init_ui_handlers(main_window: &MainWindow, controller: SharedController) {
     }
     {
         let controller: SharedController = Arc::clone(&controller);
+        main_window.on_selected_override_changed(move |index| {
+            let controller = controller.clone();
+            rayon::spawn(move || {
+                controller.lock().unwrap().set_root_freq_override(index as usize);
+            });
+        });
+    }
+    {
+        let controller: SharedController = Arc::clone(&controller);
         main_window.on_selected_pitch_table_changed(move |index| {
             let controller = controller.clone();
             rayon::spawn(move || {
@@ -110,6 +120,15 @@ fn create_port_strategy(port_type: SlintPortType)
         SlintPortType::Input => InputStrategy::new().clone_box(),
         SlintPortType::Output => OutputStrategy::new().clone_box(),
     }
+}
+
+fn set_overrides_model(main_window: &MainWindow) {
+    let override_items: Vec<ComboBoxItem> = tuner::override_names()
+        .iter()
+        .map(|override_name| ComboBoxItem { text: override_name.into() })
+        .collect();
+    let model = Rc::new(OverridesModel(override_items));
+    main_window.set_overrides_model(slint::ModelRc::from(model));
 }
 
 fn set_pitch_tables_model(main_window: &MainWindow) {
@@ -147,6 +166,22 @@ impl slint::Model for OutputPortsModel {
     }
     fn row_data(&self, row: usize) -> Option<Self::Data> {
         self.0.get(row).cloned()
+    }
+    fn model_tracker(&self) -> &dyn slint::ModelTracker {
+        &()
+    }
+}
+
+struct OverridesModel(Vec<ComboBoxItem>);
+
+impl slint::Model for OverridesModel {
+    type Data = ComboBoxItem;
+    fn row_count(&self) -> usize {
+        self.0.len()
+    }
+    fn row_data(&self, row: usize) ->
+    Option<Self::Data> {
+        self.0.get(row).map(|x| x.clone())
     }
     fn model_tracker(&self) -> &dyn slint::ModelTracker {
         &()

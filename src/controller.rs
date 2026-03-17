@@ -232,6 +232,12 @@ impl Controller {
         CONTROLLER.set(controller).ok();
     }
 
+    pub fn set_root_freq_override(&mut self, index: usize) {
+        tuner::set_root_freq_override(index);
+        // We probably don't need a setting for this.
+        // The player should have to choose an override, if required, on startup.
+    }
+
     pub fn set_pitch_table_no(&mut self, index: usize) {
         let pitch_table_no = tuner::pitch_table_nos()[index];
         tuner::set_pitch_table_no(pitch_table_no);

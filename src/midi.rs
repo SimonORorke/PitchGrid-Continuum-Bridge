@@ -446,9 +446,9 @@ impl Midi {
                                     _ => PresetLoading::Preserve,
                                 };
                                 *initial_surface_processing = Option::from(preset_loading);
-                                println!(
-                                    "Midi.on_message_received: initial_surface_processing = {:?}",
-                                    preset_loading);
+                                // println!(
+                                //     "Midi.on_message_received: initial_surface_processing = {:?}",
+                                //     preset_loading);
                             }
                             // We are not waiting for anything else from the matrix stream,
                             // and it does not have an end-of-stream message.
