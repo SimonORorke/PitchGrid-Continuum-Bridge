@@ -44,7 +44,7 @@ impl Midi {
         &mut self,
         callback: Box<dyn Fn() + Send + Sync + 'static>,
     ) {
-        // println!("Midi.add_editor_data_download_completed_callback");
+        println!("Midi.add_editor_data_download_completed_callback");
         EDITOR_DATA_DOWNLOAD_COMPLETED_CALLBACKS.lock().unwrap().push(callback);
     }
 
@@ -90,6 +90,8 @@ impl Midi {
         }
         self.disconnect_input_port();
         self.disconnect_output_port();
+        self.stop_download_monitor();
+        self.stop_instru_connection_monitor();
     }
 
     pub fn connect_port(
@@ -97,6 +99,8 @@ impl Midi {
         index: usize,
         port_strategy: &dyn PortStrategy,
     ) -> Result<(), Box<dyn Error>> {
+        self.stop_download_monitor();
+        self.stop_instru_connection_monitor();
         match port_strategy.port_type() {
             PortType::Input => self.connect_input_port(index, port_strategy)?,
             PortType::Output => self.connect_output_port(index, port_strategy)?,
@@ -135,6 +139,8 @@ impl Midi {
         device_name: &str,
         port_strategy: &dyn PortStrategy,
     ) -> Result<(), Box<dyn Error>> {
+        self.stop_download_monitor();
+        self.stop_instru_connection_monitor();
         match port_strategy.port_type() {
             PortType::Input => self.refresh_input_devices(device_name)?,
             PortType::Output => self.refresh_output_devices(device_name)?,
@@ -220,7 +226,7 @@ impl Midi {
 
     pub fn stop_instru_connection_monitor(&mut self) {
         // println!("Midi.stop_instru_connection_monitor");
-        if self.is_connection_monitor_running {
+        if !self.is_connection_monitor_running {
             // println!("Midi.stop_instru_connection_monitor: Already stopped.");
             return;
         }
@@ -358,7 +364,26 @@ impl Midi {
         IS_INSTRU_CONNECTED.store(true, Ordering::Relaxed);
         if has_instru_just_connected {
             Self::call_back(INSTRU_CONNECTED_CHANGED_CALLBACKS.clone());
-            IS_AWAITING_EDITOR_DATA_DOWNLOAD_COMPLETED.store(true, Ordering::Relaxed);
+            println!("Midi.log_message_received_time: Starting download monitor.");
+            Self::start_download_monitor();
+        }
+    }
+    
+    fn monitor_editor_data_download(stopper_receiver: mpsc::Receiver<()>) {
+        println!("Midi.monitor_editor_data_download");
+        loop {
+            if let Ok(_) = stopper_receiver.recv_timeout(Duration::from_millis(200)) {
+                // Sleep was interrupted
+                return;
+            }
+            // Slept for 200ms, proceeding
+            let download_status = *DOWNLOAD_STATUS.lock().unwrap();
+            if download_status == DownloadStatus::None {
+                println!("Midi.monitor_editor_data_download: Download completed");
+                IS_DOWNLOAD_MONITOR_RUNNING.store(false, Ordering::Relaxed);
+                Self::call_back(EDITOR_DATA_DOWNLOAD_COMPLETED_CALLBACKS.clone());
+                return;
+            }
         }
     }
 
@@ -432,11 +457,23 @@ impl Midi {
                             return;
                         }
                         if controller == 109 {
+                            if value == 40 {
+                                println!("midi.on_message_received: EndSysNames");
+                                *DOWNLOAD_STATUS.lock().unwrap() = DownloadStatus::EndSysNames;
+                                return;
+                            }
+                            if value == 49 {
+                                println!("midi.on_message_received: BeginSysNames");
+                                *DOWNLOAD_STATUS.lock().unwrap() = DownloadStatus::BeginSysNames;
+                                return;
+                            }
                             if value == 54 {
+                                println!("midi.on_message_received: BeginUserNames");
                                 *DOWNLOAD_STATUS.lock().unwrap() = DownloadStatus::BeginUserNames;
                                 return;
                             }
                             if value == 55 {
+                                println!("midi.on_message_received: EndUserNames");
                                 *DOWNLOAD_STATUS.lock().unwrap() = DownloadStatus::EndUserNames;
                                 return;
                             }
@@ -498,7 +535,9 @@ impl Midi {
                             return;
                         }
                         let download_status = *DOWNLOAD_STATUS.lock().unwrap();
-                        if download_status == DownloadStatus::EndUserNames {
+                        if download_status == DownloadStatus::EndUserNames
+                            || download_status == DownloadStatus::EndSysNames {
+                            println!("Midi.on_message_received: End of download:");
                             *DOWNLOAD_STATUS.lock().unwrap() = DownloadStatus::None;
                         }
                     }
@@ -550,6 +589,32 @@ impl Midi {
         }
     }
 
+    fn start_download_monitor() {
+        println!("Midi.start_download_monitor");
+        let (stopper_sender, stopper_receiver) = mpsc::channel();
+        DOWNLOAD_MONITOR_STOPPER_SENDERS.lock().unwrap().push(stopper_sender);
+        IS_DOWNLOAD_MONITOR_RUNNING.store(true, Ordering::Relaxed);
+        rayon::spawn(move || {
+            Self::monitor_editor_data_download(stopper_receiver);
+        });
+    }
+
+    fn stop_download_monitor(&mut self) {
+        println!("Midi.stop_download_monitor");
+        if !IS_DOWNLOAD_MONITOR_RUNNING.load(Ordering::Relaxed) {
+            println!("Midi.stop_download_monitor: Already stopped.");
+            return;
+        }
+        for stopper_sender in DOWNLOAD_MONITOR_STOPPER_SENDERS.lock().unwrap().iter() {
+            stopper_sender.send(()).unwrap_or_else(|_| {
+                println!("Midi.stop_download_monitor: Failed to send stop signal to download monitor");
+            });
+        }
+        println!("Midi.stop_download_monitor: Stopped monitor thread.");
+        IS_DOWNLOAD_MONITOR_RUNNING.store(false, Ordering::Relaxed);
+        println!("Midi.stop_download_monitor: Done.");
+    }
+
     const INPUT_CLIENT_NAME: &str = "My MIDI Input";
     const OUTPUT_CLIENT_NAME: &str = "My MIDI Output";
 }
@@ -559,12 +624,15 @@ enum DownloadStatus {
     None,
     BeginUserNames,
     EndUserNames,
-    EndConfig,
+    BeginSysNames,
+    EndSysNames,
 }
 
 lazy_static! {
     static ref CONFIG_RECEIVED_CALLBACKS:
         Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>> = Arc::new(Mutex::new(Vec::new()));
+    static ref DOWNLOAD_MONITOR_STOPPER_SENDERS: Arc<Mutex<Vec<mpsc::Sender<()>>>> = 
+        Arc::new(Mutex::new(Vec::new()));
     static ref DOWNLOAD_STATUS: Arc<Mutex<DownloadStatus>> = Arc::new(Mutex::new(DownloadStatus::None));
     static ref EDITOR_DATA_DOWNLOAD_COMPLETED_CALLBACKS:
         Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>> = Arc::new(Mutex::new(Vec::new()));
@@ -573,7 +641,7 @@ lazy_static! {
         Arc<Mutex<Option<PresetLoading>>> = Arc::new(Mutex::new(None));
     static ref INSTRU_CONNECTED_CHANGED_CALLBACKS:
         Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>> = Arc::new(Mutex::new(Vec::new()));
-    static ref IS_AWAITING_EDITOR_DATA_DOWNLOAD_COMPLETED: AtomicBool = AtomicBool::new(false);
+    static ref IS_DOWNLOAD_MONITOR_RUNNING: AtomicBool = AtomicBool::new(false);
     static ref IS_GETTING_CONFIG: AtomicBool = AtomicBool::new(false);
     static ref IS_INITIAL_MATRIX_STREAMING: AtomicBool = AtomicBool::new(false);
     static ref IS_INSTRU_CONNECTED: AtomicBool = AtomicBool::new(false);

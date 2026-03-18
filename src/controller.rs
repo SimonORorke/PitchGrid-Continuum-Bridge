@@ -59,6 +59,7 @@ impl Controller {
             }
         }));
         midi_guard.add_editor_data_download_completed_callback(Box::new(|| {
+            println!("Controller.init: Adding download completed callback");
             if let Some(controller) = CONTROLLER.get() {
                 controller.lock().unwrap().on_editor_data_download_completed();
             }
@@ -263,7 +264,7 @@ impl Controller {
     }
 
     fn on_editor_data_download_completed(&self) {
-        // println!("Controller.on_editor_data_download_completed");
+        println!("Controller.on_editor_data_download_completed");
         let midi = self.midi_static_clone();
         let midi_guard = midi.lock().unwrap();
         self.show_info("Getting instrument config...");
@@ -275,6 +276,7 @@ impl Controller {
         let midi = self.midi_static_clone();
         let midi_guard = midi.lock().unwrap();
         if midi_guard.is_instru_connected() {
+            println!("Controller.on_instru_connected_changed: Awaiting editor data download completion.");
             self.show_info("Awaiting editor data download completion...");
             return;
         }
