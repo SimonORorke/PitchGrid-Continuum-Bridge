@@ -4,6 +4,7 @@ use std::sync::{Arc, Mutex};
 use std::sync::mpsc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
+use lazy_static::lazy_static;
 use rosc::{decoder, encoder, OscMessage, OscPacket, OscType};
 
 /// The socket addresses are as per the PitchGrid plugin docs:
@@ -14,7 +15,6 @@ use rosc::{decoder, encoder, OscMessage, OscPacket, OscType};
 ///         Heartbeat requirement: Client must send /pitchgrid/heartbeat at least once
 ///             every 2 seconds to maintain connection
 pub struct Osc {
-    is_pitchgrid_connected: Arc<AtomicBool>,
     is_running: bool,
     last_ack_time: Arc<Mutex<Option<Instant>>>,
     stopper_senders: Vec<mpsc::Sender<()>>,
@@ -23,7 +23,6 @@ pub struct Osc {
 impl Osc {
     pub fn new() -> Self {
         Self {
-            is_pitchgrid_connected: Arc::new(AtomicBool::new(false)),
             is_running: false,
             last_ack_time: Arc::new(Mutex::new(None)),
             stopper_senders: vec![],
@@ -35,9 +34,8 @@ impl Osc {
     }
 
     pub fn start(&mut self, callbacks: Arc<dyn OscCallbacks>) {
-        // println!("Osc.start");
-        let is_connected = self.is_pitchgrid_connected.clone();
-        if is_connected.load(Ordering::SeqCst) {
+        println!("Osc.start");
+        if self.is_pitchgrid_connected() {
             panic!("PitchGrid is already connected.");
         }
         let mut stopper_receivers: Vec<mpsc::Receiver<()>> = vec![];
@@ -68,14 +66,14 @@ impl Osc {
         });
         let callbacks_clone2 = callbacks.clone();
         rayon::spawn(move || {
-            Self::monitor_connection(is_connected, last_ack_time_clone, callbacks_clone2,
+            Self::monitor_connection(last_ack_time_clone, callbacks_clone2,
                                      monitor_stopper);
         });
     }
 
     pub fn stop(&mut self) {
         // println!("Osc.stop");
-        self.is_pitchgrid_connected.store(false, Ordering::SeqCst);
+        IS_PITCHGRID_CONNECTED.store(false, Ordering::SeqCst);
         // Stop the threads.
         for stopper_sender in self.stopper_senders.drain(..) {
             stopper_sender.send(()).unwrap();
@@ -83,11 +81,11 @@ impl Osc {
         let last_ack_time_clone = self.last_ack_time.clone();
         *last_ack_time_clone.lock().unwrap() = None;
         self.is_running = false;
-        // println!("Osc.stop: stopped OSC");
+        println!("Osc.stop: stopped OSC");
     }
 
     pub fn is_pitchgrid_connected(&self) -> bool {
-        self.is_pitchgrid_connected.load(Ordering::SeqCst)
+        IS_PITCHGRID_CONNECTED.load(Ordering::SeqCst)
     }
 
     pub fn is_running(&self) -> bool {
@@ -106,6 +104,11 @@ impl Osc {
             OscType::Int(steps),
         ] = args[..] {
             rayon::spawn(move || {
+                if !IS_PITCHGRID_CONNECTED.load(Ordering::SeqCst) {
+                    println!("Osc.handle_tuning: PitchGrid connected");
+                    IS_PITCHGRID_CONNECTED.store(true, Ordering::SeqCst);
+                    callbacks.on_osc_pitchgrid_connected_changed();
+                }
                 callbacks.on_osc_tuning_received(
                     depth, mode, root_freq, stretch, skew, mode_offset, steps);
             });
@@ -188,8 +191,7 @@ impl Osc {
     /// Monitors the connection status of the socket.
     /// PitchGrid will send us messages if we send a heartbeat message at least every 2 seconds.
     /// So, if we don't receive any messages for 2 seconds, PitchGrid is probably not connected.
-    fn monitor_connection(is_connected: Arc<AtomicBool>,
-                          last_ack_time: Arc<Mutex<Option<Instant>>>,
+    fn monitor_connection(last_ack_time: Arc<Mutex<Option<Instant>>>,
                           callbacks: Arc<dyn OscCallbacks>,
                           stopper_receiver: mpsc::Receiver<()>) {
         // println!("Osc.monitor_connection: starting");
@@ -212,21 +214,18 @@ impl Osc {
             }
             let last_ack_time = maybe_last_ack_time.unwrap();
             let time_since_ack = current_time.duration_since(last_ack_time);
-            let was_connected = is_connected.load(Ordering::SeqCst);
+            let was_connected = IS_PITCHGRID_CONNECTED.load(Ordering::SeqCst);
             // println!("current_time = {:?}, last_ack_time = {:?}, time_since_ack = {:?}, was_connected = {}",
             //          current_time, last_ack_time, time_since_ack, was_connected );
             if time_since_ack > Duration::from_secs(2) { // No ack for 2 seconds
                 // println!("Osc.monitor_connection: not connected");
-                is_connected.store(false, Ordering::SeqCst);
+                IS_PITCHGRID_CONNECTED.store(false, Ordering::SeqCst);
                 if was_connected {
                     callbacks.on_osc_pitchgrid_connected_changed();
                 }
-            } else if time_since_ack <= Duration::from_secs(2)
-                && !was_connected { // Reconnected
-                // println!("Osc.monitor_connection: connected");
-                is_connected.store(true, Ordering::SeqCst);
-                callbacks.on_osc_pitchgrid_connected_changed();
             }
+            // We don't want to notify connected here, as that will hav been done in real time
+            // in handle_tuning.
             if let Ok(_) = stopper_receiver.recv_timeout(Duration::from_millis(500)) {
                 // Sleep was interrupted
                 return;
@@ -263,6 +262,12 @@ impl Osc {
     }
 }
 
+const HANDSHAKE_ACK_ADDR: &str = "/pitchgrid/heartbeat/ack";
+const HANDSHAKE_ADDR: &str = "/pitchgrid/heartbeat";
+const LISTENING_PORT: u16 = 34561;
+const SEND_TO_PITCHGRID_PORT: u16 = 34562;
+const TUNING_ADDR: &str = "/pitchgrid/plugin/tuning";
+
 pub trait OscCallbacks: Send + Sync {
     fn on_osc_pitchgrid_connected_changed(&self);
 
@@ -276,8 +281,6 @@ pub trait OscCallbacks: Send + Sync {
                               steps: i32);
 }
 
-const HANDSHAKE_ACK_ADDR: &str = "/pitchgrid/heartbeat/ack";
-const HANDSHAKE_ADDR: &str = "/pitchgrid/heartbeat";
-const LISTENING_PORT: u16 = 34561;
-const SEND_TO_PITCHGRID_PORT: u16 = 34562;
-const TUNING_ADDR: &str = "/pitchgrid/plugin/tuning";
+lazy_static! {
+    static ref IS_PITCHGRID_CONNECTED: AtomicBool = AtomicBool::new(false);
+}

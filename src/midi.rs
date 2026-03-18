@@ -364,13 +364,13 @@ impl Midi {
         IS_INSTRU_CONNECTED.store(true, Ordering::Relaxed);
         if has_instru_just_connected {
             Self::call_back(INSTRU_CONNECTED_CHANGED_CALLBACKS.clone());
-            println!("Midi.log_message_received_time: Starting download monitor.");
+            println!("Midi.log_message_received_time: Starting download monitor");
             Self::start_download_monitor();
         }
     }
     
     fn monitor_editor_data_download(stopper_receiver: mpsc::Receiver<()>) {
-        println!("Midi.monitor_editor_data_download");
+        // println!("Midi.monitor_editor_data_download");
         loop {
             if let Ok(_) = stopper_receiver.recv_timeout(Duration::from_millis(200)) {
                 // Sleep was interrupted
@@ -529,7 +529,7 @@ impl Midi {
                         let is_getting_config = IS_GETTING_CONFIG.load(Ordering::Relaxed);
                         if is_getting_config {
                             // This is the last item sent when config has been requested.
-                            // println!("Midi.on_message_received: config received");
+                            println!("Midi.on_message_received: config received");
                             IS_GETTING_CONFIG.store(false, Ordering::Relaxed);
                             Self::call_back(CONFIG_RECEIVED_CALLBACKS.clone());
                             return;
@@ -590,7 +590,7 @@ impl Midi {
     }
 
     fn start_download_monitor() {
-        println!("Midi.start_download_monitor");
+        // println!("Midi.start_download_monitor");
         let (stopper_sender, stopper_receiver) = mpsc::channel();
         DOWNLOAD_MONITOR_STOPPER_SENDERS.lock().unwrap().push(stopper_sender);
         IS_DOWNLOAD_MONITOR_RUNNING.store(true, Ordering::Relaxed);
@@ -600,19 +600,19 @@ impl Midi {
     }
 
     fn stop_download_monitor(&mut self) {
-        println!("Midi.stop_download_monitor");
+        // println!("Midi.stop_download_monitor");
         if !IS_DOWNLOAD_MONITOR_RUNNING.load(Ordering::Relaxed) {
-            println!("Midi.stop_download_monitor: Already stopped.");
+            // println!("Midi.stop_download_monitor: Already stopped.");
             return;
         }
         for stopper_sender in DOWNLOAD_MONITOR_STOPPER_SENDERS.lock().unwrap().iter() {
             stopper_sender.send(()).unwrap_or_else(|_| {
-                println!("Midi.stop_download_monitor: Failed to send stop signal to download monitor");
+                // println!("Midi.stop_download_monitor: Failed to send stop signal to download monitor");
             });
         }
-        println!("Midi.stop_download_monitor: Stopped monitor thread.");
+        // println!("Midi.stop_download_monitor: Stopped monitor thread.");
         IS_DOWNLOAD_MONITOR_RUNNING.store(false, Ordering::Relaxed);
-        println!("Midi.stop_download_monitor: Done.");
+        // println!("Midi.stop_download_monitor: Done.");
     }
 
     const INPUT_CLIENT_NAME: &str = "My MIDI Input";

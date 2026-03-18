@@ -17,10 +17,10 @@ use crate::midi::Midi;
 ///         steps: Number of steps per period
 pub fn on_tuning_received(depth: i32, mode: i32, root_freq: f32, stretch: f32,
                           skew: f32, mode_offset: i32, steps: i32) {
-    // println!(
-    //     "tuner.on_tuning_received: depth = {}; mode = {}; root_freq = {}; stretch = {}; \
-    //     skew = {}; mode_offset = {}; steps = {}",
-    //     depth, mode, root_freq, stretch, skew, mode_offset, steps);
+    println!(
+        "tuner.on_tuning_received: depth = {}; mode = {}; root_freq = {}; stretch = {}; \
+        skew = {}; mode_offset = {}; steps = {}",
+        depth, mode, root_freq, stretch, skew, mode_offset, steps);
     let update_now:bool;
     {
         let mut data = TUNER_DATA.lock().unwrap();
@@ -74,19 +74,20 @@ pub fn on_tuning_received(depth: i32, mode: i32, root_freq: f32, stretch: f32,
 fn calculate_key_pitches(depth: i32, mode: i32, root_freq: f32, stretch: f32,
                          skew: f32, mode_offset: i32, steps: i32) -> Vec<f32> {
     // println!("tuner.calculate_key_pitches");
-    let root_freq = {
-        if ROOT_FREQ_OVERRIDE_NOTE_NO.load(Ordering::Relaxed) == 0 {
-            // Override not required
-            println!("tuner.calculate_key_pitches: Override not required");
-            root_freq
-        } else {
-            let note_no = ROOT_FREQ_OVERRIDE_NOTE_NO.load(Ordering::Relaxed);
-            let pitch = DEFAULT_KEY_PITCHES[note_no];
-            println!("tuner.calculate_key_pitches: Overriding root freq with note {}, pitch {} Hz",
-                     note_no, pitch);
-            pitch
-        }
-    };
+    // TODO: Uncomment override
+    // let root_freq = {
+    //     if ROOT_FREQ_OVERRIDE_NOTE_NO.load(Ordering::Relaxed) == 0 {
+    //         // Override not required
+    //         println!("tuner.calculate_key_pitches: Override not required");
+    //         root_freq
+    //     } else {
+    //         let note_no = ROOT_FREQ_OVERRIDE_NOTE_NO.load(Ordering::Relaxed);
+    //         let pitch = DEFAULT_KEY_PITCHES[note_no];
+    //         println!("tuner.calculate_key_pitches: Overriding root freq with note {}, pitch {} Hz",
+    //                  note_no, pitch);
+    //         pitch
+    //     }
+    // };
     let mos = ffi:: mos_from_g(
         depth,
         mode,
@@ -120,7 +121,7 @@ fn calculate_key_pitches(depth: i32, mode: i32, root_freq: f32, stretch: f32,
 }
 
 fn update_tuning() {
-    // println!("tuner.update_tuning");
+    println!("tuner.update_tuning");
     let data = TUNER_DATA.lock().unwrap();
     let mut keys = (*data.keys).clone();
     let pitch_table_no = data.pitch_table_no.load(Ordering::Relaxed);

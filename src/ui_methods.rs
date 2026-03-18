@@ -141,6 +141,7 @@ impl ControllerCallbacks for UiMethods {
     }
 
     fn show_tuning(&self) {
+        // println!("UiMethods.show_tuning");
         self.with_main_window(move |main_window| {
             let params = tuner::formatted_tuning_params();
             main_window.set_depth(params.depth.into());
