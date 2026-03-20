@@ -36,7 +36,7 @@ impl Osc {
     }
 
     pub fn start(&mut self, callbacks: Arc<dyn OscCallbacks>) {
-        println!("Osc.start");
+        // println!("Osc.start");
         if self.is_pitchgrid_connected() {
             panic!("PitchGrid is already connected.");
         }
@@ -83,7 +83,7 @@ impl Osc {
         let last_ack_time_clone = self.last_ack_time.clone();
         *last_ack_time_clone.lock().unwrap() = None;
         self.is_running = false;
-        println!("Osc.stop: stopped OSC");
+        // println!("Osc.stop: stopped OSC");
     }
 
     pub fn is_pitchgrid_connected(&self) -> bool {
@@ -107,7 +107,7 @@ impl Osc {
         ] = args[..] {
             rayon::spawn(move || {
                 if !IS_PITCHGRID_CONNECTED.load(Ordering::SeqCst) {
-                    println!("Osc.handle_tuning: PitchGrid connected");
+                    // println!("Osc.handle_tuning: PitchGrid connected");
                     IS_PITCHGRID_CONNECTED.store(true, Ordering::SeqCst);
                     callbacks.on_osc_pitchgrid_connected_changed();
                 }
@@ -115,7 +115,7 @@ impl Osc {
                     depth, mode, root_freq, stretch, skew, mode_offset, steps);
             });
         } else {
-            println!("Osc.handle_tuning Invalid tuning arguments.");
+            // println!("Osc.handle_tuning Invalid tuning arguments.");
         }
     }
 

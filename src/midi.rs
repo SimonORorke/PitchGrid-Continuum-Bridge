@@ -9,7 +9,7 @@ use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
-use crate::global::{PortType, PresetLoading};
+use crate::global::{PortType};
 use crate::midi_ports::{Io, IIo};
 use crate::port_strategy::PortStrategy;
 use crate::tuner;
@@ -33,19 +33,11 @@ impl Midi {
         }
     }
 
-    pub fn add_config_received_callback(
-        &mut self,
-        callback: Box<dyn Fn() + Send + Sync + 'static>,
-    ) {
-        // println!("Midi.add_config_received_callback");
-        CONFIG_RECEIVED_CALLBACKS.lock().unwrap().push(callback);
-    }
-
     pub fn add_editor_data_download_completed_callback(
         &mut self,
         callback: Box<dyn Fn() + Send + Sync + 'static>,
     ) {
-        println!("Midi.add_editor_data_download_completed_callback");
+        // println!("Midi.add_editor_data_download_completed_callback");
         EDITOR_DATA_DOWNLOAD_COMPLETED_CALLBACKS.lock().unwrap().push(callback);
     }
 
@@ -55,6 +47,14 @@ impl Midi {
     ) {
         // println!("Midi.add_tuning_updated_callback");
         INSTRU_CONNECTED_CHANGED_CALLBACKS.lock().unwrap().push(callback);
+    }
+
+    pub fn add_selected_preset_loaded_callback(
+        &mut self,
+        callback: Box<dyn Fn() + Send + Sync + 'static>,
+    ) {
+        // println!("Midi.add_selected_preset_loaded_callback");
+        SELECTED_PRESET_LOADED_CALLBACKS.lock().unwrap().push(callback);
     }
 
     pub fn add_tuning_updated_callback(&mut self, callback: Box<dyn Fn() + Send + Sync + 'static>) {
@@ -72,23 +72,6 @@ impl Midi {
 
     pub fn close(&mut self) {
         // println!("Midi.close");
-        {
-            if OUTPUT_CONNECTION.lock().unwrap().is_some() {
-                // println!("Midi.close: Cloning initial_surface_processing");
-                let initial_surface_processing =
-                    Arc::clone(&INITIAL_SURFACE_PROCESSING);
-                // println!("Midi.close: Getting initial_surface_processing guard");
-                let initial_surface_processing_guard =
-                    initial_surface_processing.lock().unwrap();
-                // println!("Midi.close: Getting initial_surface_processing");
-                if let Some(initial_surface_processing) =
-                        *initial_surface_processing_guard {
-                    // println!("Midi.close: Sending surface processing {:?}",
-                    //          initial_surface_processing);
-                    Self::send_surface_processing(initial_surface_processing);
-                }
-            }
-        }
         self.disconnect_input_port();
         self.disconnect_output_port();
         self.stop_download_monitor();
@@ -149,19 +132,6 @@ impl Midi {
         Ok(())
     }
 
-    /// Request instrument configuration data.
-    /// We currently only need the Preset Loading Surface Processing global setting.
-    /// But the only way to get it is to request all the current preset and config data.
-    pub fn request_config(&self) {
-        println!("Midi.request_config");
-        {
-            *INITIAL_SURFACE_PROCESSING.lock().unwrap() = None;
-            IS_GETTING_CONFIG.store(true, Ordering::Relaxed);
-            IS_INITIAL_MATRIX_STREAMING.store(false, Ordering::Relaxed);
-        }
-        Self::send_control_change(16, 109, 16); // configToMidi
-    }
-
     /// Send a MIDI control change message.
     /// Parameter `channel` is 1-based.
     pub fn send_control_change(channel: u8, cc_no: u8, value: u8) {
@@ -202,17 +172,6 @@ impl Midi {
                 program: program.into(),
             },
         );
-    }
-
-    /// Send Preset Loading Surface Processing global setting.
-    /// Haken Editor's display of the setting may not be updated.
-    pub fn send_surface_processing(on_preset_loading: PresetLoading) {
-        let poke_id = on_preset_loading as u8;
-        Self::send_matrix_poke(56, poke_id); // PreservSurf
-        // The editor then does this. It seems not to make a difference here.
-        // But let's do it anyway.
-        // Write current global settings to flash
-        Self::send_control_change(16, 109, 8); // curGloToFlash
     }
 
     pub fn start_instru_connection_monitor(&mut self) {
@@ -365,7 +324,7 @@ impl Midi {
         IS_INSTRU_CONNECTED.store(true, Ordering::Relaxed);
         if has_instru_just_connected {
             Self::call_back(INSTRU_CONNECTED_CHANGED_CALLBACKS.clone());
-            println!("Midi.log_message_received_time: Starting download monitor");
+            // println!("Midi.log_message_received_time: Starting download monitor");
             Self::start_download_monitor();
         }
     }
@@ -380,7 +339,7 @@ impl Midi {
             // Slept for 200ms, proceeding
             let download_status = *DOWNLOAD_STATUS.lock().unwrap();
             if download_status == DownloadStatus::None {
-                println!("Midi.monitor_editor_data_download: Download completed");
+                // println!("Midi.monitor_editor_data_download: Download completed");
                 IS_DOWNLOAD_MONITOR_RUNNING.store(false, Ordering::Relaxed);
                 Self::call_back(EDITOR_DATA_DOWNLOAD_COMPLETED_CALLBACKS.clone());
                 return;
@@ -438,114 +397,103 @@ impl Midi {
             LiveEvent::Midi { channel, message } => match message {
                 MidiMessage::Controller { controller, value } => {
                     let channel1 = u8::from(channel) + 1; // 1-based channel number.
-                    if channel1 == 16 {
-                        // if controller != 82 && controller != 111 && controller != 114
-                        //     && controller != 118 {  // Heartbeats ignored
-                        //     println!("Midi.on_message_received: ch{} cc{} value {}",
-                        //              channel1, controller, value);
-                        // }
-                        if controller == 51 { // Grid
-                            // println!("midi.on_message_received: Pitch table loaded");
-                            // A pitch table has been loaded to the instrument's current preset.
-                            // This message is received as part of instrument config,
-                            // and when a pitch table update sent to the instrument has been
-                            // completed and loaded.
-                            if IS_UPDATING_TUNING.load(Ordering::Relaxed) {
-                                // Check that the value is the correct pitch table index
-                                // for the tuning this application sent to the instrument.
-                                // When there have been problems at the instrument end,
-                                // it has sent back a ch16 cc51 messages, but with value 0.
-                                if u8::from(value) == tuner::pitch_table_no() {
-                                    println!("midi.on_message_received: Pitch table update confirmed");
-                                    IS_UPDATING_TUNING.store(false, Ordering::Relaxed);
-                                    Self::call_back(TUNING_UPDATED_CALLBACKS.clone());
-                                }
+                    if channel1 != 16 {
+                        return;
+                    }
+                    // Channel 16: the instrument's control channel for most parameters.
+                    // if controller != 82 && controller != 111 && controller != 114
+                    //     && controller != 118 {  // Heartbeats ignored
+                    //     println!("Midi.on_message_received: ch{} cc{} value {}",
+                    //              channel1, controller, value);
+                    // }
+                    if controller == 0 // Bank MSB
+                        // But if the editor were downloading the user preset list or the
+                        // system preset list, this would be one of many.
+                        && *DOWNLOAD_STATUS.lock().unwrap() == DownloadStatus::None {
+                        // The user is selecting a preset;
+                        // it's not part of the editor's initial download, after which we will
+                        // have already sent a tuning.
+                        // println!("midi.on_message_received: Preset selected, BankH");
+                        *PRESET_SELECT_STATUS.lock().unwrap() = PresetSelectStatus::BankH;
+                        return;
+                    }
+                    if controller == 51 { // Grid
+                        // println!("midi.on_message_received: Pitch table loaded");
+                        // A pitch table has been loaded to the instrument's current preset.
+                        // This message is received as part of instrument config,
+                        // and when a pitch table update sent to the instrument has been
+                        // completed and loaded.
+                        if IS_UPDATING_TUNING.load(Ordering::Relaxed) {
+                            // Check that the value is the correct pitch table index
+                            // for the tuning this application sent to the instrument.
+                            // When there have been problems at the instrument end,
+                            // it has sent back a ch16 cc51 messages, but with value 0.
+                            if u8::from(value) == tuner::pitch_table_no() {
+                                // println!("midi.on_message_received: Pitch table update confirmed");
+                                IS_UPDATING_TUNING.store(false, Ordering::Relaxed);
+                                Self::call_back(TUNING_UPDATED_CALLBACKS.clone());
                             }
+                        }
+                        return;
+                    }
+                    if controller == 109 {
+                        if value == 40 {
+                            // println!("midi.on_message_received: EndSysNames");
+                            *DOWNLOAD_STATUS.lock().unwrap() = DownloadStatus::EndSysNames;
                             return;
                         }
-                        if controller == 109 {
-                            if value == 40 {
-                                println!("midi.on_message_received: EndSysNames");
-                                *DOWNLOAD_STATUS.lock().unwrap() = DownloadStatus::EndSysNames;
-                                return;
-                            }
-                            if value == 49 {
-                                println!("midi.on_message_received: BeginSysNames");
-                                *DOWNLOAD_STATUS.lock().unwrap() = DownloadStatus::BeginSysNames;
-                                return;
-                            }
-                            if value == 54 {
-                                println!("midi.on_message_received: BeginUserNames");
-                                *DOWNLOAD_STATUS.lock().unwrap() = DownloadStatus::BeginUserNames;
-                                return;
-                            }
-                            if value == 55 {
-                                println!("midi.on_message_received: EndUserNames");
-                                *DOWNLOAD_STATUS.lock().unwrap() = DownloadStatus::EndUserNames;
-                                return;
-                            }
+                        if value == 49 {
+                            // println!("midi.on_message_received: BeginSysNames");
+                            *DOWNLOAD_STATUS.lock().unwrap() = DownloadStatus::BeginSysNames;
+                            return;
                         }
-                        if controller == 56 && value == 20 {
-                            // s_Mat_Poke: Start of Matrix stream
-                            // println!("midi.on_message_received: Start of Matrix stream");
-                            IS_MATRIX_STREAMING.store(true, Ordering::Relaxed);
-                            let initial_surface_processing =
-                                INITIAL_SURFACE_PROCESSING.lock().unwrap();
-                            if initial_surface_processing.is_none() {
-                                // println!(
-                                //     "Midi.on_message_received: Start of initial matrix stream");
-                                // This can happens twice before
-                                // initial_surface_processing is stored.
-                                // Probably when the editor is opened after this application,
-                                // as the editor will also request the config on startup.
-                                IS_INITIAL_MATRIX_STREAMING.store(true, Ordering::Relaxed);
-                            }
+                        if value == 54 {
+                            // println!("midi.on_message_received: BeginUserNames");
+                            *DOWNLOAD_STATUS.lock().unwrap() = DownloadStatus::BeginUserNames;
+                            return;
                         }
-                    }
-                }
-                MidiMessage::Aftertouch { key, vel } => {
-                    let channel1 = u8::from(channel) + 1; // 1-based channel number.
-                    if channel1 == 16 && key == 56 {
-                        if IS_MATRIX_STREAMING.load(Ordering::Relaxed) {
-                            // PreservSurf: Preset Loading Surface Processing (global)
-                            // println!("Midi.on_message_received: Surface Processing");
-                            if IS_INITIAL_MATRIX_STREAMING.load(Ordering::Relaxed) {
-                                let mut initial_surface_processing =
-                                    INITIAL_SURFACE_PROCESSING.lock().unwrap();
-                                let preset_loading: PresetLoading = match u8::from(vel) {
-                                    0 => PresetLoading::Replace,
-                                    _ => PresetLoading::Preserve,
-                                };
-                                *initial_surface_processing = Option::from(preset_loading);
-                                // We are not waiting for anything else from the matrix stream,
-                                // and it does not have an end-of-stream message.
-                                IS_INITIAL_MATRIX_STREAMING.store(false, Ordering::Relaxed);
-                                // println!(
-                                //     "Midi.on_message_received: initial_surface_processing = {:?}",
-                                //     preset_loading);
-                            }
-                            // We are not waiting for anything else from the matrix stream,
-                            // and it does not have an end-of-stream message.
-                            IS_MATRIX_STREAMING.store(false, Ordering::Relaxed);
+                        if value == 55 {
+                            // println!("midi.on_message_received: EndUserNames");
+                            *DOWNLOAD_STATUS.lock().unwrap() = DownloadStatus::EndUserNames;
+                            return;
                         }
                     }
                 }
                 MidiMessage::ProgramChange { .. } => {
                     let channel1 = u8::from(channel) + 1; // 1-based channel number.
                     if channel1 == 16 {
-                        let is_getting_config = IS_GETTING_CONFIG.load(Ordering::Relaxed);
-                        if is_getting_config {
-                            // This is the last item sent when config has been requested.
-                            println!("Midi.on_message_received: config received");
-                            IS_GETTING_CONFIG.store(false, Ordering::Relaxed);
-                            Self::call_back(CONFIG_RECEIVED_CALLBACKS.clone());
-                            return;
-                        }
+                        // println!("midi.on_message_received: ProgramChange");
                         let download_status = *DOWNLOAD_STATUS.lock().unwrap();
                         if download_status == DownloadStatus::EndUserNames
                             || download_status == DownloadStatus::EndSysNames {
-                            println!("Midi.on_message_received: End of download:");
+                            // println!("Midi.on_message_received: End of download:");
                             *DOWNLOAD_STATUS.lock().unwrap() = DownloadStatus::None;
+                            return;
+                        }
+                        let preset_select_status =
+                            *PRESET_SELECT_STATUS.lock().unwrap();
+                        match preset_select_status {
+                            PresetSelectStatus::None => {}
+                            PresetSelectStatus::BankH => {
+                                // The user is selecting a preset. The editor sends the preset's
+                                // zero-based program number after the bank.
+                                // println!("midi.on_message_received: Preset selected, Program");
+                                *PRESET_SELECT_STATUS.lock().unwrap() = PresetSelectStatus::None;
+                                Self::call_back(SELECTED_PRESET_LOADED_CALLBACKS.clone());
+                                return;
+                            }
+                            // We seem not to get this message when the user has selected a preset.
+                            // PresetSelectStatus::Program => {
+                            //     // The second program change message when the user has selected a
+                            //     // preset is the 1-based preset number that is the last item of
+                            //     // preset data sent by the instrument when loading the preset.
+                            //     // So the preset load is complete, and we now need to resend the
+                            //     // tuning.
+                            //     *PRESET_SELECT_STATUS.lock().unwrap() = PresetSelectStatus::None;
+                            //     println!("midi.on_message_received: Preset selected, loaded");
+                            //     Self::call_back(SELECTED_PRESET_LOADED_CALLBACKS.clone());
+                            //     return;
+                            // }
                         }
                     }
                 }
@@ -635,27 +583,30 @@ enum DownloadStatus {
     EndSysNames,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum PresetSelectStatus {
+    None,
+    BankH,
+    // Program,
+}
+
 lazy_static! {
-    static ref CONFIG_RECEIVED_CALLBACKS:
-        Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>> = Arc::new(Mutex::new(Vec::new()));
     static ref DOWNLOAD_MONITOR_STOPPER_SENDERS: Arc<Mutex<Vec<mpsc::Sender<()>>>> = 
         Arc::new(Mutex::new(Vec::new()));
     static ref DOWNLOAD_STATUS: Arc<Mutex<DownloadStatus>> = Arc::new(Mutex::new(DownloadStatus::None));
     static ref EDITOR_DATA_DOWNLOAD_COMPLETED_CALLBACKS:
         Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>> = Arc::new(Mutex::new(Vec::new()));
-    /// Initial Preset Loading Surface Processing global setting
-    static ref INITIAL_SURFACE_PROCESSING:
-        Arc<Mutex<Option<PresetLoading>>> = Arc::new(Mutex::new(None));
     static ref INSTRU_CONNECTED_CHANGED_CALLBACKS:
         Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>> = Arc::new(Mutex::new(Vec::new()));
     static ref IS_DOWNLOAD_MONITOR_RUNNING: AtomicBool = AtomicBool::new(false);
-    static ref IS_GETTING_CONFIG: AtomicBool = AtomicBool::new(false);
-    static ref IS_INITIAL_MATRIX_STREAMING: AtomicBool = AtomicBool::new(false);
     static ref IS_INSTRU_CONNECTED: AtomicBool = AtomicBool::new(false);
-    static ref IS_MATRIX_STREAMING: AtomicBool = AtomicBool::new(false);
     static ref IS_UPDATING_TUNING: AtomicBool = AtomicBool::new(false);
     static ref LAST_MESSAGE_RECEIVED_TIME: Mutex<Option<Instant>> = Mutex::new(None);
     static ref OUTPUT_CONNECTION: Mutex<Option<MidiOutputConnection>> = Mutex::new(None);
+    static ref PRESET_SELECT_STATUS: Arc<Mutex<PresetSelectStatus>> = 
+        Arc::new(Mutex::new(PresetSelectStatus::None));
+    static ref SELECTED_PRESET_LOADED_CALLBACKS:
+        Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>> = Arc::new(Mutex::new(Vec::new()));
     static ref TUNING_UPDATED_CALLBACKS:
         Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>> = Arc::new(Mutex::new(Vec::new()));
 }

@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, AtomicU8, AtomicUsize, Ordering};
 use lazy_static::lazy_static;
 use round::round;
-use crate::global::{PresetLoading, SharedMidi};
+use crate::global::{SharedMidi};
 use crate::midi::Midi;
 
 /// Update tuning parameters from the OSC message.
@@ -17,10 +17,10 @@ use crate::midi::Midi;
 ///         steps: Number of steps per period
 pub fn on_tuning_received(depth: i32, mode: i32, root_freq: f32, stretch: f32,
                           skew: f32, mode_offset: i32, steps: i32) {
-    println!(
-        "tuner.on_tuning_received: depth = {}; mode = {}; root_freq = {}; stretch = {}; \
-        skew = {}; mode_offset = {}; steps = {}",
-        depth, mode, root_freq, stretch, skew, mode_offset, steps);
+    // println!(
+    //     "tuner.on_tuning_received: depth = {}; mode = {}; root_freq = {}; stretch = {}; \
+    //     skew = {}; mode_offset = {}; steps = {}",
+    //     depth, mode, root_freq, stretch, skew, mode_offset, steps);
     let update_now:bool;
     {
         let mut data = TUNER_DATA.lock().unwrap();
@@ -120,21 +120,15 @@ fn calculate_key_pitches(depth: i32, mode: i32, root_freq: f32, stretch: f32,
 }
 
 fn update_tuning() {
-    println!("tuner.update_tuning");
+    // println!("tuner.update_tuning");
     let data = TUNER_DATA.lock().unwrap();
     let mut keys = (*data.keys).clone();
     let pitch_table_no = data.pitch_table_no.load(Ordering::Relaxed);
     set_to_key_numbers(&mut keys);
     calculate_offsets(&mut keys);
     Midi::on_updating_tuning();
-    // To ensure that the tuning will be preserved when a new preset is loaded on the instrument,
-    // set Preset Loading Surface Processing before updating the instrument's tuning and then
-    // set it to Preserve after.
-    // TODO: Do without surface processing
-    // Midi::send_surface_processing(PresetLoading::Replace);
     send_rounding_params(true);
     send_pitch_table(&keys, pitch_table_no);
-    // Midi::send_surface_processing(PresetLoading::Preserve);
 }
 
 /// Sets the to_number field of each Key in TUNER_DATA.keys to
@@ -237,7 +231,6 @@ pub fn formatted_tuning_params() -> FormattedTuningParams {
 }
 
 pub fn set_midi(midi: SharedMidi) {
-    // println!("tuner.set_midi");
     midi.lock().unwrap().add_tuning_updated_callback(Box::from(on_tuning_updated));
     TUNER_DATA.lock().unwrap().midi = Some(midi);
 }
@@ -316,6 +309,18 @@ pub fn pitch_table_no() -> u8 {
 
 pub fn pitch_table_nos() -> Vec<u8> {
     PITCH_TABLE_NOS.clone()
+}
+
+// If tuning data has previously been received, resends it to the instrument.
+// Returns whether tuning data was resent.
+pub fn resend_tuning() -> bool {
+    let update_now = TUNER_DATA.lock().unwrap().keys.len() > 0usize;
+    if update_now {
+        // Tuning data has previously been received.
+        // println!("tuner.resend_tuning: Resending tuning data to instrument.");
+        update_tuning();
+    }
+    update_now
 }
 
 /// Returns the default key pitches in Hz, where the default scale is 12-TET
