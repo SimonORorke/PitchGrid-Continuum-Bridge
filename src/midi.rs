@@ -479,7 +479,7 @@ impl Midi {
                                 // zero-based program number after the bank.
                                 // For unknown reason, this happens twice when a preset is loaded
                                 // from disc.
-                                println!("midi.on_message_received: Preset selected, Program");
+                                // println!("midi.on_message_received: Preset selected, Program");
                                 *PRESET_SELECT_STATUS.lock().unwrap() = PresetSelectStatus::None;
                                 Self::call_back(NEW_PRESET_SELECTED_CALLBACKS.clone());
                                 return;
@@ -537,12 +537,10 @@ impl Midi {
             OUTPUT_CONNECTION.lock().unwrap();
         // println!("Midi.send_message: Got connection");
         if let Some(connection) = connection_option.as_mut() {
-            connection
-                // unwrap_or_else sometimes freezes when showing the error message on close.
-                // unwrap will panic on error, which may give use better diagnostics.
-                .send(message).unwrap()
-                // .send(message)
-                // .unwrap_or_else(|_| println!("Error when sending message ..."));
+            // We want a panic on send failure, for stack trace diagnostics.
+            connection.send(message).unwrap_or_else(|_| {
+                panic!("Error when sending MIDI message: {:?}", message);
+            });
         }
     }
 

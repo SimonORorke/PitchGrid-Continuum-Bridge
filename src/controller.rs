@@ -238,10 +238,21 @@ impl Controller {
         CONTROLLER.set(controller).ok();
     }
 
+    /// Sets the root frequency override and sends it to the instrument, if connected.
+    /// We probably don't need a setting for this.
+    /// The player should have to choose an override, if required, on startup.
     pub fn set_root_freq_override(&mut self, index: usize) {
-        tuner::set_root_freq_override(index);
-        // We probably don't need a setting for this.
-        // The player should have to choose an override, if required, on startup.
+        let send_tuning = {
+            let midi = self.midi_static_clone();
+            let midi_guard = midi.lock().unwrap();
+            midi_guard.is_instru_connected()
+        };
+        if send_tuning {
+            self.callbacks.show_pitchgrid_status(
+                "Updating root frequency override...",
+                MessageType::Info);
+        }
+        tuner::set_root_freq_override(index, send_tuning);
     }
 
     pub fn set_pitch_table_no(&mut self, index: usize) {

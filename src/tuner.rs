@@ -21,7 +21,6 @@ pub fn on_tuning_received(depth: i32, mode: i32, root_freq: f32, stretch: f32,
     //     "tuner.on_tuning_received: depth = {}; mode = {}; root_freq = {}; stretch = {}; \
     //     skew = {}; mode_offset = {}; steps = {}",
     //     depth, mode, root_freq, stretch, skew, mode_offset, steps);
-    let update_now:bool;
     {
         let mut data = TUNER_DATA.lock().unwrap();
         data.tuning_params.depth = depth;
@@ -31,8 +30,22 @@ pub fn on_tuning_received(depth: i32, mode: i32, root_freq: f32, stretch: f32,
         data.tuning_params.skew = skew;
         data.tuning_params.mode_offset = mode_offset;
         data.tuning_params.steps = steps;
+    }
+    tune();
+}
+
+/// Calculates the tuning and either sends it to the instrument, provided another tuning update is
+/// not already in progress, or stores it for sending once the current update completes.
+/// This is decoupled from receiving the tuning parameters from PitchGrid, as additional parameters
+/// specified in the UI may need to be updated
+fn tune() {
+    let send_now:bool;
+    {
+        let mut data = TUNER_DATA.lock().unwrap();
+        let params = &data.tuning_params;
         let key_pitches = calculate_key_pitches(
-            max(1, depth), mode, root_freq, stretch, skew, mode_offset, max(1, steps));
+            max(1, params.depth), params.mode, params.root_freq, params.stretch, params.skew,
+            params.mode_offset, max(1, params.steps));
         data.keys = Arc::new(key_pitches.iter().enumerate()
             .map(|(i, pitch)| {
                 Key {
@@ -58,14 +71,14 @@ pub fn on_tuning_received(depth: i32, mode: i32, root_freq: f32, stretch: f32,
         // println!("tuner.on_tuning_received: is_already_updating = {is_already_updating}");
         if is_already_updating {
             data.is_another_update_pending.store(true, Ordering::Relaxed);
-            update_now = false;
+            send_now = false;
         } else {
             data.is_already_updating.store(true, Ordering::Relaxed);
-            update_now = true;
+            send_now = true;
         }
     }
-    if update_now {
-        update_tuning();
+    if send_now {
+        send_tuning();
     }
 }
 
@@ -75,15 +88,18 @@ fn calculate_key_pitches(depth: i32, mode: i32, root_freq: f32, stretch: f32,
                          skew: f32, mode_offset: i32, steps: i32) -> Vec<f32> {
     // println!("tuner.calculate_key_pitches");
     let root_freq = {
+        let mut override_freq = ROOT_FREQ_OVERRIDE.lock().unwrap();
         if ROOT_FREQ_OVERRIDE_NOTE_NO.load(Ordering::Relaxed) == 0 {
             // Override not required
             // println!("tuner.calculate_key_pitches: Override not required");
+            *override_freq = 0.0;
             root_freq
         } else {
             let note_no = ROOT_FREQ_OVERRIDE_NOTE_NO.load(Ordering::Relaxed);
             let pitch = DEFAULT_KEY_PITCHES[note_no];
             // println!("tuner.calculate_key_pitches: Overriding root freq with note {}, pitch {} Hz",
             //          note_no, pitch);
+            *override_freq = pitch;
             pitch
         }
     };
@@ -119,7 +135,19 @@ fn calculate_key_pitches(depth: i32, mode: i32, root_freq: f32, stretch: f32,
         .collect()
 }
 
-fn update_tuning() {
+/// If tuning data has previously been received, resends it to the instrument.
+/// Returns whether tuning data was resent.
+pub fn resend_tuning() -> bool {
+    let can_send = TUNER_DATA.lock().unwrap().keys.len() > 0usize;
+    if can_send {
+        // Tuning data has previously been received.
+        // println!("tuner.resend_tuning: Resending tuning data to instrument.");
+        send_tuning();
+    }
+    can_send
+}
+
+fn send_tuning() {
     // println!("tuner.update_tuning");
     let data = TUNER_DATA.lock().unwrap();
     let mut keys = (*data.keys).clone();
@@ -218,9 +246,18 @@ fn send_pitch_table(keys: &Vec<Key>, pitch_table_no: u8) {
 pub fn formatted_tuning_params() -> FormattedTuningParams {
     // println!("tuner.formatted_tuning_params");
     let data = TUNER_DATA.lock().unwrap();
+    // Show the root frequency override if there is one.
+    let root_freq = {
+      if ROOT_FREQ_OVERRIDE_NOTE_NO.load(Ordering::Relaxed) == 0 {
+          // No override
+          data.tuning_params.root_freq
+      } else {
+          ROOT_FREQ_OVERRIDE.lock().unwrap().clone()
+      }
+    };
     FormattedTuningParams {
         depth: format!("{}", data.tuning_params.depth),
-        root_freq: format!("{} Hz", round(data.tuning_params.root_freq as f64, 3)),
+        root_freq: format!("{} Hz", round(root_freq as f64, 3)),
         // The stretch parameter is in octaves, so we need to multiply by 1200 to get the
         // number of cents to display.
         stretch: format!("{} ct", (data.tuning_params.stretch * 1200.0).round()),
@@ -235,7 +272,8 @@ pub fn set_midi(midi: SharedMidi) {
     TUNER_DATA.lock().unwrap().midi = Some(midi);
 }
 
-pub fn set_root_freq_override(index: usize) {
+/// Sets the root frequency override and sends it to the instrument.
+pub fn set_root_freq_override(index: usize, send_tuning: bool) {
     let note_no = {
         if index == 0 {
             0usize // No override
@@ -243,8 +281,11 @@ pub fn set_root_freq_override(index: usize) {
             index + 53 // E.g. for middle C, index = 7 note_no = 60.
         }
     };
-    println!("tuner.set_root_freq_override: index = {}, note_no = {}", index, note_no);
+    // println!("tuner.set_root_freq_override: index = {}, note_no = {}", index, note_no);
     ROOT_FREQ_OVERRIDE_NOTE_NO.store(note_no, Ordering::Relaxed);
+    if send_tuning {
+        tune();
+    }
 }
 
 pub fn set_pitch_table_no(pitch_table_no: u8) {
@@ -256,21 +297,21 @@ pub fn default_pitch_table_no() -> u8 { 80 }
 fn on_tuning_updated() {
     // println!("tuner.on_tuning_updated");
     // See comment in on_tuning_received.
-    let update_again:bool;
+    let send_again:bool;
     {
         let data = TUNER_DATA.lock().unwrap();
         let is_another_update_pending = data.is_another_update_pending.load(Ordering::Relaxed);
         // println!("tuner.on_tuning_updated: is_another_update_pending = {is_another_update_pending}");
         if is_another_update_pending {
             data.is_another_update_pending.store(false, Ordering::Relaxed);
-            update_again = true;
+            send_again = true;
         } else {
             data.is_already_updating.store(false, Ordering::Relaxed);
-            update_again = false;
+            send_again = false;
         }
     }
-    if update_again {
-        update_tuning();
+    if send_again {
+        send_tuning();
     }
 }
 
@@ -311,18 +352,6 @@ pub fn pitch_table_nos() -> Vec<u8> {
     PITCH_TABLE_NOS.clone()
 }
 
-// If tuning data has previously been received, resends it to the instrument.
-// Returns whether tuning data was resent.
-pub fn resend_tuning() -> bool {
-    let update_now = TUNER_DATA.lock().unwrap().keys.len() > 0usize;
-    if update_now {
-        // Tuning data has previously been received.
-        // println!("tuner.resend_tuning: Resending tuning data to instrument.");
-        update_tuning();
-    }
-    update_now
-}
-
 /// Returns the default key pitches in Hz, where the default scale is 12-TET
 /// at standard concert pitch A=440.
 #[allow(unused)] // The compiler thinks this function is unused,
@@ -347,6 +376,7 @@ fn create_default_key_pitches() -> Vec<f32> {
         11175.302, 11839.817, 12543.852]
 }
 
+/// Interface to C++ code used in the key pitch frequency calculation.
 #[cxx::bridge(namespace = "scalatrix")]
 mod ffi {
     unsafe extern "C++" {
@@ -436,5 +466,6 @@ lazy_static! {
     });
     static ref DEFAULT_KEY_PITCHES: Vec<f32> = create_default_key_pitches();
     static ref PITCH_TABLE_NOS: Vec<u8> = (80..88).collect();
+    static ref ROOT_FREQ_OVERRIDE: Arc<Mutex<f32>> = Arc::new(Mutex::new(0.0));
     static ref ROOT_FREQ_OVERRIDE_NOTE_NO: AtomicUsize = AtomicUsize::new(0);
 }
