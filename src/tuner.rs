@@ -74,20 +74,19 @@ pub fn on_tuning_received(depth: i32, mode: i32, root_freq: f32, stretch: f32,
 fn calculate_key_pitches(depth: i32, mode: i32, root_freq: f32, stretch: f32,
                          skew: f32, mode_offset: i32, steps: i32) -> Vec<f32> {
     // println!("tuner.calculate_key_pitches");
-    // TODO: Uncomment override
-    // let root_freq = {
-    //     if ROOT_FREQ_OVERRIDE_NOTE_NO.load(Ordering::Relaxed) == 0 {
-    //         // Override not required
-    //         println!("tuner.calculate_key_pitches: Override not required");
-    //         root_freq
-    //     } else {
-    //         let note_no = ROOT_FREQ_OVERRIDE_NOTE_NO.load(Ordering::Relaxed);
-    //         let pitch = DEFAULT_KEY_PITCHES[note_no];
-    //         println!("tuner.calculate_key_pitches: Overriding root freq with note {}, pitch {} Hz",
-    //                  note_no, pitch);
-    //         pitch
-    //     }
-    // };
+    let root_freq = {
+        if ROOT_FREQ_OVERRIDE_NOTE_NO.load(Ordering::Relaxed) == 0 {
+            // Override not required
+            // println!("tuner.calculate_key_pitches: Override not required");
+            root_freq
+        } else {
+            let note_no = ROOT_FREQ_OVERRIDE_NOTE_NO.load(Ordering::Relaxed);
+            let pitch = DEFAULT_KEY_PITCHES[note_no];
+            // println!("tuner.calculate_key_pitches: Overriding root freq with note {}, pitch {} Hz",
+            //          note_no, pitch);
+            pitch
+        }
+    };
     let mos = ffi:: mos_from_g(
         depth,
         mode,
@@ -131,10 +130,11 @@ fn update_tuning() {
     // To ensure that the tuning will be preserved when a new preset is loaded on the instrument,
     // set Preset Loading Surface Processing before updating the instrument's tuning and then
     // set it to Preserve after.
-    Midi::send_surface_processing(PresetLoading::Replace);
+    // TODO: Do without surface processing
+    // Midi::send_surface_processing(PresetLoading::Replace);
     send_rounding_params(true);
     send_pitch_table(&keys, pitch_table_no);
-    Midi::send_surface_processing(PresetLoading::Preserve);
+    // Midi::send_surface_processing(PresetLoading::Preserve);
 }
 
 /// Sets the to_number field of each Key in TUNER_DATA.keys to
@@ -218,7 +218,7 @@ fn send_pitch_table(keys: &Vec<Key>, pitch_table_no: u8) {
     // Save pitch table on instrument.
     Midi::send_control_change(16, 109, 101);
     // Set active pitch table for performance.
-    Midi::send_control_change(16, 51, pitch_table_no);
+    Midi::send_control_change(16, 51, pitch_table_no); // Grid
 }
 
 pub fn formatted_tuning_params() -> FormattedTuningParams {
@@ -295,12 +295,6 @@ fn send_rounding_params(on: bool) {
     Midi::send_control_change(1, 25, rounding_rate_value); // RoundRate
 }
 
-pub fn pitch_table_index() -> usize {
-    let pitch_table_no = TUNER_DATA.lock().unwrap().pitch_table_no.load(Ordering::Relaxed);
-    // Return the index of the PITCH_TABLE_NOS item that equals pitch_table_no.
-    PITCH_TABLE_NOS.iter().position(|&x| x == pitch_table_no).unwrap_or(0)
-}
-
 pub fn override_names() -> Vec<String> {
     vec!["".to_string(),
          "F#".to_string(), "G".to_string(), "G#".to_string(),
@@ -308,6 +302,16 @@ pub fn override_names() -> Vec<String> {
          "C".to_string(),
          "C#".to_string(),"D".to_string(), "D#".to_string(),
          "E".to_string(), "F".to_string(), ]
+}
+
+pub fn pitch_table_index() -> usize {
+    let pitch_table_no = TUNER_DATA.lock().unwrap().pitch_table_no.load(Ordering::Relaxed);
+    // Return the index of the PITCH_TABLE_NOS item that equals pitch_table_no.
+    PITCH_TABLE_NOS.iter().position(|&x| x == pitch_table_no).unwrap_or(0)
+}
+
+pub fn pitch_table_no() -> u8 {
+    TUNER_DATA.lock().unwrap().pitch_table_no.load(Ordering::Relaxed)
 }
 
 pub fn pitch_table_nos() -> Vec<u8> {

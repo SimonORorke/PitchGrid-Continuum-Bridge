@@ -14,6 +14,8 @@ use rosc::{decoder, encoder, OscMessage, OscPacket, OscType};
 ///         Transport: UDP on localhost (127.0.0.1)
 ///         Heartbeat requirement: Client must send /pitchgrid/heartbeat at least once
 ///             every 2 seconds to maintain connection
+///         Likewise, PitchGrid will send /pitchgrid/heartbeat/ack to acknowledge heartbeats
+///         and therefore show that it's still going to send tunings.
 pub struct Osc {
     is_running: bool,
     last_ack_time: Arc<Mutex<Option<Instant>>>,
@@ -148,8 +150,8 @@ impl Osc {
                             // println!("Osc.listen: message received:");
                             *last_ack_time.lock().unwrap() = Some(Instant::now());
                             match msg.addr.as_str() {
-                                HANDSHAKE_ACK_ADDR => {
-                                    // println!("    {HANDSHAKE_ACK_ADDR}");
+                                HEARTBEAT_ACK_ADDR => {
+                                    // println!("    {HEARTBEAT_ACK_ADDR}");
                                 }
                                 TUNING_ADDR => {
                                     // println!("Osc.listen: Received {TUNING_ADDR}");
@@ -239,7 +241,7 @@ impl Osc {
     fn send_heartbeats(socket: UdpSocket, stopper_receiver: mpsc::Receiver<()>) {
         // println!("Osc.send_heartbeats: starting");
         let msg_buf = encoder::encode(&OscPacket::Message(OscMessage {
-            addr: HANDSHAKE_ADDR.to_string(),
+            addr: HEARTBEAT_ADDR.to_string(),
             args: vec![OscType::Int(1)],
         })).unwrap();
         let socket_to_addr = Self::create_socket_addr(SEND_TO_PITCHGRID_PORT);
@@ -262,8 +264,8 @@ impl Osc {
     }
 }
 
-const HANDSHAKE_ACK_ADDR: &str = "/pitchgrid/heartbeat/ack";
-const HANDSHAKE_ADDR: &str = "/pitchgrid/heartbeat";
+const HEARTBEAT_ACK_ADDR: &str = "/pitchgrid/heartbeat/ack";
+const HEARTBEAT_ADDR: &str = "/pitchgrid/heartbeat";
 const LISTENING_PORT: u16 = 34561;
 const SEND_TO_PITCHGRID_PORT: u16 = 34562;
 const TUNING_ADDR: &str = "/pitchgrid/plugin/tuning";

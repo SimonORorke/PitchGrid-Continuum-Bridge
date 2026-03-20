@@ -12,6 +12,7 @@ use std::time::{Duration, Instant};
 use crate::global::{PortType, PresetLoading};
 use crate::midi_ports::{Io, IIo};
 use crate::port_strategy::PortStrategy;
+use crate::tuner;
 
 pub struct Midi {
     connection_monitor_stopper_senders: Vec<mpsc::Sender<()>>,
@@ -443,16 +444,22 @@ impl Midi {
                         //     println!("Midi.on_message_received: ch{} cc{} value {}",
                         //              channel1, controller, value);
                         // }
-                        if controller == 51 {
-                            // A pitch table has been loaded.
+                        if controller == 51 { // Grid
+                            // println!("midi.on_message_received: Pitch table loaded");
+                            // A pitch table has been loaded to the instrument's current preset.
                             // This message is received as part of instrument config,
                             // and when a pitch table update sent to the instrument has been
                             // completed and loaded.
-                            // println!("midi.on_message_received: Pitch table loaded");
                             if IS_UPDATING_TUNING.load(Ordering::Relaxed) {
-                                println!("midi.on_message_received: Pitch table update confirmed");
-                                IS_UPDATING_TUNING.store(false, Ordering::Relaxed);
-                                Self::call_back(TUNING_UPDATED_CALLBACKS.clone());
+                                // Check that the value is the correct pitch table index
+                                // for the tuning this application sent to the instrument.
+                                // When there have been problems at the instrument end,
+                                // it has sent back a ch16 cc51 messages, but with value 0.
+                                if u8::from(value) == tuner::pitch_table_no() {
+                                    println!("midi.on_message_received: Pitch table update confirmed");
+                                    IS_UPDATING_TUNING.store(false, Ordering::Relaxed);
+                                    Self::call_back(TUNING_UPDATED_CALLBACKS.clone());
+                                }
                             }
                             return;
                         }
