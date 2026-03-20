@@ -49,12 +49,12 @@ impl Midi {
         INSTRU_CONNECTED_CHANGED_CALLBACKS.lock().unwrap().push(callback);
     }
 
-    pub fn add_selected_preset_loaded_callback(
+    pub fn add_new_preset_selected_callback(
         &mut self,
         callback: Box<dyn Fn() + Send + Sync + 'static>,
     ) {
-        // println!("Midi.add_selected_preset_loaded_callback");
-        SELECTED_PRESET_LOADED_CALLBACKS.lock().unwrap().push(callback);
+        // println!("Midi.add_new_preset_selected_callback");
+        NEW_PRESET_SELECTED_CALLBACKS.lock().unwrap().push(callback);
     }
 
     pub fn add_tuning_updated_callback(&mut self, callback: Box<dyn Fn() + Send + Sync + 'static>) {
@@ -479,7 +479,7 @@ impl Midi {
                                 // zero-based program number after the bank.
                                 // println!("midi.on_message_received: Preset selected, Program");
                                 *PRESET_SELECT_STATUS.lock().unwrap() = PresetSelectStatus::None;
-                                Self::call_back(SELECTED_PRESET_LOADED_CALLBACKS.clone());
+                                Self::call_back(NEW_PRESET_SELECTED_CALLBACKS.clone());
                                 return;
                             }
                             // We seem not to get this message when the user has selected a preset.
@@ -491,7 +491,7 @@ impl Midi {
                             //     // tuning.
                             //     *PRESET_SELECT_STATUS.lock().unwrap() = PresetSelectStatus::None;
                             //     println!("midi.on_message_received: Preset selected, loaded");
-                            //     Self::call_back(SELECTED_PRESET_LOADED_CALLBACKS.clone());
+                            //     Self::call_back(NEW_PRESET_SELECTED_CALLBACKS.clone());
                             //     return;
                             // }
                         }
@@ -602,11 +602,11 @@ lazy_static! {
     static ref IS_INSTRU_CONNECTED: AtomicBool = AtomicBool::new(false);
     static ref IS_UPDATING_TUNING: AtomicBool = AtomicBool::new(false);
     static ref LAST_MESSAGE_RECEIVED_TIME: Mutex<Option<Instant>> = Mutex::new(None);
+    static ref NEW_PRESET_SELECTED_CALLBACKS:
+        Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>> = Arc::new(Mutex::new(Vec::new()));
     static ref OUTPUT_CONNECTION: Mutex<Option<MidiOutputConnection>> = Mutex::new(None);
     static ref PRESET_SELECT_STATUS: Arc<Mutex<PresetSelectStatus>> = 
         Arc::new(Mutex::new(PresetSelectStatus::None));
-    static ref SELECTED_PRESET_LOADED_CALLBACKS:
-        Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>> = Arc::new(Mutex::new(Vec::new()));
     static ref TUNING_UPDATED_CALLBACKS:
         Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>> = Arc::new(Mutex::new(Vec::new()));
 }

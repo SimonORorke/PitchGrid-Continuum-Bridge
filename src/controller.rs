@@ -64,9 +64,9 @@ impl Controller {
             }
         }));
         // println!("Controller.init: Adding selected preset loaded callback");
-        midi_guard.add_selected_preset_loaded_callback(Box::new(|| {
+        midi_guard.add_new_preset_selected_callback(Box::new(|| {
             if let Some(controller) = CONTROLLER.get() {
-                controller.lock().unwrap().on_selected_preset_loaded();
+                controller.lock().unwrap().on_new_preset_selected();
             }
         }));
         midi_guard.add_tuning_updated_callback(Box::new(|| {
@@ -295,12 +295,12 @@ impl Controller {
             MessageType::Warning);
     }
 
-    fn on_selected_preset_loaded(&self) {
-        // println!("Controller.on_selected_preset_loaded");
+    fn on_new_preset_selected(&self) {
+        // println!("Controller.on_new_preset_selected");
         if tuner::resend_tuning() {
-            // println!("Controller.on_selected_preset_loaded: Resent");
+            // println!("Controller.on_new_preset_selected: Resent");
             self.callbacks.show_pitchgrid_status(
-                "New instrument preset loaded. Resent tuning...",
+                "New instrument preset selected. Resent tuning...",
                 MessageType::Info);
         }
     }
