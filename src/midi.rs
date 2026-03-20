@@ -477,7 +477,9 @@ impl Midi {
                             PresetSelectStatus::BankH => {
                                 // The user is selecting a preset. The editor sends the preset's
                                 // zero-based program number after the bank.
-                                // println!("midi.on_message_received: Preset selected, Program");
+                                // For unknown reason, this happens twice when a preset is loaded
+                                // from disc.
+                                println!("midi.on_message_received: Preset selected, Program");
                                 *PRESET_SELECT_STATUS.lock().unwrap() = PresetSelectStatus::None;
                                 Self::call_back(NEW_PRESET_SELECTED_CALLBACKS.clone());
                                 return;
