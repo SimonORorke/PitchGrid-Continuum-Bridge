@@ -153,6 +153,12 @@ impl ControllerCallbacks for UiMethods {
         });
     }
 
+    fn set_rounding(&self, is_rounding: bool) {
+        self.with_main_window(move |main_window| {
+            main_window.set_rounding(is_rounding);
+        });
+    }
+
     fn set_selected_pitch_table_index(&self, index: i32) {
         self.with_main_window(move |main_window| {
             main_window.set_selected_pitch_table_index(index);

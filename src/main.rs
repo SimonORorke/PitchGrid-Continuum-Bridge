@@ -87,6 +87,15 @@ fn init_ui_handlers(main_window: &MainWindow, controller: SharedController) {
     }
     {
         let controller: SharedController = Arc::clone(&controller);
+        main_window.on_rounding_changed(move |is_rounding| {
+            let controller = controller.clone();
+            rayon::spawn(move || {
+                controller.lock().unwrap().set_rounding(is_rounding);
+            });
+        });
+    }
+    {
+        let controller: SharedController = Arc::clone(&controller);
         main_window.on_selected_pitch_table_changed(move |index| {
             let controller = controller.clone();
             rayon::spawn(move || {

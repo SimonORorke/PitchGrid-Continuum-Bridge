@@ -32,12 +32,14 @@ impl Controller {
         let pitch_table_no: u8;
         let input_device_name: String;
         let output_device_name: String;
+        let is_rounding: bool;
         // println!("Controller.init: Reading settings");
         match self.settings.read_from_file() {
             Ok(_) => {
                 input_device_name = self.settings.midi_input_device.clone();
                 output_device_name = self.settings.midi_output_device.clone();
                 pitch_table_no = max(tuner::default_pitch_table_no(), self.settings.pitch_table);
+                is_rounding = self.settings.is_rounding;
             }
             Err(err) => {
                 self.show_error(&err.to_string());
@@ -92,6 +94,8 @@ impl Controller {
         tuner::set_midi(midi.clone());
         tuner::set_pitch_table_no(pitch_table_no);
         self.callbacks.set_selected_pitch_table_index(tuner::pitch_table_index() as i32);
+        tuner::set_rounding(is_rounding, false);
+        self.callbacks.set_rounding(is_rounding);
         let mut midi_guard = midi.lock().unwrap();
         if midi_guard.are_ports_connected() {
             // println!("Controller.init: Showing Checking instrument connection");
@@ -253,6 +257,22 @@ impl Controller {
                 MessageType::Info);
         }
         tuner::set_root_freq_override(index, send_tuning);
+    }
+
+    /// Sets the rounding requirement and sends it to the instrument, if connected.
+    pub fn set_rounding(&mut self, is_rounding: bool) {
+        let send_tuning = {
+            let midi = self.midi_static_clone();
+            let midi_guard = midi.lock().unwrap();
+            midi_guard.is_instru_connected()
+        };
+        if send_tuning {
+            self.callbacks.show_pitchgrid_status(
+                "Updating rounding...",
+                MessageType::Info);
+        }
+        tuner::set_rounding(is_rounding, send_tuning);
+        self.settings.is_rounding = is_rounding;
     }
 
     pub fn set_pitch_table_no(&mut self, index: usize) {
@@ -454,6 +474,7 @@ pub trait ControllerCallbacks: Send + Sync {
     fn show_message(&self, msg: &str, msg_type: MessageType);
     fn show_pitchgrid_status(&self, status: &str, msg_type: MessageType);
     fn show_tuning(&self);
+    fn set_rounding(&self, is_rounding: bool);
     fn set_selected_pitch_table_index(&self, index: i32);
 }
 

@@ -155,7 +155,7 @@ fn send_tuning() {
     set_to_key_numbers(&mut keys);
     calculate_offsets(&mut keys);
     Midi::on_updating_tuning();
-    send_rounding_params(true);
+    send_rounding_params(is_rounding());
     send_pitch_table(&keys, pitch_table_no);
 }
 
@@ -272,7 +272,7 @@ pub fn set_midi(midi: SharedMidi) {
     TUNER_DATA.lock().unwrap().midi = Some(midi);
 }
 
-/// Sets the root frequency override and sends it to the instrument.
+/// Sets the root frequency override and optionally sends it to the instrument.
 pub fn set_root_freq_override(index: usize, send_tuning: bool) {
     let note_no = {
         if index == 0 {
@@ -283,6 +283,18 @@ pub fn set_root_freq_override(index: usize, send_tuning: bool) {
     };
     // println!("tuner.set_root_freq_override: index = {}, note_no = {}", index, note_no);
     ROOT_FREQ_OVERRIDE_NOTE_NO.store(note_no, Ordering::Relaxed);
+    if send_tuning {
+        tune();
+    }
+}
+
+pub fn is_rounding() -> bool {
+    IS_ROUNDING.load(Ordering::Relaxed)
+}
+
+/// Sets whether rounding is required and optionally sends it to the instrument.
+pub fn set_rounding(is_rounding: bool, send_tuning: bool) {
+    IS_ROUNDING.store(is_rounding, Ordering::Relaxed);
     if send_tuning {
         tune();
     }
@@ -465,6 +477,7 @@ lazy_static! {
         pitch_table_no: Arc::new(AtomicU8::new(default_pitch_table_no())),
     });
     static ref DEFAULT_KEY_PITCHES: Vec<f32> = create_default_key_pitches();
+    static ref IS_ROUNDING: AtomicBool = AtomicBool::new(true);
     static ref PITCH_TABLE_NOS: Vec<u8> = (80..88).collect();
     static ref ROOT_FREQ_OVERRIDE: Arc<Mutex<f32>> = Arc::new(Mutex::new(0.0));
     static ref ROOT_FREQ_OVERRIDE_NOTE_NO: AtomicUsize = AtomicUsize::new(0);

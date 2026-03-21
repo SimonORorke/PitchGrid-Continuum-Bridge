@@ -5,6 +5,7 @@ use crate::global::APP_TITLE;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Settings {
+    pub is_rounding: bool,
     pub midi_input_device: String,
     pub midi_output_device: String,
     pub pitch_table: u8,
@@ -13,6 +14,7 @@ pub struct Settings {
 impl Settings {
     pub fn new() -> Self {
         Self {
+            is_rounding: true,
             midi_input_device: String::new(),
             midi_output_device: String::new(),
             pitch_table: 0,
