@@ -391,7 +391,7 @@ impl Midi {
     }
 
     fn on_message_received(message: &[u8]) {
-        println!("Midi.on_message_received: message={:?}", message);
+        // println!("Midi.on_message_received: message={:?}", message);
         Self::log_message_received_time();
         let event = LiveEvent::parse(message).unwrap();
         match event {

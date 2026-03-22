@@ -17,7 +17,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use lazy_static::lazy_static;
 use slint::{CloseRequestResponse, Weak};
 use controller::{Controller};
-use global::APP_TITLE;
+use global::{APP_TITLE, VERSION};
 use port_strategy::{
     InputStrategy, OutputStrategy, PortStrategy};
 use ui_methods::UiMethods;
@@ -27,7 +27,8 @@ use ui_methods::UiMethods;
 fn main() {
     let main_window = MainWindow::new().unwrap();
     *MAIN_WINDOW_WEAK.lock().unwrap() = Some(main_window.as_weak().clone());
-    main_window.set_window_title(APP_TITLE.into());
+    main_window.set_window_title(format!("{} v{}", APP_TITLE, VERSION).into());
+    // main_window.set_window_title(APP_TITLE.into());
     let ui_methods = UiMethods::new(main_window.as_weak());
     let controller: SharedController = Arc::new(Mutex::new(Controller::new(
         Box::new(ui_methods)

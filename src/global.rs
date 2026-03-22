@@ -13,11 +13,6 @@ pub enum PortType {
     Output,
 }
 
-// #[derive(Clone, Copy, Debug)]
-// pub enum PresetLoading {
-//     Replace = 0,
-//     Preserve = 1,
-// }
-
 pub type SharedMidi = Arc<Mutex<Midi>>;
 pub const APP_TITLE: &str = "PitchGrid-Continuum Bridge";
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
