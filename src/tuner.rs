@@ -155,7 +155,11 @@ fn send_tuning() {
     set_to_key_numbers(&mut keys);
     calculate_offsets(&mut keys);
     Midi::on_updating_tuning();
-    send_rounding_params(is_rounding());
+    if is_rounding() {
+        // If rounding is not required, we don't want to disable rounding
+        // for presets that already have rounding enabled.
+        send_rounding_params(true);
+    }
     send_pitch_table(&keys, pitch_table_no);
 }
 
@@ -292,12 +296,9 @@ pub fn is_rounding() -> bool {
     IS_ROUNDING.load(Ordering::Relaxed)
 }
 
-/// Sets whether rounding is required and optionally sends it to the instrument.
-pub fn set_rounding(is_rounding: bool, send_tuning: bool) {
+/// Sets whether rounding is required the next time tuning is sent.
+pub fn set_rounding(is_rounding: bool) {
     IS_ROUNDING.store(is_rounding, Ordering::Relaxed);
-    if send_tuning {
-        tune();
-    }
 }
 
 pub fn set_pitch_table_no(pitch_table_no: u8) {
@@ -328,13 +329,16 @@ fn on_tuning_updated() {
 }
 
 fn send_rounding_params(on: bool) {
+    // Initial Rounding is not sent, for two reasons:
+    // 1. Rounding Mode Normal in conjunction with RoundRate 127 (max)
+    //    effectively enforces initial rounding, even when the Initial Rounding parameter is off.
+    // 2. The Initial Rounding parameter when sent as on before or after sending a new tuning
+    //    stops octave shifting, with buttons or pedals, from working.
+    //    That may be a firmware problem, but it does not matter for the purpose of this app.
     if on {
         // Rounding Mode Normal
         Midi::send_matrix_poke(10, 0); // RoundMode
     }
-    // Initial Rounding
-    let initial_rounding_value:u8 = if on { 127 } else { 0 };
-    Midi::send_control_change(1, 28, initial_rounding_value); // RndIni
     // Rounding Rate
     let rounding_rate_value:u8 =
         if on { 127 /* Immediate when initial rounding is on */ } else { 0 /* Off */ };

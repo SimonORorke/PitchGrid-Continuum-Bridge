@@ -94,7 +94,7 @@ impl Controller {
         tuner::set_midi(midi.clone());
         tuner::set_pitch_table_no(pitch_table_no);
         self.callbacks.set_selected_pitch_table_index(tuner::pitch_table_index() as i32);
-        tuner::set_rounding(is_rounding, false);
+        tuner::set_rounding(is_rounding);
         self.callbacks.set_rounding(is_rounding);
         let mut midi_guard = midi.lock().unwrap();
         if midi_guard.are_ports_connected() {
@@ -259,19 +259,9 @@ impl Controller {
         tuner::set_root_freq_override(index, send_tuning);
     }
 
-    /// Sets the rounding requirement and sends it to the instrument, if connected.
+    /// Sets whether rounding is required the next time tuning is sent.
     pub fn set_rounding(&mut self, is_rounding: bool) {
-        let send_tuning = {
-            let midi = self.midi_static_clone();
-            let midi_guard = midi.lock().unwrap();
-            midi_guard.is_instru_connected()
-        };
-        if send_tuning {
-            self.callbacks.show_pitchgrid_status(
-                "Updating rounding...",
-                MessageType::Info);
-        }
-        tuner::set_rounding(is_rounding, send_tuning);
+        tuner::set_rounding(is_rounding);
         self.settings.is_rounding = is_rounding;
     }
 
