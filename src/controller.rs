@@ -260,6 +260,10 @@ impl Controller {
     }
 
     /// Sets whether rounding is required the next time tuning is sent.
+    /// If rounding is not required, we don't want to disable rounding
+    /// for presets that already have rounding enabled.
+    /// So we don't to try to update the current preset till there is a tuning change,
+    /// when rounding will be turned on if required, but not off if not required.
     pub fn set_rounding(&mut self, is_rounding: bool) {
         tuner::set_rounding(is_rounding);
         self.settings.is_rounding = is_rounding;
