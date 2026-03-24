@@ -137,7 +137,7 @@ fn set_overrides_model(main_window: &MainWindow) {
         .iter()
         .map(|override_name| ComboBoxItem { text: override_name.into() })
         .collect();
-    let model = Rc::new(OverridesModel(override_items));
+    let model = Rc::new(ComboBoxModel(override_items));
     main_window.set_overrides_model(slint::ModelRc::from(model));
 }
 
@@ -146,68 +146,21 @@ fn set_pitch_tables_model(main_window: &MainWindow) {
         .iter()
         .map(|grid_no| ComboBoxItem { text: grid_no.to_string().into() })
         .collect();
-    let model = Rc::new(TuningGridsModel(pitch_table_items));
+    let model = Rc::new(ComboBoxModel(pitch_table_items));
     main_window.set_pitch_tables_model(slint::ModelRc::from(model));
 }
 
 type SharedController = Arc<Mutex<Controller>>;
 
-pub struct InputDevicesModel(pub Vec<ComboBoxItem>);
+pub struct ComboBoxModel(pub Vec<ComboBoxItem>);
 
-impl slint::Model for InputDevicesModel {
+impl slint::Model for ComboBoxModel {
     type Data = ComboBoxItem;
     fn row_count(&self) -> usize {
         self.0.len()
     }
     fn row_data(&self, row: usize) -> Option<Self::Data> {
         self.0.get(row).cloned()
-    }
-    fn model_tracker(&self) -> &dyn slint::ModelTracker {
-        &()
-    }
-}
-
-pub struct OutputDevicesModel(pub Vec<ComboBoxItem>);
-
-impl slint::Model for OutputDevicesModel {
-    type Data = ComboBoxItem;
-    fn row_count(&self) -> usize {
-        self.0.len()
-    }
-    fn row_data(&self, row: usize) -> Option<Self::Data> {
-        self.0.get(row).cloned()
-    }
-    fn model_tracker(&self) -> &dyn slint::ModelTracker {
-        &()
-    }
-}
-
-struct OverridesModel(Vec<ComboBoxItem>);
-
-impl slint::Model for OverridesModel {
-    type Data = ComboBoxItem;
-    fn row_count(&self) -> usize {
-        self.0.len()
-    }
-    fn row_data(&self, row: usize) ->
-    Option<Self::Data> {
-        self.0.get(row).map(|x| x.clone())
-    }
-    fn model_tracker(&self) -> &dyn slint::ModelTracker {
-        &()
-    }
-}
-
-struct TuningGridsModel(Vec<ComboBoxItem>);
-
-impl slint::Model for TuningGridsModel {
-    type Data = ComboBoxItem;
-    fn row_count(&self) -> usize {
-        self.0.len()
-    }
-    fn row_data(&self, row: usize) ->
-        Option<Self::Data> {
-        self.0.get(row).map(|x| x.clone())
     }
     fn model_tracker(&self) -> &dyn slint::ModelTracker {
         &()
