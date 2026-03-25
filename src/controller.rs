@@ -464,6 +464,7 @@ impl OscCallbacks for Controller {
         } else {
             // println!("Controller.on_osc_pitchgrid_connected_changed: PitchGrid is not connected");
             self.show_pitchgrid_not_connected();
+            self.show_warning("Awaiting PitchGrid connection...");
         }
     }
 
