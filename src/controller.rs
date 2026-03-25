@@ -274,14 +274,16 @@ impl Controller {
         if index == 0 { Rounding::None }
         else if index == 1 { Rounding::Initial }
         else if index == 2 { Rounding::Max }
-        else { panic!("Invalid rounding index: {}", index) }
+        else {
+            println!("Invalid rounding index: {}", index);
+            global::default_rounding() }
     }
 
     fn rounding_from_name(&self, name: &str) -> Rounding {
         if name == "None" { Rounding::None }
         else if name == "Initial" { Rounding::Initial }
         else if name == "Max" { Rounding::Max }
-        else { global::default_rounding() }
+        else { global::default_rounding() } // When settings have just been initialised.
     }
 
     fn rounding_index(&self, rounding: Rounding) -> usize {
