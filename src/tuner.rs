@@ -1,9 +1,10 @@
-use std::cmp::max;
+use std::cmp::{max};
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, AtomicU8, AtomicUsize, Ordering};
 use lazy_static::lazy_static;
 use round::round;
-use crate::global::{SharedMidi};
+use crate::global;
+use crate::global::{Rounding, SharedMidi};
 use crate::midi::Midi;
 
 /// Update tuning parameters from the OSC message.
@@ -155,11 +156,7 @@ fn send_tuning() {
     set_to_key_numbers(&mut keys);
     calculate_offsets(&mut keys);
     Midi::on_updating_tuning();
-    if is_rounding() {
-        // If rounding is not required, we don't want to disable rounding
-        // for presets that already have rounding enabled.
-        send_rounding_params(true);
-    }
+    send_rounding_params(rounding());
     send_pitch_table(&keys, pitch_table_no);
 }
 
@@ -292,13 +289,13 @@ pub fn set_root_freq_override(index: usize, send_tuning: bool) {
     }
 }
 
-pub fn is_rounding() -> bool {
-    IS_ROUNDING.load(Ordering::Relaxed)
+fn rounding() -> Rounding {
+    ROUNDING.lock().unwrap().clone()
 }
 
-/// Sets whether rounding is required the next time tuning is sent.
-pub fn set_rounding(is_rounding: bool) {
-    IS_ROUNDING.store(is_rounding, Ordering::Relaxed);
+/// Sets what type of rounding, if any, is required the next time tuning is sent.
+pub fn set_rounding(rounding: Rounding) {
+    *ROUNDING.lock().unwrap() = rounding;
 }
 
 pub fn set_pitch_table_no(pitch_table_no: u8) {
@@ -328,30 +325,30 @@ fn on_tuning_updated() {
     }
 }
 
-fn send_rounding_params(on: bool) {
-    // Initial Rounding is not sent, for two reasons:
-    // 1. Rounding Mode Normal in conjunction with RoundRate 127 (max)
-    //    effectively enforces initial rounding, even when the Initial Rounding parameter is off.
-    // 2. The Initial Rounding parameter when sent as on before or after sending a new tuning
-    //    stops octave shifting, with buttons or pedals, from working.
-    //    That may be a firmware problem, but it does not matter for the purpose of this app.
-    if on {
-        // Rounding Mode Normal
-        Midi::send_matrix_poke(10, 0); // RoundMode
+/// Sends pitch rounding parameters, if required, to the instrument.
+/// Rounding None does nothing, so that the
+/// instrument preset will retain its current rounding settings.
+/// Rounding Initial rounds each note's initial pitch to the key's specified tuning pitch.
+/// However, dues to a bug in the EaganMatrix firmware,
+/// when sent before or after sending a new tuning, the instrument's octave shifting,
+/// with buttons or pedals, will not work.
+/// Rounding Max send Rounding Mode Normal in conjunction with Rounding Rate 127 (the maximum).
+/// This effectively enforces initial rounding, even when the Initial Rounding parameter is off,
+/// without breaking octave shifting. In addition, it prevents the pitch from being changed
+/// by subsequent motion of the finger on the fingerboard.
+fn send_rounding_params(rounding: Rounding) {
+    match rounding {
+        Rounding::None => {}
+        Rounding::Initial => {
+            Midi::send_control_change(1, 28, 127); // RndIni
+        }
+        Rounding::Max => {
+            // Rounding Mode Normal
+            Midi::send_matrix_poke(10, 0); // RoundMode
+            // Max Rounding Rate
+            Midi::send_control_change(1, 25, 127); // RoundRate
+        }
     }
-    // Rounding Rate
-    let rounding_rate_value:u8 =
-        if on { 127 /* Immediate when initial rounding is on */ } else { 0 /* Off */ };
-    Midi::send_control_change(1, 25, rounding_rate_value); // RoundRate
-}
-
-pub fn override_names() -> Vec<String> {
-    vec!["".to_string(),
-         "F#".to_string(), "G".to_string(), "G#".to_string(),
-         "A".to_string(), "A#".to_string(), "B".to_string(),
-         "C".to_string(),
-         "C#".to_string(),"D".to_string(), "D#".to_string(),
-         "E".to_string(), "F".to_string(), ]
 }
 
 pub fn pitch_table_index() -> usize {
@@ -481,8 +478,8 @@ lazy_static! {
         pitch_table_no: Arc::new(AtomicU8::new(default_pitch_table_no())),
     });
     static ref DEFAULT_KEY_PITCHES: Vec<f32> = create_default_key_pitches();
-    static ref IS_ROUNDING: AtomicBool = AtomicBool::new(true);
     static ref PITCH_TABLE_NOS: Vec<u8> = (80..88).collect();
     static ref ROOT_FREQ_OVERRIDE: Arc<Mutex<f32>> = Arc::new(Mutex::new(0.0));
     static ref ROOT_FREQ_OVERRIDE_NOTE_NO: AtomicUsize = AtomicUsize::new(0);
+    static ref ROUNDING: Arc<Mutex<Rounding>> = Arc::new(Mutex::new(global::default_rounding()));
 }

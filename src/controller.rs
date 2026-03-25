@@ -3,12 +3,12 @@ use std::error::Error;
 use std::sync::{Arc, Mutex, OnceLock};
 use lazy_static::lazy_static;
 use crate::midi::Midi;
-use crate::global::{SharedMidi, MessageType};
+use crate::global::{MessageType, Rounding, SharedMidi,};
 use crate::osc::{Osc, OscCallbacks};
 use crate::port_strategy::{
     InputStrategy, OutputStrategy, PortStrategy};
 use crate::settings::Settings;
-use crate::tuner;
+use crate::{global, tuner};
 
 /// This is the main controller in the Model-View-Controller (MVC) pattern.
 /// PortStrategy contains both view and controller methods.
@@ -32,14 +32,14 @@ impl Controller {
         let pitch_table_no: u8;
         let input_device_name: String;
         let output_device_name: String;
-        let is_rounding: bool;
+        let rounding: Rounding;
         // println!("Controller.init: Reading settings");
         match self.settings.read_from_file() {
             Ok(_) => {
                 input_device_name = self.settings.midi_input_device.clone();
                 output_device_name = self.settings.midi_output_device.clone();
                 pitch_table_no = max(tuner::default_pitch_table_no(), self.settings.pitch_table);
-                is_rounding = self.settings.is_rounding;
+                rounding = self.rounding_from_name(&self.settings.rounding);
             }
             Err(err) => {
                 self.show_error(&err.to_string());
@@ -94,8 +94,8 @@ impl Controller {
         tuner::set_midi(midi.clone());
         tuner::set_pitch_table_no(pitch_table_no);
         self.callbacks.set_selected_pitch_table_index(tuner::pitch_table_index() as i32);
-        tuner::set_rounding(is_rounding);
-        self.callbacks.set_rounding(is_rounding);
+        tuner::set_rounding(rounding);
+        self.callbacks.set_selected_rounding_index(self.rounding_index(rounding) as i32);
         let mut midi_guard = midi.lock().unwrap();
         if midi_guard.are_ports_connected() {
             // println!("Controller.init: Showing Checking instrument connection");
@@ -259,14 +259,45 @@ impl Controller {
         tuner::set_root_freq_override(index, send_tuning);
     }
 
-    /// Sets whether rounding is required the next time tuning is sent.
+    /// Sets what type of rounding, if any, is required the next time tuning is sent.
     /// If rounding is not required, we don't want to disable rounding
     /// for presets that already have rounding enabled.
     /// So we don't to try to update the current preset till there is a tuning change,
     /// when rounding will be turned on if required, but not off if not required.
-    pub fn set_rounding(&mut self, is_rounding: bool) {
-        tuner::set_rounding(is_rounding);
-        self.settings.is_rounding = is_rounding;
+    pub fn set_rounding(&mut self, index: usize) {
+        let rounding = self.rounding_from_index(index);
+        tuner::set_rounding(rounding);
+        self.settings.rounding = self.rounding_name(rounding);
+    }
+
+    fn rounding_from_index(&self, index: usize) -> Rounding {
+        if index == 0 { Rounding::None }
+        else if index == 1 { Rounding::Initial }
+        else if index == 2 { Rounding::Max }
+        else { panic!("Invalid rounding index: {}", index) }
+    }
+
+    fn rounding_from_name(&self, name: &str) -> Rounding {
+        if name == "None" { Rounding::None }
+        else if name == "Initial" { Rounding::Initial }
+        else if name == "Max" { Rounding::Max }
+        else { global::default_rounding() }
+    }
+
+    fn rounding_index(&self, rounding: Rounding) -> usize {
+        match rounding {
+            Rounding::None => 0,
+            Rounding::Initial => 1,
+            Rounding::Max => 2,
+        }
+    }
+
+    pub fn rounding_name(&self, rounding: Rounding) -> String {
+        match rounding {
+            Rounding::None => "None".to_string(),
+            Rounding::Initial => "Initial".to_string(),
+            Rounding::Max => "Max".to_string(),
+        }
     }
 
     pub fn set_pitch_table_no(&mut self, index: usize) {
@@ -468,7 +499,7 @@ pub trait ControllerCallbacks: Send + Sync {
     fn show_message(&self, msg: &str, msg_type: MessageType);
     fn show_pitchgrid_status(&self, status: &str, msg_type: MessageType);
     fn show_tuning(&self);
-    fn set_rounding(&self, is_rounding: bool);
+    fn set_selected_rounding_index(&self, index: i32);
     fn set_selected_pitch_table_index(&self, index: i32);
 }
 

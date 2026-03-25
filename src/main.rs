@@ -35,6 +35,7 @@ fn main() {
     )));
     Controller::set_controller(controller.clone());
     init_ui_handlers(&main_window, controller.clone());
+    set_roundings_model(&main_window);
     set_overrides_model(&main_window);
     set_pitch_tables_model(&main_window);
 
@@ -88,10 +89,10 @@ fn init_ui_handlers(main_window: &MainWindow, controller: SharedController) {
     }
     {
         let controller: SharedController = Arc::clone(&controller);
-        main_window.on_rounding_changed(move |is_rounding| {
+        main_window.on_selected_rounding_changed(move |rounding_index| {
             let controller = controller.clone();
             rayon::spawn(move || {
-                controller.lock().unwrap().set_rounding(is_rounding);
+                controller.lock().unwrap().set_rounding(rounding_index as usize);
             });
         });
     }
@@ -133,12 +134,21 @@ fn create_port_strategy(port_type: SlintPortType)
 }
 
 fn set_overrides_model(main_window: &MainWindow) {
-    let override_items: Vec<ComboBoxItem> = tuner::override_names()
+    let override_items: Vec<ComboBoxItem> = global::override_note_names()
         .iter()
         .map(|override_name| ComboBoxItem { text: override_name.into() })
         .collect();
     let model = Rc::new(ComboBoxModel(override_items));
     main_window.set_overrides_model(slint::ModelRc::from(model));
+}
+
+fn set_roundings_model(main_window: &MainWindow) {
+    let rounding_items: Vec<ComboBoxItem> = global::rounding_names()
+        .iter()
+        .map(|rounding_name| ComboBoxItem { text: rounding_name.into() })
+        .collect();
+    let model = Rc::new(ComboBoxModel(rounding_items));
+    main_window.set_roundings_model(slint::ModelRc::from(model));
 }
 
 fn set_pitch_tables_model(main_window: &MainWindow) {

@@ -5,19 +5,19 @@ use crate::global::APP_TITLE;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Settings {
-    pub is_rounding: bool,
     pub midi_input_device: String,
     pub midi_output_device: String,
     pub pitch_table: u8,
+    pub rounding: String,
 }
 
 impl Settings {
     pub fn new() -> Self {
         Self {
-            is_rounding: true,
             midi_input_device: String::new(),
             midi_output_device: String::new(),
             pitch_table: 0,
+            rounding: String::new(),
         }
     }
 
@@ -57,6 +57,7 @@ impl Settings {
         self.midi_input_device = settings.midi_input_device;
         self.midi_output_device = settings.midi_output_device;
         self.pitch_table = settings.pitch_table;
+        self.rounding = settings.rounding;
         // println!("Settings.read_from_file: self.midi_input_device = {}; self.midi_output_device = {}; \
         // self.pitch_table = {:?};", self.midi_input_device, self.midi_output_device, self.pitch_table);
         Ok(())
