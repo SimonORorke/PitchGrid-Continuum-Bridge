@@ -326,7 +326,7 @@ impl Controller {
         let midi_guard = midi.lock().unwrap();
         if midi_guard.is_instru_connected() {
             // println!("Controller.on_instru_connected_changed: Awaiting editor data download completion.");
-            self.show_info("Awaiting editor data download completion...");
+            self.show_info("Awaiting completion of data download from instrument...");
             return;
         }
         // Instrument is not connected. Stop OSC if running.
