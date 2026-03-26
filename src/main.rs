@@ -10,6 +10,7 @@ mod tuner;
 mod port_strategy;
 mod controller;
 mod ui_methods;
+mod midi_static;
 
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};

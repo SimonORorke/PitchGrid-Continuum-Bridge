@@ -1,14 +1,12 @@
 ﻿use std::cmp::max;
 use std::error::Error;
 use std::sync::{Arc, Mutex, OnceLock};
-use lazy_static::lazy_static;
-use crate::midi::Midi;
 use crate::global::{MessageType, Rounding, SharedMidi,};
 use crate::osc::{Osc, OscCallbacks};
 use crate::port_strategy::{
     InputStrategy, OutputStrategy, PortStrategy};
 use crate::settings::Settings;
-use crate::{global, tuner};
+use crate::{global, midi_static, tuner};
 
 /// This is the main controller in the Model-View-Controller (MVC) pattern.
 /// PortStrategy contains both view and controller methods.
@@ -16,6 +14,7 @@ use crate::{global, tuner};
 /// Everything else is the model.
 pub struct Controller {
     callbacks: Box<dyn ControllerCallbacks>,
+    osc: SharedOsc,
     settings: Settings,
 }
 
@@ -23,6 +22,7 @@ impl Controller {
     pub fn new(callbacks: Box<dyn ControllerCallbacks>) -> Self {
         Self {
             callbacks,
+            osc: Arc::new(Mutex::new(Osc::new())),
             settings: Settings::new(),
         }
     }
@@ -47,7 +47,7 @@ impl Controller {
             }
         }
         // println!("Controller.init: Getting midi");
-        let midi = self.midi_static_clone();
+        let midi = midi_static::clone_midi();
         let mut midi_guard = midi.lock().unwrap();
         if let Err(err) = midi_guard.init(
             &input_device_name, &output_device_name) {
@@ -71,7 +71,7 @@ impl Controller {
                 controller.lock().unwrap().on_new_preset_selected();
             }
         }));
-        midi_guard.add_receiving_data_changed_callback(Box::new(|| {
+        midi_guard.add_receiving_data_started_callback(Box::new(|| {
             if let Some(controller) = CONTROLLER.get() {
                 controller.lock().unwrap().on_receiving_instru_data_changed_callback();
             }
@@ -101,7 +101,7 @@ impl Controller {
         self.callbacks.set_selected_pitch_table_index(tuner::pitch_table_index() as i32);
         tuner::set_rounding(rounding);
         self.callbacks.set_selected_rounding_index(self.rounding_index(rounding) as i32);
-        if self.are_ports_connected() {
+        if midi_static::are_ports_connected() {
             let mut midi_guard = midi.lock().unwrap();
             // println!("Controller.init: Showing Checking instrument connection");
             self.show_info("Checking instrument connection...");
@@ -112,7 +112,7 @@ impl Controller {
 
     #[allow(clippy::unwrap_used)]
     pub fn close(&mut self) -> Result<(), Box<dyn Error>> {
-        let midi = self.midi_static_clone();
+        let midi = midi_static::clone_midi();
         // There is no way to avoid this unwrap, but there seems not to be a way of stopping
         // RustRover from suggesting it should be replaced with '?'.
         let mut midi_guard = midi.lock().unwrap();
@@ -120,7 +120,7 @@ impl Controller {
         drop(midi_guard);
         drop(midi);
 
-        let osc = self.osc_static_clone();
+        let osc = self.osc.clone();
         let mut osc_guard = osc.lock().unwrap();
         osc_guard.stop();
         drop(osc_guard);
@@ -135,7 +135,7 @@ impl Controller {
 
     fn connect_initial_port(&mut self, port_strategy: &dyn PortStrategy) {
         // println!("Controller.connect_initial_port: {:?}", port_strategy.port_type());
-        let midi = self.midi_static_clone();
+        let midi = midi_static::clone_midi();
         let maybe_index = {
             let midi_guard = midi.lock().unwrap();
             midi_guard.io(port_strategy).device().as_ref()
@@ -154,11 +154,11 @@ impl Controller {
 
     pub fn connect_port(&mut self, port_strategy: &dyn PortStrategy) {
         // println!("Controller.connect_port");
-        let midi = self.midi_static_clone();
-        let osc = self.osc_static_clone();
+        let midi = midi_static::clone_midi();
+        //let osc = self.osc.clone();
         let port_strategy = port_strategy.clone_box();
         // println!("Controller.connect_port: Stopping OSC and instrument connection monitor");
-        self.stop_osc_and_instru_connection_monitor(&midi, &osc);
+        self.stop_osc_and_instru_connection_monitor(&midi);
         // println!("Controller.connect_port: Showing PitchGrid disconnected");
         self.show_pitchgrid_disconnected();
         // println!("Controller.connect_port: Connecting selected port");
@@ -171,7 +171,7 @@ impl Controller {
         // println!("Controller.connect_port: Got port");
         if let Some(device_name) = device_name_opt {
             self.show_info(port_strategy.msg_connected(&device_name));
-            if self.are_ports_connected() {
+            if midi_static::are_ports_connected() {
                 self.show_warning("Restart this application to connect to PitchGrid");
             }
         }
@@ -216,17 +216,16 @@ impl Controller {
     }
 
     fn device_names(&self, port_strategy: &dyn PortStrategy) -> Vec<String> {
-        let midi = self.midi_static_clone();
+        let midi = midi_static::clone_midi();
         // println!("Controller.device_names: Got midi");
         let midi_guard = midi.lock().unwrap();
         midi_guard.io(port_strategy).device_names()
     }
 
     pub fn refresh_devices(&mut self, port_strategy: &dyn PortStrategy) {
-        let midi = self.midi_static_clone();
-        let osc = self.osc_static_clone();
+        let midi = midi_static::clone_midi();
         let port_strategy = port_strategy.clone_box();
-        self.stop_osc_and_instru_connection_monitor(&midi, &osc);
+        self.stop_osc_and_instru_connection_monitor(&midi);
         let device_name = port_strategy.port_setting(&self.settings).to_string();
         if let Err(err) = midi.lock().unwrap().refresh_devices(
             &device_name, &*port_strategy) {
@@ -239,7 +238,7 @@ impl Controller {
         self.show_warning(port_strategy.msg_refreshed_reconnect());
     }
 
-    /// Sets a thread-safe singleton controller instance.
+    /// Sets a thread-safe singleton Controller instance.
     pub fn set_controller(controller: SharedController) {
         CONTROLLER.set(controller).ok();
     }
@@ -248,7 +247,7 @@ impl Controller {
     /// We probably don't need a setting for this.
     /// The player should have to choose an override, if required, on startup.
     pub fn set_root_freq_override(&mut self, index: usize) {
-        let send_tuning = self.is_receiving_data_from_instru();
+        let send_tuning = midi_static::is_receiving_data();
         if send_tuning {
             self.callbacks.show_pitchgrid_status(
                 "Updating root frequency override...",
@@ -306,12 +305,8 @@ impl Controller {
         self.settings.pitch_table = pitch_table_no;
     }
 
-    fn midi_static_clone(&self) -> SharedMidi {
-        Arc::clone(&MIDI)
-    }
-
     fn start_osc(&self) {
-        let osc = self.osc_static_clone();
+        let osc = self.osc.clone();
         let mut osc_guard = osc.lock().unwrap();
         if let Some(controller) = CONTROLLER.get() {
             println!("Controller.start_osc:  Starting OSC");
@@ -327,21 +322,21 @@ impl Controller {
 
     fn on_ports_connected_changed(&self) {
         // println!("Controller.on_instru_connected_changed");
-        if self.is_receiving_data_from_instru() {
+        if midi_static::is_receiving_data() {
             // println!("Controller.on_instru_connected_changed: Awaiting editor data download completion.");
             self.show_info("Awaiting completion of data download from instrument...");
             return;
         }
         // Instrument is not connected. Stop OSC if running.
         // println!("Controller.on_instru_connected_changed: Instrument is not connected.");
-        let osc = self.osc_static_clone();
+        let osc = self.osc.clone();
         let mut osc_guard = osc.lock().unwrap();
         if osc_guard.is_running() {
             // println!("Controller.on_instru_connected_changed: Stopping OSC");
             osc_guard.stop();
             self.show_warning(
                 "Instrument is disconnected; closed PitchGrid connection.");
-        } else if self.are_ports_connected() {
+        } else if midi_static::are_ports_connected() {
             // println!("Controller.on_instru_connected_changed: Showing The instrument is not connected");
             // This probably means the instrument is not connected on application start.
             // So show a helpful message.
@@ -375,9 +370,10 @@ impl Controller {
         self.callbacks.show_pitchgrid_status("Instrument tuning updated", MessageType::Info);
     }
 
-    fn osc_static_clone(&self) -> SharedOsc {
-        Arc::clone(&OSC)
-    }
+    // fn osc.clone(&self) -> SharedOsc {
+    //     let osc = OSC.get_or_init(|| Arc::new(Mutex::new(Osc::new())));
+    //     Arc::clone(osc)
+    // }
 
     fn show_connected_device_name(
         &mut self, device_name: &str, port_strategy: &dyn PortStrategy) {
@@ -432,24 +428,13 @@ impl Controller {
         self.callbacks.show_message(message, MessageType::Warning);
     }
     
-    fn stop_osc_and_instru_connection_monitor(&self, midi: &SharedMidi, osc: &SharedOsc) {
+    // fn stop_osc_and_instru_connection_monitor(&self, midi: &SharedMidi, osc: &SharedOsc) {
+    fn stop_osc_and_instru_connection_monitor(&self, midi: &SharedMidi) {
         // println!("Controller.stop_osc_and_instru_connection_monitor");
         let mut midi_guard = midi.lock().unwrap();
         midi_guard.stop_instru_connection_monitor();
-        osc.lock().unwrap().stop();
+        self.osc.lock().unwrap().stop();
         // println!("Controller.stop_osc_and_instru_connection_monitor: Done");
-    }
-
-    fn are_ports_connected(&self) -> bool {
-        let midi = self.midi_static_clone();
-        let midi_guard = midi.lock().unwrap();
-        midi_guard.are_ports_connected()
-    }
-
-    fn is_receiving_data_from_instru(&self) -> bool {
-        let midi = self.midi_static_clone();
-        let midi_guard = midi.lock().unwrap();
-        midi_guard.is_receiving_data()
     }
 }
 
@@ -471,7 +456,7 @@ impl OscCallbacks for Mutex<Controller> {
 impl OscCallbacks for Controller {
     fn on_osc_pitchgrid_connected_changed(&self) {
         // println!("Controller.on_osc_pitchgrid_connected_changed");
-        let osc = self.osc_static_clone();
+        let osc = self.osc.clone();
         let osc_guard = osc.lock().unwrap();
         if osc_guard.is_pitchgrid_connected() {
             // println!("Controller.on_osc_pitchgrid_connected_changed: Showing PitchGrid is connected");
@@ -492,7 +477,7 @@ impl OscCallbacks for Controller {
         //     "Controller.on_osc_tuning_received: depth = {}; mode = {}; root_freq = {}; stretch = {}; \
         //     skew = {}; mode_offset = {}; steps = {}",
         //     depth, mode, root_freq, stretch, skew, mode_offset, steps);
-        if self.are_ports_connected() {
+        if midi_static::are_ports_connected() {
             // println!("Controller.on_osc_tuning_received: Showing Updating instrument tuning");
             self.callbacks.show_pitchgrid_status("Updating instrument tuning", MessageType::Info);
             tuner::on_tuning_received(depth, mode, root_freq, stretch, skew, mode_offset, steps);
@@ -524,8 +509,4 @@ type SharedOsc = Arc<Mutex<Osc>>;
 type SharedController = Arc<Mutex<Controller>>;
 
 static CONTROLLER: OnceLock<SharedController> = OnceLock::new();
-
-lazy_static! {
-    static ref MIDI: SharedMidi = Arc::new(Mutex::new(Midi::new()));
-    static ref OSC: SharedOsc = Arc::new(Mutex::new(Osc::new()));
-}
+// static OSC: OnceLock<SharedOsc> = OnceLock::new();

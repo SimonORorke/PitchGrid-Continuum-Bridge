@@ -57,12 +57,20 @@ impl Midi {
         NEW_PRESET_SELECTED_CALLBACKS.lock().unwrap().push(callback);
     }
 
-    pub fn add_receiving_data_changed_callback(
+    pub fn add_receiving_data_started_callback(
         &mut self,
         callback: Box<dyn Fn() + Send + Sync + 'static>,
     ) {
-        // println!("Midi.add_receiving_data_changed_callback");
-        RECEIVING_DATA_CHANGED_CALLBACKS.lock().unwrap().push(callback);
+        // println!("Midi.add_receiving_data_started_callback");
+        RECEIVING_DATA_STARTED_CALLBACKS.lock().unwrap().push(callback);
+    }
+
+    pub fn add_receiving_data_stopped_callback(
+        &mut self,
+        callback: Box<dyn Fn() + Send + Sync + 'static>,
+    ) {
+        // println!("Midi.add_receiving_data_started_callback");
+        RECEIVING_DATA_STOPPED_CALLBACKS.lock().unwrap().push(callback);
     }
 
     pub fn add_tuning_updated_callback(&mut self, callback: Box<dyn Fn() + Send + Sync + 'static>) {
@@ -344,13 +352,13 @@ impl Midi {
         let has_just_started_receiving_data = !IS_RECEIVING_DATA.load(Ordering::Relaxed);
         IS_RECEIVING_DATA.store(true, Ordering::Relaxed);
         if has_just_started_receiving_data {
-            Self::call_back(RECEIVING_DATA_CHANGED_CALLBACKS.clone());
+            Self::call_back(RECEIVING_DATA_STARTED_CALLBACKS.clone());
             // println!("Midi.log_message_received_time: Starting download monitor");
             Self::start_download_monitor();
         }
     }
     
-    fn monitor_editor_data_download(stopper_receiver: mpsc::Receiver<()>) {
+    fn monitor_data_download(stopper_receiver: mpsc::Receiver<()>) {
         // println!("Midi.monitor_editor_data_download");
         loop {
             if let Ok(_) = stopper_receiver.recv_timeout(Duration::from_millis(200)) {
@@ -386,7 +394,7 @@ impl Midi {
                     if seconds > 2 {
                         // println!("midi.monitor_instru_connection: Instrument disconnected.");
                         IS_RECEIVING_DATA.store(false, Ordering::Relaxed);
-                        Self::call_back(RECEIVING_DATA_CHANGED_CALLBACKS.clone());
+                        Self::call_back(RECEIVING_DATA_STARTED_CALLBACKS.clone());
                     }
                 }
             } else if !has_initially_not_connected_callback_been_called {
@@ -399,7 +407,7 @@ impl Midi {
                     // Not connected for 2 seconds after application start.
                     // So we can assume that the instrument is not yet connected.
                     // Provide an opportunity for a helpful message to be displayed.
-                    Self::call_back(RECEIVING_DATA_CHANGED_CALLBACKS.clone());
+                    Self::call_back(RECEIVING_DATA_STOPPED_CALLBACKS.clone());
                     has_initially_not_connected_callback_been_called = true;
                 }
             }
@@ -572,7 +580,7 @@ impl Midi {
         DOWNLOAD_MONITOR_STOPPER_SENDERS.lock().unwrap().push(stopper_sender);
         IS_DOWNLOAD_MONITOR_RUNNING.store(true, Ordering::Relaxed);
         rayon::spawn(move || {
-            Self::monitor_editor_data_download(stopper_receiver);
+            Self::monitor_data_download(stopper_receiver);
         });
     }
 
@@ -629,7 +637,9 @@ lazy_static! {
         Arc::new(Mutex::new(PresetSelectStatus::None));
     static ref PORTS_CONNECTED_CHANGED_CALLBACKS:
         Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>> = Arc::new(Mutex::new(Vec::new()));
-    static ref RECEIVING_DATA_CHANGED_CALLBACKS:
+    static ref RECEIVING_DATA_STARTED_CALLBACKS:
+        Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>> = Arc::new(Mutex::new(Vec::new()));
+    static ref RECEIVING_DATA_STOPPED_CALLBACKS:
         Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>> = Arc::new(Mutex::new(Vec::new()));
     static ref TUNING_UPDATED_CALLBACKS:
         Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>> = Arc::new(Mutex::new(Vec::new()));
