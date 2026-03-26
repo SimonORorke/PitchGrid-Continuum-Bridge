@@ -33,20 +33,20 @@ impl Midi {
         }
     }
 
-    pub fn add_editor_data_download_completed_callback(
+    pub fn add_download_completed_callback(
         &mut self,
         callback: Box<dyn Fn() + Send + Sync + 'static>,
     ) {
-        // println!("Midi.add_editor_data_download_completed_callback");
-        EDITOR_DATA_DOWNLOAD_COMPLETED_CALLBACKS.lock().unwrap().push(callback);
+        // println!("Midi.add_download_completed_callback");
+        DOWNLOAD_COMPLETED_CALLBACKS.lock().unwrap().push(callback);
     }
 
-    pub fn add_instru_connected_changed_callback(
+    pub fn add_ports_connected_changed_callback(
         &mut self,
         callback: Box<dyn Fn() + Send + Sync + 'static>,
     ) {
         // println!("Midi.add_tuning_updated_callback");
-        INSTRU_CONNECTED_CHANGED_CALLBACKS.lock().unwrap().push(callback);
+        PORTS_CONNECTED_CHANGED_CALLBACKS.lock().unwrap().push(callback);
     }
 
     pub fn add_new_preset_selected_callback(
@@ -55,6 +55,14 @@ impl Midi {
     ) {
         // println!("Midi.add_new_preset_selected_callback");
         NEW_PRESET_SELECTED_CALLBACKS.lock().unwrap().push(callback);
+    }
+
+    pub fn add_receiving_data_changed_callback(
+        &mut self,
+        callback: Box<dyn Fn() + Send + Sync + 'static>,
+    ) {
+        // println!("Midi.add_receiving_data_changed_callback");
+        RECEIVING_DATA_CHANGED_CALLBACKS.lock().unwrap().push(callback);
     }
 
     pub fn add_tuning_updated_callback(&mut self, callback: Box<dyn Fn() + Send + Sync + 'static>) {
@@ -83,11 +91,18 @@ impl Midi {
         index: usize,
         port_strategy: &dyn PortStrategy,
     ) -> Result<(), Box<dyn Error>> {
+        let were_ports_connected = self.are_ports_connected();
         self.stop_download_monitor();
         self.stop_instru_connection_monitor();
         match port_strategy.port_type() {
             PortType::Input => self.connect_input_port(index, port_strategy)?,
             PortType::Output => self.connect_output_port(index, port_strategy)?,
+        }
+        if !were_ports_connected {
+            // The other port was already connected, so now they both are.
+            if self.are_ports_connected() {
+                Self::call_back(PORTS_CONNECTED_CHANGED_CALLBACKS.clone());
+            }
         }
         Ok(())
     }
@@ -110,8 +125,8 @@ impl Midi {
         port_strategy.io(self)
     }
 
-    pub fn is_instru_connected(&self) -> bool {
-        IS_INSTRU_CONNECTED.load(Ordering::Relaxed)
+    pub fn is_receiving_data(&self) -> bool {
+        IS_RECEIVING_DATA.load(Ordering::Relaxed)
     }
 
     pub fn output(&self) -> &Io<MidiOutputPort> {
@@ -123,11 +138,16 @@ impl Midi {
         device_name: &str,
         port_strategy: &dyn PortStrategy,
     ) -> Result<(), Box<dyn Error>> {
+        let were_ports_connected = self.are_ports_connected();
         self.stop_download_monitor();
         self.stop_instru_connection_monitor();
         match port_strategy.port_type() {
             PortType::Input => self.refresh_input_devices(device_name)?,
             PortType::Output => self.refresh_output_devices(device_name)?,
+        }
+        if were_ports_connected {
+            // We have just disconnected on of the ports.
+            Self::call_back(PORTS_CONNECTED_CHANGED_CALLBACKS.clone());
         }
         Ok(())
     }
@@ -197,6 +217,7 @@ impl Midi {
         }
         // println!("Midi.stop_instru_connection_monitor: Stopped monitor thread.");
         self.is_connection_monitor_running = false;
+        IS_RECEIVING_DATA.store(false, Ordering::Relaxed);
         // println!("Midi.stop_instru_connection_monitor: Done.");
     }
 
@@ -320,10 +341,10 @@ impl Midi {
     fn log_message_received_time() {
         let now = Instant::now();
         *LAST_MESSAGE_RECEIVED_TIME.lock().unwrap() = Some(now);
-        let has_instru_just_connected = !IS_INSTRU_CONNECTED.load(Ordering::Relaxed);
-        IS_INSTRU_CONNECTED.store(true, Ordering::Relaxed);
-        if has_instru_just_connected {
-            Self::call_back(INSTRU_CONNECTED_CHANGED_CALLBACKS.clone());
+        let has_just_started_receiving_data = !IS_RECEIVING_DATA.load(Ordering::Relaxed);
+        IS_RECEIVING_DATA.store(true, Ordering::Relaxed);
+        if has_just_started_receiving_data {
+            Self::call_back(RECEIVING_DATA_CHANGED_CALLBACKS.clone());
             // println!("Midi.log_message_received_time: Starting download monitor");
             Self::start_download_monitor();
         }
@@ -341,7 +362,7 @@ impl Midi {
             if download_status == DownloadStatus::None {
                 // println!("Midi.monitor_editor_data_download: Download completed");
                 IS_DOWNLOAD_MONITOR_RUNNING.store(false, Ordering::Relaxed);
-                Self::call_back(EDITOR_DATA_DOWNLOAD_COMPLETED_CALLBACKS.clone());
+                Self::call_back(DOWNLOAD_COMPLETED_CALLBACKS.clone());
                 return;
             }
         }
@@ -355,7 +376,7 @@ impl Midi {
         let start_time = Instant::now();
         let mut has_initially_not_connected_callback_been_called = false;
         loop {
-            if IS_INSTRU_CONNECTED.load(Ordering::Relaxed) {
+            if IS_RECEIVING_DATA.load(Ordering::Relaxed) {
                 let now = Instant::now();
                 let last_message_received_time =
                     *LAST_MESSAGE_RECEIVED_TIME.lock().unwrap();
@@ -364,8 +385,8 @@ impl Midi {
                     let seconds = duration.as_secs();
                     if seconds > 2 {
                         // println!("midi.monitor_instru_connection: Instrument disconnected.");
-                        IS_INSTRU_CONNECTED.store(false, Ordering::Relaxed);
-                        Self::call_back(INSTRU_CONNECTED_CHANGED_CALLBACKS.clone());
+                        IS_RECEIVING_DATA.store(false, Ordering::Relaxed);
+                        Self::call_back(RECEIVING_DATA_CHANGED_CALLBACKS.clone());
                     }
                 }
             } else if !has_initially_not_connected_callback_been_called {
@@ -378,7 +399,7 @@ impl Midi {
                     // Not connected for 2 seconds after application start.
                     // So we can assume that the instrument is not yet connected.
                     // Provide an opportunity for a helpful message to be displayed.
-                    Self::call_back(INSTRU_CONNECTED_CHANGED_CALLBACKS.clone());
+                    Self::call_back(RECEIVING_DATA_CHANGED_CALLBACKS.clone());
                     has_initially_not_connected_callback_been_called = true;
                 }
             }
@@ -592,15 +613,13 @@ enum PresetSelectStatus {
 }
 
 lazy_static! {
+    static ref DOWNLOAD_COMPLETED_CALLBACKS:
+        Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>> = Arc::new(Mutex::new(Vec::new()));
     static ref DOWNLOAD_MONITOR_STOPPER_SENDERS: Arc<Mutex<Vec<mpsc::Sender<()>>>> = 
         Arc::new(Mutex::new(Vec::new()));
     static ref DOWNLOAD_STATUS: Arc<Mutex<DownloadStatus>> = Arc::new(Mutex::new(DownloadStatus::None));
-    static ref EDITOR_DATA_DOWNLOAD_COMPLETED_CALLBACKS:
-        Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>> = Arc::new(Mutex::new(Vec::new()));
-    static ref INSTRU_CONNECTED_CHANGED_CALLBACKS:
-        Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>> = Arc::new(Mutex::new(Vec::new()));
     static ref IS_DOWNLOAD_MONITOR_RUNNING: AtomicBool = AtomicBool::new(false);
-    static ref IS_INSTRU_CONNECTED: AtomicBool = AtomicBool::new(false);
+    static ref IS_RECEIVING_DATA: AtomicBool = AtomicBool::new(false);
     static ref IS_UPDATING_TUNING: AtomicBool = AtomicBool::new(false);
     static ref LAST_MESSAGE_RECEIVED_TIME: Mutex<Option<Instant>> = Mutex::new(None);
     static ref NEW_PRESET_SELECTED_CALLBACKS:
@@ -608,6 +627,10 @@ lazy_static! {
     static ref OUTPUT_CONNECTION: Mutex<Option<MidiOutputConnection>> = Mutex::new(None);
     static ref PRESET_SELECT_STATUS: Arc<Mutex<PresetSelectStatus>> = 
         Arc::new(Mutex::new(PresetSelectStatus::None));
+    static ref PORTS_CONNECTED_CHANGED_CALLBACKS:
+        Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>> = Arc::new(Mutex::new(Vec::new()));
+    static ref RECEIVING_DATA_CHANGED_CALLBACKS:
+        Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>> = Arc::new(Mutex::new(Vec::new()));
     static ref TUNING_UPDATED_CALLBACKS:
         Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>> = Arc::new(Mutex::new(Vec::new()));
 }

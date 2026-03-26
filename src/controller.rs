@@ -55,20 +55,25 @@ impl Controller {
             return;
         }
         // println!("Controller.init: Adding download completed callback");
-        midi_guard.add_editor_data_download_completed_callback(Box::new(|| {
+        midi_guard.add_download_completed_callback(Box::new(|| {
             if let Some(controller) = CONTROLLER.get() {
-                controller.lock().unwrap().on_editor_data_download_completed();
+                controller.lock().unwrap().on_instru_data_download_completed();
             }
         }));
-        midi_guard.add_instru_connected_changed_callback(Box::new(|| {
+        midi_guard.add_ports_connected_changed_callback(Box::new(|| {
             if let Some(controller) = CONTROLLER.get() {
-                controller.lock().unwrap().on_instru_connected_changed();
+                controller.lock().unwrap().on_ports_connected_changed();
             }
         }));
         // println!("Controller.init: Adding selected preset loaded callback");
         midi_guard.add_new_preset_selected_callback(Box::new(|| {
             if let Some(controller) = CONTROLLER.get() {
                 controller.lock().unwrap().on_new_preset_selected();
+            }
+        }));
+        midi_guard.add_receiving_data_changed_callback(Box::new(|| {
+            if let Some(controller) = CONTROLLER.get() {
+                controller.lock().unwrap().on_receiving_instru_data_changed_callback();
             }
         }));
         midi_guard.add_tuning_updated_callback(Box::new(|| {
@@ -243,7 +248,7 @@ impl Controller {
     /// We probably don't need a setting for this.
     /// The player should have to choose an override, if required, on startup.
     pub fn set_root_freq_override(&mut self, index: usize) {
-        let send_tuning = self.is_instru_connected();
+        let send_tuning = self.is_receiving_data_from_instru();
         if send_tuning {
             self.callbacks.show_pitchgrid_status(
                 "Updating root frequency override...",
@@ -314,20 +319,15 @@ impl Controller {
         }
     }
 
-    fn on_editor_data_download_completed(&self) {
+    fn on_instru_data_download_completed(&self) {
         // println!("Controller.on_editor_data_download_completed");
         self.show_info("Opening PitchGrid connection...");
-        let osc = self.osc_static_clone();
-        let mut osc_guard = osc.lock().unwrap();
-        if let Some(controller) = CONTROLLER.get() {
-            println!("Controller.on_editor_data_download_completed:  Starting OSC");
-            osc_guard.start(controller.clone());
-        }
+        self.start_osc();
     }
 
-    fn on_instru_connected_changed(&self) {
+    fn on_ports_connected_changed(&self) {
         // println!("Controller.on_instru_connected_changed");
-        if self.is_instru_connected() {
+        if self.is_receiving_data_from_instru() {
             // println!("Controller.on_instru_connected_changed: Awaiting editor data download completion.");
             self.show_info("Awaiting completion of data download from instrument...");
             return;
@@ -362,6 +362,10 @@ impl Controller {
                 "New instrument preset selected. Resent tuning...",
                 MessageType::Info);
         }
+    }
+
+    fn on_receiving_instru_data_changed_callback(&self) {
+        todo!()
     }
 
     fn on_tuning_updated(&self) {
@@ -442,10 +446,10 @@ impl Controller {
         midi_guard.are_ports_connected()
     }
 
-    fn is_instru_connected(&self) -> bool {
+    fn is_receiving_data_from_instru(&self) -> bool {
         let midi = self.midi_static_clone();
         let midi_guard = midi.lock().unwrap();
-        midi_guard.is_instru_connected()
+        midi_guard.is_receiving_data()
     }
 }
 
