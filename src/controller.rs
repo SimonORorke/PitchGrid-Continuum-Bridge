@@ -96,8 +96,8 @@ impl Controller {
         self.callbacks.set_selected_pitch_table_index(tuner::pitch_table_index() as i32);
         tuner::set_rounding(rounding);
         self.callbacks.set_selected_rounding_index(self.rounding_index(rounding) as i32);
-        let mut midi_guard = midi.lock().unwrap();
-        if midi_guard.are_ports_connected() {
+        if self.are_ports_connected() {
+            let mut midi_guard = midi.lock().unwrap();
             // println!("Controller.init: Showing Checking instrument connection");
             self.show_info("Checking instrument connection...");
             midi_guard.start_instru_connection_monitor();
@@ -166,10 +166,7 @@ impl Controller {
         // println!("Controller.connect_port: Got port");
         if let Some(device_name) = device_name_opt {
             self.show_info(port_strategy.msg_connected(&device_name));
-            // println!("Controller.connect_port: Getting midi_guard");
-            let midi_guard = midi.lock().unwrap();
-            // println!("Controller.connect_port: Got midi_guard");
-            if midi_guard.are_ports_connected() {
+            if self.are_ports_connected() {
                 self.show_warning("Restart this application to connect to PitchGrid");
             }
         }
@@ -246,11 +243,7 @@ impl Controller {
     /// We probably don't need a setting for this.
     /// The player should have to choose an override, if required, on startup.
     pub fn set_root_freq_override(&mut self, index: usize) {
-        let send_tuning = {
-            let midi = self.midi_static_clone();
-            let midi_guard = midi.lock().unwrap();
-            midi_guard.is_instru_connected()
-        };
+        let send_tuning = self.is_instru_connected();
         if send_tuning {
             self.callbacks.show_pitchgrid_status(
                 "Updating root frequency override...",
@@ -312,21 +305,29 @@ impl Controller {
         Arc::clone(&MIDI)
     }
 
+    fn start_osc(&self) {
+        let osc = self.osc_static_clone();
+        let mut osc_guard = osc.lock().unwrap();
+        if let Some(controller) = CONTROLLER.get() {
+            println!("Controller.start_osc:  Starting OSC");
+            osc_guard.start(controller.clone());
+        }
+    }
+
     fn on_editor_data_download_completed(&self) {
         // println!("Controller.on_editor_data_download_completed");
         self.show_info("Opening PitchGrid connection...");
         let osc = self.osc_static_clone();
         let mut osc_guard = osc.lock().unwrap();
         if let Some(controller) = CONTROLLER.get() {
+            println!("Controller.on_editor_data_download_completed:  Starting OSC");
             osc_guard.start(controller.clone());
         }
     }
 
     fn on_instru_connected_changed(&self) {
         // println!("Controller.on_instru_connected_changed");
-        let midi = self.midi_static_clone();
-        let midi_guard = midi.lock().unwrap();
-        if midi_guard.is_instru_connected() {
+        if self.is_instru_connected() {
             // println!("Controller.on_instru_connected_changed: Awaiting editor data download completion.");
             self.show_info("Awaiting completion of data download from instrument...");
             return;
@@ -340,7 +341,7 @@ impl Controller {
             osc_guard.stop();
             self.show_warning(
                 "Instrument is disconnected; closed PitchGrid connection.");
-        } else if midi_guard.are_ports_connected() {
+        } else if self.are_ports_connected() {
             // println!("Controller.on_instru_connected_changed: Showing The instrument is not connected");
             // This probably means the instrument is not connected on application start.
             // So show a helpful message.
@@ -434,6 +435,18 @@ impl Controller {
         osc.lock().unwrap().stop();
         // println!("Controller.stop_osc_and_instru_connection_monitor: Done");
     }
+
+    fn are_ports_connected(&self) -> bool {
+        let midi = self.midi_static_clone();
+        let midi_guard = midi.lock().unwrap();
+        midi_guard.are_ports_connected()
+    }
+
+    fn is_instru_connected(&self) -> bool {
+        let midi = self.midi_static_clone();
+        let midi_guard = midi.lock().unwrap();
+        midi_guard.is_instru_connected()
+    }
 }
 
 impl OscCallbacks for Mutex<Controller> {
@@ -475,10 +488,7 @@ impl OscCallbacks for Controller {
         //     "Controller.on_osc_tuning_received: depth = {}; mode = {}; root_freq = {}; stretch = {}; \
         //     skew = {}; mode_offset = {}; steps = {}",
         //     depth, mode, root_freq, stretch, skew, mode_offset, steps);
-        let midi = self.midi_static_clone();
-        let midi_guard = midi.lock().unwrap();
-        let can_update_tuning = midi_guard.are_ports_connected();
-        if can_update_tuning {
+        if self.are_ports_connected() {
             // println!("Controller.on_osc_tuning_received: Showing Updating instrument tuning");
             self.callbacks.show_pitchgrid_status("Updating instrument tuning", MessageType::Info);
             tuner::on_tuning_received(depth, mode, root_freq, stretch, skew, mode_offset, steps);
