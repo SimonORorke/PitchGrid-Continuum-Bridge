@@ -89,6 +89,7 @@ impl Controller {
         self.connect_initial_port(&input_strategy);
         self.connect_initial_port(&output_strategy);
         // println!("Controller.init: Configuring tuner");
+        tuner::add_midi_callbacks();
         tuner::set_pitch_table_no(pitch_table_no);
         self.callbacks.set_selected_pitch_table_index(tuner::pitch_table_index() as i32);
         tuner::set_rounding(rounding);

@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, AtomicU8, AtomicUsize, Ordering};
 use lazy_static::lazy_static;
 use round::round;
-use crate::global;
+use crate::{global, midi_static};
 use crate::global::{Rounding};
 use crate::midi::Midi;
 
@@ -293,6 +293,11 @@ pub fn set_rounding(rounding: Rounding) {
     *ROUNDING.lock().unwrap() = rounding;
 }
 
+pub fn add_midi_callbacks() {
+    midi_static::clone_midi().lock().unwrap()
+        .add_tuning_updated_callback(Box::from(on_tuning_updated));
+}
+
 pub fn set_pitch_table_no(pitch_table_no: u8) {
     TUNER_DATA.lock().unwrap().pitch_table_no.store(pitch_table_no, Ordering::Relaxed);
 }
@@ -389,7 +394,9 @@ fn create_default_key_pitches() -> Vec<f32> {
         11175.302, 11839.817, 12543.852]
 }
 
-/// Interface to C++ code used in the key pitch frequency calculation.
+/// Interface to Peter Jung's scalatrix https://github.com/pitchgrid-io/scalatrix
+/// C++ code, a version of which is embedded in this application,
+/// used in the key pitch frequency calculation.
 #[cxx::bridge(namespace = "scalatrix")]
 mod ffi {
     unsafe extern "C++" {
