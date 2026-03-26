@@ -56,30 +56,20 @@ impl Controller {
         }
         // println!("Controller.init: Adding download completed callback");
         midi_guard.add_download_completed_callback(Box::new(|| {
-            if let Some(controller) = CONTROLLER.get() {
-                controller.lock().unwrap().on_instru_data_download_completed();
-            }
+            Self::clone_controller().lock().unwrap().on_instru_data_download_completed();
         }));
         midi_guard.add_ports_connected_changed_callback(Box::new(|| {
-            if let Some(controller) = CONTROLLER.get() {
-                controller.lock().unwrap().on_ports_connected_changed();
-            }
+            Self::clone_controller().lock().unwrap().on_ports_connected_changed();
         }));
         // println!("Controller.init: Adding selected preset loaded callback");
         midi_guard.add_new_preset_selected_callback(Box::new(|| {
-            if let Some(controller) = CONTROLLER.get() {
-                controller.lock().unwrap().on_new_preset_selected();
-            }
+            Self::clone_controller().lock().unwrap().on_new_preset_selected();
         }));
         midi_guard.add_receiving_data_started_callback(Box::new(|| {
-            if let Some(controller) = CONTROLLER.get() {
-                controller.lock().unwrap().on_receiving_instru_data_changed_callback();
-            }
+            Self::clone_controller().lock().unwrap().on_receiving_instru_data_started_callback();
         }));
         midi_guard.add_tuning_updated_callback(Box::new(|| {
-            if let Some(controller) = CONTROLLER.get() {
-                controller.lock().unwrap().on_tuning_updated();
-            }
+            Self::clone_controller().lock().unwrap().on_tuning_updated();
         }));
         drop(midi_guard); // Release MIDI lock before calling device_names which needs to acquire it
         let input_strategy = InputStrategy::new();
@@ -102,25 +92,20 @@ impl Controller {
         tuner::set_rounding(rounding);
         self.callbacks.set_selected_rounding_index(self.rounding_index(rounding) as i32);
         if midi_static::are_ports_connected() {
-            let mut midi_guard = midi.lock().unwrap();
             // println!("Controller.init: Showing Checking instrument connection");
             self.show_info("Checking instrument connection...");
-            midi_guard.start_instru_connection_monitor();
+            midi_static::start_instru_connection_monitor();
         }
         // println!("Controller.init: Done");
     }
 
     #[allow(clippy::unwrap_used)]
     pub fn close(&mut self) -> Result<(), Box<dyn Error>> {
-        let midi = midi_static::clone_midi();
-        // There is no way to avoid this unwrap, but there seems not to be a way of stopping
-        // RustRover from suggesting it should be replaced with '?'.
-        let mut midi_guard = midi.lock().unwrap();
-        midi_guard.close();
-        drop(midi_guard);
-        drop(midi);
+        midi_static::close();
 
         let osc = self.osc.clone();
+        // There is no way to avoid this unwrap, but there seems not to be a way of stopping
+        // RustRover from suggesting it should be replaced with '?'.
         let mut osc_guard = osc.lock().unwrap();
         osc_guard.stop();
         drop(osc_guard);
@@ -155,10 +140,9 @@ impl Controller {
     pub fn connect_port(&mut self, port_strategy: &dyn PortStrategy) {
         // println!("Controller.connect_port");
         let midi = midi_static::clone_midi();
-        //let osc = self.osc.clone();
         let port_strategy = port_strategy.clone_box();
         // println!("Controller.connect_port: Stopping OSC and instrument connection monitor");
-        self.stop_osc_and_instru_connection_monitor(&midi);
+        self.stop_osc_and_instru_connection_monitor();
         // println!("Controller.connect_port: Showing PitchGrid disconnected");
         self.show_pitchgrid_disconnected();
         // println!("Controller.connect_port: Connecting selected port");
@@ -225,7 +209,7 @@ impl Controller {
     pub fn refresh_devices(&mut self, port_strategy: &dyn PortStrategy) {
         let midi = midi_static::clone_midi();
         let port_strategy = port_strategy.clone_box();
-        self.stop_osc_and_instru_connection_monitor(&midi);
+        self.stop_osc_and_instru_connection_monitor();
         let device_name = port_strategy.port_setting(&self.settings).to_string();
         if let Err(err) = midi.lock().unwrap().refresh_devices(
             &device_name, &*port_strategy) {
@@ -241,6 +225,12 @@ impl Controller {
     /// Sets a thread-safe singleton Controller instance.
     pub fn set_controller(controller: SharedController) {
         CONTROLLER.set(controller).ok();
+    }
+
+    /// Returns a clone of the thread-safe singleton Controller instance.
+    fn clone_controller() -> SharedController {
+        let controller = CONTROLLER.get().unwrap();
+        Arc::clone(controller)
     }
 
     /// Sets the root frequency override and sends it to the instrument, if connected.
@@ -308,10 +298,8 @@ impl Controller {
     fn start_osc(&self) {
         let osc = self.osc.clone();
         let mut osc_guard = osc.lock().unwrap();
-        if let Some(controller) = CONTROLLER.get() {
-            println!("Controller.start_osc:  Starting OSC");
-            osc_guard.start(controller.clone());
-        }
+        println!("Controller.start_osc:  Starting OSC");
+        osc_guard.start(Self::clone_controller());
     }
 
     fn on_instru_data_download_completed(&self) {
@@ -359,7 +347,7 @@ impl Controller {
         }
     }
 
-    fn on_receiving_instru_data_changed_callback(&self) {
+    fn on_receiving_instru_data_started_callback(&self) {
         todo!()
     }
 
@@ -428,11 +416,8 @@ impl Controller {
         self.callbacks.show_message(message, MessageType::Warning);
     }
     
-    // fn stop_osc_and_instru_connection_monitor(&self, midi: &SharedMidi, osc: &SharedOsc) {
-    fn stop_osc_and_instru_connection_monitor(&self, midi: &SharedMidi) {
-        // println!("Controller.stop_osc_and_instru_connection_monitor");
-        let mut midi_guard = midi.lock().unwrap();
-        midi_guard.stop_instru_connection_monitor();
+    fn stop_osc_and_instru_connection_monitor(&self) {
+        midi_static::stop_instru_connection_monitor();
         self.osc.lock().unwrap().stop();
         // println!("Controller.stop_osc_and_instru_connection_monitor: Done");
     }
