@@ -4,7 +4,7 @@ use std::sync::atomic::{AtomicBool, AtomicU8, AtomicUsize, Ordering};
 use lazy_static::lazy_static;
 use round::round;
 use crate::global;
-use crate::global::{Rounding, SharedMidi};
+use crate::global::{Rounding};
 use crate::midi::Midi;
 
 /// Update tuning parameters from the OSC message.
@@ -268,11 +268,6 @@ pub fn formatted_tuning_params() -> FormattedTuningParams {
     }
 }
 
-pub fn set_midi(midi: SharedMidi) {
-    midi.lock().unwrap().add_tuning_updated_callback(Box::from(on_tuning_updated));
-    TUNER_DATA.lock().unwrap().midi = Some(midi);
-}
-
 /// Sets the root frequency override and optionally sends it to the instrument.
 pub fn set_root_freq_override(index: usize, send_tuning: bool) {
     let note_no = {
@@ -448,7 +443,6 @@ struct Key {
 
 struct TunerData {
     tuning_params: TuningParams,
-    midi: Option<SharedMidi>,
     keys:Arc<Vec<Key>>,
     is_already_updating: Arc<AtomicBool>,
     is_another_update_pending: Arc<AtomicBool>,
@@ -479,7 +473,6 @@ lazy_static! {
         keys: Arc::new(vec![]),
         is_already_updating: Arc::new(Default::default()),
         is_another_update_pending: Arc::new(Default::default()),
-        midi: None,
         pitch_table_no: Arc::new(AtomicU8::new(default_pitch_table_no())),
     });
     static ref DEFAULT_KEY_PITCHES: Vec<f32> = create_default_key_pitches();

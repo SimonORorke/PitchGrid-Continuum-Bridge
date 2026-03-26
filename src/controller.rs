@@ -68,6 +68,9 @@ impl Controller {
         midi_guard.add_receiving_data_started_callback(Box::new(|| {
             Self::clone_controller().lock().unwrap().on_receiving_instru_data_started_callback();
         }));
+        midi_guard.add_receiving_data_stopped_callback(Box::new(|| {
+            Self::clone_controller().lock().unwrap().on_receiving_instru_data_stopped_callback();
+        }));
         midi_guard.add_tuning_updated_callback(Box::new(|| {
             Self::clone_controller().lock().unwrap().on_tuning_updated();
         }));
@@ -86,7 +89,6 @@ impl Controller {
         self.connect_initial_port(&input_strategy);
         self.connect_initial_port(&output_strategy);
         // println!("Controller.init: Configuring tuner");
-        tuner::set_midi(midi.clone());
         tuner::set_pitch_table_no(pitch_table_no);
         self.callbacks.set_selected_pitch_table_index(tuner::pitch_table_index() as i32);
         tuner::set_rounding(rounding);
@@ -348,6 +350,10 @@ impl Controller {
     }
 
     fn on_receiving_instru_data_started_callback(&self) {
+        todo!()
+    }
+
+    fn on_receiving_instru_data_stopped_callback(&self) {
         todo!()
     }
 
