@@ -2,7 +2,7 @@ use std::cmp::{max};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::sync::atomic::{AtomicBool, AtomicU8, AtomicUsize, Ordering};
 use round::round;
-use crate::{global, midi_static};
+use crate::{midi_static};
 use crate::global::{Rounding};
 use crate::midi::Midi;
 
@@ -97,7 +97,7 @@ fn calculate_key_pitches(depth: i32, mode: i32, root_freq: f32, stretch: f32,
                          skew: f32, mode_offset: i32, steps: i32) -> Vec<f32> {
     // println!("tuner.calculate_key_pitches");
     let root_freq = {
-        let override_freq = root_freq_override_clone();
+        let override_freq = root_freq_override();
         let mut override_freq_guard = override_freq.lock().unwrap();
         if ROOT_FREQ_OVERRIDE_NOTE_NO.load(Ordering::Relaxed) == 0 {
             // Override not required
@@ -263,7 +263,7 @@ pub fn formatted_tuning_params() -> FormattedTuningParams {
           // No override
           data_guard.tuning_params.root_freq
       } else {
-          root_freq_override_clone().lock().unwrap().clone()
+          root_freq_override().lock().unwrap().clone()
       }
     };
     FormattedTuningParams {
@@ -295,12 +295,14 @@ pub fn set_root_freq_override_note_no(index: usize, send_tuning: bool) {
 }
 
 fn rounding() -> Rounding {
-    rounding_clone().lock().unwrap().clone()
+    let my_rounding = ROUNDING.get().unwrap();
+    my_rounding.lock().unwrap().clone()
 }
 
 /// Sets what type of rounding, if any, is required the next time tuning is sent.
 pub fn set_rounding(rounding: Rounding) {
-    *rounding_clone().lock().unwrap() = rounding;
+    let my_rounding = ROUNDING.get().unwrap();
+    *my_rounding.lock().unwrap() = rounding;
 }
 
 pub fn set_pitch_table_no(pitch_table_no: u8) {
@@ -390,19 +392,12 @@ fn data() -> Arc<Mutex<TunerData>> {
         }))))
 }
 
-fn default_pitch_keys() -> Vec<f32> {
-    DEFAULT_KEY_PITCHES.get_or_init(|| create_default_key_pitches()).clone()
+fn default_pitch_keys<'a>() -> &'a Vec<f32> {
+    DEFAULT_KEY_PITCHES.get_or_init(|| create_default_key_pitches())
 }
 
-fn root_freq_override_clone() -> Arc<Mutex<f32>> {
-    let rfo = ROOT_FREQ_OVERRIDE.get_or_init(|| Arc::new(Mutex::new(0.0)));
-    Arc::clone(rfo)
-}
-
-fn rounding_clone() -> Arc<Mutex<Rounding>> {
-    let rounding =
-        ROUNDING.get_or_init(|| Arc::new(Mutex::new(global::default_rounding())));
-    Arc::clone(rounding)
+fn root_freq_override<'a>() -> &'a Arc<Mutex<f32>> {
+    ROOT_FREQ_OVERRIDE.get_or_init(|| Arc::new(Mutex::new(0.0)))
 }
 
 /// Returns the default key pitches in Hz, where the default scale is 12-TET
