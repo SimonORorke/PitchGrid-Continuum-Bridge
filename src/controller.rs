@@ -89,8 +89,7 @@ impl Controller {
         self.connect_initial_port(&input_strategy);
         self.connect_initial_port(&output_strategy);
         // println!("Controller.init: Configuring tuner");
-        tuner::add_midi_callbacks();
-        tuner::set_pitch_table_no(pitch_table_no);
+        tuner::init(pitch_table_no);
         self.callbacks.set_selected_pitch_table_index(tuner::pitch_table_index() as i32);
         tuner::set_rounding(rounding);
         self.callbacks.set_selected_rounding_index(self.rounding_index(rounding) as i32);
@@ -246,7 +245,7 @@ impl Controller {
                 "Updating root frequency override...",
                 MessageType::Info);
         }
-        tuner::set_root_freq_override(index, send_tuning);
+        tuner::set_root_freq_override_note_no(index, send_tuning);
     }
 
     /// Sets what type of rounding, if any, is required the next time tuning is sent.
@@ -501,4 +500,3 @@ type SharedOsc = Arc<Mutex<Osc>>;
 type SharedController = Arc<Mutex<Controller>>;
 
 static CONTROLLER: OnceLock<SharedController> = OnceLock::new();
-// static OSC: OnceLock<SharedOsc> = OnceLock::new();

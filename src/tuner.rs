@@ -1,11 +1,16 @@
 use std::cmp::{max};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::sync::atomic::{AtomicBool, AtomicU8, AtomicUsize, Ordering};
-use lazy_static::lazy_static;
 use round::round;
 use crate::{global, midi_static};
 use crate::global::{Rounding};
 use crate::midi::Midi;
+
+pub fn init(pitch_table_no: u8) {
+    midi_static::clone_midi().lock().unwrap()
+        .add_tuning_updated_callback(Box::from(on_tuning_updated));
+    PITCH_TABLE_NO.store(pitch_table_no, Ordering::Relaxed);
+}
 
 /// Update tuning parameters from the OSC message.
 ///     Args:
@@ -23,14 +28,15 @@ pub fn on_tuning_received(depth: i32, mode: i32, root_freq: f32, stretch: f32,
     //     skew = {}; mode_offset = {}; steps = {}",
     //     depth, mode, root_freq, stretch, skew, mode_offset, steps);
     {
-        let mut data = TUNER_DATA.lock().unwrap();
-        data.tuning_params.depth = depth;
-        data.tuning_params.mode = mode;
-        data.tuning_params.root_freq = root_freq;
-        data.tuning_params.stretch = stretch;
-        data.tuning_params.skew = skew;
-        data.tuning_params.mode_offset = mode_offset;
-        data.tuning_params.steps = steps;
+        let data = data();
+        let mut data_guard = data.lock().unwrap();
+        data_guard.tuning_params.depth = depth;
+        data_guard.tuning_params.mode = mode;
+        data_guard.tuning_params.root_freq = root_freq;
+        data_guard.tuning_params.stretch = stretch;
+        data_guard.tuning_params.skew = skew;
+        data_guard.tuning_params.mode_offset = mode_offset;
+        data_guard.tuning_params.steps = steps;
     }
     tune();
 }
@@ -42,12 +48,13 @@ pub fn on_tuning_received(depth: i32, mode: i32, root_freq: f32, stretch: f32,
 fn tune() {
     let send_now:bool;
     {
-        let mut data = TUNER_DATA.lock().unwrap();
-        let params = &data.tuning_params;
+        let data = data();
+        let mut data_guard = data.lock().unwrap();
+        let params = &data_guard.tuning_params;
         let key_pitches = calculate_key_pitches(
             max(1, params.depth), params.mode, params.root_freq, params.stretch, params.skew,
             params.mode_offset, max(1, params.steps));
-        data.keys = Arc::new(key_pitches.iter().enumerate()
+        data_guard.keys = Arc::new(key_pitches.iter().enumerate()
             .map(|(i, pitch)| {
                 Key {
                     number: i as u8,
@@ -68,13 +75,13 @@ fn tune() {
         // tuning if there is one.
         // That will work because we will have just overwritten any previous pending tuning with a
         // new one.
-        let is_already_updating = data.is_already_updating.load(Ordering::Relaxed);
+        let is_already_updating = IS_ALREADY_UPDATING.load(Ordering::Relaxed);
         // println!("tuner.on_tuning_received: is_already_updating = {is_already_updating}");
         if is_already_updating {
-            data.is_another_update_pending.store(true, Ordering::Relaxed);
+            IS_ANOTHER_UPDATE_PENDING.store(true, Ordering::Relaxed);
             send_now = false;
         } else {
-            data.is_already_updating.store(true, Ordering::Relaxed);
+            IS_ALREADY_UPDATING.store(true, Ordering::Relaxed);
             send_now = true;
         }
     }
@@ -89,18 +96,19 @@ fn calculate_key_pitches(depth: i32, mode: i32, root_freq: f32, stretch: f32,
                          skew: f32, mode_offset: i32, steps: i32) -> Vec<f32> {
     // println!("tuner.calculate_key_pitches");
     let root_freq = {
-        let mut override_freq = ROOT_FREQ_OVERRIDE.lock().unwrap();
+        let override_freq = root_freq_override_clone();
+        let mut override_freq_guard = override_freq.lock().unwrap();
         if ROOT_FREQ_OVERRIDE_NOTE_NO.load(Ordering::Relaxed) == 0 {
             // Override not required
             // println!("tuner.calculate_key_pitches: Override not required");
-            *override_freq = 0.0;
+            *override_freq_guard = 0.0;
             root_freq
         } else {
             let note_no = ROOT_FREQ_OVERRIDE_NOTE_NO.load(Ordering::Relaxed);
-            let pitch = DEFAULT_KEY_PITCHES[note_no];
+            let pitch = default_pitch_keys()[note_no];
             // println!("tuner.calculate_key_pitches: Overriding root freq with note {}, pitch {} Hz",
             //          note_no, pitch);
-            *override_freq = pitch;
+            *override_freq_guard = pitch;
             pitch
         }
     };
@@ -139,7 +147,7 @@ fn calculate_key_pitches(depth: i32, mode: i32, root_freq: f32, stretch: f32,
 /// If tuning data has previously been received, resends it to the instrument.
 /// Returns whether tuning data was resent.
 pub fn resend_tuning() -> bool {
-    let can_send = TUNER_DATA.lock().unwrap().keys.len() > 0usize;
+    let can_send = data().lock().unwrap().keys.len() > 0usize;
     if can_send {
         // Tuning data has previously been received.
         // println!("tuner.resend_tuning: Resending tuning data to instrument.");
@@ -150,14 +158,14 @@ pub fn resend_tuning() -> bool {
 
 fn send_tuning() {
     // println!("tuner.update_tuning");
-    let data = TUNER_DATA.lock().unwrap();
-    let mut keys = (*data.keys).clone();
-    let pitch_table_no = data.pitch_table_no.load(Ordering::Relaxed);
+    let data = data();
+    let data_guard = data.lock().unwrap();
+    let mut keys = (*data_guard.keys).clone();
     set_to_key_numbers(&mut keys);
     calculate_offsets(&mut keys);
     Midi::on_updating_tuning();
     send_rounding_params(rounding());
-    send_pitch_table(&keys, pitch_table_no);
+    send_pitch_table(&keys, pitch_table_no());
 }
 
 /// Sets the to_number field of each Key in TUNER_DATA.keys to
@@ -174,7 +182,7 @@ fn set_to_key_numbers(keys: &mut Vec<Key>) {
     // pitch between elements: Err(i) where i > 0 → returns i - 1 ✓
     // pitch > last: Err(128) → returns 127 ✓
     for key_being_matched in keys.iter_mut() {
-        key_being_matched.to_number = DEFAULT_KEY_PITCHES.binary_search_by(|&x|
+        key_being_matched.to_number = default_pitch_keys().binary_search_by(|&x|
             x.partial_cmp(&key_being_matched.required_pitch).unwrap()).unwrap_or_else(|i| {
             if i == 0 {
                 0  // Below first pitch
@@ -194,7 +202,7 @@ fn calculate_offsets(keys: &mut Vec<Key>) {
         let note_pitch = keys[i].required_pitch;
         // Get the closest standard tuning pitch that is less than or equal to the
         // required note pitch.
-        let to_note_pitch = DEFAULT_KEY_PITCHES[keys[i].to_number as usize];
+        let to_note_pitch = default_pitch_keys()[keys[i].to_number as usize];
         // offset_ratio is the offset specified as % of a semitone between
         // note_pitch and to_note_pitch.
         let mut offset_ratio = 12.0 * (note_pitch / to_note_pitch).log2();
@@ -246,30 +254,31 @@ fn send_pitch_table(keys: &Vec<Key>, pitch_table_no: u8) {
 
 pub fn formatted_tuning_params() -> FormattedTuningParams {
     // println!("tuner.formatted_tuning_params");
-    let data = TUNER_DATA.lock().unwrap();
+    let data = data();
+    let data_guard = data.lock().unwrap();
     // Show the root frequency override if there is one.
     let root_freq = {
       if ROOT_FREQ_OVERRIDE_NOTE_NO.load(Ordering::Relaxed) == 0 {
           // No override
-          data.tuning_params.root_freq
+          data_guard.tuning_params.root_freq
       } else {
-          ROOT_FREQ_OVERRIDE.lock().unwrap().clone()
+          root_freq_override_clone().lock().unwrap().clone()
       }
     };
     FormattedTuningParams {
-        depth: format!("{}", data.tuning_params.depth),
+        depth: format!("{}", data_guard.tuning_params.depth),
         root_freq: format!("{} Hz", round(root_freq as f64, 3)),
         // The stretch parameter is in octaves, so we need to multiply by 1200 to get the
         // number of cents to display.
-        stretch: format!("{} ct", (data.tuning_params.stretch * 1200.0).round()),
-        skew: format!("{}", round(data.tuning_params.skew as f64, 5)),
-        mode_offset: format!("{}", data.tuning_params.mode_offset),
-        steps: format!("{}", data.tuning_params.steps),
+        stretch: format!("{} ct", (data_guard.tuning_params.stretch * 1200.0).round()),
+        skew: format!("{}", round(data_guard.tuning_params.skew as f64, 5)),
+        mode_offset: format!("{}", data_guard.tuning_params.mode_offset),
+        steps: format!("{}", data_guard.tuning_params.steps),
     }
 }
 
 /// Sets the root frequency override and optionally sends it to the instrument.
-pub fn set_root_freq_override(index: usize, send_tuning: bool) {
+pub fn set_root_freq_override_note_no(index: usize, send_tuning: bool) {
     let note_no = {
         if index == 0 {
             0usize // No override
@@ -277,7 +286,7 @@ pub fn set_root_freq_override(index: usize, send_tuning: bool) {
             index + 53 // E.g. for middle C, index = 7 note_no = 60.
         }
     };
-    // println!("tuner.set_root_freq_override: index = {}, note_no = {}", index, note_no);
+    // println!("tuner.set_root_freq_override_not_no: index = {}, note_no = {}", index, note_no);
     ROOT_FREQ_OVERRIDE_NOTE_NO.store(note_no, Ordering::Relaxed);
     if send_tuning {
         tune();
@@ -285,21 +294,16 @@ pub fn set_root_freq_override(index: usize, send_tuning: bool) {
 }
 
 fn rounding() -> Rounding {
-    ROUNDING.lock().unwrap().clone()
+    rounding_clone().lock().unwrap().clone()
 }
 
 /// Sets what type of rounding, if any, is required the next time tuning is sent.
 pub fn set_rounding(rounding: Rounding) {
-    *ROUNDING.lock().unwrap() = rounding;
-}
-
-pub fn add_midi_callbacks() {
-    midi_static::clone_midi().lock().unwrap()
-        .add_tuning_updated_callback(Box::from(on_tuning_updated));
+    *rounding_clone().lock().unwrap() = rounding;
 }
 
 pub fn set_pitch_table_no(pitch_table_no: u8) {
-    TUNER_DATA.lock().unwrap().pitch_table_no.store(pitch_table_no, Ordering::Relaxed);
+    PITCH_TABLE_NO.store(pitch_table_no, Ordering::Relaxed);
 }
 
 pub fn default_pitch_table_no() -> u8 { 80 }
@@ -309,14 +313,13 @@ fn on_tuning_updated() {
     // See comment in on_tuning_received.
     let send_again:bool;
     {
-        let data = TUNER_DATA.lock().unwrap();
-        let is_another_update_pending = data.is_another_update_pending.load(Ordering::Relaxed);
+        let is_another_update_pending = IS_ANOTHER_UPDATE_PENDING.load(Ordering::Relaxed);
         // println!("tuner.on_tuning_updated: is_another_update_pending = {is_another_update_pending}");
         if is_another_update_pending {
-            data.is_another_update_pending.store(false, Ordering::Relaxed);
+            IS_ANOTHER_UPDATE_PENDING.store(false, Ordering::Relaxed);
             send_again = true;
         } else {
-            data.is_already_updating.store(false, Ordering::Relaxed);
+            IS_ALREADY_UPDATING.store(false, Ordering::Relaxed);
             send_again = false;
         }
     }
@@ -357,23 +360,52 @@ fn send_rounding_params(rounding: Rounding) {
 }
 
 pub fn pitch_table_index() -> usize {
-    let pitch_table_no = TUNER_DATA.lock().unwrap().pitch_table_no.load(Ordering::Relaxed);
     // Return the index of the PITCH_TABLE_NOS item that equals pitch_table_no.
-    PITCH_TABLE_NOS.iter().position(|&x| x == pitch_table_no).unwrap_or(0)
+    pitch_table_nos().iter().position(|&x| x == pitch_table_no()).unwrap_or(0)
 }
 
 pub fn pitch_table_no() -> u8 {
-    TUNER_DATA.lock().unwrap().pitch_table_no.load(Ordering::Relaxed)
+    PITCH_TABLE_NO.load(Ordering::Relaxed)
 }
 
 pub fn pitch_table_nos() -> Vec<u8> {
-    PITCH_TABLE_NOS.clone()
+    PITCH_TABLE_NOS.get_or_init(|| (80..88).collect()).clone()
+}
+
+/// Returns the thread-safe singleton TunerData instance.
+fn data() -> Arc<Mutex<TunerData>> {
+    Arc::clone(TUNER_DATA.get_or_init(||
+        Arc::new(Mutex::new(TunerData {
+            tuning_params: TuningParams {
+                depth: 0,
+                mode: 0,
+                root_freq: 0.0,
+                stretch: 0.0,
+                skew: 0.0,
+                mode_offset: 0,
+                steps: 0,
+            },
+            keys: Arc::new(vec![]),
+        }))))
+}
+
+fn default_pitch_keys() -> Vec<f32> {
+    DEFAULT_KEY_PITCHES.get_or_init(|| create_default_key_pitches()).clone()
+}
+
+fn root_freq_override_clone() -> Arc<Mutex<f32>> {
+    let rfo = ROOT_FREQ_OVERRIDE.get_or_init(|| Arc::new(Mutex::new(0.0)));
+    Arc::clone(rfo)
+}
+
+fn rounding_clone() -> Arc<Mutex<Rounding>> {
+    let rounding =
+        ROUNDING.get_or_init(|| Arc::new(Mutex::new(global::default_rounding())));
+    Arc::clone(rounding)
 }
 
 /// Returns the default key pitches in Hz, where the default scale is 12-TET
 /// at standard concert pitch A=440.
-#[allow(unused)] // The compiler thinks this function is unused,
-// even though it's used to initialise DEFAULT_KEY_PITCHES.
 fn create_default_key_pitches() -> Vec<f32> {
     vec![
         8.1758, 8.66196, 9.17703, 9.72272, 10.30086, 10.91339, 11.56233, 12.24986, 12.97828,
@@ -451,15 +483,6 @@ struct Key {
 struct TunerData {
     tuning_params: TuningParams,
     keys:Arc<Vec<Key>>,
-    is_already_updating: Arc<AtomicBool>,
-    is_another_update_pending: Arc<AtomicBool>,
-    /// About the name Pitch Table.
-    /// The EaganMatrix Overlay Developer's Guide calls them tuning grids.
-    /// But naming is inconsistent in the Continuum User Guide.
-    /// The main documentation calls them pitch tables or custom grids, though there are also
-    /// scattered references to tuning grids.
-    /// We call them pitch tables, as that has the best chance of being understood by users.
-    pitch_table_no: Arc<AtomicU8>,
 }
 
 struct TuningParams {
@@ -472,19 +495,20 @@ pub struct FormattedTuningParams {
     pub skew: String, pub mode_offset: String, pub steps: String,
 }
 
-lazy_static! {
-    static ref TUNER_DATA: Mutex<TunerData> = Mutex::new(TunerData {
-        tuning_params: TuningParams {
-            depth: 0, mode: 0, root_freq: 0.0, stretch: 0.0, skew: 0.0, mode_offset: 0, steps: 0,
-        },
-        keys: Arc::new(vec![]),
-        is_already_updating: Arc::new(Default::default()),
-        is_another_update_pending: Arc::new(Default::default()),
-        pitch_table_no: Arc::new(AtomicU8::new(default_pitch_table_no())),
-    });
-    static ref DEFAULT_KEY_PITCHES: Vec<f32> = create_default_key_pitches();
-    static ref PITCH_TABLE_NOS: Vec<u8> = (80..88).collect();
-    static ref ROOT_FREQ_OVERRIDE: Arc<Mutex<f32>> = Arc::new(Mutex::new(0.0));
-    static ref ROOT_FREQ_OVERRIDE_NOTE_NO: AtomicUsize = AtomicUsize::new(0);
-    static ref ROUNDING: Arc<Mutex<Rounding>> = Arc::new(Mutex::new(global::default_rounding()));
-}
+static IS_ALREADY_UPDATING: AtomicBool = AtomicBool::new(false);
+static IS_ANOTHER_UPDATE_PENDING: AtomicBool = AtomicBool::new(false);
+static DEFAULT_KEY_PITCHES: OnceLock<Vec<f32>> = OnceLock::new();
+
+/// About the name Pitch Table.
+/// The EaganMatrix Overlay Developer's Guide calls them tuning grids.
+/// But naming is inconsistent in the Continuum User Guide.
+/// The main documentation calls them pitch tables or custom grids, though there are also
+/// scattered references to tuning grids.
+/// We call them pitch tables, as that has the best chance of being understood by users.
+static PITCH_TABLE_NO: AtomicU8 = AtomicU8::new(0);
+
+static PITCH_TABLE_NOS: OnceLock<Vec<u8>> = OnceLock::new();
+static ROOT_FREQ_OVERRIDE: OnceLock<Arc<Mutex<f32>>> = OnceLock::new();
+static ROOT_FREQ_OVERRIDE_NOTE_NO: AtomicUsize = AtomicUsize::new(0);
+static ROUNDING: OnceLock<Arc<Mutex<Rounding>>> = OnceLock::new();
+static TUNER_DATA: OnceLock<Arc<Mutex<TunerData>>> = OnceLock::new();
