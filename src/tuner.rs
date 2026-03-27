@@ -7,9 +7,10 @@ use crate::global::{Rounding};
 use crate::midi::Midi;
 
 pub fn init(pitch_table_no: u8) {
+    PITCH_TABLE_NO.store(pitch_table_no, Ordering::Relaxed);
+    PITCH_TABLE_NOS.get_or_init(|| (80..88).collect());
     midi_static::midi_clone().lock().unwrap()
         .add_tuning_updated_callback(Box::from(on_tuning_updated));
-    PITCH_TABLE_NO.store(pitch_table_no, Ordering::Relaxed);
 }
 
 /// Update tuning parameters from the OSC message.
@@ -368,8 +369,8 @@ pub fn pitch_table_no() -> u8 {
     PITCH_TABLE_NO.load(Ordering::Relaxed)
 }
 
-pub fn pitch_table_nos() -> Vec<u8> {
-    PITCH_TABLE_NOS.get_or_init(|| (80..88).collect()).clone()
+pub fn pitch_table_nos<'a>() -> &'a Vec<u8> {
+    PITCH_TABLE_NOS.get_or_init(|| (80..88).collect())
 }
 
 /// Returns the thread-safe singleton TunerData instance.
