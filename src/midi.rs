@@ -33,11 +33,11 @@ impl Midi {
         }
     }
 
-    pub fn add_download_completed_callback(
+    pub fn add_init_download_completed_callback(
         &mut self,
         callback: Box<dyn Fn() + Send + Sync + 'static>,
     ) {
-        // println!("Midi.add_download_completed_callback");
+        // println!("Midi.add_init_download_completed_callback");
         DOWNLOAD_COMPLETED_CALLBACKS.lock().unwrap().push(callback);
     }
 
@@ -133,6 +133,13 @@ impl Midi {
         port_strategy.io(self)
     }
 
+    pub fn is_downloading_init_data(&self) -> bool {
+        IS_DOWNLOADING_INIT_DATA.load(Ordering::Relaxed)
+    }
+
+    /// We should receive data from the instrument at least once per second, as it sends heartbeat
+    /// messages at 1-second intervals when not otherwise busy.
+    /// So, we can use this method to check if the instrument is still connected.
     pub fn is_receiving_data(&self) -> bool {
         IS_RECEIVING_DATA.load(Ordering::Relaxed)
     }
@@ -369,6 +376,7 @@ impl Midi {
             let download_status = *DOWNLOAD_STATUS.lock().unwrap();
             if download_status == DownloadStatus::None {
                 // println!("Midi.monitor_editor_data_download: Download completed");
+                IS_DOWNLOADING_INIT_DATA.store(false, Ordering::Relaxed);
                 IS_DOWNLOAD_MONITOR_RUNNING.store(false, Ordering::Relaxed);
                 Self::call_back(DOWNLOAD_COMPLETED_CALLBACKS.clone());
                 return;
@@ -578,6 +586,7 @@ impl Midi {
         // println!("Midi.start_download_monitor");
         let (stopper_sender, stopper_receiver) = mpsc::channel();
         DOWNLOAD_MONITOR_STOPPER_SENDERS.lock().unwrap().push(stopper_sender);
+        IS_DOWNLOADING_INIT_DATA.store(true, Ordering::Relaxed);
         IS_DOWNLOAD_MONITOR_RUNNING.store(true, Ordering::Relaxed);
         rayon::spawn(move || {
             Self::monitor_data_download(stopper_receiver);
@@ -621,6 +630,7 @@ enum PresetSelectStatus {
 }
 
 static IS_DOWNLOAD_MONITOR_RUNNING: AtomicBool = AtomicBool::new(false);
+static IS_DOWNLOADING_INIT_DATA: AtomicBool = AtomicBool::new(false);
 static IS_RECEIVING_DATA: AtomicBool = AtomicBool::new(false);
 static IS_UPDATING_TUNING: AtomicBool = AtomicBool::new(false);
 

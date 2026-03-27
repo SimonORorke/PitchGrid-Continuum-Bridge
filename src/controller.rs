@@ -1,7 +1,7 @@
 ﻿use std::cmp::max;
 use std::error::Error;
 use std::sync::{Arc, Mutex, OnceLock};
-use crate::global::{MessageType, Rounding, SharedMidi,};
+use crate::global::{MessageType, PortType, Rounding, SharedMidi};
 use crate::osc::{Osc, OscCallbacks};
 use crate::port_strategy::{
     InputStrategy, OutputStrategy, PortStrategy};
@@ -14,6 +14,7 @@ use crate::{global, midi_static, tuner};
 /// Everything else is the model.
 pub struct Controller {
     callbacks: Box<dyn ControllerCallbacks>,
+    has_restart_been_requested: bool,
     osc: SharedOsc,
     settings: Settings,
 }
@@ -22,6 +23,7 @@ impl Controller {
     pub fn new(callbacks: Box<dyn ControllerCallbacks>) -> Self {
         Self {
             callbacks,
+            has_restart_been_requested: false,
             osc: Arc::new(Mutex::new(Osc::new())),
             settings: Settings::new(),
         }
@@ -55,8 +57,8 @@ impl Controller {
             return;
         }
         // println!("Controller.init: Adding download completed callback");
-        midi_guard.add_download_completed_callback(Box::new(|| {
-            Self::clone_controller().lock().unwrap().on_instru_data_download_completed();
+        midi_guard.add_init_download_completed_callback(Box::new(|| {
+            Self::clone_controller().lock().unwrap().on_instru_init_data_download_completed();
         }));
         midi_guard.add_ports_connected_changed_callback(Box::new(|| {
             Self::clone_controller().lock().unwrap().on_ports_connected_changed();
@@ -158,7 +160,15 @@ impl Controller {
         if let Some(device_name) = device_name_opt {
             self.show_info(port_strategy.msg_connected(&device_name));
             if midi_static::are_ports_connected() {
+                // println!("Controller.connect_port: Showing Restart this application");
                 self.show_warning("Restart this application to connect to PitchGrid");
+                self.has_restart_been_requested = true;
+            } else {
+                let other_port_strategy:Box<dyn PortStrategy> = match port_strategy.port_type() {
+                    PortType::Input => Box::new(OutputStrategy::new()),
+                    PortType::Output => Box::new(InputStrategy::new()),
+                };
+                self.show_warning(other_port_strategy.msg_connect());
             }
         }
         // println!("Controller.connect_port: Done");
@@ -239,7 +249,9 @@ impl Controller {
     /// We probably don't need a setting for this.
     /// The player should have to choose an override, if required, on startup.
     pub fn set_root_freq_override(&mut self, index: usize) {
-        let send_tuning = midi_static::is_receiving_data();
+        let send_tuning = midi_static::is_receiving_data()
+            && midi_static::are_ports_connected()
+            && !midi_static::is_downloading_init_data();
         if send_tuning {
             self.callbacks.show_pitchgrid_status(
                 "Updating root frequency override...",
@@ -297,36 +309,31 @@ impl Controller {
         self.settings.pitch_table = pitch_table_no;
     }
 
-    fn start_osc(&self) {
-        let osc = self.osc.clone();
-        let mut osc_guard = osc.lock().unwrap();
-        println!("Controller.start_osc:  Starting OSC");
-        osc_guard.start(Self::clone_controller());
-    }
-
-    fn on_instru_data_download_completed(&self) {
-        // println!("Controller.on_editor_data_download_completed");
-        self.show_info("Opening PitchGrid connection...");
-        self.start_osc();
+    fn on_instru_init_data_download_completed(&self) {
+        // println!("Controller.on_instru_init_data_download_completed");
+        if midi_static::is_receiving_data() && midi_static::are_ports_connected() {
+            self.start_osc_and_show_message();
+        }
     }
 
     fn on_ports_connected_changed(&self) {
         // println!("Controller.on_instru_connected_changed");
-        if midi_static::is_receiving_data() {
-            // println!("Controller.on_instru_connected_changed: Awaiting editor data download completion.");
+        if midi_static::is_downloading_init_data() {
+            // println!("Controller.on_instru_connected_changed: Awaiting data download completion.");
             self.show_info("Awaiting completion of data download from instrument...");
+            return;
+        }
+        if midi_static::are_ports_connected() && midi_static::is_receiving_data() {
             return;
         }
         // Instrument is not connected. Stop OSC if running.
         // println!("Controller.on_instru_connected_changed: Instrument is not connected.");
-        let osc = self.osc.clone();
-        let mut osc_guard = osc.lock().unwrap();
-        if osc_guard.is_running() {
+        if self.is_osc_running() {
             // println!("Controller.on_instru_connected_changed: Stopping OSC");
-            osc_guard.stop();
+            self.stop_osc();
             self.show_warning(
                 "Instrument is disconnected; closed PitchGrid connection.");
-        } else if midi_static::are_ports_connected() {
+        } else if midi_static::are_ports_connected() && !self.has_restart_been_requested {
             // println!("Controller.on_instru_connected_changed: Showing The instrument is not connected");
             // This probably means the instrument is not connected on application start.
             // So show a helpful message.
@@ -350,11 +357,15 @@ impl Controller {
     }
 
     fn on_receiving_instru_data_started_callback(&self) {
-        todo!()
+        if midi_static::are_ports_connected() && !self.is_osc_running() {
+            self.start_osc()
+        }
     }
 
     fn on_receiving_instru_data_stopped_callback(&self) {
-        todo!()
+        if self.is_osc_running() {
+            self.stop_osc_and_show_message();
+        }
     }
 
     fn on_tuning_updated(&self) {
@@ -421,11 +432,49 @@ impl Controller {
         // println!("Controller.show_warning: {}", message);
         self.callbacks.show_message(message, MessageType::Warning);
     }
-    
+
+    fn is_osc_running(&self) -> bool {
+        let osc = self.osc.clone();
+        let osc_guard = osc.lock().unwrap();
+        osc_guard.is_running()
+    }
+
+    fn start_osc(&self) {
+        let osc = self.osc.clone();
+        let mut osc_guard = osc.lock().unwrap();
+        // println!("Controller.start_osc:  Starting OSC");
+        osc_guard.start(Self::clone_controller());
+    }
+
+    fn start_osc_and_show_message(&self) {
+        self.start_osc();
+        self.show_info("Opening PitchGrid connection...");
+    }
+
+    fn stop_osc(&self) {
+        self.osc.lock().unwrap().stop();
+    }
+
     fn stop_osc_and_instru_connection_monitor(&self) {
         midi_static::stop_instru_connection_monitor();
-        self.osc.lock().unwrap().stop();
+        self.stop_osc();
         // println!("Controller.stop_osc_and_instru_connection_monitor: Done");
+    }
+
+    /// Stops PitchGrid OSC and shows a message.
+    /// When the application is reconnected to the instrument, OSC will be restarted, which will
+    /// force PitchGrid to send the latest tuning.
+    fn stop_osc_and_show_message(&self) {
+        self.stop_osc();
+        if !midi_static::are_ports_connected() {
+            self.callbacks.show_pitchgrid_status(
+                "Cannot updating tuning. Connect instrument input/output.",
+                MessageType::Error);
+        } else if !midi_static::is_receiving_data() {
+            self.callbacks.show_pitchgrid_status(
+                "Cannot updating tuning. Instrument connection lost.",
+                MessageType::Error);
+        }
     }
 }
 
@@ -468,15 +517,12 @@ impl OscCallbacks for Controller {
         //     "Controller.on_osc_tuning_received: depth = {}; mode = {}; root_freq = {}; stretch = {}; \
         //     skew = {}; mode_offset = {}; steps = {}",
         //     depth, mode, root_freq, stretch, skew, mode_offset, steps);
-        if midi_static::are_ports_connected() {
+        if midi_static::are_ports_connected() && midi_static::is_receiving_data() {
             // println!("Controller.on_osc_tuning_received: Showing Updating instrument tuning");
             self.callbacks.show_pitchgrid_status("Updating instrument tuning", MessageType::Info);
             tuner::on_tuning_received(depth, mode, root_freq, stretch, skew, mode_offset, steps);
         } else {
-            // println!("Controller.on_osc_tuning_received: Cannot updating tuning");
-            self.callbacks.show_pitchgrid_status(
-                "Cannot updating tuning. Connect instrument input/output.",
-                MessageType::Error);
+            self.stop_osc_and_show_message();
         }
     }
 }

@@ -14,6 +14,12 @@ pub fn close() {
     midi_guard.close();
 }
 
+pub fn is_downloading_init_data() -> bool {
+    let midi = midi_clone();
+    let midi_guard = midi.lock().unwrap();
+    midi_guard.is_downloading_init_data()
+}
+
 pub fn is_receiving_data() -> bool {
     let midi = midi_clone();
     let midi_guard = midi.lock().unwrap();

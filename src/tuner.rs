@@ -3,6 +3,7 @@ use std::sync::{Arc, Mutex, OnceLock};
 use std::sync::atomic::{AtomicBool, AtomicU8, AtomicUsize, Ordering};
 use round::round;
 use crate::{midi_static};
+use crate::global;
 use crate::global::{Rounding};
 use crate::midi::Midi;
 
@@ -295,13 +296,18 @@ pub fn set_root_freq_override_note_no(index: usize, send_tuning: bool) {
 }
 
 fn rounding() -> Rounding {
-    let my_rounding = ROUNDING.get().unwrap();
-    my_rounding.lock().unwrap().clone()
+    rounding_arc().lock().unwrap().clone()
+}
+
+fn rounding_arc() -> Arc<Mutex<Rounding>> {
+    ROUNDING
+        .get_or_init(|| Arc::new(Mutex::new(global::default_rounding())))
+        .clone()
 }
 
 /// Sets what type of rounding, if any, is required the next time tuning is sent.
 pub fn set_rounding(rounding: Rounding) {
-    let my_rounding = ROUNDING.get().unwrap();
+    let my_rounding = rounding_arc();
     *my_rounding.lock().unwrap() = rounding;
 }
 
