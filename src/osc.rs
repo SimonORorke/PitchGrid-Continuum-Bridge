@@ -4,7 +4,6 @@ use std::sync::{Arc, Mutex};
 use std::sync::mpsc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
-use lazy_static::lazy_static;
 use rosc::{decoder, encoder, OscMessage, OscPacket, OscType};
 
 /// The socket addresses are as per the PitchGrid plugin docs:
@@ -283,6 +282,4 @@ pub trait OscCallbacks: Send + Sync {
                               steps: i32);
 }
 
-lazy_static! {
-    static ref IS_PITCHGRID_CONNECTED: AtomicBool = AtomicBool::new(false);
-}
+static IS_PITCHGRID_CONNECTED: AtomicBool = AtomicBool::new(false);
