@@ -15,8 +15,7 @@ mod midi_static;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
-use lazy_static::lazy_static;
-use slint::{CloseRequestResponse, Weak};
+use slint::{CloseRequestResponse};
 use controller::{Controller};
 use global::{APP_TITLE, VERSION};
 use port_strategy::{
@@ -27,9 +26,7 @@ use ui_methods::UiMethods;
 /// See Controller's doc comment for more information on how the project implements MVC.
 fn main() {
     let main_window = MainWindow::new().unwrap();
-    *MAIN_WINDOW_WEAK.lock().unwrap() = Some(main_window.as_weak().clone());
     main_window.set_window_title(format!("{} v{}", APP_TITLE, VERSION).into());
-    // main_window.set_window_title(APP_TITLE.into());
     let ui_methods = UiMethods::new(main_window.as_weak());
     let controller: SharedController = Arc::new(Mutex::new(Controller::new(
         Box::new(ui_methods)
@@ -180,7 +177,4 @@ impl slint::Model for ComboBoxModel {
 
 slint::include_modules!();
 
-lazy_static! {
-    static ref IS_CLOSE_ERROR_SHOWN: AtomicBool = AtomicBool::new(false);
-    static ref MAIN_WINDOW_WEAK: Mutex<Option<Weak<MainWindow>>> = Mutex::new(None);
-}
+static IS_CLOSE_ERROR_SHOWN: AtomicBool = AtomicBool::new(false);
