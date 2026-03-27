@@ -620,15 +620,16 @@ enum PresetSelectStatus {
     // Program,
 }
 
+static IS_DOWNLOAD_MONITOR_RUNNING: AtomicBool = AtomicBool::new(false);
+static IS_RECEIVING_DATA: AtomicBool = AtomicBool::new(false);
+static IS_UPDATING_TUNING: AtomicBool = AtomicBool::new(false);
+
 lazy_static! {
     static ref DOWNLOAD_COMPLETED_CALLBACKS:
         Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>> = Arc::new(Mutex::new(Vec::new()));
     static ref DOWNLOAD_MONITOR_STOPPER_SENDERS: Arc<Mutex<Vec<mpsc::Sender<()>>>> = 
         Arc::new(Mutex::new(Vec::new()));
     static ref DOWNLOAD_STATUS: Arc<Mutex<DownloadStatus>> = Arc::new(Mutex::new(DownloadStatus::None));
-    static ref IS_DOWNLOAD_MONITOR_RUNNING: AtomicBool = AtomicBool::new(false);
-    static ref IS_RECEIVING_DATA: AtomicBool = AtomicBool::new(false);
-    static ref IS_UPDATING_TUNING: AtomicBool = AtomicBool::new(false);
     static ref LAST_MESSAGE_RECEIVED_TIME: Mutex<Option<Instant>> = Mutex::new(None);
     static ref NEW_PRESET_SELECTED_CALLBACKS:
         Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>> = Arc::new(Mutex::new(Vec::new()));
