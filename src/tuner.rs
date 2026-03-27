@@ -7,7 +7,7 @@ use crate::global::{Rounding};
 use crate::midi::Midi;
 
 pub fn init(pitch_table_no: u8) {
-    midi_static::clone_midi().lock().unwrap()
+    midi_static::midi_clone().lock().unwrap()
         .add_tuning_updated_callback(Box::from(on_tuning_updated));
     PITCH_TABLE_NO.store(pitch_table_no, Ordering::Relaxed);
 }

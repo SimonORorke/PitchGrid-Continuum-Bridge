@@ -47,7 +47,7 @@ impl Controller {
             }
         }
         // println!("Controller.init: Getting midi");
-        let midi = midi_static::clone_midi();
+        let midi = midi_static::midi_clone();
         let mut midi_guard = midi.lock().unwrap();
         if let Err(err) = midi_guard.init(
             &input_device_name, &output_device_name) {
@@ -122,7 +122,7 @@ impl Controller {
 
     fn connect_initial_port(&mut self, port_strategy: &dyn PortStrategy) {
         // println!("Controller.connect_initial_port: {:?}", port_strategy.port_type());
-        let midi = midi_static::clone_midi();
+        let midi = midi_static::midi_clone();
         let maybe_index = {
             let midi_guard = midi.lock().unwrap();
             midi_guard.io(port_strategy).device().as_ref()
@@ -141,7 +141,7 @@ impl Controller {
 
     pub fn connect_port(&mut self, port_strategy: &dyn PortStrategy) {
         // println!("Controller.connect_port");
-        let midi = midi_static::clone_midi();
+        let midi = midi_static::midi_clone();
         let port_strategy = port_strategy.clone_box();
         // println!("Controller.connect_port: Stopping OSC and instrument connection monitor");
         self.stop_osc_and_instru_connection_monitor();
@@ -202,14 +202,14 @@ impl Controller {
     }
 
     fn device_names(&self, port_strategy: &dyn PortStrategy) -> Vec<String> {
-        let midi = midi_static::clone_midi();
+        let midi = midi_static::midi_clone();
         // println!("Controller.device_names: Got midi");
         let midi_guard = midi.lock().unwrap();
         midi_guard.io(port_strategy).device_names()
     }
 
     pub fn refresh_devices(&mut self, port_strategy: &dyn PortStrategy) {
-        let midi = midi_static::clone_midi();
+        let midi = midi_static::midi_clone();
         let port_strategy = port_strategy.clone_box();
         self.stop_osc_and_instru_connection_monitor();
         let device_name = port_strategy.port_setting(&self.settings).to_string();
