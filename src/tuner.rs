@@ -378,18 +378,7 @@ pub fn pitch_table_nos<'a>() -> &'a Vec<u8> {
 /// Returns the thread-safe singleton TunerData instance.
 fn data() -> Arc<Mutex<TunerData>> {
     Arc::clone(TUNER_DATA.get_or_init(||
-        Arc::new(Mutex::new(TunerData {
-            tuning_params: TuningParams {
-                depth: 0,
-                mode: 0,
-                root_freq: 0.0,
-                stretch: 0.0,
-                skew: 0.0,
-                mode_offset: 0,
-                steps: 0,
-            },
-            keys: Arc::new(vec![]),
-        }))))
+        Arc::new(Mutex::new(TunerData::new()))))
 }
 
 fn default_pitch_keys<'a>() -> &'a Vec<f32> {
@@ -479,6 +468,23 @@ struct Key {
 struct TunerData {
     tuning_params: TuningParams,
     keys:Arc<Vec<Key>>,
+}
+
+impl TunerData {
+    fn new() -> Self {
+        Self {
+            tuning_params: TuningParams {
+                depth: 0,
+                mode: 0,
+                root_freq: 0.0,
+                stretch: 0.0,
+                skew: 0.0,
+                mode_offset: 0,
+                steps: 0,
+            },
+            keys: Arc::new(vec![]),
+        }
+    }
 }
 
 struct TuningParams {
