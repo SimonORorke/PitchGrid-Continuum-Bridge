@@ -326,11 +326,11 @@ impl Midi {
     }
 
     fn create_midi_input() -> MidiInput {
-        MidiInput::new(Self::INPUT_CLIENT_NAME).unwrap()
+        MidiInput::new(INPUT_CLIENT_NAME).unwrap()
     }
 
     fn create_midi_output() -> MidiOutput {
-        MidiOutput::new(Self::OUTPUT_CLIENT_NAME).unwrap()
+        MidiOutput::new(OUTPUT_CLIENT_NAME).unwrap()
     }
 
     fn disconnect_input_port(&mut self) {
@@ -608,10 +608,10 @@ impl Midi {
         IS_DOWNLOAD_MONITOR_RUNNING.store(false, Ordering::Relaxed);
         // println!("Midi.stop_download_monitor: Done.");
     }
-
-    const INPUT_CLIENT_NAME: &str = "My MIDI Input";
-    const OUTPUT_CLIENT_NAME: &str = "My MIDI Output";
 }
+
+const INPUT_CLIENT_NAME: &str = "My MIDI Input";
+const OUTPUT_CLIENT_NAME: &str = "My MIDI Output";
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum DownloadStatus {
