@@ -15,7 +15,7 @@ use crate::{global, midi_static, tuner};
 pub struct Controller {
     callbacks: Box<dyn ControllerCallbacks>,
     has_restart_been_requested: bool,
-    osc: SharedOsc,
+    osc: Osc,
     settings: Settings,
 }
 
@@ -24,7 +24,7 @@ impl Controller {
         Self {
             callbacks,
             has_restart_been_requested: false,
-            osc: Arc::new(Mutex::new(Osc::new())),
+            osc: Osc::new(),
             settings: Settings::new(),
         }
     }
@@ -106,15 +106,7 @@ impl Controller {
     #[allow(clippy::unwrap_used)]
     pub fn close(&mut self) -> Result<(), Box<dyn Error>> {
         midi_static::close();
-
-        let osc = self.osc.clone();
-        // There is no way to avoid this unwrap, but there seems not to be a way of stopping
-        // RustRover from suggesting it should be replaced with '?'.
-        let mut osc_guard = osc.lock().unwrap();
-        osc_guard.stop();
-        drop(osc_guard);
-        drop(osc);
-
+        self.osc.stop();
         if let Err(err) = self.settings.write_to_file() {
             self.show_error(&err.to_string());
             return Err(err)
@@ -309,14 +301,14 @@ impl Controller {
         self.settings.pitch_table = pitch_table_no;
     }
 
-    fn on_instru_init_data_download_completed(&self) {
+    fn on_instru_init_data_download_completed(&mut self) {
         // println!("Controller.on_instru_init_data_download_completed");
         if midi_static::is_receiving_data() && midi_static::are_ports_connected() {
             self.start_osc_and_show_message();
         }
     }
 
-    fn on_ports_connected_changed(&self) {
+    fn on_ports_connected_changed(&mut self) {
         // println!("Controller.on_instru_connected_changed");
         if midi_static::is_downloading_init_data() {
             // println!("Controller.on_instru_connected_changed: Awaiting data download completion.");
@@ -328,9 +320,9 @@ impl Controller {
         }
         // Instrument is not connected. Stop OSC if running.
         // println!("Controller.on_instru_connected_changed: Instrument is not connected.");
-        if self.is_osc_running() {
+        if self.osc.is_running() {
             // println!("Controller.on_instru_connected_changed: Stopping OSC");
-            self.stop_osc();
+            self.osc.stop();
             self.show_warning(
                 "Instrument is disconnected; closed PitchGrid connection.");
         } else if midi_static::are_ports_connected() && !self.has_restart_been_requested {
@@ -356,14 +348,14 @@ impl Controller {
         }
     }
 
-    fn on_receiving_instru_data_started_callback(&self) {
-        if midi_static::are_ports_connected() && !self.is_osc_running() {
+    fn on_receiving_instru_data_started_callback(&mut self) {
+        if midi_static::are_ports_connected() && !self.osc.is_running() {
             self.start_osc()
         }
     }
 
-    fn on_receiving_instru_data_stopped_callback(&self) {
-        if self.is_osc_running() {
+    fn on_receiving_instru_data_stopped_callback(&mut self) {
+        if self.osc.is_running() {
             self.stop_osc_and_show_message();
         }
     }
@@ -374,11 +366,6 @@ impl Controller {
         // println!("Controller.on_tuning_updated: Showing Instrument tuning updated");
         self.callbacks.show_pitchgrid_status("Instrument tuning updated", MessageType::Info);
     }
-
-    // fn osc.clone(&self) -> SharedOsc {
-    //     let osc = OSC.get_or_init(|| Arc::new(Mutex::new(Osc::new())));
-    //     Arc::clone(osc)
-    // }
 
     fn show_connected_device_name(
         &mut self, device_name: &str, port_strategy: &dyn PortStrategy) {
@@ -433,31 +420,18 @@ impl Controller {
         self.callbacks.show_message(message, MessageType::Warning);
     }
 
-    fn is_osc_running(&self) -> bool {
-        let osc = self.osc.clone();
-        let osc_guard = osc.lock().unwrap();
-        osc_guard.is_running()
+    fn start_osc(&mut self) {
+        self.osc.start(Self::clone_controller());
     }
 
-    fn start_osc(&self) {
-        let osc = self.osc.clone();
-        let mut osc_guard = osc.lock().unwrap();
-        // println!("Controller.start_osc:  Starting OSC");
-        osc_guard.start(Self::clone_controller());
-    }
-
-    fn start_osc_and_show_message(&self) {
+    fn start_osc_and_show_message(&mut self) {
         self.start_osc();
         self.show_info("Opening PitchGrid connection...");
     }
 
-    fn stop_osc(&self) {
-        self.osc.lock().unwrap().stop();
-    }
-
-    fn stop_osc_and_instru_connection_monitor(&self) {
+    fn stop_osc_and_instru_connection_monitor(&mut self) {
         midi_static::stop_instru_connection_monitor();
-        self.stop_osc();
+        self.osc.stop();
         // println!("Controller.stop_osc_and_instru_connection_monitor: Done");
     }
 
@@ -465,7 +439,7 @@ impl Controller {
     /// When the application is reconnected to the instrument, OSC will be restarted, which will
     /// force PitchGrid to send the latest tuning.
     fn stop_osc_and_show_message(&self) {
-        self.stop_osc();
+        self.osc.stop();
         if !midi_static::are_ports_connected() {
             self.callbacks.show_pitchgrid_status(
                 "Cannot updating tuning. Connect instrument input/output.",
@@ -496,9 +470,7 @@ impl OscCallbacks for Mutex<Controller> {
 impl OscCallbacks for Controller {
     fn on_osc_pitchgrid_connected_changed(&self) {
         // println!("Controller.on_osc_pitchgrid_connected_changed");
-        let osc = self.osc.clone();
-        let osc_guard = osc.lock().unwrap();
-        if osc_guard.is_pitchgrid_connected() {
+        if self.osc.is_pitchgrid_connected() {
             // println!("Controller.on_osc_pitchgrid_connected_changed: Showing PitchGrid is connected");
             self.show_pitchgrid_connected();
             // println!("Controller.on_osc_pitchgrid_connected_changed: PitchGrid and instrument are connected");
@@ -542,7 +514,6 @@ pub trait ControllerCallbacks: Send + Sync {
     fn set_selected_pitch_table_index(&self, index: i32);
 }
 
-type SharedOsc = Arc<Mutex<Osc>>;
 type SharedController = Arc<Mutex<Controller>>;
 
 static CONTROLLER: OnceLock<SharedController> = OnceLock::new();

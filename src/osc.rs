@@ -16,17 +16,15 @@ use rosc::{decoder, encoder, OscMessage, OscPacket, OscType};
 ///         Likewise, PitchGrid will send /pitchgrid/heartbeat/ack to acknowledge heartbeats
 ///         and therefore show that it's still going to send tunings.
 pub struct Osc {
-    is_running: bool,
+    inner: Mutex<OscInner>,
     last_ack_time: Arc<Mutex<Option<Instant>>>,
-    stopper_senders: Vec<mpsc::Sender<()>>,
 }
 
 impl Osc {
     pub fn new() -> Self {
         Self {
-            is_running: false,
+            inner: Mutex::new(OscInner { is_running: false, stopper_senders: vec![] }),
             last_ack_time: Arc::new(Mutex::new(None)),
-            stopper_senders: vec![],
         }
     }
 
@@ -34,16 +32,17 @@ impl Osc {
         SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), port)
     }
 
-    pub fn start(&mut self, callbacks: Arc<dyn OscCallbacks>) {
+    pub fn start(&self, callbacks: Arc<dyn OscCallbacks>) {
         // println!("Osc.start");
         if self.is_pitchgrid_connected() {
             panic!("PitchGrid is already connected.");
         }
         let mut stopper_receivers: Vec<mpsc::Receiver<()>> = vec![];
+        let mut inner = self.inner.lock().unwrap();
         for _ in 0..3 {
             let (stopper_sender, stopper_receiver) = mpsc::channel();
             stopper_receivers.push(stopper_receiver);
-            self.stopper_senders.push(stopper_sender);
+            inner.stopper_senders.push(stopper_sender);
         }
         let mut stopper_receivers_iter = stopper_receivers.into_iter();
         let heartbeat_stopper = stopper_receivers_iter.next().unwrap();
@@ -55,7 +54,8 @@ impl Osc {
         let send_socket = socket.try_clone().unwrap();
         let listen_socket = socket;
         let last_ack_time = self.last_ack_time.clone();
-        self.is_running = true;
+        inner.is_running = true;
+        drop(inner);
 
         rayon::spawn(move || {
             Self::send_heartbeats(send_socket, heartbeat_stopper);
@@ -72,16 +72,17 @@ impl Osc {
         });
     }
 
-    pub fn stop(&mut self) {
+    pub fn stop(&self) {
         // println!("Osc.stop");
         IS_PITCHGRID_CONNECTED.store(false, Ordering::SeqCst);
         // Stop the threads.
-        for stopper_sender in self.stopper_senders.drain(..) {
+        let mut inner = self.inner.lock().unwrap();
+        for stopper_sender in inner.stopper_senders.drain(..) {
             stopper_sender.send(()).unwrap();
         }
         let last_ack_time_clone = self.last_ack_time.clone();
         *last_ack_time_clone.lock().unwrap() = None;
-        self.is_running = false;
+        inner.is_running = false;
         // println!("Osc.stop: stopped OSC");
     }
 
@@ -90,7 +91,7 @@ impl Osc {
     }
 
     pub fn is_running(&self) -> bool {
-        self.is_running
+        self.inner.lock().unwrap().is_running
     }
 
     fn handle_tuning(args: Vec<OscType>, callbacks: Arc<dyn OscCallbacks>) {
@@ -261,6 +262,11 @@ impl Osc {
             // Slept for 1s, proceeding
         }
     }
+}
+
+struct OscInner {
+    is_running: bool,
+    stopper_senders: Vec<mpsc::Sender<()>>,
 }
 
 const HEARTBEAT_ACK_ADDR: &str = "/pitchgrid/heartbeat/ack";
