@@ -16,6 +16,7 @@ use rosc::{decoder, encoder, OscMessage, OscPacket, OscType};
 ///         Likewise, PitchGrid will send /pitchgrid/heartbeat/ack to acknowledge heartbeats
 ///         and therefore show that it's still going to send tunings.
 pub struct Osc {
+    /// Saves Controller.osc from having to be an Arc<Mutex>>.
     inner: Mutex<OscInner>,
     last_ack_time: Arc<Mutex<Option<Instant>>>,
 }
