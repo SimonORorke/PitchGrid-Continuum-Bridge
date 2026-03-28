@@ -311,7 +311,7 @@ impl Controller {
     fn on_ports_connected_changed(&mut self) {
         // println!("Controller.on_instru_connected_changed");
         if midi_static::is_downloading_init_data() {
-            // println!("Controller.on_instru_connected_changed: Awaiting data download completion.");
+            println!("Controller.on_instru_connected_changed: Awaiting data download completion.");
             self.show_info("Awaiting completion of data download from instrument...");
             return;
         }
