@@ -377,13 +377,17 @@ impl Controller {
         } else {
             MessageType::Info
         };
-        let port_setting = if device_name == PORT_NONE {
-            ""
-        } else {
-            device_name
-        };
-        port_strategy.set_port_setting(&mut self.settings, port_setting);
         self.callbacks.show_connected_device_name(device_name, message_type, port_strategy);
+        // Don't save the port setting if the port is not connected.
+        // The device, if any, stored in the settings file is the one that was connected last time.
+        // The persisted device may be temporarily unavailable for selection, for example if a
+        // USB-MIDI cable is not plugged in.
+        // So the player needs to be able to close the application and reopen it later when the
+        // device is available again and still have the same device automatically selected and
+        // connected on startup.
+        if device_name != PORT_NONE {
+            port_strategy.set_port_setting(&mut self.settings, device_name);
+        }
     }
 
     fn show_error(&self, message: &str) {
