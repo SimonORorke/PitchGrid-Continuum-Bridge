@@ -356,12 +356,13 @@ impl Midi {
     fn log_message_received_time() {
         let now = Instant::now();
         *LAST_MESSAGE_RECEIVED_TIME.lock().unwrap() = Some(now);
-        let has_just_started_receiving_data = !IS_RECEIVING_DATA.load(Ordering::Relaxed);
+        HAS_JUST_STARTED_RECEIVING_DATA.store(!IS_RECEIVING_DATA.load(Ordering::Relaxed),
+                                              Ordering::Relaxed);
         IS_RECEIVING_DATA.store(true, Ordering::Relaxed);
-        if has_just_started_receiving_data {
+        if HAS_JUST_STARTED_RECEIVING_DATA.load(Ordering::Relaxed) {
             Self::call_back(RECEIVING_DATA_STARTED_CALLBACKS.clone());
-            // println!("Midi.log_message_received_time: Starting download monitor");
-            Self::start_download_monitor();
+            // // println!("Midi.log_message_received_time: Starting download monitor");
+            // Self::start_download_monitor();
         }
     }
     
@@ -629,6 +630,7 @@ enum PresetSelectStatus {
     // Program,
 }
 
+static HAS_JUST_STARTED_RECEIVING_DATA: AtomicBool = AtomicBool::new(false);
 static IS_DOWNLOAD_MONITOR_RUNNING: AtomicBool = AtomicBool::new(false);
 static IS_DOWNLOADING_INIT_DATA: AtomicBool = AtomicBool::new(false);
 static IS_RECEIVING_DATA: AtomicBool = AtomicBool::new(false);
