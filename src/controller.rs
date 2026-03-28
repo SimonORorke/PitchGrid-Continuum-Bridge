@@ -303,8 +303,11 @@ impl Controller {
 
     fn on_instru_init_data_download_completed(&mut self) {
         // println!("Controller.on_instru_init_data_download_completed");
-        if midi_static::is_receiving_data() && midi_static::are_ports_connected() {
-            self.start_osc_and_show_message();
+        if midi_static::is_receiving_data()
+                && midi_static::are_ports_connected()
+                && !self.osc.is_running() {
+            self.start_osc();
+            self.show_info("Opening PitchGrid connection...");
         }
     }
 
@@ -422,11 +425,6 @@ impl Controller {
 
     fn start_osc(&mut self) {
         self.osc.start(Self::clone_controller());
-    }
-
-    fn start_osc_and_show_message(&mut self) {
-        self.start_osc();
-        self.show_info("Opening PitchGrid connection...");
     }
 
     fn stop_osc_and_instru_connection_monitor(&mut self) {

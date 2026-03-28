@@ -382,7 +382,7 @@ impl Midi {
             if millis < 100 {
                 // We need to defer sending data until the download message burst
                 // is complete. So start monitoring the download to ascertain when it finishes.
-                println!("Midi.log_message_received_time: Starting download monitor");
+                // println!("Midi.log_message_received_time: Starting download monitor");
                 Self::start_download_monitor();
             }
         }
@@ -404,7 +404,7 @@ impl Midi {
                 // Or this could be some other burst of messages, such as the heartbeat cluster.
                 // Either way, as we have not received any more messages for 200 ms,
                 // the burst of messages must have stopped.
-                println!("Midi.monitor_data_download: Download completed");
+                // println!("Midi.monitor_data_download: Download completed");
                 IS_DOWNLOADING_INIT_DATA.store(false, Ordering::Relaxed);
                 IS_DOWNLOAD_MONITOR_RUNNING.store(false, Ordering::Relaxed);
                 Self::call_back(DOWNLOAD_COMPLETED_CALLBACKS.clone());
@@ -458,7 +458,6 @@ impl Midi {
     }
 
     fn on_message_received(message: &[u8]) {
-        println!("Midi.on_message_received: message={:?}", message);
         Self::log_message_received_time();
         let event = LiveEvent::parse(message).unwrap();
         match event {
@@ -600,7 +599,7 @@ impl Midi {
     }
 
     fn send_message(message: &[u8]) {
-        // println!("Midi.send_message");
+        // println!("Midi.send_message: message={:?}", message);
         let mut connection_option =
             OUTPUT_CONNECTION.lock().unwrap();
         // println!("Midi.send_message: Got connection");
