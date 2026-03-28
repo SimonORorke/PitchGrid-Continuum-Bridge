@@ -355,17 +355,41 @@ impl Midi {
 
     fn log_message_received_time() {
         let now = Instant::now();
-        *LAST_MESSAGE_RECEIVED_TIME.lock().unwrap() = Some(now);
-        HAS_JUST_STARTED_RECEIVING_DATA.store(!IS_RECEIVING_DATA.load(Ordering::Relaxed),
-                                              Ordering::Relaxed);
         IS_RECEIVING_DATA.store(true, Ordering::Relaxed);
-        if HAS_JUST_STARTED_RECEIVING_DATA.load(Ordering::Relaxed) {
+        let mut last_message_received_time =
+            LAST_MESSAGE_RECEIVED_TIME.lock().unwrap();
+        let prev_message_received_time =
+            last_message_received_time.take();
+        *last_message_received_time = Some(now);
+        if prev_message_received_time.is_none() {
+            HAS_JUST_STARTED_RECEIVING_DATA.store(true, Ordering::Relaxed);
             Self::call_back(RECEIVING_DATA_STARTED_CALLBACKS.clone());
-            // // println!("Midi.log_message_received_time: Starting download monitor");
-            // Self::start_download_monitor();
+            return;
+        }
+        if HAS_JUST_STARTED_RECEIVING_DATA.load(Ordering::Relaxed) {
+            HAS_JUST_STARTED_RECEIVING_DATA.store(false, Ordering::Relaxed);
+            let duration = now.duration_since(prev_message_received_time.unwrap());
+            let millis = duration.as_millis();
+            // This is the second message we have received since the application started or
+            // listening for messages was resumed.
+            // The initial data download from the instrument to the editor consists of many
+            // messages in quick succession.
+            // So, if we have received the first two messages within 100ms of each other,
+            // we assume an initial data download from the instrument to the editor or some other
+            // burst of messages, such as the heartbeat cluster, is in progress.
+            // Otherwise, we assume the initial data download occurred before we started listening,
+            // which usually means before this application was launched.
+            if millis < 100 {
+                // We need to defer sending data until the download message burst
+                // is complete. So start monitoring the download to ascertain when it finishes.
+                println!("Midi.log_message_received_time: Starting download monitor");
+                Self::start_download_monitor();
+            }
         }
     }
-    
+
+    /// Monitors the initial data download from the instrument to the editor to ascertain when
+    /// it has finished, when monitoring will stop.
     fn monitor_data_download(stopper_receiver: mpsc::Receiver<()>) {
         // println!("Midi.monitor_editor_data_download");
         loop {
@@ -376,7 +400,11 @@ impl Midi {
             // Slept for 200ms, proceeding
             let download_status = *DOWNLOAD_STATUS.lock().unwrap();
             if download_status == DownloadStatus::None {
-                // println!("Midi.monitor_editor_data_download: Download completed");
+                // The initial data download consists of many messages in quick succession.
+                // Or this could be some other burst of messages, such as the heartbeat cluster.
+                // Either way, as we have not received any more messages for 200 ms,
+                // the burst of messages must have stopped.
+                println!("Midi.monitor_data_download: Download completed");
                 IS_DOWNLOADING_INIT_DATA.store(false, Ordering::Relaxed);
                 IS_DOWNLOAD_MONITOR_RUNNING.store(false, Ordering::Relaxed);
                 Self::call_back(DOWNLOAD_COMPLETED_CALLBACKS.clone());
@@ -402,6 +430,7 @@ impl Midi {
                     let seconds = duration.as_secs();
                     if seconds > 2 {
                         // println!("midi.monitor_instru_connection: Instrument disconnected.");
+                        *LAST_MESSAGE_RECEIVED_TIME.lock().unwrap() = None;
                         IS_RECEIVING_DATA.store(false, Ordering::Relaxed);
                         Self::call_back(RECEIVING_DATA_STARTED_CALLBACKS.clone());
                     }
@@ -429,7 +458,7 @@ impl Midi {
     }
 
     fn on_message_received(message: &[u8]) {
-        // println!("Midi.on_message_received: message={:?}", message);
+        println!("Midi.on_message_received: message={:?}", message);
         Self::log_message_received_time();
         let event = LiveEvent::parse(message).unwrap();
         match event {
