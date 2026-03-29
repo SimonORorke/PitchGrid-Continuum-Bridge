@@ -4,6 +4,8 @@ PitchGrid-Continuum Bridge is a bridging application that allows tunings specifi
 
 <img src="images\PitchGrid-Continuum Bridge.png" alt="PitchGrid-Continuum Bridge" style="zoom: 80%;" />
 
+## System Requirements
+
 ### Supported Instruments
 
 PitchGrid-Continuum Bridge (PCB) has so far only been tested with the Continuum.  But it should also work with the ContinuuMini, EaganMatrix Eurorack Module and EaganMatrix Micro. For the latter two instruments, connection to an MPE or MIDI keyboard would facilitate use of PitchGrid and PCB, though other configurations may be possible.  The Osmose is not supported:  although it has the EaganMatrix sound engine in common with those other instruments, it does not provide a public API that would support tuning.
@@ -20,7 +22,7 @@ PitchGrid-Continuum Bridge has so far only been tested with the Continuum.  But 
 
 The current version of PitchGrid-Continuum Bridge works with PitchGrid 0.33.  PCB will need to be updated to support breaking changes expected in the next version of PitchGrid.  Haken Editor is also required.
 
-### Connections
+## Connections
 
 <img src="images\Data Flow.jpg" alt="Data Flow" style="zoom: 100%;" />
 
@@ -39,7 +41,24 @@ PCB connects to Haken Editor's External input and output in All Data mode. As us
 >
 > <img src="images\Loop.png" alt="Loop" style="zoom: 100%;" />
 
-#### Load Order
+### Load Order
 
 The order in which you load or turn on the connected components does not matter.  PitchGrid-Continuum Bridge will show messages advising you of anything that is not yet connected.
 <img src="images\Awaiting PitchGrid Connection.png" alt="Awaiting PitchGrid Connection" style="zoom: 80%;" />
+
+## Tuning Parameters Display
+
+<img src="images\Tuning Parameters - PitchGrid.png" alt="Tuning Parameters - PitchGrid" style="zoom: 80%;" />
+<img src="images\Tuning Parameters - PCB.png" alt="Tuning Parameters - PCB" style="zoom: 80%;" />
+
+Once the tuning of the instrument's current preset has been updated in accordance with the tuning parameters received from PitchGrid, PCB displays the applied tuning parameters.  The displayed values may differ from what you can see in PitchGrid in two respects.
+
+- More decimal places are shown.  This is because some PitchGrid tunings cannot be distinguished from each other with the number of decimal places currently shown in PitchGrid, and it is not possible to show the tuning preset name in PCB.
+- If a **Root Frequency Override** note is specified in PCB (see below), **Root Freq** will show the overriding note's frequency.
+
+## Preferences
+
+<img src="images\Preferences.png" alt="Preferences" style="zoom: 80%;" />
+
+### Root Frequency Override
+
