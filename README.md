@@ -36,6 +36,7 @@ PCB connects to Haken Editor's External input and output in All Data mode. As us
 > [!WARNING]
 >
 > *PitchGrid-Continuum Bridge must not be connected directly to the instrument.  Doing that causes a MIDI loop, which is indicated on the instrument's display.*
+>
 > <img src="images\Loop.png" alt="Loop" style="zoom: 100%;" />
 
 #### Load Order
