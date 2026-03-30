@@ -15,7 +15,7 @@ use crate::port_strategy::PortStrategy;
 use crate::tuner;
 
 pub struct Midi {
-    connection_monitor_stopper_senders: Vec<mpsc::Sender<()>>,
+    connection_monitor_stopper_sender: Option<mpsc::Sender<()>>,
     input: Io<MidiInputPort>,
     input_connection: Option<MidiInputConnection<()>>,
     is_connection_monitor_running: bool,
@@ -25,7 +25,7 @@ pub struct Midi {
 impl Midi {
     pub fn new() -> Self {
         Self {
-            connection_monitor_stopper_senders: vec![],
+            connection_monitor_stopper_sender: None,
             input: Io::<MidiInputPort>::new(Box::new(Self::create_midi_input())),
             input_connection: None,
             is_connection_monitor_running: false,
@@ -212,7 +212,7 @@ impl Midi {
     pub fn start_instru_connection_monitor(&mut self) {
         // println!("Midi.start_instru_connection_monitor");
         let (stopper_sender, stopper_receiver) = mpsc::channel();
-        self.connection_monitor_stopper_senders.push(stopper_sender);
+        self.connection_monitor_stopper_sender = Some(stopper_sender);
         rayon::spawn(move || {
             Self::monitor_instru_connection(stopper_receiver);
         });
@@ -225,11 +225,12 @@ impl Midi {
             // println!("Midi.stop_instru_connection_monitor: Already stopped.");
             return;
         }
-        for stopper_sender in self.connection_monitor_stopper_senders.iter() {
-            stopper_sender.send(()).unwrap_or_else(|_| {
-                // println!("Midi.stop_instru_connection_monitor: Failed to send stop signal to instrument connection monitor");
-            });
-        }
+        let stopper_sender =
+            self.connection_monitor_stopper_sender.take();
+        if stopper_sender.is_none() { return; }
+        stopper_sender.unwrap().send(()).unwrap_or_else(|_| {
+            panic!("Midi.stop_instru_connection_monitor: Failed to send stop signal to connection monitor");
+        });
         // println!("Midi.stop_instru_connection_monitor: Stopped monitor thread.");
         self.is_connection_monitor_running = false;
         IS_RECEIVING_DATA.store(false, Ordering::Relaxed);
@@ -614,7 +615,7 @@ impl Midi {
     fn start_download_monitor() {
         // println!("Midi.start_download_monitor");
         let (stopper_sender, stopper_receiver) = mpsc::channel();
-        DOWNLOAD_MONITOR_STOPPER_SENDERS.lock().unwrap().push(stopper_sender);
+        *DOWNLOAD_MONITOR_STOPPER_SENDER.lock().unwrap() = Some(stopper_sender);
         IS_DOWNLOADING_INIT_DATA.store(true, Ordering::Relaxed);
         IS_DOWNLOAD_MONITOR_RUNNING.store(true, Ordering::Relaxed);
         rayon::spawn(move || {
@@ -628,11 +629,12 @@ impl Midi {
             // println!("Midi.stop_download_monitor: Already stopped.");
             return;
         }
-        for stopper_sender in DOWNLOAD_MONITOR_STOPPER_SENDERS.lock().unwrap().iter() {
-            stopper_sender.send(()).unwrap_or_else(|_| {
-                // println!("Midi.stop_download_monitor: Failed to send stop signal to download monitor");
-            });
-        }
+        let stopper_sender =
+            DOWNLOAD_MONITOR_STOPPER_SENDER.lock().unwrap().take();
+        if stopper_sender.is_none() { return; }
+        stopper_sender.unwrap().send(()).unwrap_or_else(|_| {
+            panic!("Midi.stop_download_monitor: Failed to send stop signal to download monitor");
+        });
         // println!("Midi.stop_download_monitor: Stopped monitor thread.");
         IS_DOWNLOAD_MONITOR_RUNNING.store(false, Ordering::Relaxed);
         // println!("Midi.stop_download_monitor: Done.");
@@ -667,8 +669,7 @@ static IS_UPDATING_TUNING: AtomicBool = AtomicBool::new(false);
 lazy_static! {
     static ref DOWNLOAD_COMPLETED_CALLBACKS:
         Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>> = Arc::new(Mutex::new(Vec::new()));
-    static ref DOWNLOAD_MONITOR_STOPPER_SENDERS: Arc<Mutex<Vec<mpsc::Sender<()>>>> = 
-        Arc::new(Mutex::new(Vec::new()));
+    static ref DOWNLOAD_MONITOR_STOPPER_SENDER: Mutex<Option<mpsc::Sender<()>>> = Mutex::new(None);
     static ref DOWNLOAD_STATUS: Arc<Mutex<DownloadStatus>> = Arc::new(Mutex::new(DownloadStatus::None));
     static ref LAST_MESSAGE_RECEIVED_TIME: Mutex<Option<Instant>> = Mutex::new(None);
     static ref NEW_PRESET_SELECTED_CALLBACKS:
