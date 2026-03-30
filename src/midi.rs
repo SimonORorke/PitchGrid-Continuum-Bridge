@@ -1,11 +1,10 @@
 use std::cmp::PartialEq;
-use lazy_static::lazy_static;
 use midir::{
     MidiInput, MidiInputConnection, MidiInputPort, MidiOutput, MidiOutputConnection, MidiOutputPort,
 };
 use midly::{MidiMessage, live::LiveEvent};
 use std::error::Error;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
@@ -38,7 +37,7 @@ impl Midi {
         callback: Box<dyn Fn() + Send + Sync + 'static>,
     ) {
         // println!("Midi.add_init_download_completed_callback");
-        DOWNLOAD_COMPLETED_CALLBACKS.lock().unwrap().push(callback);
+        download_completed_callbacks().lock().unwrap().push(callback);
     }
 
     pub fn add_ports_connected_changed_callback(
@@ -46,7 +45,7 @@ impl Midi {
         callback: Box<dyn Fn() + Send + Sync + 'static>,
     ) {
         // println!("Midi.add_tuning_updated_callback");
-        PORTS_CONNECTED_CHANGED_CALLBACKS.lock().unwrap().push(callback);
+        ports_connected_changed_callbacks().lock().unwrap().push(callback);
     }
 
     pub fn add_new_preset_selected_callback(
@@ -54,7 +53,7 @@ impl Midi {
         callback: Box<dyn Fn() + Send + Sync + 'static>,
     ) {
         // println!("Midi.add_new_preset_selected_callback");
-        NEW_PRESET_SELECTED_CALLBACKS.lock().unwrap().push(callback);
+        new_preset_selected_callbacks().lock().unwrap().push(callback);
     }
 
     pub fn add_receiving_data_started_callback(
@@ -62,7 +61,7 @@ impl Midi {
         callback: Box<dyn Fn() + Send + Sync + 'static>,
     ) {
         // println!("Midi.add_receiving_data_started_callback");
-        RECEIVING_DATA_STARTED_CALLBACKS.lock().unwrap().push(callback);
+        receiving_data_started_callbacks().lock().unwrap().push(callback);
     }
 
     pub fn add_receiving_data_stopped_callback(
@@ -70,12 +69,12 @@ impl Midi {
         callback: Box<dyn Fn() + Send + Sync + 'static>,
     ) {
         // println!("Midi.add_receiving_data_started_callback");
-        RECEIVING_DATA_STOPPED_CALLBACKS.lock().unwrap().push(callback);
+        receiving_data_stopped_callbacks().lock().unwrap().push(callback);
     }
 
     pub fn add_tuning_updated_callback(&mut self, callback: Box<dyn Fn() + Send + Sync + 'static>) {
         // println!("Midi.add_tuning_updated_callback");
-        TUNING_UPDATED_CALLBACKS.lock().unwrap().push(callback);
+        tuning_updated_callbacks().lock().unwrap().push(callback);
     }
 
     /// Return whether both input and output ports are connected.
@@ -83,7 +82,7 @@ impl Midi {
         if self.input_connection.is_none() {
             return false;
         }
-        OUTPUT_CONNECTION.lock().unwrap().is_some()
+        output_connection().lock().unwrap().is_some()
     }
 
     pub fn close(&mut self) {
@@ -109,7 +108,7 @@ impl Midi {
         if !were_ports_connected {
             // The other port was already connected, so now they both are.
             if self.are_ports_connected() {
-                Self::call_back(PORTS_CONNECTED_CHANGED_CALLBACKS.clone());
+                Self::call_back(ports_connected_changed_callbacks().clone());
             }
         }
         Ok(())
@@ -162,7 +161,7 @@ impl Midi {
         }
         if were_ports_connected {
             // We have just disconnected on of the ports.
-            Self::call_back(PORTS_CONNECTED_CHANGED_CALLBACKS.clone());
+            Self::call_back(ports_connected_changed_callbacks().clone());
         }
         Ok(())
     }
@@ -242,7 +241,7 @@ impl Midi {
     }
 
     /// Call the subscribed callback functions on a separate thread.
-    fn call_back(callbacks: Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>>) {
+    fn call_back(callbacks: Callbacks) {
         rayon::spawn(move || {
             let callbacks_guard = callbacks.lock().unwrap();
             for callback in callbacks_guard.iter() {
@@ -299,7 +298,7 @@ impl Midi {
             let midi_output = Self::create_midi_output();
             match midi_output.connect(midi_port, &device_name) {
                 Ok(connection) => {
-                    *OUTPUT_CONNECTION.lock()? = Option::from(connection);
+                    *output_connection().lock()? = Option::from(connection);
                     output.set_port(port.clone());
                 }
                 Err(_) =>
@@ -346,8 +345,8 @@ impl Midi {
 
     fn disconnect_output_port(&mut self) {
         // println!("Midi.disconnect_output_port start");
-        let output_connection = OUTPUT_CONNECTION.lock().unwrap().take();
-        if let Some(connection) = output_connection {
+        let connection_opt = output_connection().lock().unwrap().take();
+        if let Some(connection) = connection_opt {
             connection.close();
             let output = &mut self.output;
             output.set_port_to_none();
@@ -357,14 +356,14 @@ impl Midi {
     fn log_message_received_time() {
         let now = Instant::now();
         IS_RECEIVING_DATA.store(true, Ordering::Relaxed);
-        let mut last_message_received_time =
-            LAST_MESSAGE_RECEIVED_TIME.lock().unwrap();
+        let mut last_time =
+            last_message_received_time().lock().unwrap();
         let prev_message_received_time =
-            last_message_received_time.take();
-        *last_message_received_time = Some(now);
+            last_time.take();
+        *last_time = Some(now);
         if prev_message_received_time.is_none() {
             HAS_JUST_STARTED_RECEIVING_DATA.store(true, Ordering::Relaxed);
-            Self::call_back(RECEIVING_DATA_STARTED_CALLBACKS.clone());
+            Self::call_back(receiving_data_started_callbacks().clone());
             return;
         }
         if HAS_JUST_STARTED_RECEIVING_DATA.load(Ordering::Relaxed) {
@@ -399,8 +398,8 @@ impl Midi {
                 return;
             }
             // Slept for 200ms, proceeding
-            let download_status = *DOWNLOAD_STATUS.lock().unwrap();
-            if download_status == DownloadStatus::None {
+            let status = *download_status().lock().unwrap();
+            if status == DownloadStatus::None {
                 // The initial data download consists of many messages in quick succession.
                 // Or this could be some other burst of messages, such as the heartbeat cluster.
                 // Either way, as we have not received any more messages for 200 ms,
@@ -408,7 +407,7 @@ impl Midi {
                 // println!("Midi.monitor_data_download: Download completed");
                 IS_DOWNLOADING_INIT_DATA.store(false, Ordering::Relaxed);
                 IS_DOWNLOAD_MONITOR_RUNNING.store(false, Ordering::Relaxed);
-                Self::call_back(DOWNLOAD_COMPLETED_CALLBACKS.clone());
+                Self::call_back(download_completed_callbacks().clone());
                 return;
             }
         }
@@ -424,16 +423,16 @@ impl Midi {
         loop {
             if IS_RECEIVING_DATA.load(Ordering::Relaxed) {
                 let now = Instant::now();
-                let last_message_received_time =
-                    *LAST_MESSAGE_RECEIVED_TIME.lock().unwrap();
-                if let Some(last_message_received_time) = last_message_received_time {
-                    let duration = now.duration_since(last_message_received_time);
+                let last_time =
+                    *last_message_received_time().lock().unwrap();
+                if let Some(last_time) = last_time {
+                    let duration = now.duration_since(last_time);
                     let seconds = duration.as_secs();
                     if seconds > 2 {
                         // println!("midi.monitor_instru_connection: Instrument disconnected.");
-                        *LAST_MESSAGE_RECEIVED_TIME.lock().unwrap() = None;
+                        *last_message_received_time().lock().unwrap() = None;
                         IS_RECEIVING_DATA.store(false, Ordering::Relaxed);
-                        Self::call_back(RECEIVING_DATA_STARTED_CALLBACKS.clone());
+                        Self::call_back(receiving_data_started_callbacks().clone());
                     }
                 }
             } else if !has_initially_not_connected_callback_been_called {
@@ -446,7 +445,7 @@ impl Midi {
                     // Not connected for 2 seconds after application start.
                     // So we can assume that the instrument is not yet connected.
                     // Provide an opportunity for a helpful message to be displayed.
-                    Self::call_back(RECEIVING_DATA_STOPPED_CALLBACKS.clone());
+                    Self::call_back(receiving_data_stopped_callbacks().clone());
                     has_initially_not_connected_callback_been_called = true;
                 }
             }
@@ -477,12 +476,12 @@ impl Midi {
                     if controller == 0 // Bank MSB
                         // But if the editor were downloading the user preset list or the
                         // system preset list, this would be one of many.
-                        && *DOWNLOAD_STATUS.lock().unwrap() == DownloadStatus::None {
+                        && *download_status().lock().unwrap() == DownloadStatus::None {
                         // The user is selecting a preset;
                         // it's not part of the editor's initial download, after which we will
                         // have already sent a tuning.
                         // println!("midi.on_message_received: Preset selected, BankH");
-                        *PRESET_SELECT_STATUS.lock().unwrap() = PresetSelectStatus::BankH;
+                        *preset_select_status().lock().unwrap() = PresetSelectStatus::BankH;
                         return;
                     }
                     if controller == 51 { // Grid
@@ -499,7 +498,7 @@ impl Midi {
                             if u8::from(value) == tuner::pitch_table_no() {
                                 // println!("midi.on_message_received: Pitch table update confirmed");
                                 IS_UPDATING_TUNING.store(false, Ordering::Relaxed);
-                                Self::call_back(TUNING_UPDATED_CALLBACKS.clone());
+                                Self::call_back(tuning_updated_callbacks().clone());
                             }
                         }
                         return;
@@ -507,22 +506,22 @@ impl Midi {
                     if controller == 109 {
                         if value == 40 {
                             // println!("midi.on_message_received: EndSysNames");
-                            *DOWNLOAD_STATUS.lock().unwrap() = DownloadStatus::EndSysNames;
+                            *download_status().lock().unwrap() = DownloadStatus::EndSysNames;
                             return;
                         }
                         if value == 49 {
                             // println!("midi.on_message_received: BeginSysNames");
-                            *DOWNLOAD_STATUS.lock().unwrap() = DownloadStatus::BeginSysNames;
+                            *download_status().lock().unwrap() = DownloadStatus::BeginSysNames;
                             return;
                         }
                         if value == 54 {
                             // println!("midi.on_message_received: BeginUserNames");
-                            *DOWNLOAD_STATUS.lock().unwrap() = DownloadStatus::BeginUserNames;
+                            *download_status().lock().unwrap() = DownloadStatus::BeginUserNames;
                             return;
                         }
                         if value == 55 {
                             // println!("midi.on_message_received: EndUserNames");
-                            *DOWNLOAD_STATUS.lock().unwrap() = DownloadStatus::EndUserNames;
+                            *download_status().lock().unwrap() = DownloadStatus::EndUserNames;
                             return;
                         }
                     }
@@ -531,16 +530,16 @@ impl Midi {
                     let channel1 = u8::from(channel) + 1; // 1-based channel number.
                     if channel1 == 16 {
                         // println!("midi.on_message_received: ProgramChange");
-                        let download_status = *DOWNLOAD_STATUS.lock().unwrap();
-                        if download_status == DownloadStatus::EndUserNames
-                            || download_status == DownloadStatus::EndSysNames {
+                        let dl_status = *download_status().lock().unwrap();
+                        if dl_status == DownloadStatus::EndUserNames
+                            || dl_status == DownloadStatus::EndSysNames {
                             // println!("Midi.on_message_received: End of download:");
-                            *DOWNLOAD_STATUS.lock().unwrap() = DownloadStatus::None;
+                            *download_status().lock().unwrap() = DownloadStatus::None;
                             return;
                         }
-                        let preset_select_status =
-                            *PRESET_SELECT_STATUS.lock().unwrap();
-                        match preset_select_status {
+                        let sel_status =
+                            *preset_select_status().lock().unwrap();
+                        match sel_status {
                             PresetSelectStatus::None => {}
                             PresetSelectStatus::BankH => {
                                 // The user is selecting a preset. The editor sends the preset's
@@ -548,8 +547,8 @@ impl Midi {
                                 // For unknown reason, this happens twice when a preset is loaded
                                 // from disc.
                                 // println!("midi.on_message_received: Preset selected, Program");
-                                *PRESET_SELECT_STATUS.lock().unwrap() = PresetSelectStatus::None;
-                                Self::call_back(NEW_PRESET_SELECTED_CALLBACKS.clone());
+                                *preset_select_status().lock().unwrap() = PresetSelectStatus::None;
+                                Self::call_back(new_preset_selected_callbacks().clone());
                                 return;
                             }
                             // We seem not to get this message when the user has selected a preset.
@@ -602,7 +601,7 @@ impl Midi {
     fn send_message(message: &[u8]) {
         // println!("Midi.send_message: message={:?}", message);
         let mut connection_option =
-            OUTPUT_CONNECTION.lock().unwrap();
+            output_connection().lock().unwrap();
         // println!("Midi.send_message: Got connection");
         if let Some(connection) = connection_option.as_mut() {
             // We want a panic on send failure, for stack trace diagnostics.
@@ -615,7 +614,7 @@ impl Midi {
     fn start_download_monitor() {
         // println!("Midi.start_download_monitor");
         let (stopper_sender, stopper_receiver) = mpsc::channel();
-        *DOWNLOAD_MONITOR_STOPPER_SENDER.lock().unwrap() = Some(stopper_sender);
+        *download_monitor_stopper_sender().lock().unwrap() = Some(stopper_sender);
         IS_DOWNLOADING_INIT_DATA.store(true, Ordering::Relaxed);
         IS_DOWNLOAD_MONITOR_RUNNING.store(true, Ordering::Relaxed);
         rayon::spawn(move || {
@@ -630,7 +629,7 @@ impl Midi {
             return;
         }
         let stopper_sender =
-            DOWNLOAD_MONITOR_STOPPER_SENDER.lock().unwrap().take();
+            download_monitor_stopper_sender().lock().unwrap().take();
         if stopper_sender.is_none() { return; }
         stopper_sender.unwrap().send(()).unwrap_or_else(|_| {
             panic!("Midi.stop_download_monitor: Failed to send stop signal to download monitor");
@@ -660,29 +659,65 @@ enum PresetSelectStatus {
     // Program,
 }
 
+type Callbacks = Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>>;
+
+static DOWNLOAD_COMPLETED_CALLBACKS: OnceLock<Callbacks> = OnceLock::new();
+static DOWNLOAD_MONITOR_STOPPER_SENDER: Mutex<Option<mpsc::Sender<()>>> = Mutex::new(None);
+static DOWNLOAD_STATUS: Mutex<DownloadStatus> = Mutex::new(DownloadStatus::None);
 static HAS_JUST_STARTED_RECEIVING_DATA: AtomicBool = AtomicBool::new(false);
 static IS_DOWNLOAD_MONITOR_RUNNING: AtomicBool = AtomicBool::new(false);
 static IS_DOWNLOADING_INIT_DATA: AtomicBool = AtomicBool::new(false);
 static IS_RECEIVING_DATA: AtomicBool = AtomicBool::new(false);
 static IS_UPDATING_TUNING: AtomicBool = AtomicBool::new(false);
+static LAST_MESSAGE_RECEIVED_TIME: Mutex<Option<Instant>> = Mutex::new(None);
+static NEW_PRESET_SELECTED_CALLBACKS: OnceLock<Callbacks> = OnceLock::new();
+static OUTPUT_CONNECTION: Mutex<Option<MidiOutputConnection>> = Mutex::new(None);
+static PORTS_CONNECTED_CHANGED_CALLBACKS: OnceLock<Callbacks> = OnceLock::new();
+static PRESET_SELECT_STATUS: Mutex<PresetSelectStatus> = Mutex::new(PresetSelectStatus::None);
+static RECEIVING_DATA_STARTED_CALLBACKS: OnceLock<Callbacks> = OnceLock::new();
+static RECEIVING_DATA_STOPPED_CALLBACKS: OnceLock<Callbacks> = OnceLock::new();
+static TUNING_UPDATED_CALLBACKS: OnceLock<Callbacks> = OnceLock::new();
 
-lazy_static! {
-    static ref DOWNLOAD_COMPLETED_CALLBACKS:
-        Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>> = Arc::new(Mutex::new(Vec::new()));
-    static ref DOWNLOAD_MONITOR_STOPPER_SENDER: Mutex<Option<mpsc::Sender<()>>> = Mutex::new(None);
-    static ref DOWNLOAD_STATUS: Arc<Mutex<DownloadStatus>> = Arc::new(Mutex::new(DownloadStatus::None));
-    static ref LAST_MESSAGE_RECEIVED_TIME: Mutex<Option<Instant>> = Mutex::new(None);
-    static ref NEW_PRESET_SELECTED_CALLBACKS:
-        Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>> = Arc::new(Mutex::new(Vec::new()));
-    static ref OUTPUT_CONNECTION: Mutex<Option<MidiOutputConnection>> = Mutex::new(None);
-    static ref PRESET_SELECT_STATUS: Arc<Mutex<PresetSelectStatus>> = 
-        Arc::new(Mutex::new(PresetSelectStatus::None));
-    static ref PORTS_CONNECTED_CHANGED_CALLBACKS:
-        Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>> = Arc::new(Mutex::new(Vec::new()));
-    static ref RECEIVING_DATA_STARTED_CALLBACKS:
-        Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>> = Arc::new(Mutex::new(Vec::new()));
-    static ref RECEIVING_DATA_STOPPED_CALLBACKS:
-        Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>> = Arc::new(Mutex::new(Vec::new()));
-    static ref TUNING_UPDATED_CALLBACKS:
-        Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>> = Arc::new(Mutex::new(Vec::new()));
+fn download_completed_callbacks() -> &'static Callbacks {
+    DOWNLOAD_COMPLETED_CALLBACKS.get_or_init(|| Arc::new(Mutex::new(Vec::new())))
+}
+
+fn download_monitor_stopper_sender() -> &'static Mutex<Option<mpsc::Sender<()>>> {
+    &DOWNLOAD_MONITOR_STOPPER_SENDER
+}
+
+fn download_status() -> &'static Mutex<DownloadStatus> {
+    &DOWNLOAD_STATUS
+}
+
+fn last_message_received_time() -> &'static Mutex<Option<Instant>> {
+    &LAST_MESSAGE_RECEIVED_TIME
+}
+
+fn new_preset_selected_callbacks() -> &'static Callbacks {
+    NEW_PRESET_SELECTED_CALLBACKS.get_or_init(|| Arc::new(Mutex::new(Vec::new())))
+}
+
+fn output_connection() -> &'static Mutex<Option<MidiOutputConnection>> {
+    &OUTPUT_CONNECTION
+}
+
+fn ports_connected_changed_callbacks() -> &'static Callbacks {
+    PORTS_CONNECTED_CHANGED_CALLBACKS.get_or_init(|| Arc::new(Mutex::new(Vec::new())))
+}
+
+fn preset_select_status() -> &'static Mutex<PresetSelectStatus> {
+    &PRESET_SELECT_STATUS
+}
+
+fn receiving_data_started_callbacks() -> &'static Callbacks {
+    RECEIVING_DATA_STARTED_CALLBACKS.get_or_init(|| Arc::new(Mutex::new(Vec::new())))
+}
+
+fn receiving_data_stopped_callbacks() -> &'static Callbacks {
+    RECEIVING_DATA_STOPPED_CALLBACKS.get_or_init(|| Arc::new(Mutex::new(Vec::new())))
+}
+
+fn tuning_updated_callbacks() -> &'static Callbacks {
+    TUNING_UPDATED_CALLBACKS.get_or_init(|| Arc::new(Mutex::new(Vec::new())))
 }

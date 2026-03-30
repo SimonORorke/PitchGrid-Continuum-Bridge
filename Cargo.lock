@@ -3643,7 +3643,6 @@ dependencies = [
  "cxx",
  "cxx-build",
  "directories",
- "lazy_static",
  "midir",
  "midly",
  "rayon",
