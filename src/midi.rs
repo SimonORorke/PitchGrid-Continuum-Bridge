@@ -1,10 +1,15 @@
-use std::cmp::PartialEq;
+mod statics;
+use statics::{Callbacks, DownloadStatus, PresetSelectStatus};
+use statics::{download_completed_callbacks, download_monitor_stopper_sender, download_status,
+              last_message_received_time, new_preset_selected_callbacks, output_connection,
+              ports_connected_changed_callbacks, preset_select_status,
+              receiving_data_started_callbacks, receiving_data_stopped_callbacks,
+              tuning_updated_callbacks};
 use midir::{
-    MidiInput, MidiInputConnection, MidiInputPort, MidiOutput, MidiOutputConnection, MidiOutputPort,
+    MidiInput, MidiInputConnection, MidiInputPort, MidiOutput, MidiOutputPort,
 };
 use midly::{MidiMessage, live::LiveEvent};
 use std::error::Error;
-use std::sync::{Arc, Mutex, OnceLock};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
@@ -643,81 +648,8 @@ impl Midi {
 const INPUT_CLIENT_NAME: &str = "My MIDI Input";
 const OUTPUT_CLIENT_NAME: &str = "My MIDI Output";
 
-#[derive(Clone, Copy, Debug, PartialEq)]
-enum DownloadStatus {
-    None,
-    BeginUserNames,
-    EndUserNames,
-    BeginSysNames,
-    EndSysNames,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-enum PresetSelectStatus {
-    None,
-    BankH,
-    // Program,
-}
-
-type Callbacks = Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>>;
-
-static DOWNLOAD_COMPLETED_CALLBACKS: OnceLock<Callbacks> = OnceLock::new();
-static DOWNLOAD_MONITOR_STOPPER_SENDER: Mutex<Option<mpsc::Sender<()>>> = Mutex::new(None);
-static DOWNLOAD_STATUS: Mutex<DownloadStatus> = Mutex::new(DownloadStatus::None);
 static HAS_JUST_STARTED_RECEIVING_DATA: AtomicBool = AtomicBool::new(false);
 static IS_DOWNLOAD_MONITOR_RUNNING: AtomicBool = AtomicBool::new(false);
 static IS_DOWNLOADING_INIT_DATA: AtomicBool = AtomicBool::new(false);
 static IS_RECEIVING_DATA: AtomicBool = AtomicBool::new(false);
 static IS_UPDATING_TUNING: AtomicBool = AtomicBool::new(false);
-static LAST_MESSAGE_RECEIVED_TIME: Mutex<Option<Instant>> = Mutex::new(None);
-static NEW_PRESET_SELECTED_CALLBACKS: OnceLock<Callbacks> = OnceLock::new();
-static OUTPUT_CONNECTION: Mutex<Option<MidiOutputConnection>> = Mutex::new(None);
-static PORTS_CONNECTED_CHANGED_CALLBACKS: OnceLock<Callbacks> = OnceLock::new();
-static PRESET_SELECT_STATUS: Mutex<PresetSelectStatus> = Mutex::new(PresetSelectStatus::None);
-static RECEIVING_DATA_STARTED_CALLBACKS: OnceLock<Callbacks> = OnceLock::new();
-static RECEIVING_DATA_STOPPED_CALLBACKS: OnceLock<Callbacks> = OnceLock::new();
-static TUNING_UPDATED_CALLBACKS: OnceLock<Callbacks> = OnceLock::new();
-
-fn download_completed_callbacks() -> &'static Callbacks {
-    DOWNLOAD_COMPLETED_CALLBACKS.get_or_init(|| Arc::new(Mutex::new(Vec::new())))
-}
-
-fn download_monitor_stopper_sender() -> &'static Mutex<Option<mpsc::Sender<()>>> {
-    &DOWNLOAD_MONITOR_STOPPER_SENDER
-}
-
-fn download_status() -> &'static Mutex<DownloadStatus> {
-    &DOWNLOAD_STATUS
-}
-
-fn last_message_received_time() -> &'static Mutex<Option<Instant>> {
-    &LAST_MESSAGE_RECEIVED_TIME
-}
-
-fn new_preset_selected_callbacks() -> &'static Callbacks {
-    NEW_PRESET_SELECTED_CALLBACKS.get_or_init(|| Arc::new(Mutex::new(Vec::new())))
-}
-
-fn output_connection() -> &'static Mutex<Option<MidiOutputConnection>> {
-    &OUTPUT_CONNECTION
-}
-
-fn ports_connected_changed_callbacks() -> &'static Callbacks {
-    PORTS_CONNECTED_CHANGED_CALLBACKS.get_or_init(|| Arc::new(Mutex::new(Vec::new())))
-}
-
-fn preset_select_status() -> &'static Mutex<PresetSelectStatus> {
-    &PRESET_SELECT_STATUS
-}
-
-fn receiving_data_started_callbacks() -> &'static Callbacks {
-    RECEIVING_DATA_STARTED_CALLBACKS.get_or_init(|| Arc::new(Mutex::new(Vec::new())))
-}
-
-fn receiving_data_stopped_callbacks() -> &'static Callbacks {
-    RECEIVING_DATA_STOPPED_CALLBACKS.get_or_init(|| Arc::new(Mutex::new(Vec::new())))
-}
-
-fn tuning_updated_callbacks() -> &'static Callbacks {
-    TUNING_UPDATED_CALLBACKS.get_or_init(|| Arc::new(Mutex::new(Vec::new())))
-}

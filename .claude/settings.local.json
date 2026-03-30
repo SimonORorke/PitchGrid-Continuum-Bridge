@@ -1,7 +1,14 @@
 {
   "permissions": {
     "allow": [
-      "Bash(cargo build)"
+      "Bash(cargo build)",
+      "Bash(cargo check)",
+      "Bash(cmd /c \"cargo check 2>&1\")",
+      "Bash(where cargo)",
+      "Bash(/c/Users/*/AppData/Local/Programs/Rust/bin/cargo)",
+      "Bash(--version)",
+      "Read(//c/Users/Simon O'Rorke/.cargo/bin/**)",
+      "Bash(~/.cargo/bin/cargo check)"
     ]
   }
 }
