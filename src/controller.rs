@@ -97,7 +97,7 @@ impl Controller {
         self.callbacks.set_selected_rounding_index(self.rounding_index(rounding) as i32);
         if midi_static::are_ports_connected() {
             // println!("Controller.init: Showing Checking instrument connection");
-            self.show_info("Checking instrument connection...");
+            self.show_info(CHECKING_INSTRUMENT_CONNECTION);
             midi_static::start_instru_connection_monitor();
         }
         // println!("Controller.init: Done");
@@ -153,7 +153,7 @@ impl Controller {
             self.show_info(port_strategy.msg_connected(&device_name));
             if midi_static::are_ports_connected() {
                 // println!("Controller.connect_port: Showing Restart this application");
-                self.show_warning("Restart this application to connect to PitchGrid");
+                self.show_warning(RESTART_APPLICATION);
                 self.has_restart_been_requested = true;
             } else {
                 let other_port_strategy:Box<dyn PortStrategy> = match port_strategy.port_type() {
@@ -246,7 +246,7 @@ impl Controller {
             && !midi_static::is_downloading_init_data();
         if send_tuning {
             self.callbacks.show_pitchgrid_status(
-                "Updating root frequency override...",
+                UPDATING_ROOT_FREQ_OVERRIDE,
                 MessageType::Info);
         }
         tuner::set_root_freq_override_note_no(index, send_tuning);
@@ -273,9 +273,9 @@ impl Controller {
     }
 
     fn rounding_from_name(&self, name: &str) -> Rounding {
-        if name == "None" { Rounding::None }
-        else if name == "Initial" { Rounding::Initial }
-        else if name == "Max" { Rounding::Max }
+        if name == ROUNDING_NONE { Rounding::None }
+        else if name == ROUNDING_INITIAL { Rounding::Initial }
+        else if name == ROUNDING_MAX { Rounding::Max }
         else { global::default_rounding() } // When settings have just been initialised.
     }
 
@@ -289,9 +289,9 @@ impl Controller {
 
     pub fn rounding_name(&self, rounding: Rounding) -> String {
         match rounding {
-            Rounding::None => "None".to_string(),
-            Rounding::Initial => "Initial".to_string(),
-            Rounding::Max => "Max".to_string(),
+            Rounding::None => ROUNDING_NONE.to_string(),
+            Rounding::Initial => ROUNDING_INITIAL.to_string(),
+            Rounding::Max => ROUNDING_MAX.to_string(),
         }
     }
 
@@ -307,7 +307,7 @@ impl Controller {
                 && midi_static::are_ports_connected()
                 && !self.osc.is_running() {
             self.start_osc();
-            self.show_info("Opening PitchGrid connection...");
+            self.show_info(OPENING_PITCHGRID_CONNECTION);
         }
     }
 
@@ -315,7 +315,7 @@ impl Controller {
         // println!("Controller.on_instru_connected_changed");
         if midi_static::is_downloading_init_data() {
             println!("Controller.on_instru_connected_changed: Awaiting data download completion.");
-            self.show_info("Awaiting completion of data download from instrument...");
+            self.show_info(AWAITING_DATA_DOWNLOAD);
             return;
         }
         if midi_static::are_ports_connected() && midi_static::is_receiving_data() {
@@ -326,18 +326,15 @@ impl Controller {
         if self.osc.is_running() {
             // println!("Controller.on_instru_connected_changed: Stopping OSC");
             self.osc.stop();
-            self.show_warning(
-                "Instrument is disconnected; closed PitchGrid connection.");
+            self.show_warning(INSTRUMENT_DISCONNECTED);
         } else if midi_static::are_ports_connected() && !self.has_restart_been_requested {
             // println!("Controller.on_instru_connected_changed: Showing The instrument is not connected");
             // This probably means the instrument is not connected on application start.
             // So show a helpful message.
-            self.show_warning(
-                "The instrument is not connected. Waiting for the editor to be \
-                        opened with this application and the instrument connected to it...");
+            self.show_warning(INSTRUMENT_NOT_CONNECTED);
         }
         self.callbacks.show_pitchgrid_status(
-            "PitchGrid connection closed while instrument disconnected",
+            PITCHGRID_CONNECTION_CLOSED,
             MessageType::Warning);
     }
 
@@ -346,7 +343,7 @@ impl Controller {
         if tuner::resend_tuning() {
             // println!("Controller.on_new_preset_selected: Resent");
             self.callbacks.show_pitchgrid_status(
-                "New instrument preset selected. Resent tuning...",
+                NEW_PRESET_SELECTED,
                 MessageType::Info);
         }
     }
@@ -367,7 +364,7 @@ impl Controller {
         // println!("Controller.on_tuning_updated: Showing tuning");
         self.callbacks.show_tuning();
         // println!("Controller.on_tuning_updated: Showing Instrument tuning updated");
-        self.callbacks.show_pitchgrid_status("Instrument tuning updated", MessageType::Info);
+        self.callbacks.show_pitchgrid_status(INSTRUMENT_TUNING_UPDATED, MessageType::Info);
     }
 
     fn show_connected_device_name(
@@ -406,19 +403,19 @@ impl Controller {
     fn show_pitchgrid_connected(&self) {
         // println!("Controller.show_pitchgrid_connected: Showing Pitchgrid OSC is connected");
         self.callbacks.show_pitchgrid_status(
-            "Pitchgrid OSC is connected",
+            PITCHGRID_OSC_CONNECTED,
             MessageType::Info);
     }
 
     fn show_pitchgrid_disconnected(&self) {
         self.callbacks.show_pitchgrid_status(
-            "Disconnected from PitchGrid because MIDI is not connected",
+            DISCONNECTED_FROM_PITCHGRID,
             MessageType::Warning);
     }
 
     fn show_pitchgrid_not_connected(&self) {
         self.callbacks.show_pitchgrid_status(
-            "PitchGrid is not connected. OSC must be enabled in Pitchgrid.",
+            PITCHGRID_NOT_CONNECTED,
             MessageType::Error);
     }
 
@@ -444,11 +441,11 @@ impl Controller {
         self.osc.stop();
         if !midi_static::are_ports_connected() {
             self.callbacks.show_pitchgrid_status(
-                "Cannot updating tuning. Connect instrument input/output.",
+                CANNOT_UPDATE_TUNING_CONNECT,
                 MessageType::Error);
         } else if !midi_static::is_receiving_data() {
             self.callbacks.show_pitchgrid_status(
-                "Cannot updating tuning. Instrument connection lost.",
+                CANNOT_UPDATE_TUNING_LOST,
                 MessageType::Error);
         }
     }
@@ -476,11 +473,11 @@ impl OscCallbacks for Controller {
             // println!("Controller.on_osc_pitchgrid_connected_changed: Showing PitchGrid is connected");
             self.show_pitchgrid_connected();
             // println!("Controller.on_osc_pitchgrid_connected_changed: PitchGrid and instrument are connected");
-            self.show_info("PitchGrid and instrument are connected");
+            self.show_info(PITCHGRID_AND_INSTRUMENT_CONNECTED);
         } else {
             // println!("Controller.on_osc_pitchgrid_connected_changed: PitchGrid is not connected");
             self.show_pitchgrid_not_connected();
-            self.show_warning("Awaiting PitchGrid connection...");
+            self.show_warning(AWAITING_PITCHGRID_CONNECTION);
         }
     }
 
@@ -493,7 +490,7 @@ impl OscCallbacks for Controller {
         //     depth, mode, root_freq, stretch, skew, mode_offset, steps);
         if midi_static::are_ports_connected() && midi_static::is_receiving_data() {
             // println!("Controller.on_osc_tuning_received: Showing Updating instrument tuning");
-            self.callbacks.show_pitchgrid_status("Updating instrument tuning", MessageType::Info);
+            self.callbacks.show_pitchgrid_status(UPDATING_INSTRUMENT_TUNING, MessageType::Info);
             tuner::on_tuning_received(depth, mode, root_freq, stretch, skew, mode_offset, steps);
         } else {
             self.stop_osc_and_show_message();
@@ -501,7 +498,29 @@ impl OscCallbacks for Controller {
     }
 }
 
+const AWAITING_DATA_DOWNLOAD: &str = "Awaiting completion of data download from instrument...";
+const AWAITING_PITCHGRID_CONNECTION: &str = "Awaiting PitchGrid connection...";
+const CANNOT_UPDATE_TUNING_CONNECT: &str = "Cannot updating tuning. Connect instrument input/output.";
+const CANNOT_UPDATE_TUNING_LOST: &str = "Cannot updating tuning. Instrument connection lost.";
+const CHECKING_INSTRUMENT_CONNECTION: &str = "Checking instrument connection...";
+const DISCONNECTED_FROM_PITCHGRID: &str = "Disconnected from PitchGrid because MIDI is not connected";
+const INSTRUMENT_DISCONNECTED: &str = "Instrument is disconnected; closed PitchGrid connection.";
+const INSTRUMENT_NOT_CONNECTED: &str = "The instrument is not connected. Waiting for the editor to be \
+        opened with this application and the instrument connected to it...";
+const INSTRUMENT_TUNING_UPDATED: &str = "Instrument tuning updated";
+const NEW_PRESET_SELECTED: &str = "New instrument preset selected. Resent tuning...";
+const OPENING_PITCHGRID_CONNECTION: &str = "Opening PitchGrid connection...";
+const PITCHGRID_AND_INSTRUMENT_CONNECTED: &str = "PitchGrid and instrument are connected";
+const PITCHGRID_CONNECTION_CLOSED: &str = "PitchGrid connection closed while instrument disconnected";
+const PITCHGRID_NOT_CONNECTED: &str = "PitchGrid is not connected. OSC must be enabled in Pitchgrid.";
+const PITCHGRID_OSC_CONNECTED: &str = "Pitchgrid OSC is connected";
 const PORT_NONE: &str = "[None]";
+const RESTART_APPLICATION: &str = "Restart this application to connect to PitchGrid";
+const ROUNDING_INITIAL: &str = "Initial";
+const ROUNDING_MAX: &str = "Max";
+const ROUNDING_NONE: &str = "None";
+const UPDATING_INSTRUMENT_TUNING: &str = "Updating instrument tuning";
+const UPDATING_ROOT_FREQ_OVERRIDE: &str = "Updating root frequency override...";
 
 pub trait ControllerCallbacks: Send + Sync {
     fn focus_port(&self, port_strategy: &dyn PortStrategy);
