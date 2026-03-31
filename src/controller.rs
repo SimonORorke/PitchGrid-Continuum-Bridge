@@ -58,7 +58,10 @@ impl Controller {
         }
         // println!("Controller.init: Adding download completed callback");
         midi_guard.add_init_download_completed_callback(Box::new(|| {
-            Self::clone_controller().lock().unwrap().on_instru_init_data_download_completed();
+            Self::clone_controller().lock().unwrap().on_init_data_download_completed();
+        }));
+        midi_guard.add_init_download_started_callback(Box::new(|| {
+            Self::clone_controller().lock().unwrap().on_init_data_download_started();
         }));
         midi_guard.add_ports_connected_changed_callback(Box::new(|| {
             Self::clone_controller().lock().unwrap().on_ports_connected_changed();
@@ -68,10 +71,10 @@ impl Controller {
             Self::clone_controller().lock().unwrap().on_new_preset_selected();
         }));
         midi_guard.add_receiving_data_started_callback(Box::new(|| {
-            Self::clone_controller().lock().unwrap().on_receiving_instru_data_started_callback();
+            Self::clone_controller().lock().unwrap().on_receiving_data_started_callback();
         }));
         midi_guard.add_receiving_data_stopped_callback(Box::new(|| {
-            Self::clone_controller().lock().unwrap().on_receiving_instru_data_stopped_callback();
+            Self::clone_controller().lock().unwrap().on_receiving_data_stopped_callback();
         }));
         midi_guard.add_tuning_updated_callback(Box::new(|| {
             Self::clone_controller().lock().unwrap().on_tuning_updated();
@@ -88,8 +91,11 @@ impl Controller {
         // println!("Controller.init: Setting output ports model");
         self.callbacks.set_devices_model(&self.device_names(&output_strategy), &output_strategy);
         // println!("Controller.init: Connecting initial ports");
-        self.connect_initial_port(&input_strategy);
         self.connect_initial_port(&output_strategy);
+        // Don't start listening to MIDI until we are able to send MIDI.
+        if midi_static::is_output_port_connected() {
+            self.connect_initial_port(&input_strategy);
+        }
         // println!("Controller.init: Configuring tuner");
         tuner::init(pitch_table_no);
         self.callbacks.set_selected_pitch_table_index(tuner::pitch_table_index() as i32);
@@ -243,7 +249,7 @@ impl Controller {
     pub fn set_root_freq_override(&mut self, index: usize) {
         let send_tuning = midi_static::is_receiving_data()
             && midi_static::are_ports_connected()
-            && !midi_static::is_downloading_init_data();
+            && midi_static::has_downloaded_init_data();
         if send_tuning {
             self.callbacks.show_pitchgrid_status(
                 UPDATING_ROOT_FREQ_OVERRIDE,
@@ -301,8 +307,8 @@ impl Controller {
         self.settings.pitch_table = pitch_table_no;
     }
 
-    fn on_instru_init_data_download_completed(&mut self) {
-        // println!("Controller.on_instru_init_data_download_completed");
+    fn on_init_data_download_completed(&mut self) {
+        println!("Controller.on_init_data_download_completed");
         if midi_static::is_receiving_data()
                 && midi_static::are_ports_connected()
                 && !self.osc.is_running() {
@@ -311,13 +317,13 @@ impl Controller {
         }
     }
 
+    fn on_init_data_download_started(&mut self) {
+        println!("Controller.on_init_data_download_started");
+        self.show_info(AWAITING_DATA_DOWNLOAD_COMPLETION);
+    }
+
     fn on_ports_connected_changed(&mut self) {
         // println!("Controller.on_instru_connected_changed");
-        if midi_static::is_downloading_init_data() {
-            println!("Controller.on_instru_connected_changed: Awaiting data download completion.");
-            self.show_info(AWAITING_DATA_DOWNLOAD);
-            return;
-        }
         if midi_static::are_ports_connected() && midi_static::is_receiving_data() {
             return;
         }
@@ -348,13 +354,11 @@ impl Controller {
         }
     }
 
-    fn on_receiving_instru_data_started_callback(&mut self) {
-        if midi_static::are_ports_connected() && !self.osc.is_running() {
-            self.start_osc()
-        }
+    fn on_receiving_data_started_callback(&mut self) {
+        self.show_info(CHECKING_FOR_DATA_DOWNLOAD);
     }
 
-    fn on_receiving_instru_data_stopped_callback(&mut self) {
+    fn on_receiving_data_stopped_callback(&mut self) {
         if self.osc.is_running() {
             self.stop_osc_and_show_message();
         }
@@ -498,10 +502,11 @@ impl OscCallbacks for Controller {
     }
 }
 
-const AWAITING_DATA_DOWNLOAD: &str = "Awaiting completion of data download from instrument...";
+const AWAITING_DATA_DOWNLOAD_COMPLETION: &str = "Awaiting completion of data download from instrument...";
 const AWAITING_PITCHGRID_CONNECTION: &str = "Awaiting PitchGrid connection...";
 const CANNOT_UPDATE_TUNING_CONNECT: &str = "Cannot updating tuning. Connect instrument input/output.";
-const CANNOT_UPDATE_TUNING_LOST: &str = "Cannot updating tuning. Instrument connection lost.";
+const CANNOT_UPDATE_TUNING_LOST: &str = "Cannot update tuning. Instrument connection lost.";
+const CHECKING_FOR_DATA_DOWNLOAD: &str = "Checking for initial data download from instrument...";
 const CHECKING_INSTRUMENT_CONNECTION: &str = "Checking instrument connection...";
 const DISCONNECTED_FROM_PITCHGRID: &str = "Disconnected from PitchGrid because MIDI is not connected";
 const INSTRUMENT_DISCONNECTED: &str = "Instrument is disconnected; closed PitchGrid connection.";

@@ -8,6 +8,7 @@ pub(super) type Callbacks = Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(super) enum DownloadStatus {
     None,
+    Checking,
     BeginUserNames,
     EndUserNames,
     BeginSysNames,
@@ -23,7 +24,9 @@ pub(super) enum PresetSelectStatus {
 
 static DOWNLOAD_COMPLETED_CALLBACKS: OnceLock<Callbacks> = OnceLock::new();
 static DOWNLOAD_MONITOR_STOPPER_SENDER: Mutex<Option<mpsc::Sender<()>>> = Mutex::new(None);
+static DOWNLOAD_STARTED_CALLBACKS: OnceLock<Callbacks> = OnceLock::new();
 static DOWNLOAD_STATUS: Mutex<DownloadStatus> = Mutex::new(DownloadStatus::None);
+static DOWNLOAD_WAIT_START_TIME: Mutex<Option<Instant>> = Mutex::new(None);
 static LAST_MESSAGE_RECEIVED_TIME: Mutex<Option<Instant>> = Mutex::new(None);
 static NEW_PRESET_SELECTED_CALLBACKS: OnceLock<Callbacks> = OnceLock::new();
 static OUTPUT_CONNECTION: Mutex<Option<MidiOutputConnection>> = Mutex::new(None);
@@ -37,12 +40,20 @@ pub(super) fn download_completed_callbacks() -> &'static Callbacks {
     DOWNLOAD_COMPLETED_CALLBACKS.get_or_init(|| Arc::new(Mutex::new(Vec::new())))
 }
 
+pub(super) fn download_started_callbacks() -> &'static Callbacks {
+    DOWNLOAD_STARTED_CALLBACKS.get_or_init(|| Arc::new(Mutex::new(Vec::new())))
+}
+
 pub(super) fn download_monitor_stopper_sender() -> &'static Mutex<Option<mpsc::Sender<()>>> {
     &DOWNLOAD_MONITOR_STOPPER_SENDER
 }
 
 pub(super) fn download_status() -> &'static Mutex<DownloadStatus> {
     &DOWNLOAD_STATUS
+}
+
+pub(super) fn download_wait_start_time() -> &'static Mutex<Option<Instant>> {
+    &DOWNLOAD_WAIT_START_TIME
 }
 
 pub(super) fn last_message_received_time() -> &'static Mutex<Option<Instant>> {
