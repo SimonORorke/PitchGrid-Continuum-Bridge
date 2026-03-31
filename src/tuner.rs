@@ -1,16 +1,16 @@
-mod statics;
+mod tuner_statics;
 use std::cmp::{max};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU8, AtomicUsize, Ordering};
 use round::round;
-use statics::{data, default_pitch_keys, root_freq_override, rounding_arc};
+use tuner_statics::{data, default_pitch_keys, root_freq_override, rounding_arc};
 use crate::{midi_static};
 use crate::global::Rounding;
 use crate::midi::Midi;
 
 pub fn init(pitch_table_no: u8) {
     PITCH_TABLE_NO.store(pitch_table_no, Ordering::Relaxed);
-    statics::pitch_table_nos();
+    tuner_statics::pitch_table_nos();
     midi_static::midi_clone().lock().unwrap()
         .add_tuning_updated_callback(Box::from(on_tuning_updated));
 }
@@ -373,7 +373,7 @@ pub fn pitch_table_no() -> u8 {
 }
 
 pub fn pitch_table_nos<'a>() -> &'a Vec<u8> {
-    statics::pitch_table_nos()
+    tuner_statics::pitch_table_nos()
 }
 
 /// Interface to Peter Jung's scalatrix https://github.com/pitchgrid-io/scalatrix

@@ -1,12 +1,12 @@
-mod statics;
-use statics::{Callbacks, DownloadStatus, PresetSelectStatus};
-use statics::{download_completed_callbacks, download_started_callbacks,
-              download_monitor_stopper_sender, download_status,
-              download_wait_start_time,
-              last_message_received_time, new_preset_selected_callbacks, output_connection,
-              ports_connected_changed_callbacks, preset_select_status,
-              receiving_data_started_callbacks, receiving_data_stopped_callbacks,
-              tuning_updated_callbacks};
+mod midi_statics;
+use midi_statics::{Callbacks, DownloadStatus, PresetSelectStatus};
+use midi_statics::{download_completed_callbacks, download_started_callbacks,
+                   download_monitor_stopper_sender, download_status,
+                   download_wait_start_time,
+                   last_message_received_time, new_preset_selected_callbacks, output_connection,
+                   ports_connected_changed_callbacks, preset_select_status,
+                   receiving_data_started_callbacks, receiving_data_stopped_callbacks,
+                   tuning_updated_callbacks};
 use midir::{
     MidiInput, MidiInputConnection, MidiInputPort, MidiOutput, MidiOutputPort,
 };
