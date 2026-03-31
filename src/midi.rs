@@ -1,7 +1,7 @@
 mod midi_statics;
 use midi_statics::{Callbacks, DownloadStatus, PresetSelectStatus};
 use midi_statics::{download_completed_callbacks, download_started_callbacks,
-                   download_monitor_stopper_sender, download_status,
+                   download_status,
                    download_wait_start_time,
                    last_message_received_time, new_preset_selected_callbacks, output_connection,
                    ports_connected_changed_callbacks, preset_select_status,
@@ -15,6 +15,7 @@ use std::error::Error;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
+use std::thread::sleep;
 use crate::global::{PortType};
 use crate::midi_ports::{Io, IIo};
 use crate::port_strategy::PortStrategy;
@@ -51,7 +52,7 @@ impl Midi {
         &mut self,
         callback: Box<dyn Fn() + Send + Sync + 'static>,
     ) {
-        println!("Midi.add_init_download_started_callback");
+        // println!("Midi.add_init_download_started_callback");
         download_started_callbacks().lock().unwrap().push(callback);
     }
 
@@ -83,7 +84,7 @@ impl Midi {
         &mut self,
         callback: Box<dyn Fn() + Send + Sync + 'static>,
     ) {
-        // println!("Midi.add_receiving_data_started_callback");
+        // println!("Midi.add_receiving_data_stopped_callback");
         receiving_data_stopped_callbacks().lock().unwrap().push(callback);
     }
 
@@ -104,7 +105,7 @@ impl Midi {
         // println!("Midi.close");
         self.disconnect_input_port();
         self.disconnect_output_port();
-        self.stop_download_monitor();
+        // self.stop_download_monitor();
         self.stop_instru_connection_monitor();
     }
 
@@ -114,7 +115,7 @@ impl Midi {
         port_strategy: &dyn PortStrategy,
     ) -> Result<(), Box<dyn Error>> {
         let were_ports_connected = self.are_ports_connected();
-        self.stop_download_monitor();
+        // self.stop_download_monitor();
         self.stop_instru_connection_monitor();
         match port_strategy.port_type() {
             PortType::Input => self.connect_input_port(index, port_strategy)?,
@@ -123,6 +124,8 @@ impl Midi {
         if !were_ports_connected {
             // The other port was already connected, so now they both are.
             if self.are_ports_connected() {
+                // println!("Midi.connect_port {:?}: Calling ports_connected_changed_callbacks() \
+                // because both ports are now connected", port_strategy.port_type());
                 Self::call_back(ports_connected_changed_callbacks().clone());
             }
         }
@@ -151,10 +154,6 @@ impl Midi {
         *download_status().lock().unwrap() == DownloadStatus::None
     }
 
-    // pub fn is_downloading_init_data(&self) -> bool {
-    //     IS_DOWNLOADING_INIT_DATA.load(Ordering::Relaxed)
-    // }
-
     pub fn is_output_port_connected(&self) -> bool {
         output_connection().lock().unwrap().is_some()
     }
@@ -176,14 +175,15 @@ impl Midi {
         port_strategy: &dyn PortStrategy,
     ) -> Result<(), Box<dyn Error>> {
         let were_ports_connected = self.are_ports_connected();
-        self.stop_download_monitor();
+        // self.stop_download_monitor();
         self.stop_instru_connection_monitor();
         match port_strategy.port_type() {
             PortType::Input => self.refresh_input_devices(device_name)?,
             PortType::Output => self.refresh_output_devices(device_name)?,
         }
         if were_ports_connected {
-            // We have just disconnected on of the ports.
+            // We have just disconnected one of the ports.
+            println!("Midi.refresh_devices: Calling ports_connected_changed_callbacks() because we have just disconnected one of the ports");
             Self::call_back(ports_connected_changed_callbacks().clone());
         }
         Ok(())
@@ -305,6 +305,14 @@ impl Midi {
                 }
             }
         }
+        // If we have not yet received any messages from the instrument after 2 seconds,
+        // show a message to the user.
+        rayon::spawn(move || {
+            sleep(Duration::from_secs(2));
+            if !IS_RECEIVING_DATA.load(Ordering::Relaxed) {
+                Self::call_back(receiving_data_stopped_callbacks().clone());
+            }
+        });
         Ok(())
     }
 
@@ -386,13 +394,39 @@ impl Midi {
             last_time.take();
         *last_time = Some(now);
         if prev_message_received_time.is_none() {
+            // This is the first message we have received since the application started.
+            // We need to wait for the initial data download to the editor to complete, if
+            // it did not already happen before we started listening.
+            // However, we will be judging the download to be complete either when we receive
+            // the last download message or if there's been no data received for 0.2 seconds.
+            // And, on my Continuum at least, the initial data download to the editor starts
+            // 3 to 4 seconds after turning the instrument on. So, to be safe, we will wait 6
+            // seconds to give the download a chance to start, if it is going to,
+            // before we start monitoring for download completion.
             *download_status().lock().unwrap() = DownloadStatus::Checking;
             // println!("Midi.log_message_received_time: Setting download wait start time");
             *download_wait_start_time().lock().unwrap() = Some(now);
+            // println!("Midi.log_message_received_time: receiving_data_started_callbacks");
             Self::call_back(receiving_data_started_callbacks().clone());
             return;
         }
-        if *download_status().lock().unwrap() != DownloadStatus::None {
+        if IS_MONITORING_DOWNLOAD.load(Ordering::Relaxed) {
+            let millis_since_prev =
+                now.duration_since(prev_message_received_time.unwrap()).as_millis();
+            if millis_since_prev >= 200 {
+                // The initial data download consists of many messages in quick succession.
+                // Or this could be some other burst of messages, such as the heartbeat cluster.
+                // Either way, as we have not received any more messages for 200 ms,
+                // the burst of messages must have stopped.
+                Self::on_init_data_download_completed();
+            }
+            return;
+        }
+        // Check whether it is time to start monitoring the initial data download.
+        // If we have not started monitoring and the download has not completed in the meantime,
+        // the download status will either be Checking or, if the download has already started,
+        // something else other than Complete.
+        if *download_status().lock().unwrap() != DownloadStatus::Complete {
             let wait_duration = now.duration_since(
                 *download_wait_start_time().lock().unwrap().as_ref().unwrap());
             let wait_secs = wait_duration.as_secs();
@@ -401,55 +435,20 @@ impl Midi {
                 return;
             }
             // println!("Midi.log_message_received_time: Six seconds is up");
-            let duration = now.duration_since(prev_message_received_time.unwrap());
-            let millis = duration.as_millis();
-            // This is the second message we have received since the application started or
-            // listening for messages was resumed.
-            // The initial data download from the instrument to the editor consists of many
-            // messages in quick succession.
-            // So, if we have received the first two messages within 100ms of each other,
-            // we assume an initial data download from the instrument to the editor or some other
-            // burst of messages, such as the heartbeat cluster, is in progress.
-            // Otherwise, we assume the initial data download occurred before we started listening,
-            // which usually means before this application was launched.
-            if millis < 100 {
-                // We need to defer sending data until the download message burst
-                // is complete. So start monitoring the download to ascertain when it finishes.
-                if !IS_DOWNLOAD_MONITOR_RUNNING.load(Ordering::Relaxed) {
-                    println!("Midi.log_message_received_time: Starting download monitor");
-                    Self::start_download_monitor();
-                }
-            }
+            // We have waited 6 seconds, and the download has either not started or is in progress.
+            // So, we can start monitoring the download.
+            println!("Midi.log_message_received_time: Starting download monitor");
+            IS_MONITORING_DOWNLOAD.store(true, Ordering::Relaxed);
+            return;
         }
     }
 
-    /// Monitors the initial data download from the instrument to the editor to ascertain when
-    /// it has finished, when monitoring will stop.
-    fn monitor_data_download(stopper_receiver: mpsc::Receiver<()>) {
-        // println!("Midi.monitor_editor_data_download");
-        loop {
-            if let Ok(_) = stopper_receiver.recv_timeout(Duration::from_millis(200)) {
-                // Sleep was interrupted
-                return;
-            }
-            // Slept for 200ms, proceeding
-            let status = *download_status().lock().unwrap();
-            if status == DownloadStatus::None {
-                // The initial data download consists of many messages in quick succession.
-                // Or this could be some other burst of messages, such as the heartbeat cluster.
-                // Either way, as we have not received any more messages for 200 ms,
-                // the burst of messages must have stopped.
-                println!("Midi.monitor_data_download: Download completed");
-                IS_DOWNLOADING_INIT_DATA.store(false, Ordering::Relaxed);
-                IS_DOWNLOAD_MONITOR_RUNNING.store(false, Ordering::Relaxed);
-                Self::call_back(download_completed_callbacks().clone());
-                return;
-            } else if status != DownloadStatus::Checking
-                && !IS_DOWNLOADING_INIT_DATA.load(Ordering::Relaxed) {
-                IS_DOWNLOADING_INIT_DATA.store(true, Ordering::Relaxed);
-                Self::call_back(download_started_callbacks().clone());
-            }
-        }
+    fn on_init_data_download_completed() {
+        println!("Midi.on_init_data_download_completed: Stopping download monitor");
+        IS_MONITORING_DOWNLOAD.store(false, Ordering::Relaxed);
+        IS_DOWNLOADING_INIT_DATA.store(false, Ordering::Relaxed);
+        *download_status().lock().unwrap() = DownloadStatus::Complete;
+        Self::call_back(download_completed_callbacks().clone());
     }
 
     /// Monitor the connection status of the instrument.
@@ -471,7 +470,7 @@ impl Midi {
                         // println!("midi.monitor_instru_connection: Instrument disconnected.");
                         *last_message_received_time().lock().unwrap() = None;
                         IS_RECEIVING_DATA.store(false, Ordering::Relaxed);
-                        Self::call_back(receiving_data_started_callbacks().clone());
+                        Self::call_back(receiving_data_stopped_callbacks().clone());
                     }
                 }
             } else if !has_initially_not_connected_callback_been_called {
@@ -574,7 +573,7 @@ impl Midi {
                         if dl_status == DownloadStatus::EndUserNames
                             || dl_status == DownloadStatus::EndSysNames {
                             // println!("Midi.on_message_received: End of download:");
-                            *download_status().lock().unwrap() = DownloadStatus::Checking;
+                            Self::on_init_data_download_completed();
                             return;
                         }
                         let sel_status =
@@ -650,39 +649,12 @@ impl Midi {
             });
         }
     }
-
-    fn start_download_monitor() {
-        println!("Midi.start_download_monitor");
-        let (stopper_sender, stopper_receiver) = mpsc::channel();
-        *download_monitor_stopper_sender().lock().unwrap() = Some(stopper_sender);
-        IS_DOWNLOAD_MONITOR_RUNNING.store(true, Ordering::Relaxed);
-        rayon::spawn(move || {
-            Self::monitor_data_download(stopper_receiver);
-        });
-    }
-
-    fn stop_download_monitor(&mut self) {
-        println!("Midi.stop_download_monitor");
-        if !IS_DOWNLOAD_MONITOR_RUNNING.load(Ordering::Relaxed) {
-            println!("Midi.stop_download_monitor: Already stopped.");
-            return;
-        }
-        let stopper_sender =
-            download_monitor_stopper_sender().lock().unwrap().take();
-        if stopper_sender.is_none() { return; }
-        stopper_sender.unwrap().send(()).unwrap_or_else(|_| {
-            panic!("Midi.stop_download_monitor: Failed to send stop signal to download monitor");
-        });
-        println!("Midi.stop_download_monitor: Stopped monitor thread.");
-        IS_DOWNLOAD_MONITOR_RUNNING.store(false, Ordering::Relaxed);
-        println!("Midi.stop_download_monitor: Done.");
-    }
 }
 
 const INPUT_CLIENT_NAME: &str = "My MIDI Input";
 const OUTPUT_CLIENT_NAME: &str = "My MIDI Output";
 
-static IS_DOWNLOAD_MONITOR_RUNNING: AtomicBool = AtomicBool::new(false);
 static IS_DOWNLOADING_INIT_DATA: AtomicBool = AtomicBool::new(false);
+static IS_MONITORING_DOWNLOAD: AtomicBool = AtomicBool::new(false);
 static IS_RECEIVING_DATA: AtomicBool = AtomicBool::new(false);
 static IS_UPDATING_TUNING: AtomicBool = AtomicBool::new(false);

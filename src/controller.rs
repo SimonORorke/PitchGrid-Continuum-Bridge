@@ -94,6 +94,7 @@ impl Controller {
         self.connect_initial_port(&output_strategy);
         // Don't start listening to MIDI until we are able to send MIDI.
         if midi_static::is_output_port_connected() {
+            // println!("Controller.init: Connecting input port");
             self.connect_initial_port(&input_strategy);
         }
         // println!("Controller.init: Configuring tuner");
@@ -323,8 +324,12 @@ impl Controller {
     }
 
     fn on_ports_connected_changed(&mut self) {
-        // println!("Controller.on_instru_connected_changed");
-        if midi_static::are_ports_connected() && midi_static::is_receiving_data() {
+        println!("Controller.on_ports_connected_changed");
+        // println!("Controller.on_ports_connected_changed: are_ports_connected = {}; \
+        //     is_receiving_data = {}",
+        //          midi_static::are_ports_connected(), midi_static::is_receiving_data());
+        // if midi_static::are_ports_connected() && midi_static::is_receiving_data() {
+        if midi_static::are_ports_connected() {
             return;
         }
         // Instrument is not connected. Stop OSC if running.
@@ -333,11 +338,11 @@ impl Controller {
             // println!("Controller.on_instru_connected_changed: Stopping OSC");
             self.osc.stop();
             self.show_warning(INSTRUMENT_DISCONNECTED);
-        } else if midi_static::are_ports_connected() && !self.has_restart_been_requested {
-            // println!("Controller.on_instru_connected_changed: Showing The instrument is not connected");
-            // This probably means the instrument is not connected on application start.
-            // So show a helpful message.
-            self.show_warning(INSTRUMENT_NOT_CONNECTED);
+        // } else if midi_static::are_ports_connected() && !self.has_restart_been_requested {
+        //     println!("Controller.on_ports_connected_changed: Showing The instrument is not connected");
+        //     // This probably means the instrument is not connected on application start.
+        //     // So show a helpful message.
+        //     self.show_warning(INSTRUMENT_NOT_CONNECTED);
         }
         self.callbacks.show_pitchgrid_status(
             PITCHGRID_CONNECTION_CLOSED,
@@ -355,12 +360,16 @@ impl Controller {
     }
 
     fn on_receiving_data_started_callback(&mut self) {
+        println!("Controller.on_receiving_data_started_callback");
         self.show_info(CHECKING_FOR_DATA_DOWNLOAD);
     }
 
     fn on_receiving_data_stopped_callback(&mut self) {
         if self.osc.is_running() {
             self.stop_osc_and_show_message();
+        }
+        if midi_static::are_ports_connected() {
+            self.show_warning(INSTRUMENT_NOT_CONNECTED);
         }
     }
 
@@ -405,7 +414,7 @@ impl Controller {
     }
     
     fn show_pitchgrid_connected(&self) {
-        // println!("Controller.show_pitchgrid_connected: Showing Pitchgrid OSC is connected");
+        // println!("Controller.show_pitchgrid_connected: Showing PitchGrid OSC is connected");
         self.callbacks.show_pitchgrid_status(
             PITCHGRID_OSC_CONNECTED,
             MessageType::Info);
@@ -506,7 +515,9 @@ const AWAITING_DATA_DOWNLOAD_COMPLETION: &str = "Awaiting completion of data dow
 const AWAITING_PITCHGRID_CONNECTION: &str = "Awaiting PitchGrid connection...";
 const CANNOT_UPDATE_TUNING_CONNECT: &str = "Cannot updating tuning. Connect instrument input/output.";
 const CANNOT_UPDATE_TUNING_LOST: &str = "Cannot update tuning. Instrument connection lost.";
-const CHECKING_FOR_DATA_DOWNLOAD: &str = "Checking for initial data download from instrument...";
+const CHECKING_FOR_DATA_DOWNLOAD: &str =
+    "Waiting (maximum 6 seconds) for possible initial data download from instrument...";
+// const CHECKING_FOR_DATA_DOWNLOAD: &str = "Checking for initial data download from instrument...";
 const CHECKING_INSTRUMENT_CONNECTION: &str = "Checking instrument connection...";
 const DISCONNECTED_FROM_PITCHGRID: &str = "Disconnected from PitchGrid because MIDI is not connected";
 const INSTRUMENT_DISCONNECTED: &str = "Instrument is disconnected; closed PitchGrid connection.";

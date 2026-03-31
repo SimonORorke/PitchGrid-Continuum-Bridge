@@ -1,6 +1,5 @@
 use midir::MidiOutputConnection;
 use std::sync::{Arc, Mutex, OnceLock};
-use std::sync::mpsc;
 use std::time::Instant;
 
 pub(super) type Callbacks = Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>>;
@@ -13,17 +12,16 @@ pub(super) enum DownloadStatus {
     EndUserNames,
     BeginSysNames,
     EndSysNames,
+    Complete,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(super) enum PresetSelectStatus {
     None,
     BankH,
-    // Program,
 }
 
 static DOWNLOAD_COMPLETED_CALLBACKS: OnceLock<Callbacks> = OnceLock::new();
-static DOWNLOAD_MONITOR_STOPPER_SENDER: Mutex<Option<mpsc::Sender<()>>> = Mutex::new(None);
 static DOWNLOAD_STARTED_CALLBACKS: OnceLock<Callbacks> = OnceLock::new();
 static DOWNLOAD_STATUS: Mutex<DownloadStatus> = Mutex::new(DownloadStatus::None);
 static DOWNLOAD_WAIT_START_TIME: Mutex<Option<Instant>> = Mutex::new(None);
@@ -42,10 +40,6 @@ pub(super) fn download_completed_callbacks() -> &'static Callbacks {
 
 pub(super) fn download_started_callbacks() -> &'static Callbacks {
     DOWNLOAD_STARTED_CALLBACKS.get_or_init(|| Arc::new(Mutex::new(Vec::new())))
-}
-
-pub(super) fn download_monitor_stopper_sender() -> &'static Mutex<Option<mpsc::Sender<()>>> {
-    &DOWNLOAD_MONITOR_STOPPER_SENDER
 }
 
 pub(super) fn download_status() -> &'static Mutex<DownloadStatus> {
