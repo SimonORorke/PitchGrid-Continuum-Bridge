@@ -151,7 +151,7 @@ impl Midi {
     }
 
     pub fn has_downloaded_init_data(&self) -> bool {
-        *download_status().lock().unwrap() == DownloadStatus::None
+        *download_status().lock().unwrap() == DownloadStatus::Complete
     }
 
     pub fn is_output_port_connected(&self) -> bool {
@@ -437,14 +437,14 @@ impl Midi {
             // println!("Midi.log_message_received_time: Six seconds is up");
             // We have waited 6 seconds, and the download has either not started or is in progress.
             // So, we can start monitoring the download.
-            println!("Midi.log_message_received_time: Starting download monitor");
+            // println!("Midi.log_message_received_time: Starting download monitor");
             IS_MONITORING_DOWNLOAD.store(true, Ordering::Relaxed);
             return;
         }
     }
 
     fn on_init_data_download_completed() {
-        println!("Midi.on_init_data_download_completed: Stopping download monitor");
+        // println!("Midi.on_init_data_download_completed: Stopping download monitor");
         IS_MONITORING_DOWNLOAD.store(false, Ordering::Relaxed);
         IS_DOWNLOADING_INIT_DATA.store(false, Ordering::Relaxed);
         *download_status().lock().unwrap() = DownloadStatus::Complete;
@@ -515,7 +515,7 @@ impl Midi {
                     if controller == 0 // Bank MSB
                         // But if the editor were downloading the user preset list or the
                         // system preset list, this would be one of many.
-                        && *download_status().lock().unwrap() == DownloadStatus::None {
+                        && *download_status().lock().unwrap() == DownloadStatus::Complete {
                         // The user is selecting a preset;
                         // it's not part of the editor's initial download, after which we will
                         // have already sent a tuning.
@@ -565,19 +565,21 @@ impl Midi {
                         }
                     }
                 }
-                MidiMessage::ProgramChange { .. } => {
+                MidiMessage::ProgramChange { ..} => {
+                // MidiMessage::ProgramChange { program } => {
                     let channel1 = u8::from(channel) + 1; // 1-based channel number.
                     if channel1 == 16 {
-                        // println!("midi.on_message_received: ProgramChange");
-                        let dl_status = *download_status().lock().unwrap();
-                        if dl_status == DownloadStatus::EndUserNames
-                            || dl_status == DownloadStatus::EndSysNames {
-                            // println!("Midi.on_message_received: End of download:");
+                        // println!("midi.on_message_received: ProgramChange ch16 program {}", program);
+                        let download_status = *download_status().lock().unwrap();
+                        if download_status == DownloadStatus::EndUserNames
+                            || download_status == DownloadStatus::EndSysNames {
+                            // println!("Midi.on_message_received: End of download");
                             Self::on_init_data_download_completed();
                             return;
                         }
                         let sel_status =
                             *preset_select_status().lock().unwrap();
+                        // println!("Midi.on_message_received: sel_status = {:?}", sel_status);
                         match sel_status {
                             PresetSelectStatus::None => {}
                             PresetSelectStatus::BankH => {
@@ -585,7 +587,7 @@ impl Midi {
                                 // zero-based program number after the bank.
                                 // For unknown reason, this happens twice when a preset is loaded
                                 // from disc.
-                                // println!("midi.on_message_received: Preset selected, Program");
+                                // println!("midi.on_message_received: Program, preset selected");
                                 *preset_select_status().lock().unwrap() = PresetSelectStatus::None;
                                 Self::call_back(new_preset_selected_callbacks().clone());
                                 return;

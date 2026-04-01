@@ -6,7 +6,7 @@ pub(super) type Callbacks = Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(super) enum DownloadStatus {
-    None,
+    NotChecked,
     Waiting,
     BeginUserNames,
     EndUserNames,
@@ -23,7 +23,7 @@ pub(super) enum PresetSelectStatus {
 
 static DOWNLOAD_COMPLETED_CALLBACKS: OnceLock<Callbacks> = OnceLock::new();
 static DOWNLOAD_STARTED_CALLBACKS: OnceLock<Callbacks> = OnceLock::new();
-static DOWNLOAD_STATUS: Mutex<DownloadStatus> = Mutex::new(DownloadStatus::None);
+static DOWNLOAD_STATUS: Mutex<DownloadStatus> = Mutex::new(DownloadStatus::NotChecked);
 static DOWNLOAD_WAIT_START_TIME: Mutex<Option<Instant>> = Mutex::new(None);
 static LAST_MESSAGE_RECEIVED_TIME: Mutex<Option<Instant>> = Mutex::new(None);
 static NEW_PRESET_SELECTED_CALLBACKS: OnceLock<Callbacks> = OnceLock::new();

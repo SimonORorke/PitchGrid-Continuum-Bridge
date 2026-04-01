@@ -309,7 +309,7 @@ impl Controller {
     }
 
     fn on_init_data_download_completed(&mut self) {
-        println!("Controller.on_init_data_download_completed");
+        // println!("Controller.on_init_data_download_completed");
         if midi_static::is_receiving_data()
                 && midi_static::are_ports_connected()
                 && !self.osc.is_running() {
@@ -319,16 +319,12 @@ impl Controller {
     }
 
     fn on_init_data_download_started(&mut self) {
-        println!("Controller.on_init_data_download_started");
+        // println!("Controller.on_init_data_download_started");
         self.show_info(AWAITING_DATA_DOWNLOAD_COMPLETION);
     }
 
     fn on_ports_connected_changed(&mut self) {
-        println!("Controller.on_ports_connected_changed");
-        // println!("Controller.on_ports_connected_changed: are_ports_connected = {}; \
-        //     is_receiving_data = {}",
-        //          midi_static::are_ports_connected(), midi_static::is_receiving_data());
-        // if midi_static::are_ports_connected() && midi_static::is_receiving_data() {
+        // println!("Controller.on_ports_connected_changed");
         if midi_static::are_ports_connected() {
             return;
         }
@@ -338,11 +334,6 @@ impl Controller {
             // println!("Controller.on_instru_connected_changed: Stopping OSC");
             self.osc.stop();
             self.show_warning(INSTRUMENT_DISCONNECTED);
-        // } else if midi_static::are_ports_connected() && !self.has_restart_been_requested {
-        //     println!("Controller.on_ports_connected_changed: Showing The instrument is not connected");
-        //     // This probably means the instrument is not connected on application start.
-        //     // So show a helpful message.
-        //     self.show_warning(INSTRUMENT_NOT_CONNECTED);
         }
         self.callbacks.show_pitchgrid_status(
             PITCHGRID_CONNECTION_CLOSED,
@@ -360,7 +351,7 @@ impl Controller {
     }
 
     fn on_receiving_data_started_callback(&mut self) {
-        println!("Controller.on_receiving_data_started_callback");
+        // println!("Controller.on_receiving_data_started_callback");
         self.show_info(WAITING_FOR_DATA_DOWNLOAD);
     }
 
