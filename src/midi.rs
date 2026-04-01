@@ -1,12 +1,12 @@
-mod midi_statics;
-use midi_statics::{Callbacks, DownloadStatus};
-use midi_statics::{download_completed_callbacks, download_started_callbacks,
-                   download_status,
-                   download_wait_start_time,
-                   last_message_received_time, new_preset_selected_callbacks, output_connection,
-                   ports_connected_changed_callbacks,
-                   receiving_data_started_callbacks, receiving_data_stopped_callbacks,
-                   tuning_updated_callbacks};
+mod midi_refs;
+use midi_refs::{Callbacks, DownloadStatus};
+use midi_refs::{download_completed_callbacks, download_started_callbacks,
+                download_status,
+                download_wait_start_time,
+                last_message_received_time, new_preset_selected_callbacks, output_connection,
+                ports_connected_changed_callbacks,
+                receiving_data_started_callbacks, receiving_data_stopped_callbacks,
+                tuning_updated_callbacks};
 use midir::{
     MidiInput, MidiInputConnection, MidiInputPort, MidiOutput, MidiOutputPort,
 };
@@ -560,6 +560,8 @@ impl Midi {
                     if channel1 == 16 {
                         // println!("midi.on_message_received: ProgramChange ch16 program {}", program);
                         let download_status = *download_status().lock().unwrap();
+                        // I don't think this will work if system presets are downloaded.
+                        // But it's a rare occurrence; and the user will be able to work around it.
                         if download_status == DownloadStatus::EndUserNames
                             || download_status == DownloadStatus::EndSysNames {
                             // println!("Midi.on_message_received: End of download");
