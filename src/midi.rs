@@ -403,7 +403,7 @@ impl Midi {
             // 3 to 4 seconds after turning the instrument on. So, to be safe, we will wait 6
             // seconds to give the download a chance to start, if it is going to,
             // before we start monitoring for download completion.
-            *download_status().lock().unwrap() = DownloadStatus::Checking;
+            *download_status().lock().unwrap() = DownloadStatus::Waiting;
             // println!("Midi.log_message_received_time: Setting download wait start time");
             *download_wait_start_time().lock().unwrap() = Some(now);
             // println!("Midi.log_message_received_time: receiving_data_started_callbacks");

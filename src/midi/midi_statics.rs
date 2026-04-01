@@ -7,7 +7,7 @@ pub(super) type Callbacks = Arc<Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(super) enum DownloadStatus {
     None,
-    Checking,
+    Waiting,
     BeginUserNames,
     EndUserNames,
     BeginSysNames,

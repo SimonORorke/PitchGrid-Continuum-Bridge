@@ -361,7 +361,7 @@ impl Controller {
 
     fn on_receiving_data_started_callback(&mut self) {
         println!("Controller.on_receiving_data_started_callback");
-        self.show_info(CHECKING_FOR_DATA_DOWNLOAD);
+        self.show_info(WAITING_FOR_DATA_DOWNLOAD);
     }
 
     fn on_receiving_data_stopped_callback(&mut self) {
@@ -515,9 +515,6 @@ const AWAITING_DATA_DOWNLOAD_COMPLETION: &str = "Awaiting completion of data dow
 const AWAITING_PITCHGRID_CONNECTION: &str = "Awaiting PitchGrid connection...";
 const CANNOT_UPDATE_TUNING_CONNECT: &str = "Cannot updating tuning. Connect instrument input/output.";
 const CANNOT_UPDATE_TUNING_LOST: &str = "Cannot update tuning. Instrument connection lost.";
-const CHECKING_FOR_DATA_DOWNLOAD: &str =
-    "Waiting (maximum 6 seconds) for possible initial data download from instrument...";
-// const CHECKING_FOR_DATA_DOWNLOAD: &str = "Checking for initial data download from instrument...";
 const CHECKING_INSTRUMENT_CONNECTION: &str = "Checking instrument connection...";
 const DISCONNECTED_FROM_PITCHGRID: &str = "Disconnected from PitchGrid because MIDI is not connected";
 const INSTRUMENT_DISCONNECTED: &str = "Instrument is disconnected; closed PitchGrid connection.";
@@ -537,6 +534,8 @@ const ROUNDING_MAX: &str = "Max";
 const ROUNDING_NONE: &str = "None";
 const UPDATING_INSTRUMENT_TUNING: &str = "Updating instrument tuning";
 const UPDATING_ROOT_FREQ_OVERRIDE: &str = "Updating root frequency override...";
+const WAITING_FOR_DATA_DOWNLOAD: &str =
+    "Waiting (maximum 6 seconds) for possible initial data download from instrument...";
 
 pub trait ControllerCallbacks: Send + Sync {
     fn focus_port(&self, port_strategy: &dyn PortStrategy);
