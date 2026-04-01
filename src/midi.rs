@@ -1,10 +1,10 @@
 mod midi_statics;
-use midi_statics::{Callbacks, DownloadStatus, PresetSelectStatus};
+use midi_statics::{Callbacks, DownloadStatus};
 use midi_statics::{download_completed_callbacks, download_started_callbacks,
                    download_status,
                    download_wait_start_time,
                    last_message_received_time, new_preset_selected_callbacks, output_connection,
-                   ports_connected_changed_callbacks, preset_select_status,
+                   ports_connected_changed_callbacks,
                    receiving_data_started_callbacks, receiving_data_stopped_callbacks,
                    tuning_updated_callbacks};
 use midir::{
@@ -512,17 +512,6 @@ impl Midi {
                     //     println!("Midi.on_message_received: ch{} cc{} value {}",
                     //              channel1, controller, value);
                     // }
-                    if controller == 0 // Bank MSB
-                        // But if the editor were downloading the user preset list or the
-                        // system preset list, this would be one of many.
-                        && *download_status().lock().unwrap() == DownloadStatus::Complete {
-                        // The user is selecting a preset;
-                        // it's not part of the editor's initial download, after which we will
-                        // have already sent a tuning.
-                        // println!("midi.on_message_received: Preset selected, BankH");
-                        *preset_select_status().lock().unwrap() = PresetSelectStatus::BankH;
-                        return;
-                    }
                     if controller == 51 { // Grid
                         // println!("midi.on_message_received: Pitch table loaded");
                         // A pitch table has been loaded to the instrument's current preset.
@@ -577,33 +566,15 @@ impl Midi {
                             Self::on_init_data_download_completed();
                             return;
                         }
-                        let sel_status =
-                            *preset_select_status().lock().unwrap();
-                        // println!("Midi.on_message_received: sel_status = {:?}", sel_status);
-                        match sel_status {
-                            PresetSelectStatus::None => {}
-                            PresetSelectStatus::BankH => {
-                                // The user is selecting a preset. The editor sends the preset's
-                                // zero-based program number after the bank.
-                                // For unknown reason, this happens twice when a preset is loaded
-                                // from disc.
-                                // println!("midi.on_message_received: Program, preset selected");
-                                *preset_select_status().lock().unwrap() = PresetSelectStatus::None;
-                                Self::call_back(new_preset_selected_callbacks().clone());
-                                return;
-                            }
-                            // We seem not to get this message when the user has selected a preset.
-                            // PresetSelectStatus::Program => {
-                            //     // The second program change message when the user has selected a
-                            //     // preset is the 1-based preset number that is the last item of
-                            //     // preset data sent by the instrument when loading the preset.
-                            //     // So the preset load is complete, and we now need to resend the
-                            //     // tuning.
-                            //     *PRESET_SELECT_STATUS.lock().unwrap() = PresetSelectStatus::None;
-                            //     println!("midi.on_message_received: Preset selected, loaded");
-                            //     Self::call_back(NEW_PRESET_SELECTED_CALLBACKS.clone());
-                            //     return;
-                            // }
+                        if download_status == DownloadStatus::Complete {
+                            // The user is selecting a preset. The editor sends the preset's
+                            // zero-based program number after the bank.
+                            // For unknown reason, this happens twice when a preset is loaded
+                            // from disc.
+                            // println!("midi.on_message_received: Program, preset selected");
+                            // *preset_select_status().lock().unwrap() = PresetSelectStatus::None;
+                            Self::call_back(new_preset_selected_callbacks().clone());
+                            return;
                         }
                     }
                 }

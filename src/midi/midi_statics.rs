@@ -15,12 +15,6 @@ pub(super) enum DownloadStatus {
     Complete,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub(super) enum PresetSelectStatus {
-    None,
-    BankH,
-}
-
 static DOWNLOAD_COMPLETED_CALLBACKS: OnceLock<Callbacks> = OnceLock::new();
 static DOWNLOAD_STARTED_CALLBACKS: OnceLock<Callbacks> = OnceLock::new();
 static DOWNLOAD_STATUS: Mutex<DownloadStatus> = Mutex::new(DownloadStatus::NotChecked);
@@ -29,7 +23,6 @@ static LAST_MESSAGE_RECEIVED_TIME: Mutex<Option<Instant>> = Mutex::new(None);
 static NEW_PRESET_SELECTED_CALLBACKS: OnceLock<Callbacks> = OnceLock::new();
 static OUTPUT_CONNECTION: Mutex<Option<MidiOutputConnection>> = Mutex::new(None);
 static PORTS_CONNECTED_CHANGED_CALLBACKS: OnceLock<Callbacks> = OnceLock::new();
-static PRESET_SELECT_STATUS: Mutex<PresetSelectStatus> = Mutex::new(PresetSelectStatus::None);
 static RECEIVING_DATA_STARTED_CALLBACKS: OnceLock<Callbacks> = OnceLock::new();
 static RECEIVING_DATA_STOPPED_CALLBACKS: OnceLock<Callbacks> = OnceLock::new();
 static TUNING_UPDATED_CALLBACKS: OnceLock<Callbacks> = OnceLock::new();
@@ -64,10 +57,6 @@ pub(super) fn output_connection() -> &'static Mutex<Option<MidiOutputConnection>
 
 pub(super) fn ports_connected_changed_callbacks() -> &'static Callbacks {
     PORTS_CONNECTED_CHANGED_CALLBACKS.get_or_init(|| Arc::new(Mutex::new(Vec::new())))
-}
-
-pub(super) fn preset_select_status() -> &'static Mutex<PresetSelectStatus> {
-    &PRESET_SELECT_STATUS
 }
 
 pub(super) fn receiving_data_started_callbacks() -> &'static Callbacks {
