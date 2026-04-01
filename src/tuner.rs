@@ -336,13 +336,13 @@ fn on_tuning_updated() {
 /// Rounding None does nothing, so that the
 /// instrument preset will retain its current rounding settings.
 /// Rounding Initial rounds each note's initial pitch to the key's specified tuning pitch.
-/// However, dues to a bug in the EaganMatrix firmware,
-/// when sent before or after sending a new tuning, the instrument's octave shifting,
-/// with buttons or pedals, will not work.
-/// Rounding Max turns off Initial Rounding and sends Rounding Mode Normal in conjunction with
-/// Rounding Rate 127 (the maximum). This effectively enforces initial rounding, even though the
-/// Initial Rounding parameter is turned off, without breaking octave shifting. In addition, it
-/// prevents the pitch from being changed by subsequent motion of the finger on the fingerboard.
+/// Rounding Max sends Rounding Mode Normal in conjunction with Rounding Rate 127 (the maximum).
+/// This effectively enforces initial rounding, even when the current preset's Initial Rounding
+/// is off. In addition, it prevents the pitch from being changed by
+/// subsequent motion of the finger on the fingerboard.
+/// Note: A bug in the EaganMatrix firmware was fixed in firmware version 10.73 where previously,
+/// when the current preset's Initial Rounding was on, the instrument's octave shifting, with
+/// buttons or pedals, would not work.
 fn send_rounding_params(rounding: Rounding) {
     match rounding {
         Rounding::None => {}
@@ -351,10 +351,6 @@ fn send_rounding_params(rounding: Rounding) {
             Midi::send_control_change(1, 28, 127); // RndIni
         }
         Rounding::Max => {
-            // Turn off Rounding Initial
-            // Needs to be done to avoid the pitch shift bug in the EaganMatrix firmware
-            // happening for presets that have Initial Rounding turned on by default.
-            Midi::send_control_change(1, 28, 0); // RndIni
             // Rounding Mode Normal
             Midi::send_matrix_poke(10, 0); // RoundMode
             // Max Rounding Rate
