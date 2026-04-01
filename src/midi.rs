@@ -305,10 +305,10 @@ impl Midi {
                 }
             }
         }
-        // If we have not yet received any messages from the instrument after 2 seconds,
+        // If we have not yet received any messages from the instrument after 1 second,
         // show a message to the user.
         rayon::spawn(move || {
-            sleep(Duration::from_secs(2));
+            sleep(Duration::from_secs(MIDI_WAIT_SECS));
             if !IS_RECEIVING_DATA.load(Ordering::Relaxed) {
                 Self::call_back(receiving_data_stopped_callbacks().clone());
             }
@@ -453,8 +453,10 @@ impl Midi {
 
     /// Monitor the connection status of the instrument.
     /// When the instrument has nothing else to send, it will send a sequence of heartbeat messages
-    /// once a second. So, if we have not heard from the instrument for two seconds,
-    /// we assume it has disconnected.
+    /// once a second and the editor will send back a sequence of heartbeat messages half a second
+    /// later. This application will receive both sets of heartbeat messages. So we should get data
+    /// every 0.5 seconds. So, if we have not had any data for 1 second, we assume
+    /// the editor or instrument has disconnected.
     fn monitor_instru_connection(stopper_receiver: mpsc::Receiver<()>) {
         let start_time = Instant::now();
         let mut has_initially_not_connected_callback_been_called = false;
@@ -466,7 +468,7 @@ impl Midi {
                 if let Some(last_time) = last_time {
                     let duration = now.duration_since(last_time);
                     let seconds = duration.as_secs();
-                    if seconds > 2 {
+                    if seconds > MIDI_WAIT_SECS {
                         // println!("midi.monitor_instru_connection: Instrument disconnected.");
                         *last_message_received_time().lock().unwrap() = None;
                         IS_RECEIVING_DATA.store(false, Ordering::Relaxed);
@@ -478,9 +480,9 @@ impl Midi {
                 let duration = now.duration_since(start_time);
                 let seconds = duration.as_secs();
                 // Give a chance for the instrument heartbeat messages to arrive.
-                if seconds > 2 {
-                    // println!("midi.monitor_instru_connection: Instrument not connected for 2 seconds on startup.");
-                    // Not connected for 2 seconds after application start.
+                if seconds > MIDI_WAIT_SECS {
+                    // println!("midi.monitor_instru_connection: Instrument not connected for 1 second on startup.");
+                    // Not connected for 1 second after application start.
                     // So we can assume that the instrument is not yet connected.
                     // Provide an opportunity for a helpful message to be displayed.
                     Self::call_back(receiving_data_stopped_callbacks().clone());
@@ -627,6 +629,7 @@ impl Midi {
 }
 
 const INPUT_CLIENT_NAME: &str = "My MIDI Input";
+const MIDI_WAIT_SECS: u64 = 1;
 const OUTPUT_CLIENT_NAME: &str = "My MIDI Output";
 
 static IS_DOWNLOADING_INIT_DATA: AtomicBool = AtomicBool::new(false);
