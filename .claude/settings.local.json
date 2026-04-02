@@ -8,7 +8,10 @@
       "Bash(/c/Users/*/AppData/Local/Programs/Rust/bin/cargo)",
       "Bash(--version)",
       "Read(//c/Users/Simon O'Rorke/.cargo/bin/**)",
-      "Bash(~/.cargo/bin/cargo check)"
+      "Bash(~/.cargo/bin/cargo check)",
+      "Bash(~/.cargo/bin/cargo build)",
+      "Bash(~/.cargo/bin/cargo metadata --format-version 1)",
+      "Bash(python3 -c \"import json,sys; m=json.load\\(sys.stdin\\); [print\\(p[''manifest_path'']\\) for p in m[''packages''] if ''vivi'' in p[''name''].lower\\(\\)]\")"
     ]
   }
 }

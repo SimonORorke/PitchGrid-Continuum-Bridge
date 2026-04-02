@@ -17,6 +17,7 @@ export enum SlintPortType {
 }
 
 export component MainWindow inherits MagicWindow {
+    init => { Palette.color-scheme = ColorScheme.dark; }
     background: get_background_color();
     width: 700px;
     // Needs to be big enough to include everything down to the second status bar line.
