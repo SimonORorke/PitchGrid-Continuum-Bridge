@@ -17,9 +17,13 @@ export enum SlintPortType {
 }
 
 export component MainWindow inherits MagicWindow {
+    // Overriding the Light/Dark colour scheme to enforce dark mode,
+    // as I could not come up with a satisfactory ligth mode variant.
     init => { Palette.color-scheme = ColorScheme.dark; }
     background: get_background_color();
-    width: 700px;
+    // Width and height need to be minimums
+    // to allow the Window to be bigger on a bigger screen.
+    min_width: 700px;
     // Needs to be big enough to include everything down to the second status bar line.
     // Expands automatically if the status message does not fit.
     min_height: 440px;
