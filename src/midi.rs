@@ -305,7 +305,7 @@ impl Midi {
                 }
             }
         }
-        // If we have not yet received any messages from the instrument after 1 second,
+        // If we have not yet received any messages from the instrument after 2 seconds,
         // show a message to the user.
         rayon::spawn(move || {
             sleep(Duration::from_secs(MIDI_WAIT_SECS));
@@ -453,9 +453,9 @@ impl Midi {
 
     /// Monitor the connection status of the instrument.
     /// When the instrument has nothing else to send, it will send a sequence of heartbeat messages
-    /// once a second and the editor will send back a sequence of heartbeat messages half a second
-    /// later. This application will receive both sets of heartbeat messages. So we should get data
-    /// every 0.5 seconds. So, if we have not had any data for 1 second, we assume
+    /// once a second and the editor will send back a sequence of heartbeat messages less than half
+    /// a second later. This application will receive both sets of heartbeat messages. To be safe,
+    /// if we have not had any data for 2 seconds, we assume
     /// the editor or instrument has disconnected.
     fn monitor_instru_connection(stopper_receiver: mpsc::Receiver<()>) {
         let start_time = Instant::now();
@@ -481,8 +481,8 @@ impl Midi {
                 let seconds = duration.as_secs();
                 // Give a chance for the instrument heartbeat messages to arrive.
                 if seconds > MIDI_WAIT_SECS {
-                    // println!("midi.monitor_instru_connection: Instrument not connected for 1 second on startup.");
-                    // Not connected for 1 second after application start.
+                    // println!("midi.monitor_instru_connection: Instrument not connected for 2 seconds on startup.");
+                    // Not connected for 2 seconds after application start.
                     // So we can assume that the instrument is not yet connected.
                     // Provide an opportunity for a helpful message to be displayed.
                     Self::call_back(receiving_data_stopped_callbacks().clone());
@@ -629,7 +629,7 @@ impl Midi {
 }
 
 const INPUT_CLIENT_NAME: &str = "My MIDI Input";
-const MIDI_WAIT_SECS: u64 = 1;
+const MIDI_WAIT_SECS: u64 = 2;
 const OUTPUT_CLIENT_NAME: &str = "My MIDI Output";
 
 static IS_DOWNLOADING_INIT_DATA: AtomicBool = AtomicBool::new(false);
