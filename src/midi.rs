@@ -620,9 +620,10 @@ impl Midi {
             output_connection().lock().unwrap();
         // println!("Midi.send_message: Got connection");
         if let Some(connection) = connection_option.as_mut() {
-            // We want a panic on send failure, for stack trace diagnostics.
             connection.send(message).unwrap_or_else(|_| {
-                panic!("Error when sending MIDI message: {:?}", message);
+                print!("Error when sending MIDI message: {:?}", message);
+                // Panic for stack trace diagnostics.
+                // panic!("Error when sending MIDI message: {:?}", message);
             });
         }
     }
