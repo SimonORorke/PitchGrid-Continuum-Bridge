@@ -1,12 +1,12 @@
 mod midi_refs;
-use midi_refs::{Callbacks, DownloadStatus};
+use midi_refs::{Callbacks, DownloadStatus, TuningStatus};
 use midi_refs::{download_completed_callbacks, download_started_callbacks,
                 download_status,
                 download_wait_start_time,
                 last_message_received_time, new_preset_selected_callbacks, output_connection,
                 ports_connected_changed_callbacks,
                 receiving_data_started_callbacks, receiving_data_stopped_callbacks,
-                tuning_updated_callbacks};
+                tuning_status, tuning_updated_callbacks};
 use midir::{
     MidiInput, MidiInputConnection, MidiInputPort, MidiOutput, MidiOutputPort,
 };
@@ -260,7 +260,7 @@ impl Midi {
     }
 
     pub fn on_updating_tuning() {
-        IS_UPDATING_TUNING.store(true, Ordering::Relaxed);
+        *tuning_status().lock().unwrap() = TuningStatus::Tuning;
     }
 
     /// Call the subscribed callback functions on a separate thread.
@@ -515,20 +515,41 @@ impl Midi {
                     //              channel1, controller, value);
                     // }
                     if controller == 51 { // Grid
-                        // println!("midi.on_message_received: Pitch table loaded");
+                        let pitch_table_no = u8::from(value);
+                        // println!("midi.on_message_received: Pitch table {}", pitch_table_no);
                         // A pitch table has been loaded to the instrument's current preset.
                         // This message is received as part of instrument config,
                         // and when a pitch table update sent to the instrument has been
                         // completed and loaded.
-                        if IS_UPDATING_TUNING.load(Ordering::Relaxed) {
-                            // Check that the value is the correct pitch table index
-                            // for the tuning this application sent to the instrument.
-                            // When there have been problems at the instrument end,
-                            // it has sent back a ch16 cc51 messages, but with value 0.
-                            if u8::from(value) == tuner::pitch_table_no() {
-                                println!("midi.on_message_received: Pitch table update confirmed, \
-                                pitch table no: {}", u8::from(value));
-                                IS_UPDATING_TUNING.store(false, Ordering::Relaxed);
+                        let status = *tuning_status().lock().unwrap();
+                        match status {
+                            TuningStatus::None => {}
+                            TuningStatus::Tuning => {
+                                // Check that the value is the correct pitch table index
+                                // for the tuning this application sent to the instrument.
+                                // When there have been problems at the instrument end,
+                                // it has sent back a ch16 cc51 messages, but with value 0.
+                                if pitch_table_no == tuner::pitch_table_no() {
+                                    // The editor sends us back what we send to the instrument,
+                                    // as well as what the instrument sends back to us.
+                                    // So we have just requested that the current preset be updated
+                                    // with the new pitch table.
+                                    println!("midi.on_message_received: Preset's pitch table \
+                                        update requested, pitch table no: {}", pitch_table_no);
+                                    *tuning_status().lock().unwrap() =
+                                        TuningStatus::RequestedPresetUpdate;
+                                }
+                            }
+                            TuningStatus::RequestedPresetUpdate => {
+                                // The instrument has confirmed that the current preset has been
+                                // updated with the new pitch table.
+                                // As at firmware 10.73, there is a firmware bug where, for
+                                // specific presets, the instrument will send back a cc51 message
+                                // with value 0 instead of the pitch table no we requested.
+                                // So we can omit checking the pitch table no here.
+                                println!("midi.on_message_received: Preset's pitch table \
+                                        update confirmed, pitch table no: {}", pitch_table_no);
+                                *tuning_status().lock().unwrap() = TuningStatus::None;
                                 Self::call_back(tuning_updated_callbacks().clone());
                             }
                         }
@@ -637,4 +658,3 @@ const OUTPUT_CLIENT_NAME: &str = "My MIDI Output";
 static IS_DOWNLOADING_INIT_DATA: AtomicBool = AtomicBool::new(false);
 static IS_MONITORING_DOWNLOAD: AtomicBool = AtomicBool::new(false);
 static IS_RECEIVING_DATA: AtomicBool = AtomicBool::new(false);
-static IS_UPDATING_TUNING: AtomicBool = AtomicBool::new(false);

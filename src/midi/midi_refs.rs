@@ -15,6 +15,13 @@ pub(super) enum DownloadStatus {
     Complete,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(super) enum TuningStatus {
+    None,
+    Tuning,
+    RequestedPresetUpdate,
+}
+
 static DOWNLOAD_COMPLETED_CALLBACKS: OnceLock<Callbacks> = OnceLock::new();
 static DOWNLOAD_STARTED_CALLBACKS: OnceLock<Callbacks> = OnceLock::new();
 static DOWNLOAD_STATUS: Mutex<DownloadStatus> = Mutex::new(DownloadStatus::NotChecked);
@@ -25,6 +32,7 @@ static OUTPUT_CONNECTION: Mutex<Option<MidiOutputConnection>> = Mutex::new(None)
 static PORTS_CONNECTED_CHANGED_CALLBACKS: OnceLock<Callbacks> = OnceLock::new();
 static RECEIVING_DATA_STARTED_CALLBACKS: OnceLock<Callbacks> = OnceLock::new();
 static RECEIVING_DATA_STOPPED_CALLBACKS: OnceLock<Callbacks> = OnceLock::new();
+static TUNING_STATUS: Mutex<TuningStatus> = Mutex::new(TuningStatus::None);
 static TUNING_UPDATED_CALLBACKS: OnceLock<Callbacks> = OnceLock::new();
 
 pub(super) fn download_completed_callbacks() -> &'static Callbacks {
@@ -66,6 +74,8 @@ pub(super) fn receiving_data_started_callbacks() -> &'static Callbacks {
 pub(super) fn receiving_data_stopped_callbacks() -> &'static Callbacks {
     RECEIVING_DATA_STOPPED_CALLBACKS.get_or_init(|| Arc::new(Mutex::new(Vec::new())))
 }
+
+pub(super) fn tuning_status() -> &'static Mutex<TuningStatus> { &TUNING_STATUS }
 
 pub(super) fn tuning_updated_callbacks() -> &'static Callbacks {
     TUNING_UPDATED_CALLBACKS.get_or_init(|| Arc::new(Mutex::new(Vec::new())))
