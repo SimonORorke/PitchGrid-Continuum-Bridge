@@ -497,7 +497,7 @@ impl Midi {
         }
     }
 
-    fn on_message_received(message: &[u8]) {
+    fn  on_message_received(message: &[u8]) {
         // println!("Midi.on_message_received: message={:?}", message);
         Self::log_message_received_time();
         let event = LiveEvent::parse(message).unwrap();
@@ -526,7 +526,8 @@ impl Midi {
                             // When there have been problems at the instrument end,
                             // it has sent back a ch16 cc51 messages, but with value 0.
                             if u8::from(value) == tuner::pitch_table_no() {
-                                // println!("midi.on_message_received: Pitch table update confirmed");
+                                println!("midi.on_message_received: Pitch table update confirmed, \
+                                pitch table no: {}", u8::from(value));
                                 IS_UPDATING_TUNING.store(false, Ordering::Relaxed);
                                 Self::call_back(tuning_updated_callbacks().clone());
                             }

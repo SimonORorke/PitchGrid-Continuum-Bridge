@@ -43,12 +43,12 @@ PCB connects to Haken Editor's External input and output in All Data mode. As us
 
 ### Connecting to Haken Editor
 
-As PitchGrid-Continuum Bridge and Haken Editor are both software, you (obviously) cannot connect them with cables.  Instead, virtual MIDI ports may be used.  However, in Windows at least, they can be unreliable. Communication is prone to brief cut-outs. I've tried these two alternatives to virtual MIDI ports but found them to be no more reliable, though your experience may differ:
+As PitchGrid-Continuum Bridge and Haken Editor are both software, you (obviously) cannot connect them with cables.  Instead, these options are available:
 
-- Loopback endpoints, which are provided by Microsoft's recently introduced Windows MIDI Services.  As this is new technology, perhaps it will improve.
-- A USB MIDI router may be configured to provide an equivalent of virtual MIDI ports.  This works with [IConnectivity's mioXL and mioXM](https://www.iconnectivity.com/midi-interfaces-1).  I've tested extensively with a mioXm.  If you want to try this, be sure to *start up the MIDI router before starting Windows*.  **How to configure a mio to provide an equivalent of virtual MIDI ports:**  In Auracle X, the mio's driver application, route USB DAW input HST 1 (for example) to USB DAW output HST 1, and likewise for HST2.
+- Virtual MIDI ports.
 
-Fortunately, as PCB is only occasionally sending tunings rather than constantly sending notes, I've found it to be workable.  The problem I've most often encountered is that, on starting PCB, it cannot connect to Haken Editor when that is connected to the instrument.  If that happens, restarting the editor usually fixes it.
+- Loopback endpoints, which in Windows are provided by Microsoft's recently introduced Windows MIDI Services.
+- A USB MIDI router, such as [IConnectivity's mioXL and mioXM](https://www.iconnectivity.com/midi-interfaces-1).
 
 ### Load Order
 
