@@ -84,9 +84,12 @@ Once the tuning of the instrument's current preset has been updated in accordanc
 - More decimal places are shown.  This is because some PitchGrid tunings cannot be distinguished from each other with the number of decimal places currently shown in PitchGrid, and it is not possible to show the tuning preset name in PCB.
 - If a **Root Frequency Override** note is specified in PCB (see below), **Root Freq** will show the overriding note's frequency.
 
-## Preferences
+## Options
 
-<img src="images\Preferences.png" alt="Preferences" style="zoom: 80%;" />
+<img src="images\Options.png" alt="Options" style="zoom: 80%;" />
 
 ### Root Frequency Override
 
+<img src="images\Root Freq PitchGrid.png" alt="Root Freq PitchGrid" style="zoom: 80%;" /><img src="images\Root Freq Override.png" alt="Root Freq Override" style="zoom: 80%;" /><img src="images\Root Freq PCB.png" alt="Root Freq PCB" style="zoom: 80%;" />
+
+The Root Frequency specified in PitchGrid, which is Middle C for most tuning presets, may be overriden. A 12-TET note from the F# below Middle C to the F above Middle C may be selected. These notes are in concert pitch; so if A is selected,  the overriding frequency will be 220 Hz. If an override is not required, the blank item should be selected.  If the override is changed when the instrument's current preset has already been tuned, the tuning will be sent again with the overriding root frequency. When a root frequency has been overridden, the overriding frequency will be shown in PitchGrid-Continuum Bridge's tuning parameters display. By design, Root Freq Override is not saved to PCB's settings: the assumption is that the player should consider which override, if any, to use each time PCB is loaded.

@@ -30,7 +30,7 @@ export component MainWindow inherits MagicWindow {
     min_height: 480px;
     title: window_title;
     icon: Globals.icon;
-    forward-focus: override_rounding_initial_switch;
+    forward-focus: root_notes_combo;
 
     in property depth <=> depth_value.text;
     in property root_freq <=> root_freq_value.text;
@@ -122,14 +122,61 @@ export component MainWindow inherits MagicWindow {
             alignment: space-between;
             padding_left: -10px;
             padding_top: 5px;
+            root_freq_layout := HorizontalLayout {
+                VerticalBox {
+                    height: Globals.control_height;
+                    padding-top: 10px;
+                    MagicText {
+                        text: "Root Freq Override:";
+                        vertical_alignment: center;
+                    }
+                }
+                VerticalLayout {
+                    padding_top: 5px;
+                    root_notes_combo := ComboBox {
+                        current_index: root.selected_root_note_index;
+                        changed current_index => {
+                            root.selected_root_note_changed(self.current_index);
+                        }
+                        height: Globals.control_height;
+                        width: 60px;
+                    }
+                }
+            }
+            pitch_table_layout := HorizontalLayout {
+                padding_right: 10px;
+                VerticalBox {
+                    height: Globals.control_height;
+                    padding-top: 10px;
+                    MagicText {
+                        text: "Pitch Table:";
+                        vertical_alignment: center;
+                    }
+                }
+                VerticalLayout {
+                    padding_top: 5px;
+                    pitch_tables_combo := ComboBox {
+                        current_index: root.selected_pitch_table_index;
+                        changed current_index => {
+                            root.selected_pitch_table_changed(self.current_index);
+                        }
+                        height: Globals.control_height;
+                        width: 60px;
+                    }
+                }
+            }
+        }
+        rounding_overrides_line_layout := HorizontalLayout {
+            alignment: space-between;
+            padding_left: -10px;
+            padding_top: 5px;
             padding_right: 10px;
-            rounding_box := VerticalBox {
+            rounding_overrides_box := VerticalBox {
                 height: Globals.control_height;
                 padding-top: 10px;
                 MagicText {
                     text: "Rounding Overrides:";
                     vertical_alignment: center;
-                    width: 160px;
                 }
             }
             override_rounding_initial_layout := VerticalLayout {
@@ -171,57 +218,7 @@ export component MainWindow inherits MagicWindow {
                 }
             }
         }
-        options_line2_layout := HorizontalLayout {
-            alignment: space-between;
-            padding_left: -10px;
-            padding_top: 5px;
-            override_layout := HorizontalLayout {
-                VerticalBox {
-                    height: Globals.control_height;
-                    padding-top: 10px;
-                    MagicText {
-                        text: "Root Freq Override:";
-                        vertical_alignment: center;
-                        width: 152px;
-                    }
-                }
-                VerticalLayout {
-                    padding_top: 5px;
-                    root_notes_combo := ComboBox {
-                        current_index: root.selected_root_note_index;
-                        changed current_index => {
-                            root.selected_root_note_changed(self.current_index);
-                        }
-                        height: Globals.control_height;
-                        width: 60px;
-                    }
-                }
-            }
-            pitch_table_layout := HorizontalLayout {
-                padding_right: 10px;
-                VerticalBox {
-                    height: Globals.control_height;
-                    padding-top: 10px;
-                    MagicText {
-                        text: "Pitch table:";
-                        vertical_alignment: center;
-                        width: 85px;
-                    }
-                }
-                VerticalLayout {
-                    padding_top: 5px;
-                    pitch_tables_combo := ComboBox {
-                        current_index: root.selected_pitch_table_index;
-                        changed current_index => {
-                            root.selected_pitch_table_changed(self.current_index);
-                        }
-                        height: Globals.control_height;
-                        width: 60px;
-                    }
-                }
-            }
-        }
-        VerticalBox {
+        pitchgrid_status_box := VerticalBox {
             height: 25px;
             padding-top: 5px;
             pitchgrid_status_text := MessageText {
@@ -229,7 +226,7 @@ export component MainWindow inherits MagicWindow {
                 vertical_alignment: top;
             }
         }
-        VerticalLayout {
+        midi_io_layout := VerticalLayout {
             padding_top: 10px;
             midi_io := MidiIo {
                 group_title: "From/To Editor All Data External Ports";
@@ -247,7 +244,7 @@ export component MainWindow inherits MagicWindow {
                 }
             }
         }
-        HorizontalLayout {
+        status_bar_layout := HorizontalLayout {
             padding_top: 5px;
             HorizontalLayout {
                 padding_top: 10px;
