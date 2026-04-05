@@ -5,11 +5,12 @@ import {
     GroupBox,
     MagicText,
     MagicWindow,
+    Switch
 } from "@vivi/magic.slint";
 import { MessageText, SlintMessageType, ParamName, ParamValue } from "components/text.slint";
 import { MidiIo } from "components/midi_io.slint";
 import { Globals } from "globals.slint";
-import { Palette, VerticalBox, } from "std-widgets.slint";
+import { Palette, SpinBox, VerticalBox, } from "std-widgets.slint";
 
 export enum SlintPortType {
     input,
@@ -26,28 +27,31 @@ export component MainWindow inherits MagicWindow {
     min_width: 700px;
     // Needs to be big enough to include everything down to the second status bar line.
     // Expands automatically if the status message does not fit.
-    min_height: 440px;
+    min_height: 480px;
     title: window_title;
     icon: Globals.icon;
-    forward-focus: overrides_combo;
+    forward-focus: is_rounding_initial_switch;
 
     in property depth <=> depth_value.text;
     in property root_freq <=> root_freq_value.text;
     in property stretch <=> stretch_value.text;
     in property skew <=> skew_value.text;
     in property mode_offset <=> mode_offset_value.text;
-    in property <int> selected_rounding_index;
+    in property <bool> is_rounding_initial;
+    in property <bool> is_rounding_rate;
+    in property <int> rounding_rate;
     in property <int> selected_override_index;
     in property <int> selected_pitch_table_index;
     in property steps <=> steps_value.text;
-    in property roundings_model <=> roundings_combo.model;
     in property overrides_model <=> overrides_combo.model;
     in property pitch_tables_model <=> pitch_tables_combo.model;
     in property <string> window_title;
 
     callback connect_port(port_type: SlintPortType);
     callback refresh_devices(port_type: SlintPortType);
-    callback selected_rounding_changed(index: int);
+    callback is_rounding_initial_changed(is_rounding_initial: bool);
+    callback is_rounding_rate_changed(is_rounding_rate: bool);
+    callback rounding_rate_changed(rounding_rate: int);
     callback selected_override_changed(index: int);
     callback selected_pitch_table_changed(index: int);
 
@@ -86,7 +90,7 @@ export component MainWindow inherits MagicWindow {
     VerticalLayout {
         alignment: start; // Stops spreading out when window lenghthened.
         padding_left: 10px;
-        VerticalLayout {
+        tuning_params_layout := VerticalLayout {
             padding_top: 5px;
             padding-right: 10px;
             GroupBox {
@@ -114,11 +118,63 @@ export component MainWindow inherits MagicWindow {
                 }
             }
         }
-        HorizontalLayout {
+        options_line1_layout := HorizontalLayout {
             alignment: space-between;
             padding_left: -10px;
             padding_top: 5px;
-            HorizontalLayout {
+            padding_right: 10px;
+            rounding_box := VerticalBox {
+                height: Globals.control_height;
+                padding-top: 10px;
+                MagicText {
+                    text: "Rounding:";
+                    vertical_alignment: center;
+                    width: 78px;
+                }
+            }
+            is_rounding_initial_layout := VerticalLayout {
+                padding_top: 5px;
+                is_rounding_initial_switch := Switch {
+                    text: "Initial";
+                    checked: root.is_rounding_initial;
+                    toggled => {
+                        root.is_rounding_initial_changed(self.checked);
+                    }
+                    height: Globals.control_height;
+                }
+            }
+            rounding_rate_options_layout := HorizontalLayout {
+                is_rounding_rate_layout := VerticalLayout {
+                    padding_top: 5px;
+                    is_rounding_rate_switch := Switch {
+                        text: "Rate";
+                        checked: root.is_rounding_rate;
+                        toggled => {
+                            root.is_rounding_rate_changed(self.checked);
+                        }
+                        height: Globals.control_height;
+                    }
+                }
+                rate_layout := VerticalLayout {
+                    padding_left: Globals.horizontal_padding;
+                    padding_top: 5px;
+                    SpinBox {
+                        value: root.rounding_rate;
+                        maximum: 127;
+                        edited => {
+                            root.rounding_rate_changed(self.value);
+                        }
+                        enabled: is_rounding_rate_switch.checked;
+                        height: Globals.control_height;
+                    }
+                }
+            }
+        }
+        options_line2_layout := HorizontalLayout {
+            alignment: space-between;
+            padding_left: -10px;
+            padding_top: 5px;
+            override_layout := HorizontalLayout {
                 VerticalBox {
                     height: Globals.control_height;
                     padding-top: 10px;
@@ -140,29 +196,7 @@ export component MainWindow inherits MagicWindow {
                     }
                 }
             }
-            HorizontalLayout {
-                VerticalBox {
-                    height: Globals.control_height;
-                    padding-top: 10px;
-                    MagicText {
-                        text: "Rounding:";
-                        vertical_alignment: center;
-                        width: 78px;
-                    }
-                }
-                VerticalLayout {
-                    padding_top: 5px;
-                    roundings_combo := ComboBox {
-                        current_index: root.selected_rounding_index;
-                        changed current_index => {
-                            root.selected_rounding_changed(self.current_index);
-                        }
-                        height: Globals.control_height;
-                        width: 78px;
-                    }
-                }
-            }
-            HorizontalLayout {
+            pitch_table_layout := HorizontalLayout {
                 padding_right: 10px;
                 VerticalBox {
                     height: Globals.control_height;

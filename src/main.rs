@@ -33,7 +33,6 @@ fn main() {
     )));
     Controller::set_controller(controller.clone());
     init_ui_handlers(&main_window, controller.clone());
-    set_roundings_model(&main_window);
     set_overrides_model(&main_window);
     set_pitch_tables_model(&main_window);
 
@@ -87,10 +86,28 @@ fn init_ui_handlers(main_window: &MainWindow, controller: SharedController) {
     }
     {
         let controller: SharedController = Arc::clone(&controller);
-        main_window.on_selected_rounding_changed(move |rounding_index| {
+        main_window.on_is_rounding_initial_changed(move |is_rounding_initial| {
             let controller = controller.clone();
             rayon::spawn(move || {
-                controller.lock().unwrap().set_rounding(rounding_index as usize);
+                controller.lock().unwrap().set_is_rounding_initial(is_rounding_initial);
+            });
+        });
+    }
+    {
+        let controller: SharedController = Arc::clone(&controller);
+        main_window.on_is_rounding_rate_changed(move |is_rounding_rate| {
+            let controller = controller.clone();
+            rayon::spawn(move || {
+                controller.lock().unwrap().set_is_rounding_rate(is_rounding_rate);
+            });
+        });
+    }
+    {
+        let controller: SharedController = Arc::clone(&controller);
+        main_window.on_rounding_rate_changed(move |rounding_rate| {
+            let controller = controller.clone();
+            rayon::spawn(move || {
+                controller.lock().unwrap().set_rounding_rate(rounding_rate as u8);
             });
         });
     }
@@ -138,15 +155,6 @@ fn set_overrides_model(main_window: &MainWindow) {
         .collect();
     let model = Rc::new(ComboBoxModel(override_items));
     main_window.set_overrides_model(slint::ModelRc::from(model));
-}
-
-fn set_roundings_model(main_window: &MainWindow) {
-    let rounding_items: Vec<ComboBoxItem> = global::rounding_names()
-        .iter()
-        .map(|rounding_name| ComboBoxItem { text: rounding_name.into() })
-        .collect();
-    let model = Rc::new(ComboBoxModel(rounding_items));
-    main_window.set_roundings_model(slint::ModelRc::from(model));
 }
 
 fn set_pitch_tables_model(main_window: &MainWindow) {

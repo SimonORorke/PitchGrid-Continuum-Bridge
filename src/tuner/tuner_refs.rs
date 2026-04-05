@@ -1,11 +1,8 @@
 use std::sync::{Arc, Mutex, OnceLock};
-use crate::global;
-use crate::global::Rounding;
 
 static DEFAULT_KEY_PITCHES: OnceLock<Vec<f32>> = OnceLock::new();
 static PITCH_TABLE_NOS: OnceLock<Vec<u8>> = OnceLock::new();
 static ROOT_FREQ_OVERRIDE: OnceLock<Arc<Mutex<f32>>> = OnceLock::new();
-static ROUNDING: OnceLock<Arc<Mutex<Rounding>>> = OnceLock::new();
 static TUNER_DATA: OnceLock<Arc<Mutex<super::TunerData>>> = OnceLock::new();
 
 pub(super) fn data() -> Arc<Mutex<super::TunerData>> {
@@ -23,12 +20,6 @@ pub(super) fn pitch_table_nos<'a>() -> &'a Vec<u8> {
 
 pub(super) fn root_freq_override<'a>() -> &'a Arc<Mutex<f32>> {
     ROOT_FREQ_OVERRIDE.get_or_init(|| Arc::new(Mutex::new(0.0)))
-}
-
-pub(super) fn rounding_arc() -> Arc<Mutex<Rounding>> {
-    ROUNDING
-        .get_or_init(|| Arc::new(Mutex::new(global::default_rounding())))
-        .clone()
 }
 
 /// Returns the default key pitches in Hz, where the default scale is 12-TET

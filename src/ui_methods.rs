@@ -152,9 +152,21 @@ impl ControllerCallbacks for UiMethods {
         });
     }
 
-    fn set_selected_rounding_index(&self, index: i32) {
+    fn set_is_rounding_initial(&self, value: bool) {
         self.with_main_window(move |main_window| {
-            main_window.set_selected_rounding_index(index);
+            main_window.set_is_rounding_initial(value);
+        });
+    }
+
+    fn set_is_rounding_rate(&self, value: bool) {
+        self.with_main_window(move |main_window| {
+            main_window.set_is_rounding_rate(value);
+        });
+    }
+
+    fn set_rounding_rate(&self, rate: u8) {
+        self.with_main_window(move |main_window| {
+            main_window.set_rounding_rate(rate as i32);
         });
     }
 

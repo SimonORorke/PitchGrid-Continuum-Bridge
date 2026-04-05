@@ -1,12 +1,12 @@
 ﻿use std::cmp::max;
 use std::error::Error;
 use std::sync::{Arc, Mutex, OnceLock};
-use crate::global::{MessageType, PortType, Rounding, SharedMidi};
+use crate::global::{MessageType, PortType, SharedMidi};
 use crate::osc::{Osc, OscCallbacks};
 use crate::port_strategy::{
     InputStrategy, OutputStrategy, PortStrategy};
 use crate::settings::Settings;
-use crate::{global, midi_static, tuner};
+use crate::{midi_static, tuner};
 
 /// This is the main controller in the Model-View-Controller (MVC) pattern.
 /// PortStrategy contains both view and controller methods.
@@ -34,14 +34,18 @@ impl Controller {
         let pitch_table_no: u8;
         let input_device_name: String;
         let output_device_name: String;
-        let rounding: Rounding;
+        let is_rounding_initial: bool;
+        let is_rounding_rate: bool;
+        let rounding_rate: u8;
         // println!("Controller.init: Reading settings");
         match self.settings.read_from_file() {
             Ok(_) => {
                 input_device_name = self.settings.midi_input_device.clone();
                 output_device_name = self.settings.midi_output_device.clone();
                 pitch_table_no = max(tuner::default_pitch_table_no(), self.settings.pitch_table);
-                rounding = self.rounding_from_name(&self.settings.rounding);
+                is_rounding_initial = self.settings.is_rounding_initial;
+                is_rounding_rate = self.settings.is_rounding_rate;
+                rounding_rate = self.settings.rounding_rate;
             }
             Err(err) => {
                 self.show_error(&err.to_string());
@@ -100,8 +104,12 @@ impl Controller {
         // println!("Controller.init: Configuring tuner");
         tuner::init(pitch_table_no);
         self.callbacks.set_selected_pitch_table_index(tuner::pitch_table_index() as i32);
-        tuner::set_rounding(rounding);
-        self.callbacks.set_selected_rounding_index(self.rounding_index(rounding) as i32);
+        tuner::set_is_rounding_initial(is_rounding_initial);
+        tuner::set_is_rounding_rate(is_rounding_rate);
+        tuner::set_rounding_rate(rounding_rate);
+        self.callbacks.set_is_rounding_initial(is_rounding_initial);
+        self.callbacks.set_is_rounding_rate(is_rounding_rate);
+        self.callbacks.set_rounding_rate(rounding_rate);
         if midi_static::are_ports_connected() {
             // println!("Controller.init: Showing Checking instrument connection");
             self.show_info(CHECKING_INSTRUMENT_CONNECTION);
@@ -260,47 +268,19 @@ impl Controller {
         tuner::set_root_freq_override_note_no(index, send_tuning);
     }
 
-    /// Sets what type of rounding, if any, is required the next time tuning is sent.
-    /// If rounding is not required, we don't want to disable rounding
-    /// for presets that already have rounding enabled.
-    /// So we don't to try to update the current preset till there is a tuning change,
-    /// when rounding will be turned on if required, but not off if not required.
-    pub fn set_rounding(&mut self, index: usize) {
-        let rounding = self.rounding_from_index(index);
-        tuner::set_rounding(rounding);
-        self.settings.rounding = self.rounding_name(rounding);
+    pub fn set_is_rounding_initial(&mut self, value: bool) {
+        tuner::set_is_rounding_initial(value);
+        self.settings.is_rounding_initial = value;
     }
 
-    fn rounding_from_index(&self, index: usize) -> Rounding {
-        if index == 0 { Rounding::None }
-        else if index == 1 { Rounding::Initial }
-        else if index == 2 { Rounding::Max }
-        else {
-            println!("Invalid rounding index: {}", index);
-            global::default_rounding() }
+    pub fn set_is_rounding_rate(&mut self, value: bool) {
+        tuner::set_is_rounding_rate(value);
+        self.settings.is_rounding_rate = value;
     }
 
-    fn rounding_from_name(&self, name: &str) -> Rounding {
-        if name == ROUNDING_NONE { Rounding::None }
-        else if name == ROUNDING_INITIAL { Rounding::Initial }
-        else if name == ROUNDING_MAX { Rounding::Max }
-        else { global::default_rounding() } // When settings have just been initialised.
-    }
-
-    fn rounding_index(&self, rounding: Rounding) -> usize {
-        match rounding {
-            Rounding::None => 0,
-            Rounding::Initial => 1,
-            Rounding::Max => 2,
-        }
-    }
-
-    pub fn rounding_name(&self, rounding: Rounding) -> String {
-        match rounding {
-            Rounding::None => ROUNDING_NONE.to_string(),
-            Rounding::Initial => ROUNDING_INITIAL.to_string(),
-            Rounding::Max => ROUNDING_MAX.to_string(),
-        }
+    pub fn set_rounding_rate(&mut self, rate: u8) {
+        tuner::set_rounding_rate(rate);
+        self.settings.rounding_rate = rate;
     }
 
     pub fn set_pitch_table_no(&mut self, index: usize) {
@@ -527,9 +507,6 @@ const PITCHGRID_NOT_CONNECTED: &str = "PitchGrid is not connected. OSC must be e
 const PITCHGRID_OSC_CONNECTED: &str = "PitchGrid OSC is connected";
 const PORT_NONE: &str = "[None]";
 const RESTART_APPLICATION: &str = "Restart this application to connect to PitchGrid";
-const ROUNDING_INITIAL: &str = "Initial";
-const ROUNDING_MAX: &str = "Max";
-const ROUNDING_NONE: &str = "None";
 const UPDATING_INSTRUMENT_TUNING: &str = "Updating instrument tuning";
 const UPDATING_ROOT_FREQ_OVERRIDE: &str = "Updating root frequency override...";
 const WAITING_FOR_DATA_DOWNLOAD: &str =
@@ -544,7 +521,9 @@ pub trait ControllerCallbacks: Send + Sync {
     fn show_message(&self, msg: &str, msg_type: MessageType);
     fn show_pitchgrid_status(&self, status: &str, msg_type: MessageType);
     fn show_tuning(&self);
-    fn set_selected_rounding_index(&self, index: i32);
+    fn set_is_rounding_initial(&self, value: bool);
+    fn set_is_rounding_rate(&self, value: bool);
+    fn set_rounding_rate(&self, rate: u8);
     fn set_selected_pitch_table_index(&self, index: i32);
 }
 
