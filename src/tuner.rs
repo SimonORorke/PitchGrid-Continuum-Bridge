@@ -295,17 +295,17 @@ pub fn set_root_freq_override_note_no(index: usize, send_tuning: bool) {
     }
 }
 
-/// Sets whether initial rounding is required the next time tuning is sent.
-pub fn set_is_rounding_initial(value: bool) {
-    IS_ROUNDING_INITIAL.store(value, Ordering::Relaxed);
+/// Sets whether initial rounding is to be to be overridden to on the next time tuning is sent.
+pub fn set_override_rounding_initial(value: bool) {
+    OVERRIDE_ROUNDING_INITIAL.store(value, Ordering::Relaxed);
 }
 
-/// Sets whether a rounding rate is required the next time tuning is sent.
-pub fn set_is_rounding_rate(value: bool) {
-    IS_ROUNDING_RATE.store(value, Ordering::Relaxed);
+/// Sets whether rounding rate is to be overridden the next time tuning is sent.
+pub fn set_override_rounding_rate(value: bool) {
+    OVERRIDE_ROUNDING_RATE.store(value, Ordering::Relaxed);
 }
 
-/// Sets the rounding rate, if required the next time tuning is sent.
+/// Sets the rounding rate, if it is to be to be overridden, the next time tuning is sent.
 pub fn set_rounding_rate(rate: u8) {
     ROUNDING_RATE.store(rate, Ordering::Relaxed);
 }
@@ -337,9 +337,9 @@ fn on_tuning_updated() {
 }
 
 /// Sends pitch rounding parameters, if required, to the instrument.
-/// If the Rounding Initial option is On, rounds each note's initial pitch to the key's specified
+/// If the Rounding Initial override is On, rounds each note's initial pitch to the key's specified
 /// tuning pitch; otherwise the current preset's Initial Rounding parameter is unchanged.
-/// If the Rounding Rate option is On, sends Rounding Mode Normal with the specified Rounding Rate
+/// If the Rounding Rate override is On, sends Rounding Mode Normal with the specified Rounding Rate
 /// value; otherwise the current preset's Rounding Mode and Rounding Rate parameters are unchanged.
 /// Rounding Rate option On with Rounding Rate 127 (the maximum) effectively enforces initial
 /// rounding, even when the current preset's Initial Rounding is off. In addition, it prevents
@@ -348,11 +348,11 @@ fn on_tuning_updated() {
 /// when the current preset's Initial Rounding was on, the instrument's octave shifting, with
 /// buttons or pedals, would not work.
 fn send_rounding_params() {
-    if IS_ROUNDING_INITIAL.load(Ordering::Relaxed) {
+    if OVERRIDE_ROUNDING_INITIAL.load(Ordering::Relaxed) {
         // Turn on Rounding Initial
         Midi::send_control_change(1, 28, 127); // RndIni
     }
-    if IS_ROUNDING_RATE.load(Ordering::Relaxed) {
+    if OVERRIDE_ROUNDING_RATE.load(Ordering::Relaxed) {
         // Rounding Mode Normal
         Midi::send_matrix_poke(10, 0); // RoundMode
         // Max Rounding Rate
@@ -463,8 +463,8 @@ pub struct FormattedTuningParams {
 
 static IS_ALREADY_UPDATING: AtomicBool = AtomicBool::new(false);
 static IS_ANOTHER_UPDATE_PENDING: AtomicBool = AtomicBool::new(false);
-static IS_ROUNDING_INITIAL: AtomicBool = AtomicBool::new(true);
-static IS_ROUNDING_RATE: AtomicBool = AtomicBool::new(true);
+static OVERRIDE_ROUNDING_INITIAL: AtomicBool = AtomicBool::new(true);
+static OVERRIDE_ROUNDING_RATE: AtomicBool = AtomicBool::new(true);
 
 /// About the name Pitch Table.
 /// The EaganMatrix Overlay Developer's Guide calls them tuning grids.

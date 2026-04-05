@@ -30,29 +30,29 @@ export component MainWindow inherits MagicWindow {
     min_height: 480px;
     title: window_title;
     icon: Globals.icon;
-    forward-focus: is_rounding_initial_switch;
+    forward-focus: override_rounding_initial_switch;
 
     in property depth <=> depth_value.text;
     in property root_freq <=> root_freq_value.text;
     in property stretch <=> stretch_value.text;
     in property skew <=> skew_value.text;
     in property mode_offset <=> mode_offset_value.text;
-    in property <bool> is_rounding_initial;
-    in property <bool> is_rounding_rate;
+    in property <bool> override_rounding_initial;
+    in property <bool> override_rounding_rate;
     in property <int> rounding_rate;
-    in property <int> selected_override_index;
+    in property <int> selected_root_note_index;
     in property <int> selected_pitch_table_index;
     in property steps <=> steps_value.text;
-    in property overrides_model <=> overrides_combo.model;
+    in property root_notes_model <=> root_notes_combo.model;
     in property pitch_tables_model <=> pitch_tables_combo.model;
     in property <string> window_title;
 
     callback connect_port(port_type: SlintPortType);
     callback refresh_devices(port_type: SlintPortType);
-    callback is_rounding_initial_changed(is_rounding_initial: bool);
-    callback is_rounding_rate_changed(is_rounding_rate: bool);
+    callback override_rounding_initial_changed(override_rounding_initial: bool);
+    callback override_rounding_rate_changed(override_rounding_rate: bool);
     callback rounding_rate_changed(rounding_rate: int);
-    callback selected_override_changed(index: int);
+    callback selected_root_note_changed(index: int);
     callback selected_pitch_table_changed(index: int);
 
     function get_background_color() -> color {
@@ -127,30 +127,30 @@ export component MainWindow inherits MagicWindow {
                 height: Globals.control_height;
                 padding-top: 10px;
                 MagicText {
-                    text: "Rounding:";
+                    text: "Rounding Overrides:";
                     vertical_alignment: center;
-                    width: 78px;
+                    width: 160px;
                 }
             }
-            is_rounding_initial_layout := VerticalLayout {
+            override_rounding_initial_layout := VerticalLayout {
                 padding_top: 5px;
-                is_rounding_initial_switch := Switch {
+                override_rounding_initial_switch := Switch {
                     text: "Initial";
-                    checked: root.is_rounding_initial;
+                    checked: root.override_rounding_initial;
                     toggled => {
-                        root.is_rounding_initial_changed(self.checked);
+                        root.override_rounding_initial_changed(self.checked);
                     }
                     height: Globals.control_height;
                 }
             }
             rounding_rate_options_layout := HorizontalLayout {
-                is_rounding_rate_layout := VerticalLayout {
+                override_rounding_rate_layout := VerticalLayout {
                     padding_top: 5px;
-                    is_rounding_rate_switch := Switch {
+                    override_rounding_rate_switch := Switch {
                         text: "Rate";
-                        checked: root.is_rounding_rate;
+                        checked: root.override_rounding_rate;
                         toggled => {
-                            root.is_rounding_rate_changed(self.checked);
+                            root.override_rounding_rate_changed(self.checked);
                         }
                         height: Globals.control_height;
                     }
@@ -164,7 +164,8 @@ export component MainWindow inherits MagicWindow {
                         edited => {
                             root.rounding_rate_changed(self.value);
                         }
-                        enabled: is_rounding_rate_switch.checked;
+                        enabled: override_rounding_rate_switch.checked;
+                        width: 105px;
                         height: Globals.control_height;
                     }
                 }
@@ -186,10 +187,10 @@ export component MainWindow inherits MagicWindow {
                 }
                 VerticalLayout {
                     padding_top: 5px;
-                    overrides_combo := ComboBox {
-                        current_index: root.selected_override_index;
+                    root_notes_combo := ComboBox {
+                        current_index: root.selected_root_note_index;
                         changed current_index => {
-                            root.selected_override_changed(self.current_index);
+                            root.selected_root_note_changed(self.current_index);
                         }
                         height: Globals.control_height;
                         width: 60px;
@@ -215,7 +216,7 @@ export component MainWindow inherits MagicWindow {
                             root.selected_pitch_table_changed(self.current_index);
                         }
                         height: Globals.control_height;
-                        width: 56px; // A pixel wider for display on a big moniter
+                        width: 60px;
                     }
                 }
             }

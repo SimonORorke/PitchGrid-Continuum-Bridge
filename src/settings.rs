@@ -8,8 +8,8 @@ pub struct Settings {
     pub midi_input_device: String,
     pub midi_output_device: String,
     pub pitch_table: u8,
-    pub is_rounding_initial: bool,
-    pub is_rounding_rate: bool,
+    pub override_rounding_initial: bool,
+    pub override_rounding_rate: bool,
     pub rounding_rate: u8,
 }
 
@@ -19,8 +19,8 @@ impl Settings {
             midi_input_device: String::new(),
             midi_output_device: String::new(),
             pitch_table: 0,
-            is_rounding_initial: true,
-            is_rounding_rate: true,
+            override_rounding_initial: true,
+            override_rounding_rate: true,
             rounding_rate: 127,
         }
     }
@@ -61,8 +61,8 @@ impl Settings {
         self.midi_input_device = settings.midi_input_device;
         self.midi_output_device = settings.midi_output_device;
         self.pitch_table = settings.pitch_table;
-        self.is_rounding_initial = settings.is_rounding_initial;
-        self.is_rounding_rate = settings.is_rounding_rate;
+        self.override_rounding_initial = settings.override_rounding_initial;
+        self.override_rounding_rate = settings.override_rounding_rate;
         self.rounding_rate = settings.rounding_rate;
         // println!("Settings.read_from_file: self.midi_input_device = {}; self.midi_output_device = {}; \
         // self.pitch_table = {:?};", self.midi_input_device, self.midi_output_device, self.pitch_table);

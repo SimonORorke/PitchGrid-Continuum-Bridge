@@ -152,15 +152,15 @@ impl ControllerCallbacks for UiMethods {
         });
     }
 
-    fn set_is_rounding_initial(&self, value: bool) {
+    fn set_override_rounding_initial(&self, value: bool) {
         self.with_main_window(move |main_window| {
-            main_window.set_is_rounding_initial(value);
+            main_window.set_override_rounding_initial(value);
         });
     }
 
-    fn set_is_rounding_rate(&self, value: bool) {
+    fn set_override_rounding_rate(&self, value: bool) {
         self.with_main_window(move |main_window| {
-            main_window.set_is_rounding_rate(value);
+            main_window.set_override_rounding_rate(value);
         });
     }
 

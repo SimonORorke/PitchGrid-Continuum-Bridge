@@ -34,8 +34,8 @@ impl Controller {
         let pitch_table_no: u8;
         let input_device_name: String;
         let output_device_name: String;
-        let is_rounding_initial: bool;
-        let is_rounding_rate: bool;
+        let override_rounding_initial: bool;
+        let override_rounding_rate: bool;
         let rounding_rate: u8;
         // println!("Controller.init: Reading settings");
         match self.settings.read_from_file() {
@@ -43,8 +43,8 @@ impl Controller {
                 input_device_name = self.settings.midi_input_device.clone();
                 output_device_name = self.settings.midi_output_device.clone();
                 pitch_table_no = max(tuner::default_pitch_table_no(), self.settings.pitch_table);
-                is_rounding_initial = self.settings.is_rounding_initial;
-                is_rounding_rate = self.settings.is_rounding_rate;
+                override_rounding_initial = self.settings.override_rounding_initial;
+                override_rounding_rate = self.settings.override_rounding_rate;
                 rounding_rate = self.settings.rounding_rate;
             }
             Err(err) => {
@@ -104,11 +104,11 @@ impl Controller {
         // println!("Controller.init: Configuring tuner");
         tuner::init(pitch_table_no);
         self.callbacks.set_selected_pitch_table_index(tuner::pitch_table_index() as i32);
-        tuner::set_is_rounding_initial(is_rounding_initial);
-        tuner::set_is_rounding_rate(is_rounding_rate);
+        tuner::set_override_rounding_initial(override_rounding_initial);
+        tuner::set_override_rounding_rate(override_rounding_rate);
         tuner::set_rounding_rate(rounding_rate);
-        self.callbacks.set_is_rounding_initial(is_rounding_initial);
-        self.callbacks.set_is_rounding_rate(is_rounding_rate);
+        self.callbacks.set_override_rounding_initial(override_rounding_initial);
+        self.callbacks.set_override_rounding_rate(override_rounding_rate);
         self.callbacks.set_rounding_rate(rounding_rate);
         if midi_static::are_ports_connected() {
             // println!("Controller.init: Showing Checking instrument connection");
@@ -268,14 +268,14 @@ impl Controller {
         tuner::set_root_freq_override_note_no(index, send_tuning);
     }
 
-    pub fn set_is_rounding_initial(&mut self, value: bool) {
-        tuner::set_is_rounding_initial(value);
-        self.settings.is_rounding_initial = value;
+    pub fn set_override_rounding_initial(&mut self, value: bool) {
+        tuner::set_override_rounding_initial(value);
+        self.settings.override_rounding_initial = value;
     }
 
-    pub fn set_is_rounding_rate(&mut self, value: bool) {
-        tuner::set_is_rounding_rate(value);
-        self.settings.is_rounding_rate = value;
+    pub fn set_override_rounding_rate(&mut self, value: bool) {
+        tuner::set_override_rounding_rate(value);
+        self.settings.override_rounding_rate = value;
     }
 
     pub fn set_rounding_rate(&mut self, rate: u8) {
@@ -521,8 +521,8 @@ pub trait ControllerCallbacks: Send + Sync {
     fn show_message(&self, msg: &str, msg_type: MessageType);
     fn show_pitchgrid_status(&self, status: &str, msg_type: MessageType);
     fn show_tuning(&self);
-    fn set_is_rounding_initial(&self, value: bool);
-    fn set_is_rounding_rate(&self, value: bool);
+    fn set_override_rounding_initial(&self, value: bool);
+    fn set_override_rounding_rate(&self, value: bool);
     fn set_rounding_rate(&self, rate: u8);
     fn set_selected_pitch_table_index(&self, index: i32);
 }

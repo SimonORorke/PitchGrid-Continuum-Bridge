@@ -33,7 +33,7 @@ fn main() {
     )));
     Controller::set_controller(controller.clone());
     init_ui_handlers(&main_window, controller.clone());
-    set_overrides_model(&main_window);
+    set_root_notes_model(&main_window);
     set_pitch_tables_model(&main_window);
 
     // Initialize controller on a background thread so that UI callbacks within
@@ -77,7 +77,7 @@ fn init_ui_handlers(main_window: &MainWindow, controller: SharedController) {
     }
     {
         let controller: SharedController = Arc::clone(&controller);
-        main_window.on_selected_override_changed(move |index| {
+        main_window.on_selected_root_note_changed(move |index| {
             let controller = controller.clone();
             rayon::spawn(move || {
                 controller.lock().unwrap().set_root_freq_override(index as usize);
@@ -86,19 +86,19 @@ fn init_ui_handlers(main_window: &MainWindow, controller: SharedController) {
     }
     {
         let controller: SharedController = Arc::clone(&controller);
-        main_window.on_is_rounding_initial_changed(move |is_rounding_initial| {
+        main_window.on_override_rounding_initial_changed(move |override_rounding_initial| {
             let controller = controller.clone();
             rayon::spawn(move || {
-                controller.lock().unwrap().set_is_rounding_initial(is_rounding_initial);
+                controller.lock().unwrap().set_override_rounding_initial(override_rounding_initial);
             });
         });
     }
     {
         let controller: SharedController = Arc::clone(&controller);
-        main_window.on_is_rounding_rate_changed(move |is_rounding_rate| {
+        main_window.on_override_rounding_rate_changed(move |override_rounding_rate| {
             let controller = controller.clone();
             rayon::spawn(move || {
-                controller.lock().unwrap().set_is_rounding_rate(is_rounding_rate);
+                controller.lock().unwrap().set_override_rounding_rate(override_rounding_rate);
             });
         });
     }
@@ -148,13 +148,13 @@ fn create_port_strategy(port_type: SlintPortType)
     }
 }
 
-fn set_overrides_model(main_window: &MainWindow) {
+fn set_root_notes_model(main_window: &MainWindow) {
     let override_items: Vec<ComboBoxItem> = global::override_note_names()
         .iter()
         .map(|override_name| ComboBoxItem { text: override_name.into() })
         .collect();
     let model = Rc::new(ComboBoxModel(override_items));
-    main_window.set_overrides_model(slint::ModelRc::from(model));
+    main_window.set_root_notes_model(slint::ModelRc::from(model));
 }
 
 fn set_pitch_tables_model(main_window: &MainWindow) {
