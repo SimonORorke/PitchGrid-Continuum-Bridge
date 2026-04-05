@@ -63,7 +63,7 @@ On first connecting PitchGrid to PCB and whenever you change the tuning, PitchGr
 2. Save the tuning table to one of the instrument's eight custom tuning grids.
 3. Load the custom tuning grid into the current preset.
 
-Once the instrument has implemented the requirements, which should take less than half a second, it sends an acknowledgement back to PCB.  PCB then displays the updated tuning parameters and a confirmation message "Instrument tuning updated".  If all this has worked, Haken Editor will be showing the updated tuning and, if specified, rounding parameters:
+Once the instrument has implemented the requirements, which should take less than half a second, it sends an acknowledgement back to PCB.  PCB then displays the updated tuning parameters and a confirmation message "Instrument tuning updated".  If all this has worked, Haken Editor will be showing the updated tuning and, if overriden in PCB (see below), rounding parameters:
 
 <img src="images\Editor Rounding and Tuning.png" alt="Editor Rounding and Tuning" style="zoom: 80%;" />
 
@@ -92,4 +92,22 @@ Once the tuning of the instrument's current preset has been updated in accordanc
 
 <img src="images\Root Freq PitchGrid.png" alt="Root Freq PitchGrid" style="zoom: 80%;" /><img src="images\Root Freq Override.png" alt="Root Freq Override" style="zoom: 80%;" /><img src="images\Root Freq PCB.png" alt="Root Freq PCB" style="zoom: 80%;" />
 
-The Root Frequency specified in PitchGrid, which is Middle C for most tuning presets, may be overriden. A 12-TET note from the F# below Middle C to the F above Middle C may be selected. These notes are in concert pitch; so if A is selected,  the overriding frequency will be 220 Hz. If an override is not required, the blank item should be selected.  If the override is changed when the instrument's current preset has already been tuned, the tuning will be sent again with the overriding root frequency. When a root frequency has been overridden, the overriding frequency will be shown in PitchGrid-Continuum Bridge's tuning parameters display. By design, Root Freq Override is not saved to PCB's settings: the assumption is that the player should consider which override, if any, to use each time PCB is loaded.
+The Root Frequency specified in PitchGrid, which is Middle C for most tuning presets, may be overriden. A 12-TET note from the F# below Middle C to the F above Middle C may be selected. These notes are in concert pitch; so if A is selected,  the overriding frequency will be 220 Hz. If an override is not required, the blank item should be selected.  If the override is changed when the instrument's current preset has already been tuned, the tuning will be sent again with the overriding root frequency.
+
+When a root frequency has been overridden, the overriding frequency will be shown in PitchGrid-Continuum Bridge's tuning parameters display. By design, Root Freq Override is not saved to PCB's settings: the assumption is that, for safety, the player should consider which override, if any, to use each time PCB is loaded.
+
+### Pitch Table
+
+<img src="images\Pitch Table.png" alt="Pitch Table" style="zoom: 80%;" />The identifier of the pitch table to which the tuning is to be uploaded may be selected from the range 80 to 87, which the Haken firmware reserves for custom tuning grids.  Unless you will be using the instrument's custom tuning grids for purposes other than receiving PitchGrid tunings via PitchGrid-Continuum Bridge, you can safely leave this to the default, 80.
+
+### Rounding Overrides
+
+<img src="images\Rounding Overrides.png" alt="Rounding Overrides" style="zoom: 80%;" />
+
+When a tuning is sent to the instrument, the preset's rounding parameters may also be overridden.  With microtonal/xenharmonic tunings. it may be useful to constrain (to a greater or lesser extent) the fingerboard to play the pitches specified in the tuning table0
+
+If Rounding override **Initial** is On, rounds each note's initial pitch to the key's specified  tuning pitch; otherwise the preset's Initial Rounding parameter is unchanged.
+
+If Rounding override **Rate** is On, sets Rounding Mode to Normal with the specified **Rounding Rate** value; otherwise the preset's Rounding Mode and Rounding Rate parameters are unchanged.
+
+Rounding override **Rate** On with **Rounding Rate** 127 (the maximum) effectively enforces initial rounding, even when the preset's Initial Rounding parameter is Off. In addition, it prevents  the pitch from being changed by subsequent motion of the finger on the fingerboard.
