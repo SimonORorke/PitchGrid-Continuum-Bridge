@@ -105,6 +105,7 @@ impl Controller {
         if midi_static::are_ports_connected() {
             // println!("Controller.init: Showing Checking instrument connection");
             self.show_info(CHECKING_INSTRUMENT_CONNECTION);
+            // println!("Controller.init: Starting instrument connection monitor");
             midi_static::start_instru_connection_monitor();
         }
         // println!("Controller.init: Done");
@@ -351,8 +352,14 @@ impl Controller {
     }
 
     fn on_receiving_data_started_callback(&mut self) {
-        // println!("Controller.on_receiving_data_started_callback");
-        self.show_info(WAITING_FOR_DATA_DOWNLOAD);
+        // The input port is connected, as we are receiving data from the instrument.
+        // But the output port might not be, in which case we can't send data to the instrument
+        // and should not overwrite the "Connect MIDI output port" warning message that should
+        // already be displayed.
+        if midi_static::are_ports_connected() {
+            // println!("Controller.on_receiving_data_started_callback: Waiting for data download to complete.");
+            self.show_info(WAITING_FOR_DATA_DOWNLOAD);
+        }
     }
 
     fn on_receiving_data_stopped_callback(&mut self) {
@@ -517,7 +524,7 @@ const OPENING_PITCHGRID_CONNECTION: &str = "Opening PitchGrid connection...";
 const PITCHGRID_AND_INSTRUMENT_CONNECTED: &str = "PitchGrid and instrument are connected";
 const PITCHGRID_CONNECTION_CLOSED: &str = "PitchGrid connection closed while instrument disconnected";
 const PITCHGRID_NOT_CONNECTED: &str = "PitchGrid is not connected. OSC must be enabled in Pitchgrid.";
-const PITCHGRID_OSC_CONNECTED: &str = "Pitchgrid OSC is connected";
+const PITCHGRID_OSC_CONNECTED: &str = "PitchGrid OSC is connected";
 const PORT_NONE: &str = "[None]";
 const RESTART_APPLICATION: &str = "Restart this application to connect to PitchGrid";
 const ROUNDING_INITIAL: &str = "Initial";
