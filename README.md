@@ -104,7 +104,7 @@ When a root frequency has been overridden, the overriding frequency will be show
 
 <img src="images\Rounding Overrides.png" alt="Rounding Overrides" style="zoom: 80%;" />
 
-When a tuning is sent to the instrument, the preset's rounding parameters may also be overridden.  With microtonal/xenharmonic tunings. it may be useful to constrain (to a greater or lesser extent) the fingerboard to play the pitches specified in the tuning table0
+When a tuning is sent to the instrument, the preset's rounding parameters may also be overridden.  With microtonal/xenharmonic tunings. it may be useful to constrain (to a greater or lesser extent) the fingerboard to play the pitches specified in the tuning table.
 
 If Rounding override **Initial** is On, rounds each note's initial pitch to the key's specified  tuning pitch; otherwise the preset's Initial Rounding parameter is unchanged.
 
