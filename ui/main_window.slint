@@ -1,5 +1,4 @@
 import {
-    ButtonAction,
     ComboBox,
     FilledButton,
     GroupBox,
@@ -8,6 +7,7 @@ import {
     Switch
 } from "@vivi/magic.slint";
 import { MessageText, SlintMessageType, ParamName, ParamValue } from "components/text.slint";
+export { AboutDialog } from "about_dialog.slint";
 import { MidiIo } from "components/midi_io.slint";
 import { Globals } from "globals.slint";
 import { Palette, SpinBox, VerticalBox, } from "std-widgets.slint";
@@ -52,6 +52,7 @@ export component MainWindow inherits MagicWindow {
     callback override_rounding_initial_changed(override_rounding_initial: bool);
     callback override_rounding_rate_changed(override_rounding_rate: bool);
     callback open_documentation();
+    callback show_about_dialog();
     callback rounding_rate_changed(rounding_rate: int);
     callback selected_root_note_changed(index: int);
     callback selected_pitch_table_changed(index: int);
@@ -284,7 +285,7 @@ export component MainWindow inherits MagicWindow {
             }
             MenuItem {
                 title: "About...";
-                activated => { debug("About"); }
+                activated => { root.show_about_dialog(); }
             }
         }
     }

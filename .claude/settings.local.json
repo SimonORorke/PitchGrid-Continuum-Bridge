@@ -11,7 +11,9 @@
       "Bash(~/.cargo/bin/cargo check)",
       "Bash(~/.cargo/bin/cargo build)",
       "Bash(~/.cargo/bin/cargo metadata --format-version 1)",
-      "Bash(python3 -c \"import json,sys; m=json.load\\(sys.stdin\\); [print\\(p[''manifest_path'']\\) for p in m[''packages''] if ''vivi'' in p[''name''].lower\\(\\)]\")"
+      "Bash(python3 -c \"import json,sys; m=json.load\\(sys.stdin\\); [print\\(p[''manifest_path'']\\) for p in m[''packages''] if ''vivi'' in p[''name''].lower\\(\\)]\")",
+      "Bash(xargs grep -l \"import_paths\")",
+      "Bash(xargs grep -l \"CompilerConfiguration\")"
     ]
   }
 }

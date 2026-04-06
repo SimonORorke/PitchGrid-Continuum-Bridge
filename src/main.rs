@@ -12,6 +12,7 @@ mod controller;
 mod ui_methods;
 mod midi_static;
 
+use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -51,6 +52,14 @@ fn init_ui_handlers(main_window: &MainWindow, controller: SharedController) {
     main_window.on_open_documentation(move || {
         open::that(DOCUMENTATION_LINK).unwrap();
     });
+    {
+        let about_dialog: Rc<RefCell<Option<AboutDialog>>> = Rc::new(RefCell::new(None));
+        main_window.on_show_about_dialog(move || {
+            let dialog = AboutDialog::new().unwrap();
+            dialog.show().unwrap();
+            *about_dialog.borrow_mut() = Some(dialog);
+        });
+    }
     {
         let controller: SharedController = Arc::clone(&controller);
         main_window.window().on_close_requested(move || {
