@@ -16,6 +16,7 @@ use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
 use slint::{CloseRequestResponse};
+use open;
 use controller::{Controller};
 use global::{APP_TITLE, VERSION};
 use port_strategy::{
@@ -47,6 +48,9 @@ fn main() {
 }
 
 fn init_ui_handlers(main_window: &MainWindow, controller: SharedController) {
+    main_window.on_open_documentation(move || {
+        open::that(DOCUMENTATION_LINK).unwrap();
+    });
     {
         let controller: SharedController = Arc::clone(&controller);
         main_window.window().on_close_requested(move || {
@@ -165,6 +169,8 @@ fn set_pitch_tables_model(main_window: &MainWindow) {
     let model = Rc::new(ComboBoxModel(pitch_table_items));
     main_window.set_pitch_tables_model(slint::ModelRc::from(model));
 }
+
+const DOCUMENTATION_LINK: &str = "https://github.com/SimonORorke/PitchGrid-Continuum-Bridge/blob/main/README.md";
 
 type SharedController = Arc<Mutex<Controller>>;
 

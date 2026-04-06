@@ -51,6 +51,7 @@ export component MainWindow inherits MagicWindow {
     callback refresh_devices(port_type: SlintPortType);
     callback override_rounding_initial_changed(override_rounding_initial: bool);
     callback override_rounding_rate_changed(override_rounding_rate: bool);
+    callback open_documentation();
     callback rounding_rate_changed(rounding_rate: int);
     callback selected_root_note_changed(index: int);
     callback selected_pitch_table_changed(index: int);
@@ -279,7 +280,7 @@ export component MainWindow inherits MagicWindow {
         Menu {
             MenuItem {
                 title: "Documentation...";
-                activated => { debug("Documentation"); }
+                activated => { root.open_documentation(); }
             }
             MenuItem {
                 title: "About...";
