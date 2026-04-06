@@ -53,11 +53,11 @@ fn init_ui_handlers(main_window: &MainWindow, controller: SharedController) {
         open::that(DOCUMENTATION_LINK).unwrap();
     });
     {
-        let about_dialog: Rc<RefCell<Option<AboutDialog>>> = Rc::new(RefCell::new(None));
-        main_window.on_show_about_dialog(move || {
-            let dialog = AboutDialog::new().unwrap();
+        let about_window: Rc<RefCell<Option<AboutWindow>>> = Rc::new(RefCell::new(None));
+        main_window.on_show_about_window(move || {
+            let dialog = AboutWindow::new().unwrap();
             dialog.show().unwrap();
-            *about_dialog.borrow_mut() = Some(dialog);
+            *about_window.borrow_mut() = Some(dialog);
         });
     }
     {

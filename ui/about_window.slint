@@ -1,0 +1,11 @@
+﻿import { MagicWindow } from "@vivi/magic.slint";
+import { Globals } from "globals.slint";
+import { Palette, } from "std-widgets.slint";
+
+export component AboutWindow inherits MagicWindow {
+    init => { Palette.color-scheme = ColorScheme.dark; }
+    title: "About";
+    min-width: 400px;
+    min-height: 400px;
+    icon: Globals.icon;
+}
