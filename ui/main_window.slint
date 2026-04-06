@@ -246,7 +246,7 @@ export component MainWindow inherits MagicWindow {
         }
         status_bar_layout := HorizontalLayout {
             padding_top: 5px;
-            HorizontalLayout {
+            icon_layout := HorizontalLayout {
                 padding_top: 10px;
                 alignment: start; // Centres the message text.
                 Image {
@@ -254,8 +254,7 @@ export component MainWindow inherits MagicWindow {
                     width:  Globals.control_height; height: Globals.control_height;
                 }
             }
-            VerticalBox {
-                alignment: end;
+            status_message_box := VerticalBox {
                 padding-top: 15px;
                 message_text := MessageText {
                     horizontal_alignment: center;
@@ -269,7 +268,22 @@ export component MainWindow inherits MagicWindow {
                     prefix_icon: @image-url("images/menu-svgrepo-com.svg");
                     height: Globals.control_height;
                     width: 50px; // Min before icon is not centred.
+                    clicked => {
+                        main_menu.show(self.absolute-position)
+                    }
                 }
+            }
+        }
+    }
+    main_menu := ContextMenuArea {
+        Menu {
+            MenuItem {
+                title: "Documentation...";
+                activated => { debug("Documentation"); }
+            }
+            MenuItem {
+                title: "About...";
+                activated => { debug("About"); }
             }
         }
     }
