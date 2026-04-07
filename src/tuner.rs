@@ -14,6 +14,9 @@ pub fn init(pitch_table_no: u8) {
         .add_tuning_updated_callback(Box::from(on_tuning_updated));
 }
 
+// ===========================================================================================
+// pg34 Update this documentation as required.
+// ===========================================================================================
 /// Update tuning parameters from the OSC message.
 ///     Args:
 ///         depth: MOS depth (generation)
@@ -44,6 +47,13 @@ fn tune() {
         let key_pitches = calculate_key_pitches(TuningParams::new(
             max(1, params.depth()), params.mode(), params.root_freq(), params.stretch() ,
             params.skew(), params.mode_offset(), max(1, params.steps())));
+        // ===========================================================================================
+        // pg34 Remove the let above. Uncomment the let below.
+        // ===========================================================================================
+        // let key_pitches = calculate_key_pitches(TuningParams::new(
+        //     params.mode(), params.root_freq(), params.stretch() ,
+        //     params.skew(), params.mode_offset(), max(1, params.steps()),
+        //     params.mos_a(), params.mos_b()));
         set_keys(key_pitches.iter().enumerate()
             .map(|(i, pitch)| {
                 Key {
@@ -82,6 +92,9 @@ fn tune() {
 
 /// Calculates and returns the pitch required for each key in the MIDI range,
 /// given the tuning parameters.
+// ===========================================================================================
+// pg34 Update the pitches calculation.
+// ===========================================================================================
 fn calculate_key_pitches(tuning_params: TuningParams) -> Vec<f32> {
     // println!("tuner.calculate_key_pitches");
     let root_freq = {
@@ -238,6 +251,7 @@ fn send_pitch_table(pitch_table_no: u8, keys: &Vec<Key>) {
     Midi::send_control_change(16, 51, pitch_table_no); // Grid
 }
 
+/// The tuning parameters formatted for display.
 pub fn formatted_tuning_params() -> FormattedTuningParams {
     // println!("tuner.formatted_tuning_params");
     let params_clone = params_clone();
@@ -251,6 +265,9 @@ pub fn formatted_tuning_params() -> FormattedTuningParams {
           root_freq_override().lock().unwrap().clone()
       }
     };
+    // ===========================================================================================
+    // pg34 Format the tuning parameters for display.
+    // ===========================================================================================
     FormattedTuningParams {
         depth: format!("{}", params.depth()),
         root_freq: format!("{} Hz", round(root_freq as f64, 3)),
@@ -258,6 +275,13 @@ pub fn formatted_tuning_params() -> FormattedTuningParams {
         // number of cents to display.
         stretch: format!("{} ct", (params.stretch() * 1200.0).round()),
         skew: format!("{}", round(params.skew() as f64, 5)),
+        // ========================================================================================
+        // pg34 As mode_offset is now a float (f32), decimal places will need to be shown, as with
+        // skew above. How many decimal places should be shown? I had to show more for skew and
+        // root_freq than are shown in PitchGrid. As discussed, I need show as many decimal places
+        // as will allow the tuning as a whole to be uniquely identified by the player,
+        // as the tuning preset name cannot be shown.
+        // ===========================================================================================
         mode_offset: format!("{}", params.mode_offset()),
         steps: format!("{}", params.steps()),
     }
@@ -373,6 +397,10 @@ mod ffi {
         type Scale;
         type Vector2d;
 
+        // ========================================================================================
+        // pg34 If you add, remove, or modify any of the functions defined below,
+        // you must update the corresponding C++ functions defined in scalatrix/scalatrix.hpp.
+        // ========================================================================================
         fn  affine_from_three_dots(
             a1: &Vector2d, a2: &Vector2d, a3: &Vector2d,
             b1: &Vector2d, b2: &Vector2d, b3: &Vector2d) -> UniquePtr<AffineTransform>;
@@ -413,28 +441,8 @@ struct Key {
     offset_lsb: u8,
 }
 
-// struct TunerData {
-//     tuning_params: TuningParams,
-//     keys:Arc<Vec<Key>>,
-// }
-//
-// impl TunerData {
-//     pub fn new() -> Self {
-//         Self {
-//             tuning_params: TuningParams {
-//                 depth: 0,
-//                 mode: 0,
-//                 root_freq: 0.0,
-//                 stretch: 0.0,
-//                 skew: 0.0,
-//                 mode_offset: 0,
-//                 steps: 0,
-//             },
-//             keys: Arc::new(vec![]),
-//         }
-//     }
-// }
 
+/// The tuning parameters formatted for display.
 pub struct FormattedTuningParams {
     pub depth: String, pub root_freq: String, pub stretch: String,
     pub skew: String, pub mode_offset: String, pub steps: String,

@@ -5,6 +5,10 @@ fn main() {
     )
     .unwrap();
     cxx_build::bridge("src/tuner.rs")  // returns a cc::Build
+        // ========================================================================================
+        // pg34 If you add, remove, or rename cpp files in the scalatrix/scv directory,
+        // you must also update this, in order for the C++ code to be compiled.
+        // ========================================================================================
         .file("scalatrix/src/affine_transform.cpp")
         .file("scalatrix/src/label_calculator.cpp")
         .file("scalatrix/src/lattice.cpp")

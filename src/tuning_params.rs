@@ -8,7 +8,9 @@ pub struct TuningParams {
     skew: f32,
     mode_offset: i32,
     steps: i32,
-    // pg34
+    // ===========================================================================================
+    // pg34 Remove the fields above. Uncomment the fields below.
+    // ===========================================================================================
     // mode: i32,
     // root_freq: f32,
     // stretch: f32,
@@ -59,7 +61,9 @@ impl TuningParams {
     pub fn steps(&self) -> i32 {
         self.steps
     }
-    // pg34
+    // ===========================================================================================
+    // pg34 Remove the functions above. Uncomment the functions below.
+    // ===========================================================================================
     // pub fn new(mode: i32, root_freq: f32, stretch: f32,  skew: f32,
     //            mode_offset: f32, steps: i32, mos_a: i32, mos_b: i32,) -> Self {
     //     Self { mode, root_freq, stretch, skew, mode_offset, steps, mos_a, mos_b }

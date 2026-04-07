@@ -27,6 +27,10 @@
 
 #include <memory>
 
+// ========================================================================================
+// pg34 If you add, remove, or modify Rust functions in the C++ to Rust interface defined
+// in mod ff1 in tuner.rs, you must update the corresponding C++ functions here.
+// ========================================================================================
 // Wrapper functions for CXX bridge
 namespace scalatrix {
     inline std::unique_ptr<AffineTransform>  affine_from_three_dots(
