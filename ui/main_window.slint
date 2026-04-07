@@ -22,12 +22,15 @@ export component MainWindow inherits MagicWindow {
     // as I could not come up with a satisfactory ligth mode variant.
     init => { Palette.color-scheme = ColorScheme.dark; }
     background: get_background_color();
-    // Width and height need to be minimums
-    // to allow the Window to be bigger on a bigger screen.
-    min_width: 700px;
+    // Preferred width and height possibly cope best or as good as any with
+    // moving the window between screens of different resolutions.
+    // But it does not eliminate a problem where, when moving the window from
+    // a higher-resolution screen to a lower resolution screen,
+    // the window keeps its bigger size or bigger. This is a known Slint bug.
+    // See https://github.com/slint-ui/slint/issues/11073.
+    preferred_width: 700px;
     // Needs to be big enough to include everything down to the second status bar line.
-    // Expands automatically if the status message does not fit.
-    min_height: 480px;
+    preferred_height: 480px;
     title: window_title;
     icon: Globals.icon;
     forward-focus: root_notes_combo;
