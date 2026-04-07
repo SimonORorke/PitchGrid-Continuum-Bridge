@@ -5,6 +5,7 @@ use std::sync::mpsc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 use rosc::{decoder, encoder, OscMessage, OscPacket, OscType};
+use crate::tuning_params::TuningParams;
 
 /// The socket addresses are as per the PitchGrid plugin docs:
 ///     Connection Details
@@ -112,8 +113,8 @@ impl Osc {
                     IS_PITCHGRID_CONNECTED.store(true, Ordering::SeqCst);
                     callbacks.on_osc_pitchgrid_connected_changed();
                 }
-                callbacks.on_osc_tuning_received(
-                    depth, mode, root_freq, stretch, skew, mode_offset, steps);
+                callbacks.on_osc_tuning_received(TuningParams::new(
+                    depth, mode, root_freq, stretch, skew, mode_offset, steps));
             });
         } else {
             // println!("Osc.handle_tuning Invalid tuning arguments.");
@@ -278,15 +279,7 @@ const TUNING_ADDR: &str = "/pitchgrid/plugin/tuning";
 
 pub trait OscCallbacks: Send + Sync {
     fn on_osc_pitchgrid_connected_changed(&self);
-
-    fn on_osc_tuning_received(&self,
-                              depth: i32,
-                              mode: i32,
-                              root_freq: f32,
-                              stretch: f32,
-                              skew: f32,
-                              mode_offset: i32,
-                              steps: i32);
+    fn on_osc_tuning_received(&self, tuning_params: TuningParams);
 }
 
 static IS_PITCHGRID_CONNECTED: AtomicBool = AtomicBool::new(false);

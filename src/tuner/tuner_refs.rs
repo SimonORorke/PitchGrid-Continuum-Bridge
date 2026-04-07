@@ -1,17 +1,30 @@
 use std::sync::{Arc, Mutex, OnceLock};
+use crate::tuning_params::{TuningParams,};
+
+pub type SharedTuningParams = Arc<Mutex<TuningParams>>;
 
 static DEFAULT_KEY_PITCHES: OnceLock<Vec<f32>> = OnceLock::new();
+static KEYS: OnceLock<Mutex<Vec<super::Key>>> = OnceLock::new();
+static PARAMS: OnceLock<SharedTuningParams> = OnceLock::new();
 static PITCH_TABLE_NOS: OnceLock<Vec<u8>> = OnceLock::new();
 static ROOT_FREQ_OVERRIDE: OnceLock<Arc<Mutex<f32>>> = OnceLock::new();
-static TUNER_DATA: OnceLock<Arc<Mutex<super::TunerData>>> = OnceLock::new();
-
-pub(super) fn data() -> Arc<Mutex<super::TunerData>> {
-    Arc::clone(TUNER_DATA.get_or_init(||
-        Arc::new(Mutex::new(super::TunerData::new()))))
-}
 
 pub(super) fn default_pitch_keys<'a>() -> &'a Vec<f32> {
     DEFAULT_KEY_PITCHES.get_or_init(|| create_default_key_pitches())
+}
+
+pub(super) fn keys_clone() -> Vec<super::Key> {
+    KEYS.get_or_init(|| Mutex::new(vec![])).lock().unwrap().clone()
+}
+
+pub(super) fn set_keys(keys: Vec<super::Key>) {
+    *KEYS.get_or_init(|| Mutex::new(vec![])).lock().unwrap() = keys;
+}
+
+pub(super) fn params_clone() -> SharedTuningParams {
+    let params =
+        PARAMS.get_or_init(|| Arc::new(Mutex::new(TuningParams::default())));
+    Arc::clone(params)
 }
 
 pub(super) fn pitch_table_nos<'a>() -> &'a Vec<u8> {

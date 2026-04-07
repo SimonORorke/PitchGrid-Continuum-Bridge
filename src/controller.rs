@@ -7,6 +7,7 @@ use crate::port_strategy::{
     InputStrategy, OutputStrategy, PortStrategy};
 use crate::settings::Settings;
 use crate::{midi_static, tuner};
+use crate::tuning_params::TuningParams;
 
 /// This is the main controller in the Model-View-Controller (MVC) pattern.
 /// PortStrategy contains both view and controller methods.
@@ -449,11 +450,10 @@ impl OscCallbacks for Mutex<Controller> {
         controller.on_osc_pitchgrid_connected_changed();
     }
 
-    fn on_osc_tuning_received(&self, depth: i32, mode: i32, root_freq: f32, stretch: f32,
-                              skew: f32, mode_offset: i32, steps: i32) {
+    fn on_osc_tuning_received(&self, tuning_params: TuningParams) {
         // println!("OscCallbacks for Mutex<Controller>.on_osc_tuning_received");
         let controller = self.lock().unwrap();
-        controller.on_osc_tuning_received(depth, mode, root_freq, stretch, skew, mode_offset, steps);
+        controller.on_osc_tuning_received(tuning_params);
     }
 }
 
@@ -472,8 +472,7 @@ impl OscCallbacks for Controller {
         }
     }
 
-    fn on_osc_tuning_received(&self, depth: i32, mode: i32, root_freq: f32, stretch: f32,
-                              skew: f32, mode_offset: i32, steps: i32) {
+    fn on_osc_tuning_received(&self, tuning_params: TuningParams) {
         // println!("Controller.on_osc_tuning_received");
         // println!(
         //     "Controller.on_osc_tuning_received: depth = {}; mode = {}; root_freq = {}; stretch = {}; \
@@ -482,7 +481,7 @@ impl OscCallbacks for Controller {
         if midi_static::are_ports_connected() && midi_static::is_receiving_data() {
             // println!("Controller.on_osc_tuning_received: Showing Updating instrument tuning");
             self.callbacks.show_pitchgrid_status(UPDATING_INSTRUMENT_TUNING, MessageType::Info);
-            tuner::on_tuning_received(depth, mode, root_freq, stretch, skew, mode_offset, steps);
+            tuner::on_tuning_received(tuning_params);
         } else {
             self.stop_osc_and_show_message();
         }

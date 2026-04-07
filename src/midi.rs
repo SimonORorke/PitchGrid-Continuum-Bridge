@@ -183,7 +183,7 @@ impl Midi {
         }
         if were_ports_connected {
             // We have just disconnected one of the ports.
-            println!("Midi.refresh_devices: Calling ports_connected_changed_callbacks() because we have just disconnected one of the ports");
+            // println!("Midi.refresh_devices: Calling ports_connected_changed_callbacks() because we have just disconnected one of the ports");
             Self::call_back(ports_connected_changed_callbacks().clone());
         }
         Ok(())

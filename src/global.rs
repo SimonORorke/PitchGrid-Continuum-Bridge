@@ -7,20 +7,11 @@ pub enum MessageType {
     Warning
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub enum PortType {
     Input,
     Output,
 }
-
-// #[derive(Clone, Copy, Debug, PartialEq)]
-// pub enum Rounding {
-//     None,
-//     Initial,
-//     Max,
-// }
-
-// pub fn default_rounding() -> Rounding { Rounding::Max }
 
 pub fn override_note_names() -> Vec<String> {
     vec!["".to_string(),
@@ -30,10 +21,6 @@ pub fn override_note_names() -> Vec<String> {
          "C#".to_string(),"D".to_string(), "D#".to_string(),
          "E".to_string(), "F".to_string(), ]
 }
-
-// pub fn rounding_names() -> Vec<String> {
-//     vec!["None".to_string(), "Initial".to_string(), "Max".to_string(), ]
-// }
 
 pub type SharedMidi = Arc<Mutex<Midi>>;
 pub const APP_TITLE: &str = "PitchGrid-Continuum Bridge";

@@ -1,11 +1,11 @@
 mod tuner_refs;
 use std::cmp::{max};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU8, AtomicUsize, Ordering};
 use round::round;
-use tuner_refs::{data, default_pitch_keys, root_freq_override, };
+use tuner_refs::{default_pitch_keys, keys_clone, params_clone, root_freq_override, set_keys};
 use crate::{midi_static};
 use crate::midi::Midi;
+use crate::tuning_params::{TuningParams,};
 
 pub fn init(pitch_table_no: u8) {
     PITCH_TABLE_NO.store(pitch_table_no, Ordering::Relaxed);
@@ -23,23 +23,12 @@ pub fn init(pitch_table_no: u8) {
 ///         skew: Skew factor
 ///         mode_offset: Mode offset
 ///         steps: Number of steps per period
-pub fn on_tuning_received(depth: i32, mode: i32, root_freq: f32, stretch: f32,
-                          skew: f32, mode_offset: i32, steps: i32) {
+pub fn on_tuning_received(tuning_params: TuningParams) {
     // println!(
     //     "tuner.on_tuning_received: depth = {}; mode = {}; root_freq = {}; stretch = {}; \
     //     skew = {}; mode_offset = {}; steps = {}",
     //     depth, mode, root_freq, stretch, skew, mode_offset, steps);
-    {
-        let data = data();
-        let mut data_guard = data.lock().unwrap();
-        data_guard.tuning_params.depth = depth;
-        data_guard.tuning_params.mode = mode;
-        data_guard.tuning_params.root_freq = root_freq;
-        data_guard.tuning_params.stretch = stretch;
-        data_guard.tuning_params.skew = skew;
-        data_guard.tuning_params.mode_offset = mode_offset;
-        data_guard.tuning_params.steps = steps;
-    }
+    *params_clone().lock().unwrap() = tuning_params;
     tune();
 }
 
@@ -50,13 +39,12 @@ pub fn on_tuning_received(depth: i32, mode: i32, root_freq: f32, stretch: f32,
 fn tune() {
     let send_now:bool;
     {
-        let data = data();
-        let mut data_guard = data.lock().unwrap();
-        let params = &data_guard.tuning_params;
-        let key_pitches = calculate_key_pitches(
-            max(1, params.depth), params.mode, params.root_freq, params.stretch, params.skew,
-            params.mode_offset, max(1, params.steps));
-        data_guard.keys = Arc::new(key_pitches.iter().enumerate()
+        let params_clone = params_clone();
+        let params = params_clone.lock().unwrap();
+        let key_pitches = calculate_key_pitches(TuningParams::new(
+            max(1, params.depth()), params.mode(), params.root_freq(), params.stretch() ,
+            params.skew(), params.mode_offset(), max(1, params.steps())));
+        set_keys(key_pitches.iter().enumerate()
             .map(|(i, pitch)| {
                 Key {
                     number: i as u8,
@@ -94,8 +82,7 @@ fn tune() {
 
 /// Calculates and returns the pitch required for each key in the MIDI range,
 /// given the tuning parameters.
-fn calculate_key_pitches(depth: i32, mode: i32, root_freq: f32, stretch: f32,
-                         skew: f32, mode_offset: i32, steps: i32) -> Vec<f32> {
+fn calculate_key_pitches(tuning_params: TuningParams) -> Vec<f32> {
     // println!("tuner.calculate_key_pitches");
     let root_freq = {
         let override_freq = root_freq_override();
@@ -104,7 +91,7 @@ fn calculate_key_pitches(depth: i32, mode: i32, root_freq: f32, stretch: f32,
             // Override not required
             // println!("tuner.calculate_key_pitches: Override not required");
             *override_freq_guard = 0.0;
-            root_freq
+            tuning_params.root_freq()
         } else {
             let note_no = ROOT_FREQ_OVERRIDE_NOTE_NO.load(Ordering::Relaxed);
             let pitch = default_pitch_keys()[note_no];
@@ -115,10 +102,10 @@ fn calculate_key_pitches(depth: i32, mode: i32, root_freq: f32, stretch: f32,
         }
     };
     let mos = ffi:: mos_from_g(
-        depth,
-        mode,
-        skew as f64,
-        stretch as f64,
+        tuning_params.depth(),
+        tuning_params.mode(),
+        tuning_params.skew() as f64,
+        tuning_params.stretch() as f64,
         1);
     let a1 = ffi::vector2d(0.0, 0.0);
     let a2 = ffi::vector2d(
@@ -126,11 +113,11 @@ fn calculate_key_pitches(depth: i32, mode: i32, root_freq: f32, stretch: f32,
     let a3 = ffi::vector2d(
         ffi::get_mos_a(&mos) as f64, ffi::get_mos_b(&mos) as f64);
     let b1 = ffi::vector2d(
-        0.0, (mode_offset as f64 + 0.5) / steps as f64);
+        0.0, (tuning_params.mode_offset() as f64 + 0.5) / tuning_params.steps() as f64);
     let b2 = ffi::vector2d(
-        (skew * stretch) as f64, (mode_offset as f64 + 1.5) / steps as f64);
+        (tuning_params.skew() * tuning_params.stretch()) as f64, (tuning_params.mode_offset() as f64 + 1.5) / tuning_params.steps() as f64);
     let b3 = ffi::vector2d(
-        stretch as f64, (mode_offset as f64 + 0.5) / steps as f64);
+        tuning_params.stretch() as f64, (tuning_params.mode_offset() as f64 + 0.5) / tuning_params.steps() as f64);
     let affine = ffi::affine_from_three_dots(
         &a1, &a2, &a3,
         &b1, &b2, &b3);
@@ -149,7 +136,7 @@ fn calculate_key_pitches(depth: i32, mode: i32, root_freq: f32, stretch: f32,
 /// If tuning data has previously been received, resends it to the instrument.
 /// Returns whether tuning data was resent.
 pub fn resend_tuning() -> bool {
-    let can_send = data().lock().unwrap().keys.len() > 0usize;
+    let can_send = keys_clone().len() > 0usize;
     if can_send {
         // Tuning data has previously been received.
         // println!("tuner.resend_tuning: Resending tuning data to instrument.");
@@ -159,15 +146,12 @@ pub fn resend_tuning() -> bool {
 }
 
 fn send_tuning() {
-    // println!("tuner.update_tuning");
-    let data = data();
-    let data_guard = data.lock().unwrap();
-    let mut keys = (*data_guard.keys).clone();
+    let mut keys = keys_clone();
     set_to_key_numbers(&mut keys);
     calculate_offsets(&mut keys);
     Midi::on_updating_tuning();
     send_rounding_params();
-    send_pitch_table(&keys, pitch_table_no());
+    send_pitch_table(pitch_table_no(), &keys);
 }
 
 /// Sets the to_number field of each Key in TUNER_DATA.keys to
@@ -229,7 +213,7 @@ fn calculate_offsets(keys: &mut Vec<Key>) {
     }
 }
 
-fn send_pitch_table(keys: &Vec<Key>, pitch_table_no: u8) {
+fn send_pitch_table(pitch_table_no: u8, keys: &Vec<Key>) {
     // println!("tuner.send_pitch_table_to_instrument");
     // Select pitch table to update.
     Midi::send_control_change(16, 109, pitch_table_no);
@@ -256,26 +240,26 @@ fn send_pitch_table(keys: &Vec<Key>, pitch_table_no: u8) {
 
 pub fn formatted_tuning_params() -> FormattedTuningParams {
     // println!("tuner.formatted_tuning_params");
-    let data = data();
-    let data_guard = data.lock().unwrap();
+    let params_clone = params_clone();
+    let params = params_clone.lock().unwrap();
     // Show the root frequency override if there is one.
     let root_freq = {
       if ROOT_FREQ_OVERRIDE_NOTE_NO.load(Ordering::Relaxed) == 0 {
           // No override
-          data_guard.tuning_params.root_freq
+          params.root_freq()
       } else {
           root_freq_override().lock().unwrap().clone()
       }
     };
     FormattedTuningParams {
-        depth: format!("{}", data_guard.tuning_params.depth),
+        depth: format!("{}", params.depth()),
         root_freq: format!("{} Hz", round(root_freq as f64, 3)),
         // The stretch parameter is in octaves, so we need to multiply by 1200 to get the
         // number of cents to display.
-        stretch: format!("{} ct", (data_guard.tuning_params.stretch * 1200.0).round()),
-        skew: format!("{}", round(data_guard.tuning_params.skew as f64, 5)),
-        mode_offset: format!("{}", data_guard.tuning_params.mode_offset),
-        steps: format!("{}", data_guard.tuning_params.steps),
+        stretch: format!("{} ct", (params.stretch() * 1200.0).round()),
+        skew: format!("{}", round(params.skew() as f64, 5)),
+        mode_offset: format!("{}", params.mode_offset()),
+        steps: format!("{}", params.steps()),
     }
 }
 
@@ -429,32 +413,27 @@ struct Key {
     offset_lsb: u8,
 }
 
-struct TunerData {
-    tuning_params: TuningParams,
-    keys:Arc<Vec<Key>>,
-}
-
-impl TunerData {
-    pub fn new() -> Self {
-        Self {
-            tuning_params: TuningParams {
-                depth: 0,
-                mode: 0,
-                root_freq: 0.0,
-                stretch: 0.0,
-                skew: 0.0,
-                mode_offset: 0,
-                steps: 0,
-            },
-            keys: Arc::new(vec![]),
-        }
-    }
-}
-
-struct TuningParams {
-    depth: i32, mode: i32, root_freq: f32, stretch: f32,
-    skew: f32, mode_offset: i32, steps: i32,
-}
+// struct TunerData {
+//     tuning_params: TuningParams,
+//     keys:Arc<Vec<Key>>,
+// }
+//
+// impl TunerData {
+//     pub fn new() -> Self {
+//         Self {
+//             tuning_params: TuningParams {
+//                 depth: 0,
+//                 mode: 0,
+//                 root_freq: 0.0,
+//                 stretch: 0.0,
+//                 skew: 0.0,
+//                 mode_offset: 0,
+//                 steps: 0,
+//             },
+//             keys: Arc::new(vec![]),
+//         }
+//     }
+// }
 
 pub struct FormattedTuningParams {
     pub depth: String, pub root_freq: String, pub stretch: String,

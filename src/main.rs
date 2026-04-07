@@ -11,6 +11,7 @@ mod port_strategy;
 mod controller;
 mod ui_methods;
 mod midi_static;
+mod tuning_params;
 
 use std::cell::RefCell;
 use std::rc::Rc;
