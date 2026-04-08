@@ -26,8 +26,63 @@ fn main() {
     println!("cargo:rerun-if-changed=scalatrix");
     #[cfg(windows)]
     {
-        let mut res = winres::WindowsResource::new();
-        res.set_icon("Midi port black on red 512.ico");
-        res.compile().unwrap();
+        // Generate a manifest to specify the application icon and the exe file properties.
+        let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
+        let out_dir = std::env::var("OUT_DIR").unwrap();
+        // There's no standard place in Cargo.toml for the copyright string, so put it in the
+        // Cargo.toml, from where the build script needs to parse it.
+        let cargo_toml_str = std::fs::read_to_string(
+            std::path::Path::new(&manifest_dir).join("Cargo.toml")
+        ).unwrap();
+        let cargo_toml: toml::Value = toml::from_str(&cargo_toml_str).unwrap();
+        let copyright = cargo_toml["package"]["metadata"]["copyright"]
+            .as_str().unwrap();
+        // Version and product name are taken from the version and description properties of
+        // Cargo.toml's package section. The same version will be used for FileVersion and
+        // ProductVersion in the exe file properties.
+        let version = std::env::var("CARGO_PKG_VERSION").unwrap();
+        let description = std::env::var("CARGO_PKG_DESCRIPTION").unwrap();
+        let parts: Vec<u64> = version.split('.')
+            .map(|s| s.parse().unwrap_or(0))
+            .collect();
+        let (major, minor, patch) = (
+            parts.first().copied().unwrap_or(0),
+            parts.get(1).copied().unwrap_or(0),
+            parts.get(2).copied().unwrap_or(0),
+        );
+        // Use forward slashes so rc.exe accepts the path
+        let icon_path = std::path::Path::new(&manifest_dir)
+            .join("Midi port black on red 512.ico")
+            .to_string_lossy()
+            .replace('\\', "/");
+        let rc = format!(
+            // The pragma tells rc.exe to treat the file as UTF-8 — the same way it handles
+            // strings in .NET projects, which we know works to not escape the apostrophe in
+            // O'Rorke in the copyright string.
+            "#pragma code_page(65001)\n\
+             1 ICON \"{icon_path}\"\n\
+             1 VERSIONINFO\n\
+             FILEVERSION {major},{minor},{patch},0\n\
+             PRODUCTVERSION {major},{minor},{patch},0\n\
+             BEGIN\n\
+               BLOCK \"StringFileInfo\"\n\
+               BEGIN\n\
+                 BLOCK \"040904B0\"\n\
+                 BEGIN\n\
+                   VALUE \"FileVersion\", \"{version}\"\n\
+                   VALUE \"ProductVersion\", \"{version}\"\n\
+                   VALUE \"ProductName\", \"{description}\"\n\
+                   VALUE \"LegalCopyright\", \"{copyright}\"\n\
+                 END\n\
+               END\n\
+               BLOCK \"VarFileInfo\"\n\
+               BEGIN\n\
+                 VALUE \"Translation\", 0x0409, 0x04B0\n\
+               END\n\
+             END\n"
+        );
+        let rc_path = std::path::Path::new(&out_dir).join("version.rc");
+        std::fs::write(&rc_path, rc.as_bytes()).unwrap();
+        let _ = embed_resource::compile(&rc_path, embed_resource::NONE);
     }
 }

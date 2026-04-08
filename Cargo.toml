@@ -22,13 +22,21 @@ serde = "1.0.228"
 toml = "1.0.0"
 slint = "1.14.1"
 
+[package.metadata]
+copyright = "Copyright © 2026 Simon O'Rorke"
+
 [build-dependencies]
 cxx-build = "1.0.194"
 slint-build = "1.15.1"
 vivi_ui = "0.2.0"
+toml = "1.0.0"
 
 [target.'cfg(windows)'.build-dependencies]
-winres = "0.1"
+# Using embed-resource instead of the more popular winres
+# for application icon and exe file propertieds because
+# winres puts an oblique before the apostrophe in my name.
+# It's a known shortcoming of winres to always 'escape' an apostrophe.
+embed-resource = "3.0.8"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc = "0.2"
