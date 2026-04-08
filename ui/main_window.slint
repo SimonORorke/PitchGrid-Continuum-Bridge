@@ -270,6 +270,14 @@ export component MainWindow inherits MagicWindow {
                 alignment: end;
                 padding_top: 10px;
                 padding-right: 10px;
+                // If I tab through the main window to focus the menu button and then press
+                // Enter to open the menu, when I exit the menu, pressing enter again does not
+                // reopen the menu, even though the menu button is still focused.
+                // I need to tab away from the menu button and then tab back to it for Enter
+                // to work again. But this is almost certainly just normal behaviour for
+                // Slint buttons: Slint's internal focus state for the button's own FocusScope
+                // isn't properly re-activated by programmatic focus() calls, only by tab
+                // navigation.
                 menu_button := FilledButton {
                     prefix_icon: @image-url("images/menu-svgrepo-com.svg");
                     height: Globals.control_height;
