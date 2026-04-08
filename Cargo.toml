@@ -1,7 +1,9 @@
 [package]
 name = "pitchgrid_continuum"
+description = "Pitchgrid-Continuum Bridge"
 version = "0.13.0"
 authors = ["Simon O'Rorke"]
+license = "MIT OR Apache-2.0"
 edition = "2024"
 build = "build.rs"
 
@@ -24,3 +26,9 @@ slint = "1.14.1"
 cxx-build = "1.0.194"
 slint-build = "1.15.1"
 vivi_ui = "0.2.0"
+
+[target.'cfg(windows)'.build-dependencies]
+winres = "0.1"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc = "0.2"

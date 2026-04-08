@@ -24,4 +24,10 @@ fn main() {
         .std("c++17")
         .compile("scalatrix");
     println!("cargo:rerun-if-changed=scalatrix");
+    #[cfg(windows)]
+    {
+        let mut res = winres::WindowsResource::new();
+        res.set_icon("Midi port black on red 512.ico");
+        res.compile().unwrap();
+    }
 }

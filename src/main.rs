@@ -28,6 +28,8 @@ use ui_methods::UiMethods;
 /// main.rs is part of the view in the Model-View-Controller (MVC) pattern.
 /// See Controller's doc comment for more information on how the project implements MVC.
 fn main() {
+    #[cfg(target_os = "macos")]
+    set_macos_app_icon();
     let main_window = MainWindow::new().unwrap();
     main_window.set_window_title(format!("{} v{}", APP_TITLE, VERSION).into());
     let ui_methods = UiMethods::new(main_window.as_weak());
@@ -181,6 +183,24 @@ fn set_pitch_tables_model(main_window: &MainWindow) {
 }
 
 const DOCUMENTATION_LINK: &str = "https://github.com/SimonORorke/PitchGrid-Continuum-Bridge/blob/main/README.md";
+
+#[cfg(target_os = "macos")]
+fn set_macos_app_icon() {
+    let icon_data = include_bytes!("../Midi port black on red 512.icns");
+    unsafe {
+        use objc::runtime::Object;
+        use objc::{class, msg_send, sel, sel_impl};
+        let data: *mut Object = msg_send![
+            class!(NSData),
+            dataWithBytes: icon_data.as_ptr() as *const std::ffi::c_void
+            length: icon_data.len()
+        ];
+        let image: *mut Object = msg_send![class!(NSImage), alloc];
+        let image: *mut Object = msg_send![image, initWithData: data];
+        let app: *mut Object = msg_send![class!(NSApplication), sharedApplication];
+        let _: () = msg_send![app, setApplicationIconImage: image];
+    }
+}
 
 type SharedController = Arc<Mutex<Controller>>;
 

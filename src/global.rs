@@ -23,5 +23,5 @@ pub fn override_note_names() -> Vec<String> {
 }
 
 pub type SharedMidi = Arc<Mutex<Midi>>;
-pub const APP_TITLE: &str = "PitchGrid-Continuum Bridge";
+pub const APP_TITLE: &str = env!("CARGO_PKG_DESCRIPTION");
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
