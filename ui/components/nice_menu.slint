@@ -1,0 +1,122 @@
+import { Palette as AppPalette, FontSettings, BorderSettings } from "../styling.slint";
+
+export struct NiceMenuItemData {
+    title: string,
+}
+
+component NiceMenuRow {
+    in property <string> title;
+    in property <bool> is_selected;
+    callback activated();
+
+    height: 32px;
+
+    ta := TouchArea {
+        clicked => { root.activated(); }
+
+        Rectangle {
+            background: root.is_selected
+                ? AppPalette.selection_background
+                : (ta.has-hover ? AppPalette.state_hovered : transparent);
+            border-radius: BorderSettings.bar_border_radius;
+
+            HorizontalLayout {
+                padding-left: 12px;
+                padding-right: 12px;
+                Text {
+                    text: root.title;
+                    color: AppPalette.foreground;
+                    font-size: FontSettings.body.font_size;
+                    font-weight: FontSettings.body.font_weight;
+                    vertical-alignment: center;
+                }
+            }
+        }
+    }
+}
+
+export component NiceMenu {
+    in property <[NiceMenuItemData]> items;
+    callback item_activated(int);
+
+    private property <length> popup_x;
+    private property <length> popup_y;
+    private property <int> selected_index;
+    private property <bool> is_open;
+
+    // FocusScope lives outside the PopupWindow so focus() can be called on it.
+    // enabled tracks is_open so that when the menu closes, keyboard focus is released.
+    fs := FocusScope {
+        enabled: root.is_open;
+        key-pressed(event) => {
+            if (event.text == Key.UpArrow) {
+                if (root.selected_index <= 0) {
+                    root.selected_index = root.items.length - 1;
+                } else {
+                    root.selected_index = root.selected_index - 1;
+                }
+                return EventResult.accept;
+            }
+            if (event.text == Key.DownArrow) {
+                if (root.selected_index >= root.items.length - 1) {
+                    root.selected_index = 0;
+                } else {
+                    root.selected_index = root.selected_index + 1;
+                }
+                return EventResult.accept;
+            }
+            if (event.text == Key.Return) {
+                root.is_open = false;
+                root.item_activated(root.selected_index);
+                popup.close();
+                return EventResult.accept;
+            }
+            if (event.text == Key.Escape) {
+                root.is_open = false;
+                popup.close();
+                return EventResult.accept;
+            }
+            return EventResult.reject;
+        }
+    }
+
+    popup := PopupWindow {
+        x: root.popup_x;
+        y: root.popup_y;
+        width: 200px;
+        height: root.items.length * 32px + 8px;
+
+        Rectangle {
+            background: AppPalette.background;
+            border-width: BorderSettings.control_border_width;
+            border-color: AppPalette.border;
+            border-radius: BorderSettings.bar_border_radius;
+            clip: true;
+
+            VerticalLayout {
+                padding: 4px;
+
+                for item[i] in root.items: NiceMenuRow {
+                    title: item.title;
+                    is_selected: i == root.selected_index;
+                    activated => {
+                        root.is_open = false;
+                        root.item_activated(i);
+                        popup.close();
+                    }
+                }
+            }
+        }
+    }
+
+    // anchor is the screen-absolute position (e.g. self.absolute-position) at which
+    // the top-left of the popup should appear.
+    public function show(anchor: Point) {
+        root.popup_x = anchor.x - root.absolute-position.x;
+        root.popup_y = anchor.y - root.absolute-position.y;
+        root.selected_index = 0;
+        root.is_open = true;
+        popup.show();
+        fs.focus();
+    }
+}

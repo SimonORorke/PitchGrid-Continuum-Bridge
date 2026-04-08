@@ -9,6 +9,7 @@ import {
 import { MessageText, SlintMessageType, ParamName, ParamValue } from "components/text.slint";
 export { AboutWindow } from "about_window.slint";
 import { MidiIo } from "components/midi_io.slint";
+import { NiceMenu } from "components/nice_menu.slint";
 import { Globals } from "globals.slint";
 import { Palette, SpinBox, VerticalBox, } from "std-widgets.slint";
 
@@ -265,31 +266,32 @@ export component MainWindow inherits MagicWindow {
                     horizontal_alignment: center;
                 }
             }
-            HorizontalLayout {
+            menu_layout := HorizontalLayout {
                 alignment: end;
                 padding_top: 10px;
                 padding-right: 10px;
-                FilledButton {
+                menu_button := FilledButton {
                     prefix_icon: @image-url("images/menu-svgrepo-com.svg");
                     height: Globals.control_height;
                     width: 50px; // Min before icon is not centred.
                     clicked => {
-                        main_menu.show(self.absolute-position)
+                        main_menu.show({
+                            x: self.absolute-position.x,
+                            y: self.absolute-position.y + self.height
+                        })
                     }
                 }
             }
         }
     }
-    main_menu := ContextMenuArea {
-        Menu {
-            MenuItem {
-                title: "Documentation...";
-                activated => { root.open_documentation(); }
-            }
-            MenuItem {
-                title: "About...";
-                activated => { root.show_about_window(); }
-            }
+    main_menu := NiceMenu {
+        items: [
+            { title: "Documentation..." },
+            { title: "About..." },
+        ];
+        item_activated(i) => {
+            if (i == 0) { root.open_documentation(); }
+            if (i == 1) { root.show_about_window(); }
         }
     }
 }

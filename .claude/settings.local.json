@@ -13,7 +13,8 @@
       "Bash(~/.cargo/bin/cargo metadata --format-version 1)",
       "Bash(python3 -c \"import json,sys; m=json.load\\(sys.stdin\\); [print\\(p[''manifest_path'']\\) for p in m[''packages''] if ''vivi'' in p[''name''].lower\\(\\)]\")",
       "Bash(xargs grep -l \"import_paths\")",
-      "Bash(xargs grep -l \"CompilerConfiguration\")"
+      "Bash(xargs grep -l \"CompilerConfiguration\")",
+      "Bash(cmd.exe /c \"cd /d \"\"D:\\\\Simon\\\\OneDrive\\\\Documents\\\\Rust Projects\\\\pitchgrid_continuum\"\" && cargo check 2>&1\")"
     ]
   }
 }
