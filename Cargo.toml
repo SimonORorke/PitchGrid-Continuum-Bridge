@@ -3,15 +3,16 @@ members = ["app_info"]
 resolver = "2"
 
 [workspace.package]
-version = "0.13.0"
 description = "Pitchgrid-Continuum Bridge"
+license = "MIT OR Apache-2.0"
+version = "0.13.0"
 
 [package]
 name = "pitchgrid_continuum"
-version.workspace = true
 description.workspace = true
+license.workspace = true
+version.workspace = true
 authors = ["Simon O'Rorke"]
-license = "MIT OR Apache-2.0"
 edition = "2024"
 build = "build.rs"
 

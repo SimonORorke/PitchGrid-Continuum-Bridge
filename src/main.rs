@@ -20,7 +20,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use slint::{CloseRequestResponse};
 use open;
 use controller::{Controller};
-use app_info::{APP_TITLE, COPYRIGHT, VERSION};
+use app_info::{APP_TITLE, COPYRIGHT, LICENSE, VERSION};
 use port_strategy::{
     InputStrategy, OutputStrategy, PortStrategy};
 use ui_methods::UiMethods;

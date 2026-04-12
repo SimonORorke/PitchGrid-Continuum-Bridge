@@ -1,5 +1,6 @@
 [package]
 name = "app_info"
-version.workspace = true
 description.workspace = true
+license.workspace = true
+version.workspace = true
 edition = "2024"
