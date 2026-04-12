@@ -8,6 +8,7 @@ fn main() {
         // ========================================================================================
         // pg34 If you add, remove, or rename cpp files in the scalatrix/scv directory,
         // you must also update this, in order for the C++ code to be compiled.
+        // Can any of these by easily identified as unnecessary and removed?
         // ========================================================================================
         .file("scalatrix/src/affine_transform.cpp")
         .file("scalatrix/src/label_calculator.cpp")
