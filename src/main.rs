@@ -31,7 +31,7 @@ fn main() {
     #[cfg(target_os = "macos")]
     set_macos_app_icon();
     let main_window = MainWindow::new().unwrap();
-    main_window.set_window_title(format!("{} v{}", APP_TITLE, VERSION).into());
+    main_window.set_window_title(APP_TITLE.into());
     let ui_methods = UiMethods::new(main_window.as_weak());
     let controller: SharedController = Arc::new(Mutex::new(Controller::new(
         Box::new(ui_methods)
@@ -59,6 +59,7 @@ fn init_ui_handlers(main_window: &MainWindow, controller: SharedController) {
         let about_window: Rc<RefCell<Option<AboutWindow>>> = Rc::new(RefCell::new(None));
         main_window.on_show_about_window(move || {
             let dialog = AboutWindow::new().unwrap();
+            dialog.set_window_title(format!("About {}", APP_TITLE).into());
             dialog.show().unwrap();
             *about_window.borrow_mut() = Some(dialog);
         });

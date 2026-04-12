@@ -4,8 +4,11 @@ import { Palette, } from "std-widgets.slint";
 
 export component AboutWindow inherits MagicWindow {
     init => { Palette.color-scheme = ColorScheme.dark; }
-    title: "About";
-    min-width: 400px;
-    min-height: 400px;
+    background: Globals.window_background;
+    title: window_title;
+    preferred-width: 800px;
+    preferred-height: 320px;
     icon: Globals.icon;
+
+    in property <string> window_title;
 }

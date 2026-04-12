@@ -22,7 +22,7 @@ export component MainWindow inherits MagicWindow {
     // Overriding the Light/Dark colour scheme to enforce dark mode,
     // as I could not come up with a satisfactory ligth mode variant.
     init => { Palette.color-scheme = ColorScheme.dark; }
-    background: get_background_color();
+    background: Globals.window_background;
     // Preferred width and height possibly cope best or as good as any with
     // moving the window between screens of different resolutions.
     // But it does not eliminate a problem where, when moving the window from
@@ -60,10 +60,6 @@ export component MainWindow inherits MagicWindow {
     callback rounding_rate_changed(rounding_rate: int);
     callback selected_root_note_changed(index: int);
     callback selected_pitch_table_changed(index: int);
-
-    function get_background_color() -> color {
-        return Palette.color_scheme == ColorScheme.light ? #BDDFCC : #123735;
-    }
 
     public function show_message(message: string, message_type: SlintMessageType) {
         message_text.text = message;
