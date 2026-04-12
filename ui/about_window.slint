@@ -1,5 +1,5 @@
 import { ButtonAction, FilledButton, MagicText, MagicWindow } from "@vivi/magic.slint";
-import { Palette } from "std-widgets.slint";
+import { Palette, VerticalBox, } from "std-widgets.slint";
 import { Globals } from "globals.slint";
 import { Catppuccin, } from "styling.slint";
 
@@ -10,8 +10,10 @@ export component AboutWindow inherits MagicWindow {
     }
     background: Globals.window_background;
     title: window_title;
-    preferred-width: 800px;
-    preferred-height: 320px;
+    min-width: 795px;
+    max-width: root.min-width;
+    min-height: 335px;
+    max-height: root.min-height;
     icon: Globals.icon;
 
     in property <string> window_title;
@@ -34,11 +36,11 @@ export component AboutWindow inherits MagicWindow {
         }
 
         VerticalLayout {
-            padding: 16px;
-            spacing: 16px;
+            padding: 20px;
+            spacing: 10px;
 
             HorizontalLayout {
-                spacing: 20px;
+                spacing: 10px;
 
                 Image {
                     source: Globals.icon;
@@ -49,39 +51,53 @@ export component AboutWindow inherits MagicWindow {
 
                 VerticalLayout {
                     alignment: center;
-                    spacing: 8px;
 
-                    MagicText {
-                        text: root.app_title;
-                        font-size: 32px;
+                    VerticalBox {
+                        MagicText {
+                            text: root.app_title;
+                            font-size: 32px;
+                            horizontal_alignment: left;
+                        }
                     }
 
-                    MagicText {
-                        text: "Version " + root.version;
+                    VerticalBox {
+                        MagicText {
+                            text: "Version " + root.version;
+                            horizontal_alignment: left;
+                        }
                     }
 
-                    MagicText {
-                        text: root.copyright;
+                    VerticalBox {
+                        MagicText {
+                            text: root.copyright;
+                            horizontal_alignment: left;
+                        }
                     }
 
                     TouchArea {
                         mouse-cursor: pointer;
                         clicked => { root.open_project_link(); }
 
-                        MagicText {
-                            text: root.project_link;
-                            color: Catppuccin.macchiato.blue;
+                        VerticalBox {
+                            MagicText {
+                                text: root.project_link;
+                                color: Catppuccin.macchiato.blue;
+                                horizontal_alignment: left;
+                            }
                         }
                     }
 
-                    MagicText {
-                        text: "Licence: " + root.license;
+                    VerticalBox {
+                        MagicText {
+                            text: "Licence: " + root.license;
+                            horizontal_alignment: left;
+                        }
                     }
                 }
             }
 
             HorizontalLayout {
-                alignment: start;
+                alignment: end;
 
                 FilledButton {
                     text: "Close";
