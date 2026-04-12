@@ -1,7 +1,15 @@
+[workspace]
+members = ["app_info"]
+resolver = "2"
+
+[workspace.package]
+version = "0.13.0"
+description = "Pitchgrid-Continuum Bridge"
+
 [package]
 name = "pitchgrid_continuum"
-description = "Pitchgrid-Continuum Bridge"
-version = "0.13.0"
+version.workspace = true
+description.workspace = true
 authors = ["Simon O'Rorke"]
 license = "MIT OR Apache-2.0"
 edition = "2024"
@@ -10,6 +18,7 @@ build = "build.rs"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+app_info = { path = "app_info" }
 cxx = "1.0.194"
 directories = "6.0.0"
 rosc = "0.11.4"
@@ -22,14 +31,11 @@ serde = "1.0.228"
 toml = "1.0.0"
 slint = "1.14.1"
 
-[package.metadata]
-copyright = "Copyright © 2026 Simon O'Rorke"
-
 [build-dependencies]
+app_info = { path = "app_info" }
 cxx-build = "1.0.194"
 slint-build = "1.15.1"
 vivi_ui = "0.2.0"
-toml = "1.0.0"
 
 [target.'cfg(windows)'.build-dependencies]
 # Using embed-resource instead of the more popular winres

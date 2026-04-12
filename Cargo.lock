@@ -240,6 +240,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a23eb6b1614318a8071c9b2521f36b424b2c83db5eb3a0fead4a6c0809af6e61"
 
 [[package]]
+name = "app_info"
+version = "0.13.0"
+
+[[package]]
 name = "arbitrary"
 version = "1.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3708,6 +3712,7 @@ dependencies = [
 name = "pitchgrid_continuum"
 version = "0.13.0"
 dependencies = [
+ "app_info",
  "cxx",
  "cxx-build",
  "directories",

@@ -30,19 +30,9 @@ fn main() {
         // Generate a manifest to specify the application icon and the exe file properties.
         let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
         let out_dir = std::env::var("OUT_DIR").unwrap();
-        // There's no standard place in Cargo.toml for the copyright string, so put it in the
-        // Cargo.toml, from where the build script needs to parse it.
-        let cargo_toml_str = std::fs::read_to_string(
-            std::path::Path::new(&manifest_dir).join("Cargo.toml")
-        ).unwrap();
-        let cargo_toml: toml::Value = toml::from_str(&cargo_toml_str).unwrap();
-        let copyright = cargo_toml["package"]["metadata"]["copyright"]
-            .as_str().unwrap();
-        // Version and product name are taken from the version and description properties of
-        // Cargo.toml's package section. The same version will be used for FileVersion and
-        // ProductVersion in the exe file properties.
-        let version = std::env::var("CARGO_PKG_VERSION").unwrap();
-        let description = std::env::var("CARGO_PKG_DESCRIPTION").unwrap();
+        let version = app_info::VERSION;
+        let description = app_info::APP_TITLE;
+        let copyright = app_info::COPYRIGHT;
         let parts: Vec<u64> = version.split('.')
             .map(|s| s.parse().unwrap_or(0))
             .collect();

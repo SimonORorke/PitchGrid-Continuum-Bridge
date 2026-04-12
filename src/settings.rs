@@ -1,7 +1,7 @@
 ﻿use std::error::Error;
 use std::fs;
 use serde::{Serialize, Deserialize};
-use crate::global::APP_TITLE;
+use app_info::APP_TITLE;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Settings {
