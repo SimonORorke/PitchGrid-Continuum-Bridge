@@ -60,6 +60,18 @@ fn init_ui_handlers(main_window: &MainWindow, controller: SharedController) {
         main_window.on_show_about_window(move || {
             let dialog = AboutWindow::new().unwrap();
             dialog.set_window_title(format!("About {}", APP_TITLE).into());
+            dialog.set_app_title(APP_TITLE.into());
+            dialog.set_version(VERSION.into());
+            dialog.set_copyright(COPYRIGHT.into());
+            dialog.set_license(LICENSE.into());
+            dialog.set_project_link(PROJECT_LINK.into());
+            dialog.on_open_project_link(|| {
+                open::that(PROJECT_LINK).unwrap();
+            });
+            dialog.on_close_window({
+                let dialog_weak = dialog.as_weak();
+                move || { dialog_weak.unwrap().hide().unwrap(); }
+            });
             dialog.show().unwrap();
             *about_window.borrow_mut() = Some(dialog);
         });
@@ -184,6 +196,7 @@ fn set_pitch_tables_model(main_window: &MainWindow) {
 }
 
 const DOCUMENTATION_LINK: &str = "https://github.com/SimonORorke/PitchGrid-Continuum-Bridge/blob/main/README.md";
+const PROJECT_LINK: &str = "https://github.com/SimonORorke/PitchGrid-Continuum-Bridge";
 
 #[cfg(target_os = "macos")]
 fn set_macos_app_icon() {

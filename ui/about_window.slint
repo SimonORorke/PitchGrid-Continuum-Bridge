@@ -1,9 +1,12 @@
-﻿import { MagicWindow } from "@vivi/magic.slint";
+import { MagicWindow } from "@vivi/magic.slint";
+import { Button, Palette } from "std-widgets.slint";
 import { Globals } from "globals.slint";
-import { Palette, } from "std-widgets.slint";
 
 export component AboutWindow inherits MagicWindow {
-    init => { Palette.color-scheme = ColorScheme.dark; }
+    init => {
+        Palette.color-scheme = ColorScheme.dark;
+        close_scope.focus();
+    }
     background: Globals.window_background;
     title: window_title;
     preferred-width: 800px;
@@ -11,4 +14,88 @@ export component AboutWindow inherits MagicWindow {
     icon: Globals.icon;
 
     in property <string> window_title;
+    in property <string> app_title;
+    in property <string> version;
+    in property <string> copyright;
+    in property <string> license;
+    in property <string> project_link;
+
+    callback open_project_link();
+    callback close_window();
+
+    close_scope := FocusScope {
+        key-pressed(event) => {
+            if (event.text == Key.Escape || event.text == Key.Return) {
+                root.close_window();
+                return EventResult.accept;
+            }
+            EventResult.reject
+        }
+
+        VerticalLayout {
+            padding: 16px;
+            spacing: 16px;
+
+            HorizontalLayout {
+                spacing: 20px;
+
+                Image {
+                    source: Globals.icon;
+                    width: 260px;
+                    height: 260px;
+                    image-fit: contain;
+                }
+
+                VerticalLayout {
+                    alignment: center;
+                    spacing: 8px;
+
+                    Text {
+                        text: root.app_title;
+                        font-size: 32px;
+                        color: #ffffff;
+                    }
+
+                    Text {
+                        text: "Version " + root.version;
+                        font-size: 16px;
+                        color: #ffffff;
+                    }
+
+                    Text {
+                        text: root.copyright;
+                        font-size: 16px;
+                        color: #ffffff;
+                    }
+
+                    TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => { root.open_project_link(); }
+
+                        Text {
+                            text: root.project_link;
+                            font-size: 16px;
+                            color: #5599ff;
+                        }
+                    }
+
+                    Text {
+                        text: "Licence: " + root.license;
+                        font-size: 16px;
+                        color: #ffffff;
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                alignment: start;
+
+                Button {
+                    text: "Close";
+                    width: Globals.button_width;
+                    clicked => { root.close_window(); }
+                }
+            }
+        }
+    }
 }
