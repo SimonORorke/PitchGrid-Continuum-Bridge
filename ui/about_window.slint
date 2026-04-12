@@ -10,10 +10,14 @@ export component AboutWindow inherits MagicWindow {
     }
     background: Globals.window_background;
     title: window_title;
-    min-width: 795px;
-    max-width: root.min-width;
-    min-height: 335px;
-    max-height: root.min-height;
+    preferred-width: 795px;
+    preferred-height: 335px;
+    // This is a way to make a fixed-size window.
+    // But it does not stop the contents expanding and contracting.
+    //    min-width: 795px;
+    //    max-width: root.min-width;
+    //    min-height: 335px;
+    //    max-height: root.min-height;
     icon: Globals.icon;
 
     in property <string> window_title;
