@@ -1,6 +1,7 @@
-import { MagicWindow } from "@vivi/magic.slint";
-import { Button, Palette } from "std-widgets.slint";
+import { ButtonAction, FilledButton, MagicText, MagicWindow } from "@vivi/magic.slint";
+import { Palette } from "std-widgets.slint";
 import { Globals } from "globals.slint";
+import { Catppuccin, } from "styling.slint";
 
 export component AboutWindow inherits MagicWindow {
     init => {
@@ -50,39 +51,31 @@ export component AboutWindow inherits MagicWindow {
                     alignment: center;
                     spacing: 8px;
 
-                    Text {
+                    MagicText {
                         text: root.app_title;
                         font-size: 32px;
-                        color: #ffffff;
                     }
 
-                    Text {
+                    MagicText {
                         text: "Version " + root.version;
-                        font-size: 16px;
-                        color: #ffffff;
                     }
 
-                    Text {
+                    MagicText {
                         text: root.copyright;
-                        font-size: 16px;
-                        color: #ffffff;
                     }
 
                     TouchArea {
                         mouse-cursor: pointer;
                         clicked => { root.open_project_link(); }
 
-                        Text {
+                        MagicText {
                             text: root.project_link;
-                            font-size: 16px;
-                            color: #5599ff;
+                            color: Catppuccin.macchiato.blue;
                         }
                     }
 
-                    Text {
+                    MagicText {
                         text: "Licence: " + root.license;
-                        font-size: 16px;
-                        color: #ffffff;
                     }
                 }
             }
@@ -90,9 +83,11 @@ export component AboutWindow inherits MagicWindow {
             HorizontalLayout {
                 alignment: start;
 
-                Button {
+                FilledButton {
                     text: "Close";
+                    height: Globals.control_height;
                     width: Globals.button_width;
+                    action: ButtonAction.primary;
                     clicked => { root.close_window(); }
                 }
             }
