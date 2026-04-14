@@ -20,7 +20,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use slint::{CloseRequestResponse};
 use open;
 use controller::{Controller};
-use app_info::{APP_TITLE, COPYRIGHT, LICENSE, VERSION};
+use app_info::{APP_TITLE, COPYRIGHT, DOCUMENTATION_LINK, LICENSE, PROJECT_LINK, VERSION};
 use port_strategy::{
     InputStrategy, OutputStrategy, PortStrategy};
 use ui_methods::UiMethods;
@@ -194,9 +194,6 @@ fn set_pitch_tables_model(main_window: &MainWindow) {
     let model = Rc::new(ComboBoxModel(pitch_table_items));
     main_window.set_pitch_tables_model(slint::ModelRc::from(model));
 }
-
-const DOCUMENTATION_LINK: &str = "https://github.com/SimonORorke/PitchGrid-Continuum-Bridge/blob/main/README.md";
-const PROJECT_LINK: &str = "https://github.com/SimonORorke/PitchGrid-Continuum-Bridge";
 
 #[cfg(target_os = "macos")]
 fn set_macos_app_icon() {

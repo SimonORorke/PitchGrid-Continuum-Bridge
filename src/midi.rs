@@ -547,6 +547,8 @@ impl Midi {
                                 // specific presets, the instrument will send back a cc51 message
                                 // with value 0 instead of the pitch table no we requested.
                                 // So we can omit checking the pitch table no here.
+                                // Haken Audio Incident 2335
+                                // https://github.com/SimonORorke/PitchGrid-Continuum-Bridge/issues/5
                                 println!("midi.on_message_received: Preset's pitch table \
                                         update confirmed, pitch table no: {}", pitch_table_no);
                                 *tuning_status().lock().unwrap() = TuningStatus::None;
