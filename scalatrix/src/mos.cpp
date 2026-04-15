@@ -14,8 +14,18 @@
 
 namespace scalatrix {
 
+/*
+ * Nudge a generator away from exact rational values (0.5, 1/n, etc.)
+ * that cause degenerate lattices. These arise from user entry of exact
+ * values and implicit rounding. The 1e-6 offset is inaudible but
+ * prevents singular affine transforms in scale generation.
+ */
+static double sanitize_generator(double g) {
+    return g + (g < 0.5 ? 1e-6 : -1e-6);
+}
 
 MOS::MOS(int a, int b, int m, double e, double g) {
+    this->structure_generator = g;
     adjustParams(a, b, m, e, g);
 }
 
@@ -39,7 +49,7 @@ double MOS::angleStd() const {
 
 double MOS::angle() const {
     double angle = angleStd();
-    for (int d = 0; d < path.size(); d++) {
+    for (size_t d = 0; d < path.size(); d++) {
         if (path[d]) {
             angle = atan2(tan(angle)-1, 1);
         }else{
@@ -96,8 +106,8 @@ Vector2i applyPathReverse(const std::vector<bool> path, const Vector2i& v) {
 }
 
 
-MOS MOS::fromParams(int a, int b, int m, double e, double g){
-    return MOS(a, b, m, e, g);
+MOS MOS::fromParams(int a, int b, int m, double e, double g, int repetitions){
+    return MOS(a * repetitions, b * repetitions, m, e, g);
 }
 
 void MOS::updateVectors(){
@@ -124,11 +134,32 @@ void MOS::updateVectors(){
     this->chroma_fr = this->L_fr - this->s_fr;
 }
 
-double MOS::coordToFreq(double x, double y, double base_freq){
-    return base_freq * std::exp2((this->impliedAffine * Vector2d(x,y)).x);
+void MOS::updateStructureVectors(){
+    Vector2i v1 = {1, 0};
+    Vector2i v2 = {0, 1};
+    double v1_fr = this->structureImpliedAffine.apply(v1).x;
+    double v2_fr = this->structureImpliedAffine.apply(v2).x;
+    if (v1_fr > v2_fr) {
+        this->structure_L_vec = v1;
+        this->structure_s_vec = v2;
+    } else {
+        this->structure_L_vec = v2;
+        this->structure_s_vec = v1;
+    }
+    this->structure_chroma_vec = this->structure_L_vec - this->structure_s_vec;
 }
 
-void MOS::adjustParams(int a, int b, int m, double e, double g){
+double MOS::pitchHeight(double x, double y){
+    return (this->impliedAffine * Vector2d(x,y)).x;
+}
+
+double MOS::coordToFreq(double x, double y, double base_freq){
+    return base_freq * std::exp2(pitchHeight(x, y));
+}
+
+void MOS::adjustParams(int a, int b, int m, double e, double g, int repetitions){
+    a *= repetitions;
+    b *= repetitions;
     assert(a > 0);
     assert(b > 0);
     assert(0.0 <= g && g <= 1.0);
@@ -159,8 +190,9 @@ void MOS::adjustParams(int a, int b, int m, double e, double g){
 
     this->updateVectors();
 
+    this->structureImpliedAffine = calcStructureImpliedAffine();
+    this->updateStructureVectors();
     this->base_scale = Scale::fromAffine(this->impliedAffine, 1.0, n+1, 0);
-
 
     this->mosTransform = IntegerAffineTransform::linearFromTwoDots(
         {1, 0}, {1, 1},
@@ -168,11 +200,14 @@ void MOS::adjustParams(int a, int b, int m, double e, double g){
     );
 }
 
+
 void MOS::adjustG(int depth, int m, double g, double e, int _repetitions){
+    this->structure_generator = g;
+    double sg = sanitize_generator(g);
     int a0 = 1;
     int b0 = 1;
-    double a_len = g;
-    double b_len = 1.0 - g;
+    double a_len = sg;
+    double b_len = 1.0 - sg;
     for (int i = 0; i < depth; i++) {
         if (a_len > b_len) {
             b0+=a0;
@@ -182,14 +217,35 @@ void MOS::adjustG(int depth, int m, double g, double e, int _repetitions){
             b_len -= a_len;
         }
     }
-    this->adjustParams(a0*_repetitions, b0*_repetitions, m, e, g);
+    this->adjustParams(a0, b0, m, e, g, _repetitions);
+}
+
+void MOS::adjustTuningG(int depth, int m, double g, double e, int _repetitions){
+    // Tree walk uses frozen structure_generator to determine (a,b)
+    double sg = sanitize_generator(this->structure_generator);
+    int a0 = 1;
+    int b0 = 1;
+    double a_len = sg;
+    double b_len = 1.0 - sg;
+    for (int i = 0; i < depth; i++) {
+        if (a_len > b_len) {
+            b0+=a0;
+            a_len -= b_len;
+        } else {
+            a0+=b0;
+            b_len -= a_len;
+        }
+    }
+    // Only tuning generator changes; structure_generator stays frozen
+    this->adjustParams(a0, b0, m, e, g, _repetitions);
 }
 
 MOS MOS::fromG(int depth, int m, double g, double e, int repetitions){
+    double sg = sanitize_generator(g);
     int a0 = 1;
     int b0 = 1;
-    double a_len = g;
-    double b_len = 1.0 - g;
+    double a_len = sg;
+    double b_len = 1.0 - sg;
     for (int i = 0; i < depth; i++) {
         if (a_len > b_len) {
             b0+=a0;
@@ -207,7 +263,7 @@ double MOS::gFromAngle(double angle){
     std::reverse(reversed_path.begin(), reversed_path.end());
 
     double angle_ = angle;
-    for (int d = 0; d < reversed_path.size(); d++) {
+    for (size_t d = 0; d < reversed_path.size(); d++) {
         if (reversed_path[d]) {
             angle_ = atan2(tan(angle_)+1, 1);
         }else{
@@ -238,6 +294,14 @@ AffineTransform MOS::calcImpliedAffine() const {
     return affineFromThreeDots(
         {0,0}, {(double)v_gen.x, (double)v_gen.y}, {(double)a0,(double)b0},
         {0,q*(2*mode+1)}, {generator * period, q*(2*mode+3)}, {period, q*(2*mode+1)}
+    );
+};
+
+AffineTransform MOS::calcStructureImpliedAffine() const {
+    double q = 0.5/n0;
+    return affineFromThreeDots(
+        {0,0}, {(double)v_gen.x, (double)v_gen.y}, {(double)a0,(double)b0},
+        {0,q*(2*mode+1)}, {structure_generator * period, q*(2*mode+3)}, {period, q*(2*mode+1)}
     );
 };
 
@@ -289,6 +353,25 @@ void MOS::retuneThreePoints(Vector2i fixed1, Vector2i fixed2, Vector2i v, double
     _recalcOnRetuneUsingAffine(A);
 };
 
+Scale MOS::generateMappedScale(int steps, double offset, double base_freq, int n_nodes, int root) const {
+    // Use structureImpliedAffine for node selection (which notes land in the strip)
+    double mos_offset = (offset + 0.5) / steps;
+    double mos_scale_factor = static_cast<double>(n) / steps;
+    AffineTransform stretched_t(1, 0, 0, mos_scale_factor, 0, 0);
+    AffineTransform squeezed_t = stretched_t * structureImpliedAffine;
+    squeezed_t.ty = mos_offset;
+    Scale scale = Scale::fromAffine(squeezed_t, base_freq, n_nodes, root);
+
+    // Retune pitches using impliedAffine (tuning generator), but preserve
+    // strip y-coordinate from squeezed_t (which includes modeOffset)
+    for (auto& node : scale.getNodes()) {
+        node.tuning_coord.x = (impliedAffine * node.natural_coord).x;
+        node.pitch = base_freq * std::exp2(node.tuning_coord.x);
+    }
+
+    return scale;
+}
+
 Scale MOS::generateScaleFromMOS(double base_freq, int n_nodes, int root){
     Scale scale = Scale(base_freq, n_nodes, root);
     for (int i=-root; i<n_nodes-root; i++){
@@ -309,7 +392,7 @@ Scale MOS::generateScaleFromMOS(double base_freq, int n_nodes, int root){
 void MOS::retuneScaleWithMOS(Scale& scale, double base_freq){
     //int n_nodes = scale.getNodes().size();
     int root_idx = scale.getRootIdx();
-    for (int i = 0; i < scale.getNodes().size(); i++) {
+    for (int i = 0; i < static_cast<int>(scale.getNodes().size()); i++) {
         int idx = (i - root_idx + 128*n) % n;
         int octave_nr = (i - root_idx + 128*n) / n - 128;
         Node& ref = this->base_scale.getNodes()[idx];
@@ -338,10 +421,10 @@ bool MOS::nodeInScale(Vector2i v) const{
 }
 
 int MOS::nodeAccidental(Vector2i v) const {
-    // Calculate accidental count from MOS coordinates
+    // Calculate accidental count from MOS coordinates (structure-based)
     // Positive = sharp direction, Negative = flat direction
-    int acc_sign = L_vec.x == 1 ? 1 : -1;
-    int neutral_mode = L_vec.x == 1 ? 1 : n0 - 2;
+    int acc_sign = structure_L_vec.x == 1 ? 1 : -1;
+    int neutral_mode = structure_L_vec.x == 1 ? 1 : n0 - 2;
     int n_generators = v.x * b0 - v.y * a0;
     int acc = acc_sign * (int)floor((n_generators + neutral_mode + 0.5) / n0);
     return acc;
@@ -366,11 +449,11 @@ Vector2i MOS::mosCoordFromNotation(int step, int alter, int octave) const {
     int result_y = natural_coord.y + b0 * octave;
     
     // Add accidental offset (chroma_vec * alter)
-    // Note: for bright generators (L_vec.x == 1), sharps go in +chroma direction
-    //       for dark generators (L_vec.x == 0), sharps go in -chroma direction
-    int chroma_multiplier = (L_vec.x == 1) ? alter : -alter;
-    result_x += chroma_vec.x * chroma_multiplier;
-    result_y += chroma_vec.y * chroma_multiplier;
+    // Note: for bright generators (structure_L_vec.x == 1), sharps go in +chroma direction
+    //       for dark generators (structure_L_vec.x == 0), sharps go in -chroma direction
+    int chroma_multiplier = (structure_L_vec.x == 1) ? alter : -alter;
+    result_x += structure_chroma_vec.x * chroma_multiplier;
+    result_y += structure_chroma_vec.y * chroma_multiplier;
     
     return Vector2i(result_x, result_y);
 }

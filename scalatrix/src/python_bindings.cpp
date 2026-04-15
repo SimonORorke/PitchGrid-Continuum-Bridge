@@ -124,14 +124,22 @@ PYBIND11_MODULE(scalatrix, m) {
         .def_readwrite("equave", &MOS::equave)
         .def_readwrite("period", &MOS::period)
         .def_readwrite("generator", &MOS::generator)
+        .def_readwrite("structure_generator", &MOS::structure_generator)
         .def_readwrite("path", &MOS::path)
         .def_readwrite("impliedAffine", &MOS::impliedAffine)
         .def_readwrite("mosTransform", &MOS::mosTransform)
         .def_readwrite("v_gen", &MOS::v_gen)
         .def_readwrite("base_scale", &MOS::base_scale)
-        .def_static("fromParams", &MOS::fromParams)
-        .def_static("fromG", &MOS::fromG)
+        .def_static("fromParams", &MOS::fromParams,
+            py::arg("a"), py::arg("b"), py::arg("m"), py::arg("e"), py::arg("g"), py::arg("repetitions") = 1)
+        .def_static("fromG", &MOS::fromG,
+            py::arg("depth"), py::arg("m"), py::arg("g"), py::arg("e"), py::arg("repetitions") = 1)
+        .def("adjustG", &MOS::adjustG)
+        .def("adjustTuningG", &MOS::adjustTuningG)
         .def("adjustParams", &MOS::adjustParams)
+
+        .def("pitchHeight", &MOS::pitchHeight)
+        .def("coordToFreq", &MOS::coordToFreq)
         .def("angle", &MOS::angle)
         .def("angleStd", &MOS::angleStd)
         .def("calcImpliedAffine", &MOS::calcImpliedAffine)
@@ -144,8 +152,11 @@ PYBIND11_MODULE(scalatrix, m) {
         .def("retuneTwoPoints", &MOS::retuneTwoPoints)
         .def("retuneThreePoints", &MOS::retuneThreePoints)
         .def("generateScaleFromMOS", &MOS::generateScaleFromMOS)
+        .def("generateMappedScale", &MOS::generateMappedScale)
         .def("retuneScaleWithMOS", &MOS::retuneScaleWithMOS)
         .def("mapFromMOS", &MOS::mapFromMOS)
+        .def("toRootCoord", &MOS::toRootCoord)
+        .def("fromRootCoord", &MOS::fromRootCoord)
         .def("nodeInScale", &MOS::nodeInScale)
         .def("nodeEquaveNr", &MOS::nodeEquaveNr)
         .def("nodeScaleDegree", &MOS::nodeScaleDegree)
@@ -179,4 +190,58 @@ PYBIND11_MODULE(scalatrix, m) {
 
 
     m.def("affineFromThreeDots", &scalatrix::affineFromThreeDots);
+
+    // Spectrum bindings
+    py::class_<Partial>(m, "Partial")
+        .def(py::init<>())
+        .def(py::init([](double r, double a) { return Partial{r, a}; }))
+        .def_readwrite("ratio", &Partial::ratio)
+        .def_readwrite("amplitude", &Partial::amplitude);
+
+    py::class_<Spectrum>(m, "Spectrum")
+        .def(py::init<>())
+        .def_readwrite("partials", &Spectrum::partials)
+        .def_static("harmonic", &Spectrum::harmonic,
+            py::arg("n_partials"), py::arg("decay") = 0.88)
+        .def_static("oddHarmonic", &Spectrum::oddHarmonic,
+            py::arg("max_harmonic"), py::arg("decay") = 0.88)
+        .def_static("pseudoharmonic", &Spectrum::pseudoharmonic,
+            py::arg("n_partials"), py::arg("decay") = 0.88,
+            py::arg("prime_cents") = std::map<int, double>{{2, 1200.0}, {3, 1900.0}, {5, 2800.0}});
+
+    // Consonance bindings
+    py::class_<PLCurve>(m, "PLCurve")
+        .def_readwrite("cents", &PLCurve::cents)
+        .def_readwrite("pl", &PLCurve::pl);
+
+    py::class_<ConsonanceCurve>(m, "ConsonanceCurve")
+        .def_readwrite("cents", &ConsonanceCurve::cents)
+        .def_readwrite("pl", &ConsonanceCurve::pl)
+        .def_readwrite("hull", &ConsonanceCurve::hull)
+        .def_readwrite("spiky", &ConsonanceCurve::spiky)
+        .def_readwrite("consonance", &ConsonanceCurve::consonance)
+        .def_readwrite("peak", &ConsonanceCurve::peak)
+        .def_readwrite("logBaseline", &ConsonanceCurve::logBaseline);
+
+    py::class_<IntervalConsonance>(m, "IntervalConsonance")
+        .def_readwrite("name", &IntervalConsonance::name)
+        .def_readwrite("cents", &IntervalConsonance::cents)
+        .def_readwrite("consonance", &IntervalConsonance::consonance);
+
+    py::class_<ConsonanceResult>(m, "ConsonanceResult")
+        .def_readwrite("intervals", &ConsonanceResult::intervals)
+        .def_readwrite("mean_consonance", &ConsonanceResult::mean_consonance)
+        .def_readwrite("total_consonance", &ConsonanceResult::total_consonance);
+
+    m.def("computePLCurve", &computePLCurve,
+        py::arg("spectrum"), py::arg("f0"),
+        py::arg("cents_min"), py::arg("cents_max"), py::arg("resolution") = 0.5);
+    m.def("computeConsonanceCurve", &computeConsonanceCurve,
+        py::arg("spectrum"), py::arg("f0"),
+        py::arg("cents_min"), py::arg("cents_max"),
+        py::arg("resolution") = 0.5, py::arg("logBaseline") = 0.5);
+    m.def("analyzeScale", &analyzeScale,
+        py::arg("spectrum"), py::arg("f0"), py::arg("intervals"),
+        py::arg("max_cents") = 2000.0, py::arg("max_interval_cents") = 1950.0,
+        py::arg("logBaseline") = 0.5);
 }

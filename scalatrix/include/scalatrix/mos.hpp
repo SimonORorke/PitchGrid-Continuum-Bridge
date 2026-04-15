@@ -7,6 +7,10 @@
 
 namespace scalatrix {
 
+// Free functions for Stern-Brocot path coordinate conversion
+Vector2i applyPath(const std::vector<bool> path, const Vector2i& v);
+Vector2i applyPathReverse(const std::vector<bool> path, const Vector2i& v);
+
 class MOS {
 public:
 
@@ -16,32 +20,43 @@ public:
     int repetitions, depth;
     double equave; // log2(frequency ratio) of equave (interval of equivalence)
     double period; // log2(frequency ratio) of MOS period
-    double generator;
+    double generator; // tuning generator (used in calcImpliedAffine for frequencies)
+    double structure_generator; // structure generator (used for Stern-Brocot tree walk)
 
+    // Tuning-based vectors (from impliedAffine)
     Vector2i L_vec, s_vec, chroma_vec;
     double L_fr, s_fr, chroma_fr;
 
+    // Structure-based vectors (from structureImpliedAffine) — used for labels
+    Vector2i structure_L_vec, structure_s_vec, structure_chroma_vec;
+
     std::vector<bool> path;
     AffineTransform impliedAffine;
+    AffineTransform structureImpliedAffine;
     IntegerAffineTransform mosTransform;
     Vector2i v_gen;
     Scale base_scale;
 
 
-    static MOS fromParams(int a, int b, int m, double e, double g);
+    static MOS fromParams(int a, int b, int m, double e, double g, int repetitions = 1);
     //static MOS fromImpliedAffine(const AffineTransform& A, int repetitions);
     static MOS fromG(int depth, int m, double g, double e, int repetitions = 1);
     void adjustG(int depth, int m, double g, double e, int repetitions = 1);
-    void adjustParams(int a, int b, int m, double e, double g);
+    void adjustTuningG(int depth, int m, double g, double e, int repetitions = 1);
+    void adjustParams(int a, int b, int m, double e, double g, int repetitions = 1);
+
     //void adjustParamsFromImpliedAffine(const AffineTransform& A);
 
+    double pitchHeight(double x, double y);
     double coordToFreq(double x, double y, double base_freq);
 
     double angle() const;
     double angleStd() const;
 
     AffineTransform calcImpliedAffine() const;
+    AffineTransform calcStructureImpliedAffine() const;
     void updateVectors();
+    void updateStructureVectors();
 
     double gFromAngle(double angle);
 
@@ -59,12 +74,17 @@ public:
     void retuneThreePoints(Vector2i fixed1, Vector2i fixed2, Vector2i v, double log2fr);
 
     Scale generateScaleFromMOS(double base_freq, int n, int root);
+    Scale generateMappedScale(int steps, double offset, double base_freq, int n_nodes, int root) const;
     void retuneScaleWithMOS(Scale& scale, double base_freq);
 
     Vector2i mapFromMOS(MOS& other, Vector2i v);
 
+    // Convert between this MOS's coordinate system and root (1,1) coordinates
+    Vector2i toRootCoord(Vector2i v) const { return applyPathReverse(path, v); }
+    Vector2i fromRootCoord(Vector2i v) const { return applyPath(path, v); }
+
     int nodeEquaveNr(Vector2i v) const {return (v.x + v.y + 256*n) / n - 256;}
-    int nodeScaleDegree(Vector2i v) const {return (v.x * b - v.y * a) % n;}
+    int nodeScaleDegree(Vector2i v) const {return (v.x + v.y + 256*n) % n;}
     bool nodeInScale(Vector2i v) const;
 
     // Accidental count (positive=sharp, negative=flat in bright-generator convention)
