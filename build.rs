@@ -5,12 +5,10 @@ fn main() {
     )
     .unwrap();
     cxx_build::bridge("src/tuner.rs")  // returns a cc::Build
-        // ========================================================================================
-        // pg34 If you add, remove, or rename cpp files in the scalatrix/scv directory,
+        // If you add, remove, or rename cpp files in the scalatrix/src directory,
         // you must also update this, in order for the C++ code to be compiled.
-        // Can any of these by easily identified as unnecessary and removed?
-        // ========================================================================================
         .file("scalatrix/src/affine_transform.cpp")
+        .file("scalatrix/src/consonance.cpp")
         .file("scalatrix/src/label_calculator.cpp")
         .file("scalatrix/src/lattice.cpp")
         .file("scalatrix/src/linear_solver.cpp")
@@ -21,6 +19,7 @@ fn main() {
         .file("scalatrix/src/pitchset.cpp")
         // .file("scalatrix/src/python_bindings.cpp") // Causes compiler error.
         .file("scalatrix/src/scale.cpp")
+        .file("scalatrix/src/spectrum.cpp")
         .include("scalatrix/include")
         .std("c++17")
         .compile("scalatrix");

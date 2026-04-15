@@ -24,14 +24,14 @@
 #include "scalatrix/mos.hpp"
 #include "scalatrix/pitchset.hpp"
 #include "scalatrix/label_calculator.hpp"
+#include "scalatrix/spectrum.hpp"
+#include "scalatrix/consonance.hpp"
 
 #include <memory>
 
-// ========================================================================================
-// pg34 If you add, remove, or modify Rust functions in the C++ to Rust interface defined
-// in mod ff1 in tuner.rs, you must update the corresponding C++ functions here.
-// ========================================================================================
-// Wrapper functions for CXX bridge
+// Wrapper functions for CXX bridge.
+// If you add, remove, or modify Rust functions in the C++ to Rust interface defined
+// in mod ffi in tuner.rs, you must update the corresponding C++ functions here.
 namespace scalatrix {
     inline std::unique_ptr<AffineTransform>  affine_from_three_dots(
             const Vector2d& a1, const Vector2d& a2, const Vector2d& a3,
@@ -63,8 +63,8 @@ namespace scalatrix {
         return std::make_unique<std::vector<Node>>(scale.getNodes());
     }
 
-    inline std::unique_ptr<MOS> mos_from_g(int depth, int m, double g, double e, int repetitions) {
-        return std::make_unique<MOS>(MOS::fromG(depth, m, g, e, repetitions));
+    inline std::unique_ptr<MOS> mos_from_params(int a, int b, int m, double e, double g) {
+        return std::make_unique<MOS>(MOS::fromParams(a, b, m, e, g));
     }
 
     inline std::unique_ptr<Scale> scale_from_affine(

@@ -14,18 +14,16 @@ pub fn init(pitch_table_no: u8) {
         .add_tuning_updated_callback(Box::from(on_tuning_updated));
 }
 
-// ===========================================================================================
-// pg34 Update this documentation as required.
-// ===========================================================================================
 /// Update tuning parameters from the OSC message.
 ///     Args:
-///         depth: MOS depth (generation)
 ///         mode: Mode index
 ///         root_freq: Root pitch in Hz
-///         stretch: Stretch factor
-///         skew: Skew factor
-///         mode_offset: Mode offset
+///         stretch: Equave as log2 frequency ratio (e.g. 1.0 for octave)
+///         skew: Generator as log2 frequency ratio
+///         mode_offset: Mode offset (float)
 ///         steps: Number of steps per period
+///         mos_a: MOS parameter a (count of large steps)
+///         mos_b: MOS parameter b (count of small steps)
 pub fn on_tuning_received(tuning_params: TuningParams) {
     // println!(
     //     "tuner.on_tuning_received: depth = {}; mode = {}; root_freq = {}; stretch = {}; \
@@ -45,15 +43,9 @@ fn tune() {
         let params_clone = params_clone();
         let params = params_clone.lock().unwrap();
         let key_pitches = calculate_key_pitches(TuningParams::new(
-            max(1, params.depth()), params.mode(), params.root_freq(), params.stretch() ,
-            params.skew(), params.mode_offset(), max(1, params.steps())));
-        // ===========================================================================================
-        // pg34 Remove the let above. Uncomment the let below.
-        // ===========================================================================================
-        // let key_pitches = calculate_key_pitches(TuningParams::new(
-        //     params.mode(), params.root_freq(), params.stretch() ,
-        //     params.skew(), params.mode_offset(), max(1, params.steps()),
-        //     params.mos_a(), params.mos_b()));
+            params.mode(), params.root_freq(), params.stretch(),
+            params.skew(), params.mode_offset(), max(1, params.steps()),
+            params.mos_a(), params.mos_b()));
         set_keys(key_pitches.iter().enumerate()
             .map(|(i, pitch)| {
                 Key {
@@ -92,9 +84,6 @@ fn tune() {
 
 /// Calculates and returns the pitch required for each key in the MIDI range,
 /// given the tuning parameters.
-// ===========================================================================================
-// pg34 Update the pitches calculation.
-// ===========================================================================================
 fn calculate_key_pitches(tuning_params: TuningParams) -> Vec<f32> {
     // println!("tuner.calculate_key_pitches");
     let root_freq = {
@@ -114,12 +103,12 @@ fn calculate_key_pitches(tuning_params: TuningParams) -> Vec<f32> {
             pitch
         }
     };
-    let mos = ffi:: mos_from_g(
-        tuning_params.depth(),
+    let mos = ffi::mos_from_params(
+        tuning_params.mos_a(),
+        tuning_params.mos_b(),
         tuning_params.mode(),
-        tuning_params.skew() as f64,
         tuning_params.stretch() as f64,
-        1);
+        tuning_params.skew() as f64);
     let a1 = ffi::vector2d(0.0, 0.0);
     let a2 = ffi::vector2d(
         ffi::get_mos_v_gen_x(&mos) as f64, ffi::get_mos_v_gen_y(&mos) as f64);
@@ -265,25 +254,16 @@ pub fn formatted_tuning_params() -> FormattedTuningParams {
           root_freq_override().lock().unwrap().clone()
       }
     };
-    // ===========================================================================================
-    // pg34 Format the tuning parameters for display.
-    // ===========================================================================================
     FormattedTuningParams {
-        depth: format!("{}", params.depth()),
         root_freq: format!("{} Hz", round(root_freq as f64, 3)),
         // The stretch parameter is in octaves, so we need to multiply by 1200 to get the
         // number of cents to display.
         stretch: format!("{} ct", (params.stretch() * 1200.0).round()),
         skew: format!("{}", round(params.skew() as f64, 5)),
-        // ========================================================================================
-        // pg34 As mode_offset is now a float (f32), decimal places will need to be shown, as with
-        // skew above. How many decimal places should be shown? I had to show more for skew and
-        // root_freq than are shown in PitchGrid. As discussed, I need show as many decimal places
-        // as will allow the tuning as a whole to be uniquely identified by the player,
-        // as the tuning preset name cannot be shown.
-        // ===========================================================================================
-        mode_offset: format!("{}", params.mode_offset()),
+        mode_offset: format!("{}", round(params.mode_offset() as f64, 5)),
         steps: format!("{}", params.steps()),
+        mos_a: format!("{}", params.mos_a()),
+        mos_b: format!("{}", params.mos_b()),
     }
 }
 
@@ -397,15 +377,13 @@ mod ffi {
         type Scale;
         type Vector2d;
 
-        // ========================================================================================
-        // pg34 If you add, remove, or modify any of the functions defined below,
+        // If you add, remove, or modify any of the functions defined below,
         // you must update the corresponding C++ functions defined in scalatrix/scalatrix.hpp.
-        // ========================================================================================
         fn  affine_from_three_dots(
             a1: &Vector2d, a2: &Vector2d, a3: &Vector2d,
             b1: &Vector2d, b2: &Vector2d, b3: &Vector2d) -> UniquePtr<AffineTransform>;
 
-        fn mos_from_g(depth: i32, m: i32, g: f64, e: f64, repetitions: i32) -> UniquePtr<MOS>;
+        fn mos_from_params(a: i32, b: i32, m: i32, e: f64, g: f64) -> UniquePtr<MOS>;
         fn get_mos_a(mos: &MOS) -> i32;
         fn get_mos_b(mos: &MOS) -> i32;
         fn get_mos_v_gen_x(mos: &MOS) -> i32;
@@ -444,8 +422,9 @@ struct Key {
 
 /// The tuning parameters formatted for display.
 pub struct FormattedTuningParams {
-    pub depth: String, pub root_freq: String, pub stretch: String,
+    pub root_freq: String, pub stretch: String,
     pub skew: String, pub mode_offset: String, pub steps: String,
+    pub mos_a: String, pub mos_b: String,
 }
 
 static IS_ALREADY_UPDATING: AtomicBool = AtomicBool::new(false);

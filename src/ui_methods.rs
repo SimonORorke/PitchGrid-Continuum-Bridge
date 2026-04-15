@@ -143,12 +143,8 @@ impl ControllerCallbacks for UiMethods {
         // println!("UiMethods.show_tuning");
         self.with_main_window(move |main_window| {
             let params = tuner::formatted_tuning_params();
-            // ===================================================================================
-            // pg34 If you change the definition of FormattedTuningParams in tuner.rs,
-            // please just comment out any of the following lines that will no longer compile.
-            // I'll sort out the changes to the UI later.
-            // ===================================================================================
-            main_window.set_depth(params.depth.into());
+            // TODO: UI changes needed to display mos_a and mos_b instead of depth.
+            // main_window.set_depth(params.depth.into());
             main_window.set_root_freq(params.root_freq.into());
             main_window.set_stretch(params.stretch.into());
             main_window.set_skew(params.skew.into());
