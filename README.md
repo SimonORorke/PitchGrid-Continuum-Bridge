@@ -21,6 +21,7 @@ PitchGrid-Continuum Bridge has so far only been tested with the Continuum.  But 
 ### Required Software
 
 PitchGrid 0.3.4 or later
+
 Haken Editor
 
 ## Connections
