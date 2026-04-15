@@ -20,7 +20,8 @@ PitchGrid-Continuum Bridge has so far only been tested with the Continuum.  But 
 
 ### Required Software
 
-The current version of PitchGrid-Continuum Bridge works with PitchGrid 0.33.  PCB will need to be updated to support breaking changes expected in the next version of PitchGrid.  Haken Editor is also required.
+PitchGrid 0.3.4 or later
+Haken Editor
 
 ## Connections
 
@@ -79,7 +80,7 @@ Whenever a preset is subsequently loaded on the instrument, PCB will update it w
 <img src="images\Tuning Parameters - PitchGrid.png" alt="Tuning Parameters - PitchGrid" style="zoom: 80%;" />
 <img src="images\Tuning Parameters - PCB.png" alt="Tuning Parameters - PCB" style="zoom: 80%;" />
 
-Once the tuning of the instrument's current preset has been updated in accordance with the tuning parameters received from PitchGrid, PCB displays the applied tuning parameters.  The displayed values may differ from what you can see in PitchGrid in two respects.
+Once the tuning of the instrument's current preset has been updated in accordance with the tuning parameters received from PitchGrid, PCB displays the applied tuning parameters.  Instead of Depth, PCB receives and displays the MOS system's counts of large and small steps, which vary with Depth. The displayed values may differ from what you can see in PitchGrid in two respects.
 
 - More decimal places are shown.  This is because some PitchGrid tunings cannot be distinguished from each other with the number of decimal places currently shown in PitchGrid, and it is not possible to show the tuning preset name in PCB.
 - If a **Root Frequency Override** note is specified in PCB (see below), **Root Freq** will show the overriding note's frequency.

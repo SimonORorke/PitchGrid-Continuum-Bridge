@@ -41,11 +41,11 @@ export component MainWindow inherits MagicWindow {
     icon: Globals.icon;
     forward-focus: root_notes_combo;
 
-    in property depth <=> depth_value.text;
     in property root_freq <=> root_freq_value.text;
     in property stretch <=> stretch_value.text;
     in property skew <=> skew_value.text;
     in property mode_offset <=> mode_offset_value.text;
+    in property mos <=> mos_value.text;
     in property <bool> override_rounding_initial;
     in property <bool> override_rounding_rate;
     in property <int> rounding_rate;
@@ -106,21 +106,21 @@ export component MainWindow inherits MagicWindow {
                 VerticalLayout {
                     HorizontalLayout {
                         alignment: space-between;
-                        ParamName { text: "Depth"; }
                         ParamName { text: "Root Freq"; }
                         ParamName { text: "Stretch"; }
                         ParamName { text: "Skew"; }
                         ParamName { text: "Mode Offset"; }
                         ParamName { text: "Steps"; }
+                        ParamName { text: "MOS"; }
                     }
                     HorizontalLayout {
                         alignment: space-between;
-                        depth_value := ParamValue {}
                         root_freq_value := ParamValue {}
                         stretch_value := ParamValue {}
                         skew_value := ParamValue {}
                         mode_offset_value := ParamValue {}
                         steps_value := ParamValue {}
+                        mos_value := ParamValue {}
                     }
                 }
             }

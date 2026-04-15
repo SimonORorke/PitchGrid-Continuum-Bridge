@@ -143,13 +143,13 @@ impl ControllerCallbacks for UiMethods {
         // println!("UiMethods.show_tuning");
         self.with_main_window(move |main_window| {
             let params = tuner::formatted_tuning_params();
-            // TODO: UI changes needed to display mos_a and mos_b instead of depth.
-            // main_window.set_depth(params.depth.into());
             main_window.set_root_freq(params.root_freq.into());
             main_window.set_stretch(params.stretch.into());
             main_window.set_skew(params.skew.into());
             main_window.set_mode_offset(params.mode_offset.into());
             main_window.set_steps(params.steps.into());
+            let mos = format!("{}L {}s", params.mos_a, params.mos_b);
+            main_window.set_mos(mos.into());
         });
     }
 
