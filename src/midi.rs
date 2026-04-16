@@ -515,8 +515,8 @@ impl Midi {
                     //              channel1, controller, value);
                     // }
                     if controller == 51 { // Grid
-                        let pitch_table_no = u8::from(value);
-                        // println!("midi.on_message_received: Pitch table {}", pitch_table_no);
+                        let pitch_table = u8::from(value);
+                        // println!("midi.on_message_received: Pitch table {}", pitch_table);
                         // A pitch table has been loaded to the instrument's current preset.
                         // This message is received as part of instrument config,
                         // and when a pitch table update sent to the instrument has been
@@ -529,13 +529,13 @@ impl Midi {
                                 // for the tuning this application sent to the instrument.
                                 // When there have been problems at the instrument end,
                                 // it has sent back a ch16 cc51 messages, but with value 0.
-                                if pitch_table_no == tuner::pitch_table_no() {
+                                if pitch_table == tuner::pitch_table() {
                                     // The editor sends us back what we send to the instrument,
                                     // as well as what the instrument sends back to us.
                                     // So we have just requested that the current preset be updated
                                     // with the new pitch table.
                                     println!("midi.on_message_received: Preset's pitch table \
-                                        update requested, pitch table no: {}", pitch_table_no);
+                                        update requested, pitch table no: {}", pitch_table);
                                     *tuning_status().lock().unwrap() =
                                         TuningStatus::RequestedPresetUpdate;
                                 }
@@ -550,7 +550,7 @@ impl Midi {
                                 // https://github.com/SimonORorke/PitchGrid-Continuum-Bridge/issues/5
                                 // So we can omit checking the pitch table no here.
                                 println!("midi.on_message_received: Preset's pitch table \
-                                        update confirmed, pitch table no: {}", pitch_table_no);
+                                        update confirmed, pitch table no: {}", pitch_table);
                                 *tuning_status().lock().unwrap() = TuningStatus::None;
                                 Self::call_back(tuning_updated_callbacks().clone());
                             }

@@ -32,7 +32,7 @@ impl Osc {
     pub fn listening_port() -> u16 { LISTENING_PORT.load(Ordering::Relaxed) }
 
     pub fn listening_port_index() -> usize {
-        // Return the index of the PITCH_TABLE_NOS item that equals listening_port.
+        // Return the index of the PITCH_TABLES item that equals listening_port.
         Self::listening_ports().iter().position(|&x| x ==
             Self::listening_port()).unwrap_or(0)
     }

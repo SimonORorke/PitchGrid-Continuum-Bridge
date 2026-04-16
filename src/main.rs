@@ -156,7 +156,7 @@ fn init_ui_handlers(main_window: &MainWindow, controller: SharedController) {
         main_window.on_selected_pitch_table_changed(move |index| {
             let controller = controller.clone();
             rayon::spawn(move || {
-                controller.lock().unwrap().set_pitch_table_no(index as usize);
+                controller.lock().unwrap().set_pitch_table(index as usize);
             });
         });
     }
@@ -207,7 +207,7 @@ fn set_osc_listening_ports_model(main_window: &MainWindow) {
 }
 
 fn set_pitch_tables_model(main_window: &MainWindow) {
-    let pitch_table_items: Vec<ComboBoxItem> = tuner::pitch_table_nos()
+    let pitch_table_items: Vec<ComboBoxItem> = tuner::pitch_tables()
         .iter()
         .map(|grid_no| ComboBoxItem { text: grid_no.to_string().into() })
         .collect();

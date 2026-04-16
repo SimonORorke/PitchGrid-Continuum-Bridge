@@ -1,5 +1,4 @@
-﻿use std::cmp::max;
-use std::error::Error;
+﻿use std::error::Error;
 use std::sync::{Arc, Mutex, OnceLock};
 use crate::global::{MessageType, PortType, SharedMidi};
 use crate::osc::{Osc, OscCallbacks};
@@ -33,7 +32,7 @@ impl Controller {
     pub fn init(&mut self) {
         // println!("Controller.init");
         let osc_listening_port: u16;
-        let pitch_table_no: u8;
+        let pitch_table: u8;
         let input_device_name: String;
         let output_device_name: String;
         let override_rounding_initial: bool;
@@ -51,7 +50,13 @@ impl Controller {
                         Osc::default_listening_port()
                     }
                 };
-                pitch_table_no = max(tuner::default_pitch_table_no(), self.settings.pitch_table);
+                pitch_table = {
+                    if tuner::pitch_tables().contains(&self.settings.pitch_table) {
+                        self.settings.pitch_table
+                    } else {
+                        tuner::default_pitch_table()
+                    }
+                };
                 override_rounding_initial = self.settings.override_rounding_initial;
                 override_rounding_rate = self.settings.override_rounding_rate;
                 rounding_rate = self.settings.rounding_rate;
@@ -113,7 +118,7 @@ impl Controller {
         Osc::set_listening_port(osc_listening_port);
         self.callbacks.set_selected_osc_listening_port_index(Osc::listening_port_index() as i32);
         // println!("Controller.init: Configuring tuner");
-        tuner::init(pitch_table_no);
+        tuner::init(pitch_table);
         self.callbacks.set_selected_pitch_table_index(tuner::pitch_table_index() as i32);
         tuner::set_override_rounding_initial(override_rounding_initial);
         tuner::set_override_rounding_rate(override_rounding_rate);
@@ -300,10 +305,10 @@ impl Controller {
         self.settings.osc_listening_port = osc_listening_port;
     }
 
-    pub fn set_pitch_table_no(&mut self, index: usize) {
-        let pitch_table_no = tuner::pitch_table_nos()[index];
-        tuner::set_pitch_table_no(pitch_table_no);
-        self.settings.pitch_table = pitch_table_no;
+    pub fn set_pitch_table(&mut self, index: usize) {
+        let pitch_table = tuner::pitch_tables()[index];
+        tuner::set_pitch_table(pitch_table);
+        self.settings.pitch_table = pitch_table;
     }
 
     fn on_init_data_download_completed(&mut self) {

@@ -7,9 +7,9 @@ use crate::{midi_static};
 use crate::midi::Midi;
 use crate::tuning_params::{TuningParams,};
 
-pub fn init(pitch_table_no: u8) {
-    PITCH_TABLE_NO.store(pitch_table_no, Ordering::Relaxed);
-    tuner_refs::pitch_table_nos();
+pub fn init(pitch_table: u8) {
+    PITCH_TABLE.store(pitch_table, Ordering::Relaxed);
+    tuner_refs::pitch_tables();
     midi_static::midi_clone().lock().unwrap()
         .add_tuning_updated_callback(Box::from(on_tuning_updated));
 }
@@ -153,7 +153,7 @@ fn send_tuning() {
     calculate_offsets(&mut keys);
     Midi::on_updating_tuning();
     send_rounding_params();
-    send_pitch_table(pitch_table_no(), &keys);
+    send_pitch_table(pitch_table(), &keys);
 }
 
 /// Sets the to_number field of each Key in TUNER_DATA.keys to
@@ -215,10 +215,10 @@ fn calculate_offsets(keys: &mut Vec<Key>) {
     }
 }
 
-fn send_pitch_table(pitch_table_no: u8, keys: &Vec<Key>) {
+fn send_pitch_table(pitch_table: u8, keys: &Vec<Key>) {
     // println!("tuner.send_pitch_table_to_instrument");
     // Select pitch table to update.
-    Midi::send_control_change(16, 109, pitch_table_no);
+    Midi::send_control_change(16, 109, pitch_table);
     // Tuning for each MIDI key
     for key in keys {
         // Base/From MIDI key
@@ -237,7 +237,7 @@ fn send_pitch_table(pitch_table_no: u8, keys: &Vec<Key>) {
     // Save pitch table on instrument.
     Midi::send_control_change(16, 109, 101);
     // Set active pitch table for performance.
-    Midi::send_control_change(16, 51, pitch_table_no); // Grid
+    Midi::send_control_change(16, 51, pitch_table); // Grid
 }
 
 /// The tuning parameters formatted for display.
@@ -298,11 +298,11 @@ pub fn set_rounding_rate(rate: u8) {
     ROUNDING_RATE.store(rate, Ordering::Relaxed);
 }
 
-pub fn set_pitch_table_no(pitch_table_no: u8) {
-    PITCH_TABLE_NO.store(pitch_table_no, Ordering::Relaxed);
+pub fn set_pitch_table(pitch_table: u8) {
+    PITCH_TABLE.store(pitch_table, Ordering::Relaxed);
 }
 
-pub fn default_pitch_table_no() -> u8 { 80 }
+pub fn default_pitch_table() -> u8 { 80 }
 
 fn on_tuning_updated() {
     // println!("tuner.on_tuning_updated");
@@ -349,16 +349,16 @@ fn send_rounding_params() {
 }
 
 pub fn pitch_table_index() -> usize {
-    // Return the index of the PITCH_TABLE_NOS item that equals pitch_table_no.
-    pitch_table_nos().iter().position(|&x| x == pitch_table_no()).unwrap_or(0)
+    // Return the index of the PITCH_TABLES item that equals pitch_table.
+    pitch_tables().iter().position(|&x| x == pitch_table()).unwrap_or(0)
 }
 
-pub fn pitch_table_no() -> u8 {
-    PITCH_TABLE_NO.load(Ordering::Relaxed)
+pub fn pitch_table() -> u8 {
+    PITCH_TABLE.load(Ordering::Relaxed)
 }
 
-pub fn pitch_table_nos<'a>() -> &'a Vec<u8> {
-    tuner_refs::pitch_table_nos()
+pub fn pitch_tables<'a>() -> &'a Vec<u8> {
+    tuner_refs::pitch_tables()
 }
 
 /// Interface to Peter Jung's scalatrix https://github.com/pitchgrid-io/scalatrix
@@ -438,7 +438,7 @@ static OVERRIDE_ROUNDING_RATE: AtomicBool = AtomicBool::new(true);
 /// The main documentation calls them pitch tables or custom grids, though there are also
 /// scattered references to tuning grids.
 /// We call them pitch tables, as that has the best chance of being understood by users.
-static PITCH_TABLE_NO: AtomicU8 = AtomicU8::new(0);
+static PITCH_TABLE: AtomicU8 = AtomicU8::new(0);
 
 static ROOT_FREQ_OVERRIDE_NOTE_NO: AtomicUsize = AtomicUsize::new(0);
 static ROUNDING_RATE: AtomicU8 = AtomicU8::new(127);

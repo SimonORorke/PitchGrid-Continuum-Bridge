@@ -6,7 +6,7 @@ pub type SharedTuningParams = Arc<Mutex<TuningParams>>;
 static DEFAULT_KEY_PITCHES: OnceLock<Vec<f32>> = OnceLock::new();
 static KEYS: OnceLock<Mutex<Vec<super::Key>>> = OnceLock::new();
 static PARAMS: OnceLock<SharedTuningParams> = OnceLock::new();
-static PITCH_TABLE_NOS: OnceLock<Vec<u8>> = OnceLock::new();
+static PITCH_TABLES: OnceLock<Vec<u8>> = OnceLock::new();
 static ROOT_FREQ_OVERRIDE: OnceLock<Arc<Mutex<f32>>> = OnceLock::new();
 
 pub(super) fn default_pitch_keys<'a>() -> &'a Vec<f32> {
@@ -27,8 +27,8 @@ pub(super) fn params_clone() -> SharedTuningParams {
     Arc::clone(params)
 }
 
-pub(super) fn pitch_table_nos<'a>() -> &'a Vec<u8> {
-    PITCH_TABLE_NOS.get_or_init(|| (80..88).collect())
+pub(super) fn pitch_tables<'a>() -> &'a Vec<u8> {
+    PITCH_TABLES.get_or_init(|| (80..88).collect())
 }
 
 pub(super) fn root_freq_override<'a>() -> &'a Arc<Mutex<f32>> {
