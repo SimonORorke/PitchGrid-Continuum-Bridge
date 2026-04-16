@@ -98,6 +98,12 @@ The Root Frequency specified in PitchGrid, which is Middle C for most tuning pre
 
 When a root frequency has been overridden, the overriding frequency will be shown in PitchGrid-Continuum Bridge's tuning parameters display. By design, Root Freq Override is not saved to PCB's settings: the assumption is that, for safety, the player should consider which override, if any, to use each time PCB is loaded.
 
+### OSC Listening Port
+
+<img src="images\OSC Listening Port.png" alt="OSC Listening Port" style="zoom: 80%;" />
+
+The OSC port on which PitchGrid-Continuum Bridge is to listen for tunings from PitchGrid.  Unless you have will have more than one application listening for PitchGrid tunings at once, which PitchGrid supports, you can probably safely leave this to the default, 34561.  The OSC port on which PitchGrid listens for heartbeats from applications, 34562, is of course not available for use by PCB as its own listening port.
+
 ### Pitch Table
 
 <img src="images\Pitch Table.png" alt="Pitch Table" style="zoom: 80%;" />The identifier of the pitch table to which the tuning is to be uploaded may be selected from the range 80 to 87, which the Haken firmware reserves for custom tuning grids.  Unless you will be using the instrument's custom tuning grids for purposes other than receiving PitchGrid tunings via PitchGrid-Continuum Bridge, you can safely leave this to the default, 80.

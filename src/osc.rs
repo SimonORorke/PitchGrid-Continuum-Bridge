@@ -16,7 +16,7 @@ use crate::tuning_params::TuningParams;
 ///             [1, listening_port] at least once every 2 seconds to maintain connection
 ///         PitchGrid will send /pitchgrid/heartbeat back to all registered clients.
 pub struct Osc {
-    callbacks: Arc<dyn OscCallbacks>,
+    callbacks: Option<Arc<dyn OscCallbacks>>,
     /// Saves Controller.osc from having to be an Arc<Mutex>>.
     inner: Mutex<OscInner>,
     last_ack_time: Arc<Mutex<Option<Instant>>>,
@@ -25,7 +25,7 @@ pub struct Osc {
 impl Osc {
     pub fn new() -> Self {
         Self {
-            callbacks: Arc::new(()),
+            callbacks: None,
             inner: Mutex::new(OscInner { is_running: false, stopper_senders: vec![] }),
             last_ack_time: Arc::new(Mutex::new(None)),
         }
@@ -56,7 +56,9 @@ impl Osc {
         }
         LISTENING_PORT.store(listening_port, Ordering::Relaxed);
         if bouncing {
-            self.start(self.callbacks.clone());
+            // The unwrap() is safe because it's only called when bouncing,
+            // which means start was previously called and set callbacks to Some.
+            self.start(self.callbacks.clone().unwrap());
         }
     }
 
@@ -71,7 +73,7 @@ impl Osc {
         if self.is_pitchgrid_connected() {
             panic!("PitchGrid is already connected.");
         }
-        self.callbacks = callbacks.clone();
+        self.callbacks = Some(callbacks.clone());
         let mut stopper_receivers: Vec<mpsc::Receiver<()>> = vec![];
         let mut inner = self.inner.lock().unwrap();
         for _ in 0..3 {
@@ -284,7 +286,7 @@ impl Osc {
     /// PitchGrid will send us messages if we send a heartbeat message at least every 2 seconds.
     /// So send PitchGrid a heartbeat message every second.
     fn send_heartbeats(socket: UdpSocket, stopper_receiver: mpsc::Receiver<()>) {
-        // println!("Osc.send_heartbeats: starting");
+        // println!("Osc.send_heartbeats: Starting with listening port {}", Self::listening_port());
         let msg_buf = encoder::encode(&OscPacket::Message(OscMessage {
             addr: HEARTBEAT_ADDR.to_string(),
             args: vec![OscType::Int(1),
@@ -295,7 +297,6 @@ impl Osc {
             // println!("Osc.send_heartbeats: sending heartbeat message to {}", socket_to_addr);
             match socket.send_to(&msg_buf, socket_to_addr) {
                 Ok(_bytes_sent) => {
-                    println!("Osc.send_heartbeats: sent {:?}", msg_buf);
                     // println!("Osc.send_heartbeats: sent {} bytes", bytes_sent);
                 }
                 Err(_e) => {
