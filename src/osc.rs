@@ -16,6 +16,7 @@ use crate::tuning_params::TuningParams;
 ///             [1, listening_port] at least once every 2 seconds to maintain connection
 ///         PitchGrid will send /pitchgrid/heartbeat back to all registered clients.
 pub struct Osc {
+    callbacks: Arc<dyn OscCallbacks>,
     /// Saves Controller.osc from having to be an Arc<Mutex>>.
     inner: Mutex<OscInner>,
     last_ack_time: Arc<Mutex<Option<Instant>>>,
@@ -24,6 +25,7 @@ pub struct Osc {
 impl Osc {
     pub fn new() -> Self {
         Self {
+            callbacks: Arc::new(()),
             inner: Mutex::new(OscInner { is_running: false, stopper_senders: vec![] }),
             last_ack_time: Arc::new(Mutex::new(None)),
         }
@@ -32,7 +34,7 @@ impl Osc {
     pub fn listening_port() -> u16 { LISTENING_PORT.load(Ordering::Relaxed) }
 
     pub fn listening_port_index() -> usize {
-        // Return the index of the PITCH_TABLES item that equals listening_port.
+        // Return the index of the LISTENING_PORTS element that equals listening_port.
         Self::listening_ports().iter().position(|&x| x ==
             Self::listening_port()).unwrap_or(0)
     }
@@ -47,8 +49,15 @@ impl Osc {
         })
     }
 
-    pub fn set_listening_port(listening_port: u16) {
+    pub fn set_listening_port(&mut self, listening_port: u16) {
+        let bouncing = self.inner.lock().unwrap().is_running;
+        if bouncing {
+            self.stop();
+        }
         LISTENING_PORT.store(listening_port, Ordering::Relaxed);
+        if bouncing {
+            self.start(self.callbacks.clone());
+        }
     }
 
     pub fn default_listening_port() -> u16 { 34561 }
@@ -57,11 +66,12 @@ impl Osc {
         SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), port)
     }
 
-    pub fn start(&self, callbacks: Arc<dyn OscCallbacks>) {
+    pub fn start(&mut self, callbacks: Arc<dyn OscCallbacks>) {
         // println!("Osc.start");
         if self.is_pitchgrid_connected() {
             panic!("PitchGrid is already connected.");
         }
+        self.callbacks = callbacks.clone();
         let mut stopper_receivers: Vec<mpsc::Receiver<()>> = vec![];
         let mut inner = self.inner.lock().unwrap();
         for _ in 0..3 {
@@ -285,6 +295,7 @@ impl Osc {
             // println!("Osc.send_heartbeats: sending heartbeat message to {}", socket_to_addr);
             match socket.send_to(&msg_buf, socket_to_addr) {
                 Ok(_bytes_sent) => {
+                    println!("Osc.send_heartbeats: sent {:?}", msg_buf);
                     // println!("Osc.send_heartbeats: sent {} bytes", bytes_sent);
                 }
                 Err(_e) => {

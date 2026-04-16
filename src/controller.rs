@@ -115,7 +115,7 @@ impl Controller {
             // println!("Controller.init: Connecting input port");
             self.connect_initial_port(&input_strategy);
         }
-        Osc::set_listening_port(osc_listening_port);
+        self.osc.set_listening_port(osc_listening_port);
         self.callbacks.set_selected_osc_listening_port_index(Osc::listening_port_index() as i32);
         // println!("Controller.init: Configuring tuner");
         tuner::init(pitch_table);
@@ -301,7 +301,7 @@ impl Controller {
 
     pub fn set_osc_listening_port(&mut self, index: usize) {
         let osc_listening_port = Osc::listening_ports()[index];
-        Osc::set_listening_port(osc_listening_port);
+        self.osc.set_listening_port(osc_listening_port);
         self.settings.osc_listening_port = osc_listening_port;
     }
 
