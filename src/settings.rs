@@ -7,6 +7,7 @@ use app_info::APP_TITLE;
 pub struct Settings {
     pub midi_input_device: String,
     pub midi_output_device: String,
+    pub osc_listening_port: u16,
     pub pitch_table: u8,
     pub override_rounding_initial: bool,
     pub override_rounding_rate: bool,
@@ -18,6 +19,7 @@ impl Settings {
         Self {
             midi_input_device: String::new(),
             midi_output_device: String::new(),
+            osc_listening_port: 0,
             pitch_table: 0,
             override_rounding_initial: true,
             override_rounding_rate: true,
@@ -60,6 +62,7 @@ impl Settings {
         };
         self.midi_input_device = settings.midi_input_device;
         self.midi_output_device = settings.midi_output_device;
+        self.osc_listening_port = settings.osc_listening_port;
         self.pitch_table = settings.pitch_table;
         self.override_rounding_initial = settings.override_rounding_initial;
         self.override_rounding_rate = settings.override_rounding_rate;

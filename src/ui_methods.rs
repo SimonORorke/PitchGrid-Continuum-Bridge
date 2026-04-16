@@ -171,6 +171,12 @@ impl ControllerCallbacks for UiMethods {
         });
     }
 
+    fn set_selected_osc_listening_port_index(&self, index: i32) {
+        self.with_main_window(move |main_window| {
+            main_window.set_selected_osc_listening_port_index(index);
+        });
+    }
+
     fn set_selected_pitch_table_index(&self, index: i32) {
         self.with_main_window(move |main_window| {
             main_window.set_selected_pitch_table_index(index);

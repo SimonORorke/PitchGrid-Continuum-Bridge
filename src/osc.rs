@@ -1,8 +1,8 @@
 ﻿use std::io::{ErrorKind};
 use std::net::{Ipv4Addr, SocketAddrV4, UdpSocket};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::sync::mpsc;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU16, Ordering};
 use std::time::{Duration, Instant};
 use rosc::{decoder, encoder, OscMessage, OscPacket, OscType};
 use crate::tuning_params::TuningParams;
@@ -29,6 +29,30 @@ impl Osc {
         }
     }
 
+    pub fn listening_port() -> u16 { LISTENING_PORT.load(Ordering::Relaxed) }
+
+    pub fn listening_port_index() -> usize {
+        // Return the index of the PITCH_TABLE_NOS item that equals listening_port.
+        Self::listening_ports().iter().position(|&x| x ==
+            Self::listening_port()).unwrap_or(0)
+    }
+
+    pub fn listening_ports<'a>() -> &'a Vec<u16> {
+        LISTENING_PORTS.get_or_init(|| {
+            // Create a range that includes the default listening port.
+            let mut ports: Vec<u16> = (34560..34571).collect();
+            // Remove the send-to port
+            ports.retain(|value| *value != SEND_TO_PITCHGRID_PORT);
+            ports
+        })
+    }
+
+    pub fn set_listening_port(listening_port: u16) {
+        LISTENING_PORT.store(listening_port, Ordering::Relaxed);
+    }
+
+    pub fn default_listening_port() -> u16 { 34561 }
+
     fn create_socket_addr(port: u16) -> SocketAddrV4 {
         SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), port)
     }
@@ -50,7 +74,8 @@ impl Osc {
         let listen_stopper = stopper_receivers_iter.next().unwrap();
         let monitor_stopper = stopper_receivers_iter.next().unwrap();
 
-        let socket = UdpSocket::bind(Self::create_socket_addr(LISTENING_PORT)).unwrap();
+        let socket = UdpSocket::bind(Self::create_socket_addr(
+            Self::listening_port())).unwrap();
         // println!("Osc.start: bound socket to {}", socket.local_addr().unwrap());
         let send_socket = socket.try_clone().unwrap();
         let listen_socket = socket;
@@ -252,7 +277,8 @@ impl Osc {
         // println!("Osc.send_heartbeats: starting");
         let msg_buf = encoder::encode(&OscPacket::Message(OscMessage {
             addr: HEARTBEAT_ADDR.to_string(),
-            args: vec![OscType::Int(1), OscType::Int(LISTENING_PORT as i32)],
+            args: vec![OscType::Int(1),
+                       OscType::Int(Self::listening_port() as i32)],
         })).unwrap();
         let socket_to_addr = Self::create_socket_addr(SEND_TO_PITCHGRID_PORT);
         loop {
@@ -280,7 +306,6 @@ struct OscInner {
 }
 
 const HEARTBEAT_ADDR: &str = "/pitchgrid/heartbeat";
-const LISTENING_PORT: u16 = 34561;
 const SEND_TO_PITCHGRID_PORT: u16 = 34562;
 const TUNING_ADDR: &str = "/pitchgrid/plugin/tuning";
 const MAPPING_ADDR: &str = "/pitchgrid/plugin/mapping";
@@ -295,3 +320,5 @@ pub trait OscCallbacks: Send + Sync {
 }
 
 static IS_PITCHGRID_CONNECTED: AtomicBool = AtomicBool::new(false);
+static LISTENING_PORT: AtomicU16 = AtomicU16::new(0);
+static LISTENING_PORTS: OnceLock<Vec<u16>> = OnceLock::new();

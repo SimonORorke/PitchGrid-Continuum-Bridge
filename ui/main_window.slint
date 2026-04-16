@@ -50,9 +50,11 @@ export component MainWindow inherits MagicWindow {
     in property <bool> override_rounding_rate;
     in property <int> rounding_rate;
     in property <int> selected_root_note_index;
+    in property <int> selected_osc_listening_port_index;
     in property <int> selected_pitch_table_index;
     in property steps <=> steps_value.text;
     in property root_notes_model <=> root_notes_combo.model;
+    in property osc_listening_ports_model <=> osc_listening_ports_combo.model;
     in property pitch_tables_model <=> pitch_tables_combo.model;
     in property <string> window_title;
 
@@ -64,6 +66,7 @@ export component MainWindow inherits MagicWindow {
     callback show_about_window();
     callback rounding_rate_changed(rounding_rate: int);
     callback selected_root_note_changed(index: int);
+    callback selected_osc_listening_port_changed(index: int);
     callback selected_pitch_table_changed(index: int);
 
     public function show_message(message: string, message_type: SlintMessageType) {
@@ -134,7 +137,7 @@ export component MainWindow inherits MagicWindow {
                     height: Globals.control_height;
                     padding-top: 10px;
                     MagicText {
-                        text: "Root Freq Override:";
+                        text: "Root Freq Override";
                         vertical_alignment: center;
                     }
                 }
@@ -150,13 +153,35 @@ export component MainWindow inherits MagicWindow {
                     }
                 }
             }
+            osc_listening_port_layout := HorizontalLayout {
+                padding_right: 10px;
+                VerticalBox {
+                    height: Globals.control_height;
+                    padding-top: 10px;
+                    MagicText {
+                        text: "OSC Listening Port";
+                        vertical_alignment: center;
+                    }
+                }
+                VerticalLayout {
+                    padding_top: 5px;
+                    osc_listening_ports_combo := ComboBox {
+                        current_index: root.selected_osc_listening_port_index;
+                        changed current_index => {
+                            root.selected_osc_listening_port_changed(self.current_index);
+                        }
+                        height: Globals.control_height;
+                        width: 90px;
+                    }
+                }
+            }
             pitch_table_layout := HorizontalLayout {
                 padding_right: 10px;
                 VerticalBox {
                     height: Globals.control_height;
                     padding-top: 10px;
                     MagicText {
-                        text: "Pitch Table:";
+                        text: "Pitch Table";
                         vertical_alignment: center;
                     }
                 }

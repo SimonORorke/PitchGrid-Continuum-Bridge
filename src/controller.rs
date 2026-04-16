@@ -32,6 +32,7 @@ impl Controller {
 
     pub fn init(&mut self) {
         // println!("Controller.init");
+        let osc_listening_port: u16;
         let pitch_table_no: u8;
         let input_device_name: String;
         let output_device_name: String;
@@ -43,6 +44,13 @@ impl Controller {
             Ok(_) => {
                 input_device_name = self.settings.midi_input_device.clone();
                 output_device_name = self.settings.midi_output_device.clone();
+                osc_listening_port = {
+                    if Osc::listening_ports().contains(&self.settings.osc_listening_port) {
+                        self.settings.osc_listening_port
+                    } else {
+                        Osc::default_listening_port()
+                    }
+                };
                 pitch_table_no = max(tuner::default_pitch_table_no(), self.settings.pitch_table);
                 override_rounding_initial = self.settings.override_rounding_initial;
                 override_rounding_rate = self.settings.override_rounding_rate;
@@ -102,6 +110,8 @@ impl Controller {
             // println!("Controller.init: Connecting input port");
             self.connect_initial_port(&input_strategy);
         }
+        Osc::set_listening_port(osc_listening_port);
+        self.callbacks.set_selected_osc_listening_port_index(Osc::listening_port_index() as i32);
         // println!("Controller.init: Configuring tuner");
         tuner::init(pitch_table_no);
         self.callbacks.set_selected_pitch_table_index(tuner::pitch_table_index() as i32);
@@ -282,6 +292,12 @@ impl Controller {
     pub fn set_rounding_rate(&mut self, rate: u8) {
         tuner::set_rounding_rate(rate);
         self.settings.rounding_rate = rate;
+    }
+
+    pub fn set_osc_listening_port(&mut self, index: usize) {
+        let osc_listening_port = Osc::listening_ports()[index];
+        Osc::set_listening_port(osc_listening_port);
+        self.settings.osc_listening_port = osc_listening_port;
     }
 
     pub fn set_pitch_table_no(&mut self, index: usize) {
@@ -523,6 +539,7 @@ pub trait ControllerCallbacks: Send + Sync {
     fn set_override_rounding_initial(&self, value: bool);
     fn set_override_rounding_rate(&self, value: bool);
     fn set_rounding_rate(&self, rate: u8);
+    fn set_selected_osc_listening_port_index(&self, index: i32);
     fn set_selected_pitch_table_index(&self, index: i32);
 }
 

@@ -21,6 +21,7 @@ use slint::{CloseRequestResponse};
 use open;
 use controller::{Controller};
 use app_info::{APP_TITLE, COPYRIGHT, DOCUMENTATION_LINK, LICENSE, PROJECT_LINK, VERSION};
+use osc::{Osc, };
 use port_strategy::{
     InputStrategy, OutputStrategy, PortStrategy};
 use ui_methods::UiMethods;
@@ -39,6 +40,7 @@ fn main() {
     Controller::set_controller(controller.clone());
     init_ui_handlers(&main_window, controller.clone());
     set_root_notes_model(&main_window);
+    set_osc_listening_ports_model(&main_window);
     set_pitch_tables_model(&main_window);
 
     // Initialize controller on a background thread so that UI callbacks within
@@ -142,6 +144,15 @@ fn init_ui_handlers(main_window: &MainWindow, controller: SharedController) {
     }
     {
         let controller: SharedController = Arc::clone(&controller);
+        main_window.on_selected_osc_listening_port_changed(move |index| {
+            let controller = controller.clone();
+            rayon::spawn(move || {
+                controller.lock().unwrap().set_osc_listening_port(index as usize);
+            });
+        });
+    }
+    {
+        let controller: SharedController = Arc::clone(&controller);
         main_window.on_selected_pitch_table_changed(move |index| {
             let controller = controller.clone();
             rayon::spawn(move || {
@@ -184,6 +195,15 @@ fn set_root_notes_model(main_window: &MainWindow) {
         .collect();
     let model = Rc::new(ComboBoxModel(override_items));
     main_window.set_root_notes_model(slint::ModelRc::from(model));
+}
+
+fn set_osc_listening_ports_model(main_window: &MainWindow) {
+    let osc_listening_port_items: Vec<ComboBoxItem> = Osc::listening_ports()
+        .iter()
+        .map(|port| ComboBoxItem { text: port.to_string().into() })
+        .collect();
+    let model = Rc::new(ComboBoxModel(osc_listening_port_items));
+    main_window.set_osc_listening_ports_model(slint::ModelRc::from(model));
 }
 
 fn set_pitch_tables_model(main_window: &MainWindow) {
