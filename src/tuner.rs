@@ -1,10 +1,12 @@
 mod tuner_refs;
 use std::cmp::{max};
 use std::sync::atomic::{AtomicBool, AtomicU8, AtomicUsize, Ordering};
+use cxx::UniquePtr;
 use round::round;
 use tuner_refs::{default_pitch_keys, keys_clone, params_clone, root_freq_override, set_keys};
 use crate::{midi_static};
 use crate::midi::Midi;
+use crate::tuner::ffi::MOS;
 use crate::tuning_params::{TuningParams,};
 
 pub fn init(pitch_table: u8) {
@@ -22,8 +24,12 @@ pub fn init(pitch_table: u8) {
 ///         skew: Generator as log2 frequency ratio
 ///         mode_offset: Mode offset (float)
 ///         steps: Number of steps per period
-///         mos_a: MOS parameter a (count of large steps)
-///         mos_b: MOS parameter b (count of small steps)
+///         mos_a: MOS parameter a
+///         mos_b: MOS parameter b
+///             MOS (a,b) is not the same as (L,s). Sometimes (a,b) = (L,s) and sometimes
+///             (a,b) = (s,L) depending on the relative size of the vectors.
+///             The scalatrix MOS class also has mos.nL and mos.nS properties
+///             which will be used when displaying the MOS system (like 5L 2s).
 pub fn on_tuning_received(tuning_params: TuningParams) {
     // println!(
     //     "tuner.on_tuning_received: depth = {}; mode = {}; root_freq = {}; stretch = {}; \
@@ -103,12 +109,7 @@ fn calculate_key_pitches(tuning_params: TuningParams) -> Vec<f32> {
             pitch
         }
     };
-    let mos = ffi::mos_from_params(
-        tuning_params.mos_a(),
-        tuning_params.mos_b(),
-        tuning_params.mode(),
-        tuning_params.stretch() as f64,
-        tuning_params.skew() as f64);
+    let mos = mos_from_tuning_params(&tuning_params);
     let a1 = ffi::vector2d(0.0, 0.0);
     let a2 = ffi::vector2d(
         ffi::get_mos_v_gen_x(&mos) as f64, ffi::get_mos_v_gen_y(&mos) as f64);
@@ -254,6 +255,7 @@ pub fn formatted_tuning_params() -> FormattedTuningParams {
           root_freq_override().lock().unwrap().clone()
       }
     };
+    let mos = mos_from_tuning_params(&params);
     FormattedTuningParams {
         root_freq: format!("{} Hz", round(root_freq as f64, 3)),
         // The stretch parameter is in octaves, so we need to multiply by 1200 to get the
@@ -262,8 +264,8 @@ pub fn formatted_tuning_params() -> FormattedTuningParams {
         skew: format!("{}", round(params.skew() as f64, 5)),
         mode_offset: format!("{}", round(params.mode_offset() as f64, 5)),
         steps: format!("{}", params.steps()),
-        mos_a: format!("{}", params.mos_a()),
-        mos_b: format!("{}", params.mos_b()),
+        mos_large_step_count: format!("{}", ffi::get_mos_large_step_count(&mos)),
+        mos_small_step_count: format!("{}", ffi::get_mos_small_step_count(&mos)),
     }
 }
 
@@ -361,6 +363,15 @@ pub fn pitch_tables<'a>() -> &'a Vec<u8> {
     tuner_refs::pitch_tables()
 }
 
+fn mos_from_tuning_params(tuning_params: &TuningParams) -> UniquePtr<MOS> {
+    ffi::mos_from_params(
+        tuning_params.mos_a(),
+        tuning_params.mos_b(),
+        tuning_params.mode(),
+        tuning_params.stretch() as f64,
+        tuning_params.skew() as f64)
+}
+
 /// Interface to Peter Jung's scalatrix https://github.com/pitchgrid-io/scalatrix
 /// C++ code, a version of which is embedded in this application,
 /// used in the key pitch frequency calculation.
@@ -386,6 +397,8 @@ mod ffi {
         fn mos_from_params(a: i32, b: i32, m: i32, e: f64, g: f64) -> UniquePtr<MOS>;
         fn get_mos_a(mos: &MOS) -> i32;
         fn get_mos_b(mos: &MOS) -> i32;
+        fn get_mos_large_step_count(mos: &MOS) -> i32;
+        fn get_mos_small_step_count(mos: &MOS) -> i32;
         fn get_mos_v_gen_x(mos: &MOS) -> i32;
         fn get_mos_v_gen_y(mos: &MOS) -> i32;
         fn get_node_pitch(node: &Node) -> f64;
@@ -424,7 +437,7 @@ struct Key {
 pub struct FormattedTuningParams {
     pub root_freq: String, pub stretch: String,
     pub skew: String, pub mode_offset: String, pub steps: String,
-    pub mos_a: String, pub mos_b: String,
+    pub mos_large_step_count: String, pub mos_small_step_count: String,
 }
 
 static IS_ALREADY_UPDATING: AtomicBool = AtomicBool::new(false);

@@ -148,7 +148,8 @@ impl ControllerCallbacks for UiMethods {
             main_window.set_skew(params.skew.into());
             main_window.set_mode_offset(params.mode_offset.into());
             main_window.set_steps(params.steps.into());
-            let mos = format!("{}L {}s", params.mos_a, params.mos_b);
+            let mos = format!("{}L {}s",
+                              params.mos_large_step_count, params.mos_small_step_count);
             main_window.set_mos(mos.into());
         });
     }

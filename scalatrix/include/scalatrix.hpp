@@ -47,6 +47,14 @@ namespace scalatrix {
         return mos.b;
     }
 
+    inline int get_mos_large_step_count(const MOS& mos) {
+        return mos.nL;
+    }
+
+    inline int get_mos_small_step_count(const MOS& mos) {
+        return mos.nS;
+    }
+
     inline int get_mos_v_gen_x(const MOS& mos) {
         return mos.v_gen.x;
     }
