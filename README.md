@@ -65,7 +65,7 @@ On first connecting PitchGrid to PCB and whenever you change the tuning, PitchGr
 2. Save the tuning table to one of the instrument's eight custom tuning grids.
 3. Load the custom tuning grid into the current preset.
 
-Once the instrument has implemented the requirements, which should take less than half a second, it sends an acknowledgement back to PCB.  PCB then displays the updated tuning parameters and a confirmation message "Instrument tuning updated".  If all this has worked, Haken Editor will be showing the updated tuning and, if overriden in PCB, rounding parameters:
+Once the instrument has implemented the requirements, which takes about two thirds of a second for me, it sends an acknowledgement back to PCB.  PCB then displays the updated tuning parameters and a confirmation message "Instrument tuning updated".  If all this has worked, Haken Editor will be showing the updated tuning and, if overriden in PCB, rounding parameters:
 
 <img src="images\Editor Rounding and Tuning.png" alt="Editor Rounding and Tuning" style="zoom: 80%;" />
 
