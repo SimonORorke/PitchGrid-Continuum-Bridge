@@ -1,5 +1,5 @@
 ﻿use std::rc::Rc;
-use slint::Weak;
+use slint::{ComponentHandle, Weak};
 use crate::{MainWindow, ComboBoxItem, SlintMessageType, ComboBoxModel as MainComboBoxModel};
 use crate::controller::ControllerCallbacks;
 use crate::global::{MessageType, PortType};
@@ -151,6 +151,24 @@ impl ControllerCallbacks for UiMethods {
             let mos = format!("{}L {}s",
                               params.mos_large_step_count, params.mos_small_step_count);
             main_window.set_mos(mos.into());
+        });
+    }
+
+    fn get_main_window_x(&self) -> i32 {
+        self.with_main_window_result(|main_window| {
+            main_window.window().position().x
+        })
+    }
+
+    fn get_main_window_y(&self) -> i32 {
+        self.with_main_window_result(|main_window| {
+            main_window.window().position().y
+        })
+    }
+
+    fn set_main_window_position(&self, x: i32, y: i32) {
+        self.with_main_window(move |main_window| {
+            main_window.window().set_position(slint::PhysicalPosition { x, y });
         });
     }
 

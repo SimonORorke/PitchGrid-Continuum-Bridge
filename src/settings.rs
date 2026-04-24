@@ -5,6 +5,8 @@ use app_info::APP_TITLE;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Settings {
+    pub main_window_x: i32,
+    pub main_window_y: i32,
     pub midi_input_device: String,
     pub midi_output_device: String,
     pub osc_listening_port: u16,
@@ -17,6 +19,8 @@ pub struct Settings {
 impl Settings {
     pub fn new() -> Self {
         Self {
+            main_window_x: 0,
+            main_window_y: 0,
             midi_input_device: String::new(),
             midi_output_device: String::new(),
             osc_listening_port: 0,
@@ -60,6 +64,8 @@ impl Settings {
                 return Ok(());
             }
         };
+        self.main_window_x = settings.main_window_x;
+        self.main_window_y = settings.main_window_y;
         self.midi_input_device = settings.midi_input_device;
         self.midi_output_device = settings.midi_output_device;
         self.osc_listening_port = settings.osc_listening_port;

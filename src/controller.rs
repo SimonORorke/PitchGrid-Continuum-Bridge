@@ -31,6 +31,8 @@ impl Controller {
 
     pub fn init(&mut self) {
         // println!("Controller.init");
+        let main_window_x: i32;
+        let main_window_y: i32;
         let osc_listening_port: u16;
         let pitch_table: u8;
         let input_device_name: String;
@@ -41,6 +43,8 @@ impl Controller {
         // println!("Controller.init: Reading settings");
         match self.settings.read_from_file() {
             Ok(_) => {
+                main_window_x = self.settings.main_window_x;
+                main_window_y = self.settings.main_window_y;
                 input_device_name = self.settings.midi_input_device.clone();
                 output_device_name = self.settings.midi_output_device.clone();
                 osc_listening_port = {
@@ -67,6 +71,7 @@ impl Controller {
             }
         }
         // println!("Controller.init: Getting midi");
+        self.callbacks.set_main_window_position(main_window_x, main_window_y);
         let midi = midi_static::midi_clone();
         let mut midi_guard = midi.lock().unwrap();
         if let Err(err) = midi_guard.init(
@@ -139,6 +144,10 @@ impl Controller {
     pub fn close(&mut self) -> Result<(), Box<dyn Error>> {
         midi_static::close();
         self.osc.stop();
+        println!("Controller.close: getting main window position");
+        self.settings.main_window_x = self.callbacks.get_main_window_x();
+        self.settings.main_window_y = self.callbacks.get_main_window_y();
+        println!("Controller.close: writing settings to file");
         if let Err(err) = self.settings.write_to_file() {
             self.show_error(&err.to_string());
             return Err(err)
@@ -541,6 +550,9 @@ pub trait ControllerCallbacks: Send + Sync {
     fn show_message(&self, msg: &str, msg_type: MessageType);
     fn show_pitchgrid_status(&self, status: &str, msg_type: MessageType);
     fn show_tuning(&self);
+    fn get_main_window_x(&self) -> i32;
+    fn get_main_window_y(&self) -> i32;
+    fn set_main_window_position(&self, x: i32, y: i32);
     fn set_override_rounding_initial(&self, value: bool);
     fn set_override_rounding_rate(&self, value: bool);
     fn set_rounding_rate(&self, rate: u8);
