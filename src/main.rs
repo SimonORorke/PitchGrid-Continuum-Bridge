@@ -17,7 +17,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
-use slint::{CloseRequestResponse, Weak};
+use slint::{CloseRequestResponse, PhysicalPosition, WindowPosition, Weak};
 use open;
 use controller::{Controller};
 use app_info::{APP_TITLE, COPYRIGHT, DOCUMENTATION_LINK, LICENSE, PROJECT_LINK, VERSION};
@@ -60,6 +60,7 @@ fn init_ui_handlers(main_window: &MainWindow, controller: SharedController) {
     let about_window: Rc<RefCell<Option<AboutWindow>>> = Rc::new(RefCell::new(None));
     {
         let about_window = Rc::clone(&about_window);
+        let main_window_weak = main_window.as_weak();
         main_window.on_show_about_window(move || {
             let dialog = AboutWindow::new().unwrap();
             dialog.set_window_title(format!("About {}", APP_TITLE).into());
@@ -71,11 +72,30 @@ fn init_ui_handlers(main_window: &MainWindow, controller: SharedController) {
             dialog.on_open_project_link(|| {
                 open::that(PROJECT_LINK).unwrap();
             });
+            // Why is there a dialog.on_close_window before the dialog.show().unwrap()?
+            // The callback must be registered before show() to avoid a race condition:
+            // if the user somehow closed the window during or immediately after show() returned,
+            // the close handler needs to already be in place. More practically, it's just the
+            // conventional setup pattern — configure all properties and callbacks first,
+            // then show. In practice for a dialog like this it makes no functional difference,
+            // but registering handlers before showing is the safe, idiomatic order.
             dialog.on_close_window({
                 let dialog_weak = dialog.as_weak();
                 move || { dialog_weak.unwrap().hide().unwrap(); }
             });
+            // Position the dialog in the centre of the main window.
+            // We have to show the dialog first before we can position it.
             dialog.show().unwrap();
+            if let Some(main_window) = main_window_weak.upgrade() {
+                let mp = main_window.window().position();
+                let ms = main_window.window().size();
+                let scale = main_window.window().scale_factor();
+                let dw = (dialog.get_preferred_w() * scale) as i32;
+                let dh = (dialog.get_preferred_h() * scale) as i32;
+                let x = mp.x + (ms.width as i32 - dw) / 2;
+                let y = mp.y + (ms.height as i32 - dh) / 2;
+                dialog.window().set_position(WindowPosition::Physical(PhysicalPosition { x, y }));
+            }
             *about_window.borrow_mut() = Some(dialog);
         });
     }

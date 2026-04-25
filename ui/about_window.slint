@@ -21,6 +21,9 @@ export component AboutWindow inherits MagicWindow {
     //    max-height: root.min-height;
     icon: Globals.icon;
 
+    out property <length> preferred_w: root.preferred-width;
+    out property <length> preferred_h: root.preferred-height;
+
     in property <string> window_title;
     in property <string> app_title;
     in property <string> version;
