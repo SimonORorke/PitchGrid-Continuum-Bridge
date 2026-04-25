@@ -154,18 +154,6 @@ impl ControllerCallbacks for UiMethods {
         });
     }
 
-    fn get_main_window_x(&self) -> i32 {
-        self.with_main_window_result(|main_window| {
-            main_window.window().position().x
-        })
-    }
-
-    fn get_main_window_y(&self) -> i32 {
-        self.with_main_window_result(|main_window| {
-            main_window.window().position().y
-        })
-    }
-
     fn set_main_window_position(&self, x: i32, y: i32) {
         self.with_main_window(move |main_window| {
             main_window.window().set_position(slint::PhysicalPosition { x, y });

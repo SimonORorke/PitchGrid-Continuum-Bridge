@@ -17,7 +17,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
-use slint::{CloseRequestResponse};
+use slint::{CloseRequestResponse, Weak};
 use open;
 use controller::{Controller};
 use app_info::{APP_TITLE, COPYRIGHT, DOCUMENTATION_LINK, LICENSE, PROJECT_LINK, VERSION};
@@ -80,8 +80,9 @@ fn init_ui_handlers(main_window: &MainWindow, controller: SharedController) {
     }
     {
         let controller: SharedController = Arc::clone(&controller);
+        let main_window_weak = main_window.as_weak();
         main_window.window().on_close_requested(move || {
-            handle_close_request(&controller)
+            handle_close_request(&main_window_weak, &controller)
         });
     }
     // All Controller methods must be called from non-UI threads to avoid deadlock.
@@ -162,7 +163,7 @@ fn init_ui_handlers(main_window: &MainWindow, controller: SharedController) {
     }
 }
 
-fn handle_close_request(controller: &SharedController) -> CloseRequestResponse {
+fn handle_close_request(main_window_weak: &Weak<MainWindow>, controller: &SharedController) -> CloseRequestResponse {
     // println!("main.handle_close_request");
     let response =
         Arc::new(Mutex::new(CloseRequestResponse::HideWindow));
@@ -170,10 +171,16 @@ fn handle_close_request(controller: &SharedController) -> CloseRequestResponse {
         // If a close error message is already shown, allow the window to be closed.
         return *response.lock().unwrap()
     }
+    // Read position on the UI thread before calling close(), which runs on the UI thread
+    // and cannot use invoke_from_event_loop without deadlocking.
+    let (x, y) = if let Some(main_window) = main_window_weak.upgrade() {
+        let pos = main_window.window().position();
+        (pos.x, pos.y)
+    } else {
+        (0, 0)
+    };
     let response_clone = Arc::clone(&response);
-    // Controller.close() won't deadlock, as it does not access the GUI.
-    // So it is safe to call it from the UI event loop thread.
-    if let Err(_) = controller.lock().unwrap().close() {
+    if let Err(_) = controller.lock().unwrap().close(x, y) {
         *response_clone.lock().unwrap() = CloseRequestResponse::KeepWindowShown;
         IS_CLOSE_ERROR_SHOWN.store(true, Ordering::Relaxed);
     };
