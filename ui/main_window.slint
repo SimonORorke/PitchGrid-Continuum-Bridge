@@ -48,6 +48,7 @@ export component MainWindow inherits MagicWindow {
     in property mos <=> mos_value.text;
     in property <bool> override_rounding_initial;
     in property <bool> override_rounding_rate;
+    in property <bool> root_freq_overridden;
     in property <int> rounding_rate;
     in property <int> selected_root_note_index;
     in property <int> selected_osc_listening_port_index;
@@ -97,6 +98,14 @@ export component MainWindow inherits MagicWindow {
         midi_io.output_show_connected_device_name(name, message_type);
     }
 
+    function get_root_freq_message_type() -> SlintMessageType {
+        if (root_freq_overridden) {
+            return SlintMessageType.Warning;
+        } else {
+            return SlintMessageType.Highlight;
+        }
+    }
+
     VerticalLayout {
         alignment: start; // Stops spreading out when window lenghthened.
         padding_left: 10px;
@@ -118,7 +127,9 @@ export component MainWindow inherits MagicWindow {
                     }
                     HorizontalLayout {
                         alignment: space-between;
-                        root_freq_value := ParamValue {}
+                        root_freq_value := ParamValue {
+                            message_type: get_root_freq_message_type();
+                        }
                         stretch_value := ParamValue {}
                         skew_value := ParamValue {}
                         mode_offset_value := ParamValue {}
