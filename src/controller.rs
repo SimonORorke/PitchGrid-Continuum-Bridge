@@ -382,7 +382,7 @@ impl Controller {
 
     fn on_tuning_updated(&self) {
         // println!("Controller.on_tuning_updated: Showing tuning");
-        self.callbacks.show_tuning();
+        self.callbacks.show_tuning(tuner::is_root_freq_overridden());
         // println!("Controller.on_tuning_updated: Showing Instrument tuning updated");
         self.callbacks.show_pitchgrid_status(INSTRUMENT_TUNING_UPDATED, MessageType::Info);
     }
@@ -547,7 +547,7 @@ pub trait ControllerCallbacks: Send + Sync {
     fn show_connected_device_name(&self, name: &str, msg_type: MessageType, port_strategy: &dyn PortStrategy);
     fn show_message(&self, msg: &str, msg_type: MessageType);
     fn show_pitchgrid_status(&self, status: &str, msg_type: MessageType);
-    fn show_tuning(&self);
+    fn show_tuning(&self, is_overriding_root_freq: bool);
     fn set_main_window_position(&self, x: i32, y: i32);
     fn set_override_rounding_initial(&self, value: bool);
     fn set_override_rounding_rate(&self, value: bool);

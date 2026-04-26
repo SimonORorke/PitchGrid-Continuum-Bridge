@@ -269,6 +269,10 @@ pub fn formatted_tuning_params() -> FormattedTuningParams {
     }
 }
 
+pub fn is_root_freq_overridden() -> bool {
+    ROOT_FREQ_OVERRIDE_NOTE_NO.load(Ordering::Relaxed) != 0
+}
+
 /// Sets the root frequency override and optionally sends it to the instrument.
 pub fn set_root_freq_override_note_no(index: usize, send_tuning: bool) {
     let note_no = {

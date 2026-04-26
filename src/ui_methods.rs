@@ -139,7 +139,7 @@ impl ControllerCallbacks for UiMethods {
         });
     }
 
-    fn show_tuning(&self) {
+    fn show_tuning(&self, is_root_freq_overridden: bool) {
         // println!("UiMethods.show_tuning");
         self.with_main_window(move |main_window| {
             let params = tuner::formatted_tuning_params();
@@ -151,6 +151,7 @@ impl ControllerCallbacks for UiMethods {
             let mos = format!("{}L {}s",
                               params.mos_large_step_count, params.mos_small_step_count);
             main_window.set_mos(mos.into());
+            main_window.set_root_freq_overridden(is_root_freq_overridden);
         });
     }
 

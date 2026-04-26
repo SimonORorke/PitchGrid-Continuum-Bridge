@@ -2,7 +2,7 @@
 
 PitchGrid-Continuum Bridge is a bridging application that allows tunings specified in [PitchGrid](https://pitchgrid.io/) to tune a [Haken Continuum fingerboard](https://www.hakenaudio.com/).
 
-<img src="images\PitchGrid-Continuum Bridge.png" alt="PitchGrid-Continuum Bridge" style="zoom: 80%;" />
+<img src="docs\images\PitchGrid-Continuum Bridge.png" alt="PitchGrid-Continuum Bridge" style="zoom: 80%;" />
 
 ## System Requirements
 
@@ -26,22 +26,22 @@ Haken Editor
 
 ## Connections
 
-<img src="images\Data Flow.jpg" alt="Data Flow" style="zoom: 100%;" />
+<img src="docs\images\Data Flow.jpg" alt="Data Flow" style="zoom: 100%;" />
 
 For use with PitchGrid-Continuum Bridge and a Continuum, PitchGrid has no input and sends tuning data via OSC to PCB. PCB sends only heartbeat messages every second to PitchGrid, indicating that tuning updates are required. **Sync Tuning Data via OSC** *must be enabled in PitchGrid's Output menu.*
 
-<img src="images\PitchGrid OSC Enabled.png" alt="PitchGrid OSC Enabled" style="zoom: 80%;" />
+<img src="docs\images\PitchGrid OSC Enabled.png" alt="PitchGrid OSC Enabled" style="zoom: 80%;" />
 
 PCB connects to Haken Editor's External input and output in All Data mode. As usual, Haken Editor's instrument input and output connect to the instrument.
 
-<img src="images\PCB MIDI Connections.png" alt="PCB MIDI Connections" style="zoom: 80%;" />
-<img src="images\Editor MIDI Settings.png" alt="Editor MIDI Settings" style="zoom: 80%;" />
+<img src="docs\images\PCB MIDI Connections.png" alt="PCB MIDI Connections" style="zoom: 80%;" />
+<img src="docs\images\Editor MIDI Settings.png" alt="Editor MIDI Settings" style="zoom: 80%;" />
 
 > [!WARNING]
 >
 > *PitchGrid-Continuum Bridge must not be connected directly to the instrument.  Doing that causes a MIDI loop, which is indicated on the instrument's display.*
 >
-> <img src="images\Loop.png" alt="Loop" style="zoom: 100%;" />
+> <img src="docs\images\Loop.png" alt="Loop" style="zoom: 100%;" />
 
 ### Connecting to Haken Editor
 
@@ -55,7 +55,7 @@ As PitchGrid-Continuum Bridge and Haken Editor are both software, you (obviously
 ### Load Order
 
 The order in which you load or turn on or connect the components does not matter.  PitchGrid-Continuum Bridge will show messages advising you of anything that is not yet connected.
-<img src="images\Awaiting PitchGrid Connection.png" alt="Awaiting PitchGrid Connection" style="zoom: 80%;" />
+<img src="docs\images\Awaiting PitchGrid Connection.png" alt="Awaiting PitchGrid Connection" style="zoom: 80%;" />
 
 ## Tuning
 
@@ -67,7 +67,7 @@ On first connecting PitchGrid to PCB and whenever you change the tuning, PitchGr
 
 Once the instrument has implemented the requirements, which takes about two thirds of a second for me, it sends an acknowledgement back to PCB.  PCB then displays the updated tuning parameters and a confirmation message "Instrument tuning updated".  If all this has worked, Haken Editor will be showing the updated tuning and, if overriden in PCB, rounding parameters:
 
-<img src="images\Editor Rounding and Tuning.png" alt="Editor Rounding and Tuning" style="zoom: 80%;" />
+<img src="docs\images\Editor Rounding and Tuning.png" alt="Editor Rounding and Tuning" style="zoom: 80%;" />
 
 Whenever a preset is subsequently loaded on the instrument, PCB will update it with the current tuning and, if specified, rounding.
 
@@ -78,8 +78,8 @@ Whenever a preset is subsequently loaded on the instrument, PCB will update it w
 
 ### Tuning Parameters Display
 
-<img src="images\Tuning Parameters - PitchGrid.png" alt="Tuning Parameters - PitchGrid" style="zoom: 80%;" />
-<img src="images\Tuning Parameters - PCB.png" alt="Tuning Parameters - PCB" style="zoom: 80%;" />
+<img src="docs\images\Tuning Parameters - PitchGrid.png" alt="Tuning Parameters - PitchGrid" style="zoom: 80%;" />
+<img src="docs\images\Tuning Parameters - PCB.png" alt="Tuning Parameters - PCB" style="zoom: 80%;" />
 
 Once the tuning of the instrument's current preset has been updated in accordance with the tuning parameters received from PitchGrid, PCB displays the applied tuning parameters.  Instead of Depth, PCB receives and displays the MOS system's counts of large and small steps, which vary with Depth. The displayed values may differ from what you can see in PitchGrid in two respects.
 
@@ -88,29 +88,29 @@ Once the tuning of the instrument's current preset has been updated in accordanc
 
 ## Options
 
-<img src="images\Options.png" alt="Options" style="zoom: 80%;" />
+<img src="docs\images\Options.png" alt="Options" style="zoom: 80%;" />
 
 ### Root Frequency Override
 
-<img src="images\Root Freq PitchGrid.png" alt="Root Freq PitchGrid" style="zoom: 80%;" /><img src="images\Root Freq Override.png" alt="Root Freq Override" style="zoom: 80%;" /><img src="images\Root Freq PCB.png" alt="Root Freq PCB" style="zoom: 80%;" />
+<img src="docs\images\Root Freq PitchGrid.png" alt="Root Freq PitchGrid" style="zoom: 80%;" /><img src="docs\images\Root Freq Override.png" alt="Root Freq Override" style="zoom: 80%;" /><img src="docs\images\Root Freq PCB.png" alt="Root Freq PCB" style="zoom: 80%;" />
 
 The Root Frequency specified in PitchGrid, which is Middle C for most tuning presets, may be overriden. A 12-TET note from the F# below Middle C to the F above Middle C may be selected. These notes are in concert pitch; so if A is selected,  the overriding frequency will be 220 Hz. If an override is not required, the blank item should be selected.  If the override is changed when the instrument's current preset has already been tuned, the tuning will be sent again with the overriding root frequency.
 
-When a root frequency has been overridden, the overriding frequency will be shown in PitchGrid-Continuum Bridge's tuning parameters display. By design, Root Freq Override is not saved to PCB's settings: the assumption is that, for safety, the player should consider which override, if any, to use each time PCB is loaded.
+When a root frequency has been overridden, the overriding frequency will be shown in orange in PitchGrid-Continuum Bridge's tuning parameters display. By design, Root Freq Override is not saved to PCB's settings: the assumption is that, for safety, the player should consider which override, if any, to use each time PCB is loaded.
 
 ### OSC Listening Port
 
-<img src="images\OSC Listening Port.png" alt="OSC Listening Port" style="zoom: 80%;" />
+<img src="docs\images\OSC Listening Port.png" alt="OSC Listening Port" style="zoom: 80%;" />
 
 The OSC port on which PitchGrid-Continuum Bridge is to listen for tunings from PitchGrid.  Unless you have will have more than one application listening for PitchGrid tunings at once, which PitchGrid supports, you can probably safely leave this to the default, 34561.  The OSC port on which PitchGrid listens for heartbeats from applications, 34562, is of course not available for use by PCB as its own listening port.
 
 ### Pitch Table
 
-<img src="images\Pitch Table.png" alt="Pitch Table" style="zoom: 80%;" />The identifier of the pitch table to which the tuning is to be uploaded may be selected from the range 80 to 87, which the Haken firmware reserves for custom tuning grids.  Unless you will be using the instrument's custom tuning grids for purposes other than receiving PitchGrid tunings via PitchGrid-Continuum Bridge, you can safely leave this to the default, 80.
+<img src="docs\images\Pitch Table.png" alt="Pitch Table" style="zoom: 80%;" />The identifier of the pitch table to which the tuning is to be uploaded may be selected from the range 80 to 87, which the Haken firmware reserves for custom tuning grids.  Unless you will be using the instrument's custom tuning grids for purposes other than receiving PitchGrid tunings via PitchGrid-Continuum Bridge, you can safely leave this to the default, 80.
 
 ### Rounding Overrides
 
-<img src="images\Rounding Overrides.png" alt="Rounding Overrides" style="zoom: 80%;" />
+<img src="docs\images\Rounding Overrides.png" alt="Rounding Overrides" style="zoom: 80%;" />
 
 With microtonal/xenharmonic tunings. it may be useful to constrain (to a greater or lesser extent) the fingerboard to play the pitches specified in the tuning table. So when a tuning is sent to the instrument, the preset's rounding parameters may optionally be overridden.
 
