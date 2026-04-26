@@ -14,7 +14,11 @@
       "Bash(python3 -c \"import json,sys; m=json.load\\(sys.stdin\\); [print\\(p[''manifest_path'']\\) for p in m[''packages''] if ''vivi'' in p[''name''].lower\\(\\)]\")",
       "Bash(xargs grep -l \"import_paths\")",
       "Bash(xargs grep -l \"CompilerConfiguration\")",
-      "Bash(cmd.exe /c \"cd /d \"\"D:\\\\Simon\\\\OneDrive\\\\Documents\\\\Rust Projects\\\\pitchgrid_continuum\"\" && cargo check 2>&1\")"
+      "Bash(cmd.exe /c \"cd /d \"\"D:\\\\Simon\\\\OneDrive\\\\Documents\\\\Rust Projects\\\\pitchgrid_continuum\"\" && cargo check 2>&1\")",
+      "Read(//d/Simon/OneDrive/Documents/Rust Projects/pitchgrid_continuum/$USERPROFILE/.cargo/registry/**)",
+      "Read(//c/Users/Simon O'Rorke/.cargo/registry/src/**)",
+      "Bash(cmd /c \"dir /AL \"\"D:\\\\Simon\\\\OneDrive\\\\Documents\\\\Rust Projects\\\\pitchgrid_continuum\\\\ui\\\\components\"\"\")",
+      "Bash(powershell.exe -Command \"Get-Item ''D:\\\\Simon\\\\OneDrive\\\\Documents\\\\Rust Projects\\\\pitchgrid_continuum\\\\ui\\\\components\\\\@vivi'' | Select-Object FullName, LinkType, Target\")"
     ]
   }
 }

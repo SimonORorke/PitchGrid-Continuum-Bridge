@@ -1,13 +1,9 @@
-// Adapted from vivi_ui/ui/magic/styling.slint.
-// This is needed because, for unknown reason,
-// the inclusion of the copied file in @vivi does not work. See
-//     build.rs
-//     vivi_ui::import_paths()
-//     https://docs.slint.dev/latest/docs/slint/guide/language/coding/file/#component_libraries
+// Copied from vivi_ui/ui/magic/styling.slint (local development version).
+// The published crate (vivi_ui-0.2.0) has a different API, so this file
+// cannot be replaced by an @vivi import until a matching version is published.
 
 import { Palette as StdPalette } from "std-widgets.slint";
 import { TextStyle, IconStyle, LayoutStyle, BorderStyle } from "@vivi/foundation.slint";
-//import { TextStyle, IconStyle, LayoutStyle, BorderStyle } from "../foundation.slint";
 
 export struct MagicPalette {
     background: brush,
