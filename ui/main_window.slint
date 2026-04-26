@@ -29,11 +29,12 @@ export component MainWindow inherits MagicWindow {
     // a higher-resolution screen to a lower resolution screen,
     // the window keeps its bigger size or bigger. This is a known Slint bug:
     // https://github.com/slint-ui/slint/issues/11073.
-    // It's probably a bug in winit, the rust crate used by Slint behind
+    // It corresponds to a bug in winit, the rust crate used by Slint behind
     // the scene to hande the window, maybe this one:
     // https://github.com/rust-windowing/winit/issues/3040.
     // I've logged this PCB bug:
-    // https://github.com/SimonORorke/PitchGrid-Continuum-Bridge/issues/1
+    // https://github.com/SimonORorke/PitchGrid-Continuum-Bridge/issues/1,
+    // where workarounds are documenteded.
     preferred_width: 700px;
     // Needs to be big enough to include everything down to the second status bar line.
     preferred_height: 480px;
