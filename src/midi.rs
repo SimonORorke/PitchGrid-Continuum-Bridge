@@ -645,7 +645,7 @@ impl Midi {
         // println!("Midi.send_message: Got connection");
         if let Some(connection) = connection_option.as_mut() {
             connection.send(message).unwrap_or_else(|_| {
-                print!("Error when sending MIDI message: {:?}", message);
+                println!("Error when sending MIDI message: {:?}", message);
                 // Panic for stack trace diagnostics.
                 // panic!("Error when sending MIDI message: {:?}", message);
             });
