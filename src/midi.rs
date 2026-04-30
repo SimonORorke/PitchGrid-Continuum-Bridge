@@ -599,7 +599,7 @@ impl Midi {
                             // zero-based program number after the bank.
                             // For unknown reason, this happens twice when a preset is loaded
                             // from disc.
-                            // println!("midi.on_message_received: Program, preset selected");
+                            println!("midi.on_message_received: Program, preset selected");
                             // *preset_select_status().lock().unwrap() = PresetSelectStatus::None;
                             Self::call_back(new_preset_selected_callbacks().clone());
                             return;

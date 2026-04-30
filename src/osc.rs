@@ -111,7 +111,7 @@ impl Osc {
     }
 
     pub fn stop(&self) {
-        // println!("Osc.stop");
+        println!("Osc.stop");
         IS_PITCHGRID_CONNECTED.store(false, Ordering::SeqCst);
         // Stop the threads.
         let mut inner = self.inner.lock().unwrap();
@@ -146,7 +146,7 @@ impl Osc {
         ] = args[..] {
             rayon::spawn(move || {
                 if !IS_PITCHGRID_CONNECTED.load(Ordering::SeqCst) {
-                    // println!("Osc.handle_tuning: PitchGrid connected");
+                    println!("Osc.handle_tuning: PitchGrid connected");
                     IS_PITCHGRID_CONNECTED.store(true, Ordering::SeqCst);
                     callbacks.on_osc_pitchgrid_connected_changed();
                 }
@@ -267,7 +267,7 @@ impl Osc {
             // println!("current_time = {:?}, last_ack_time = {:?}, time_since_ack = {:?}, was_connected = {}",
             //          current_time, last_ack_time, time_since_ack, was_connected );
             if time_since_ack > Duration::from_secs(2) { // No ack for 2 seconds
-                // println!("Osc.monitor_connection: not connected");
+                println!("Osc.monitor_connection: not connected");
                 IS_PITCHGRID_CONNECTED.store(false, Ordering::SeqCst);
                 if was_connected {
                     callbacks.on_osc_pitchgrid_connected_changed();
