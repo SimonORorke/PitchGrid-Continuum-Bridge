@@ -282,7 +282,8 @@ impl Controller {
     pub fn set_root_freq_override(&mut self, index: usize) {
         let send_tuning = midi_static::is_receiving_data()
             && midi_static::are_ports_connected()
-            && midi_static::has_downloaded_init_data();
+            && midi_static::has_downloaded_init_data()
+            && self.osc.is_pitchgrid_connected();
         if send_tuning {
             self.callbacks.show_pitchgrid_status(
                 UPDATING_ROOT_FREQ_OVERRIDE,
@@ -352,7 +353,7 @@ impl Controller {
 
     fn on_new_preset_selected(&self) {
         // println!("Controller.on_new_preset_selected");
-        if tuner::resend_tuning() {
+        if tuner::resend_tuning() && self.osc.is_pitchgrid_connected() {
             // println!("Controller.on_new_preset_selected: Resent");
             self.callbacks.show_pitchgrid_status(
                 NEW_PRESET_SELECTED,
