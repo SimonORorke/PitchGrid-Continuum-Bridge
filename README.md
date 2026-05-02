@@ -12,7 +12,7 @@ PitchGrid-Continuum Bridge (PCB) has so far only been tested with the Continuum.
 
 ### Supported Haken Audio Firmware Versions
 
-Custom tuning is broken in Haken Audio Firmware v10.52, the latest production version.  Version 10.72 Beta or later is required.  The most recent Beta version is currently available for anyone to download.
+*To be determined. Awaiting firmware bug fixes.* Custom tuning is broken in Haken Audio Firmware v10.52, the latest production version.  Version *???* Beta or later is required.  The most recent Beta version is currently available for anyone to download.
 
 ### Supported Operating Systems
 
