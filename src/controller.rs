@@ -14,7 +14,6 @@ use crate::tuning_params::TuningParams;
 /// Everything else is the model.
 pub struct Controller {
     callbacks: Box<dyn ControllerCallbacks>,
-    has_restart_been_requested: bool,
     osc: Osc,
     settings: Settings,
 }
@@ -23,7 +22,6 @@ impl Controller {
     pub fn new(callbacks: Box<dyn ControllerCallbacks>) -> Self {
         Self {
             callbacks,
-            has_restart_been_requested: false,
             osc: Osc::new(),
             settings: Settings::new(),
         }
@@ -132,12 +130,17 @@ impl Controller {
         self.callbacks.set_override_rounding_rate(override_rounding_rate);
         self.callbacks.set_rounding_rate(rounding_rate);
         if midi_static::are_ports_connected() {
-            // println!("Controller.init: Showing Checking instrument connection");
-            self.show_info(CHECKING_INSTRUMENT_CONNECTION);
             // println!("Controller.init: Starting instrument connection monitor");
-            midi_static::start_instrument_connection_monitor();
+            self.start_instrument_connection_monitor();
         }
         // println!("Controller.init: Done");
+    }
+
+    fn start_instrument_connection_monitor(&mut self) {
+        // println!("Controller.start_instrument_connection_monitor");
+        self.show_info(CHECKING_INSTRUMENT_CONNECTION);
+        midi_static::start_instrument_connection_monitor();
+        // println!("Controller.start_instrument_connection_monitor: Instrument connection monitor started");
     }
 
     #[allow(clippy::unwrap_used)]
@@ -191,9 +194,8 @@ impl Controller {
         if let Some(device_name) = device_name_opt {
             self.show_info(port_strategy.msg_connected(&device_name));
             if midi_static::are_ports_connected() {
-                // println!("Controller.connect_port: Showing Restart this application");
-                self.show_warning(RESTART_APPLICATION);
-                self.has_restart_been_requested = true;
+                // println!("Controller.connect_port: Starting instrument connection monitor");
+                self.start_instrument_connection_monitor();
             } else {
                 let other_port_strategy:Box<dyn PortStrategy> = match port_strategy.port_type() {
                     PortType::Input => Box::new(OutputStrategy::new()),
@@ -364,7 +366,7 @@ impl Controller {
 
     /// Started receiving data from the instrument.
     fn on_receiving_data_started_callback(&mut self) {
-        println!("Controller.on_receiving_data_started_callback");
+        // println!("Controller.on_receiving_data_started_callback");
         // The input port is connected, as we are receiving data from the instrument.
         // But the output port might not be, in which case we can't send data to the instrument
         // and should not overwrite the "Connect MIDI output port" warning message that should
@@ -377,13 +379,13 @@ impl Controller {
 
     /// Stopped receiving data from the instrument.
     fn on_receiving_data_stopped_callback(&mut self) {
-        println!("Controller.on_receiving_data_stopped_callback");
+        // println!("Controller.on_receiving_data_stopped_callback");
         if self.osc.is_running() {
             println!("Controller.on_receiving_data_stopped_callback: Stopping OSC");
             self.stop_osc_and_show_message();
         }
-        if midi_static::are_ports_connected() && !self.has_restart_been_requested {
-            println!("Controller.on_receiving_data_stopped_callback: Showing instrument not connected warning");
+        if midi_static::are_ports_connected() {
+            // println!("Controller.on_receiving_data_stopped_callback: Showing instrument not connected warning");
             self.show_warning(INSTRUMENT_NOT_CONNECTED);
         }
     }
@@ -554,7 +556,6 @@ const PITCHGRID_CONNECTION_CLOSED: &str = "PitchGrid connection closed while ins
 const PITCHGRID_NOT_CONNECTED: &str = "PitchGrid is not connected. OSC must be enabled in Pitchgrid.";
 const PITCHGRID_OSC_CONNECTED: &str = "PitchGrid OSC is connected";
 const PORT_NONE: &str = "[None]";
-const RESTART_APPLICATION: &str = "Restart this application to connect to PitchGrid";
 const UPDATING_INSTRUMENT_TUNING: &str = "Updating instrument tuning";
 const UPDATING_ROOT_FREQ_OVERRIDE: &str = "Updating root frequency override...";
 const WAITING_FOR_DATA_DOWNLOAD: &str =

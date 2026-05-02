@@ -233,6 +233,7 @@ impl Midi {
 
     pub fn start_instrument_connection_monitor(&mut self) {
         // println!("Midi.start_instrument_connection_monitor");
+        *last_message_received_time().lock().unwrap() = None;
         let (stopper_sender, stopper_receiver) = mpsc::channel();
         self.connection_monitor_stopper_sender = Some(stopper_sender);
         rayon::spawn(move || {
@@ -307,6 +308,7 @@ impl Midi {
         }
         // If we have not yet received any messages from the instrument after 2 seconds,
         // show a message to the user.
+        // Is this redundant?
         rayon::spawn(move || {
             sleep(Duration::from_secs(MIDI_WAIT_SECS));
             if !IS_RECEIVING_DATA.load(Ordering::Relaxed) {
@@ -395,7 +397,7 @@ impl Midi {
             last_time.take();
         *last_time = Some(now);
         if prev_message_received_time.is_none() {
-            // This is the first message we have received since the application started.
+            // This is the first message we have received since monitoring for messages started.
             // We need to wait for the initial data download to the editor to complete, if
             // it did not already happen before we started listening.
             // However, we will be judging the download to be complete either when we receive
@@ -470,7 +472,7 @@ impl Midi {
                     let duration = now.duration_since(last_time);
                     let seconds = duration.as_secs();
                     if seconds > MIDI_WAIT_SECS {
-                        println!("midi.monitor_instrument_connection: Instrument disconnected.");
+                        // println!("midi.monitor_instrument_connection: Instrument disconnected.");
                         *last_message_received_time().lock().unwrap() = None;
                         IS_RECEIVING_DATA.store(false, Ordering::Relaxed);
                         Self::call_back(receiving_data_stopped_callbacks().clone());
@@ -482,7 +484,7 @@ impl Midi {
                 let seconds = duration.as_secs();
                 // Give a chance for the instrument heartbeat messages to arrive.
                 if seconds > MIDI_WAIT_SECS {
-                    println!("midi.monitor_instrument_connection: Instrument not connected for 2 seconds on startup.");
+                    // println!("midi.monitor_instrument_connection: Instrument not connected for 2 seconds on startup.");
                     // Not connected for 2 seconds after application start.
                     // So we can assume that the instrument is not yet connected.
                     // Provide an opportunity for a helpful message to be displayed.
