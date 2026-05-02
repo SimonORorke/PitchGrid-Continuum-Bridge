@@ -4,7 +4,6 @@ use std::sync::atomic::{AtomicBool, AtomicU8, AtomicUsize, Ordering};
 use cxx::UniquePtr;
 use round::round;
 use tuner_refs::{default_pitch_keys, keys_clone, params_clone, root_freq_override, set_keys};
-use crate::{midi_static};
 use crate::midi::Midi;
 use crate::tuner::ffi::MOS;
 use crate::tuning_params::{TuningParams,};
@@ -12,8 +11,6 @@ use crate::tuning_params::{TuningParams,};
 pub fn init(pitch_table: u8) {
     PITCH_TABLE.store(pitch_table, Ordering::Relaxed);
     tuner_refs::pitch_tables();
-    midi_static::midi_clone().lock().unwrap()
-        .add_tuning_updated_callback(Box::from(on_tuning_updated));
 }
 
 /// Update tuning parameters from the OSC message.
@@ -139,7 +136,7 @@ fn calculate_key_pitches(tuning_params: TuningParams) -> Vec<f32> {
 /// If tuning data has previously been received, resends it to the instrument.
 /// Returns whether tuning data was resent.
 pub fn resend_tuning() -> bool {
-    let can_send = keys_clone().len() > 0usize;
+    let can_send = has_tuning_data();
     if can_send {
         // Tuning data has previously been received.
         // println!("tuner.resend_tuning: Resending tuning data to instrument.");
@@ -148,7 +145,18 @@ pub fn resend_tuning() -> bool {
     can_send
 }
 
+pub fn has_tuning_data() -> bool {
+    keys_clone().len() > 0usize
+}
+
+pub fn remove_tuning_data() {
+    // println!("tuner.remove_tuning_data");
+    *params_clone().lock().unwrap() = TuningParams::default();
+    set_keys(vec![]);
+}
+
 fn send_tuning() {
+    // println!("tuner.send_tuning");
     let mut keys = keys_clone();
     set_to_key_numbers(&mut keys);
     calculate_offsets(&mut keys);
@@ -238,12 +246,17 @@ fn send_pitch_table(pitch_table: u8, keys: &Vec<Key>) {
     // Save pitch table on instrument.
     Midi::send_control_change(16, 109, 101);
     // Set active pitch table for performance.
+    // println!("tuner.send_pitch_table_to_instrument: Setting active pitch table to {}", pitch_table);
     Midi::send_control_change(16, 51, pitch_table); // Grid
 }
 
 /// The tuning parameters formatted for display.
 pub fn formatted_tuning_params() -> FormattedTuningParams {
     // println!("tuner.formatted_tuning_params");
+    if !has_tuning_data() {
+        // println!("tuner.formatted_tuning_params: no tuning data");
+        return FormattedTuningParams::default();
+    }
     let params_clone = params_clone();
     let params = params_clone.lock().unwrap();
     // Show the root frequency override if there is one.
@@ -310,8 +323,14 @@ pub fn set_pitch_table(pitch_table: u8) {
 
 pub fn default_pitch_table() -> u8 { 80 }
 
-fn on_tuning_updated() {
+pub fn on_tuning_updated() {
     // println!("tuner.on_tuning_updated");
+    if !has_tuning_data() {
+        println!("tuner.on_tuning_updated: no tuning data");
+        // Could be tuning updated when an instrument preset is loaded
+        // while PitchGrid is not connected.
+        return;
+    }
     // See comment in on_tuning_received.
     let send_again:bool;
     {
@@ -442,6 +461,16 @@ pub struct FormattedTuningParams {
     pub root_freq: String, pub stretch: String,
     pub skew: String, pub mode_offset: String, pub steps: String,
     pub mos_large_step_count: String, pub mos_small_step_count: String,
+}
+
+impl FormattedTuningParams {
+    fn default() -> Self {
+        Self {
+            root_freq: String::new(), stretch: String::new(),
+            skew: String::new(), mode_offset: String::new(), steps: String::new(),
+            mos_large_step_count: String::new(), mos_small_step_count: String::new(),
+        }
+    }
 }
 
 static IS_ALREADY_UPDATING: AtomicBool = AtomicBool::new(false);

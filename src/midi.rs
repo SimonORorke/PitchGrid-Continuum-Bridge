@@ -19,7 +19,7 @@ use std::thread::sleep;
 use crate::global::{PortType};
 use crate::midi_ports::{Io, IIo};
 use crate::port_strategy::PortStrategy;
-use crate::tuner;
+// use crate::tuner;
 
 pub struct Midi {
     connection_monitor_stopper_sender: Option<mpsc::Sender<()>>,
@@ -522,39 +522,47 @@ impl Midi {
                         // and when a pitch table update sent to the instrument has been
                         // completed and loaded.
                         let status = *tuning_status().lock().unwrap();
-                        match status {
-                            TuningStatus::None => {}
-                            TuningStatus::Tuning => {
-                                // Check that the value is the correct pitch table index
-                                // for the tuning this application sent to the instrument.
-                                // When there have been problems at the instrument end,
-                                // it has sent back a ch16 cc51 messages, but with value 0.
-                                if pitch_table == tuner::pitch_table() {
-                                    // The editor sends us back what we send to the instrument,
-                                    // as well as what the instrument sends back to us.
-                                    // So we have just requested that the current preset be updated
-                                    // with the new pitch table.
-                                    println!("midi.on_message_received: Preset's pitch table \
+                        // Workaround for firmware 10.73 Beta not sending update confirmation
+                        // for some presets.
+                        if status == TuningStatus::Tuning {
+                            println!("midi.on_message_received: Preset's pitch table \
                                         update requested, pitch table no: {}", pitch_table);
-                                    *tuning_status().lock().unwrap() =
-                                        TuningStatus::RequestedPresetUpdate;
-                                }
-                            }
-                            TuningStatus::RequestedPresetUpdate => {
-                                // The instrument has confirmed that the current preset has been
-                                // updated with the new pitch table.
-                                // As at firmware 10.73, there is a firmware bug where, for
-                                // specific presets, the instrument will send back a cc51 message
-                                // with value 0 instead of the pitch table no we requested.
-                                // Haken Audio Incident 2335
-                                // https://github.com/SimonORorke/PitchGrid-Continuum-Bridge/issues/5
-                                // So we can omit checking the pitch table no here.
-                                println!("midi.on_message_received: Preset's pitch table \
-                                        update confirmed, pitch table no: {}", pitch_table);
-                                *tuning_status().lock().unwrap() = TuningStatus::None;
-                                Self::call_back(tuning_updated_callbacks().clone());
-                            }
+                            *tuning_status().lock().unwrap() = TuningStatus::None;
+                            Self::call_back(tuning_updated_callbacks().clone());
                         }
+                        // match status {
+                        //     TuningStatus::None => {}
+                        //     TuningStatus::Tuning => {
+                        //         // Check that the value is the correct pitch table index
+                        //         // for the tuning this application sent to the instrument.
+                        //         // When there have been problems at the instrument end,
+                        //         // it has sent back a ch16 cc51 messages, but with value 0.
+                        //         if pitch_table == tuner::pitch_table() {
+                        //             // The editor sends us back what we send to the instrument,
+                        //             // as well as what the instrument sends back to us.
+                        //             // So we have just requested that the current preset be updated
+                        //             // with the new pitch table.
+                        //             println!("midi.on_message_received: Preset's pitch table \
+                        //                 update requested, pitch table no: {}", pitch_table);
+                        //             *tuning_status().lock().unwrap() =
+                        //                 TuningStatus::RequestedPresetUpdate;
+                        //         }
+                        //     }
+                        //     TuningStatus::RequestedPresetUpdate => {
+                        //         // The instrument has confirmed that the current preset has been
+                        //         // updated with the new pitch table.
+                        //         // As at firmware 10.73, there is a firmware bug where, for
+                        //         // specific presets, the instrument will send back a cc51 message
+                        //         // with value 0 instead of the pitch table no we requested.
+                        //         // Haken Audio Incident 2335
+                        //         // https://github.com/SimonORorke/PitchGrid-Continuum-Bridge/issues/5
+                        //         // So we can omit checking the pitch table no here.
+                        //         println!("midi.on_message_received: Preset's pitch table \
+                        //                 update confirmed, pitch table no: {}", pitch_table);
+                        //         *tuning_status().lock().unwrap() = TuningStatus::None;
+                        //         Self::call_back(tuning_updated_callbacks().clone());
+                        //     }
+                        // }
                         return;
                     }
                     if controller == 109 {
@@ -580,10 +588,14 @@ impl Midi {
                         }
                     }
                 }
-                MidiMessage::ProgramChange { ..} => {
-                // MidiMessage::ProgramChange { program } => {
+                #[allow(unused_variables)]
+                MidiMessage::ProgramChange { program } => {
                     let channel1 = u8::from(channel) + 1; // 1-based channel number.
                     if channel1 == 16 {
+                        // When the editor requests a preset load, which can be seen in the
+                        // editor's console log but not here, the program number is zero-based.
+                        // When the instrument confirms that the preset has been loaded,
+                        // which we see here, the program number is one-based.
                         // println!("midi.on_message_received: ProgramChange ch16 program {}", program);
                         let download_status = *download_status().lock().unwrap();
                         // I don't think this will work if system presets are downloaded.
@@ -599,7 +611,7 @@ impl Midi {
                             // zero-based program number after the bank.
                             // For unknown reason, this happens twice when a preset is loaded
                             // from disc.
-                            println!("midi.on_message_received: Program, preset selected");
+                            // println!("midi.on_message_received: Program, preset selected");
                             // *preset_select_status().lock().unwrap() = PresetSelectStatus::None;
                             Self::call_back(new_preset_selected_callbacks().clone());
                             return;

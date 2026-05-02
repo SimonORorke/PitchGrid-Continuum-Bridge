@@ -354,7 +354,7 @@ impl Controller {
     fn on_new_preset_selected(&self) {
         // println!("Controller.on_new_preset_selected");
         if tuner::resend_tuning() && self.osc.is_pitchgrid_connected() {
-            println!("Controller.on_new_preset_selected: Resent");
+            // println!("Controller.on_new_preset_selected: Resent");
             self.callbacks.show_pitchgrid_status(
                 NEW_PRESET_SELECTED,
                 MessageType::Info);
@@ -373,6 +373,7 @@ impl Controller {
     }
 
     fn on_receiving_data_stopped_callback(&mut self) {
+        println!("Controller.on_receiving_data_stopped_callback");
         if self.osc.is_running() {
             self.stop_osc_and_show_message();
         }
@@ -383,7 +384,14 @@ impl Controller {
 
     fn on_tuning_updated(&self) {
         // println!("Controller.on_tuning_updated: Showing tuning");
+        tuner::on_tuning_updated();
+        // If there's no tuning data, the displayed tuning data will be blanked.
         self.callbacks.show_tuning(tuner::is_root_freq_overridden());
+        if !tuner::has_tuning_data() {
+            // Could be tuning updated when an instrument preset is loaded
+            // while PitchGrid is not connected.
+            return;
+        }
         // println!("Controller.on_tuning_updated: Showing Instrument tuning updated");
         self.callbacks.show_pitchgrid_status(INSTRUMENT_TUNING_UPDATED, MessageType::Info);
     }
@@ -460,6 +468,9 @@ impl Controller {
     /// force PitchGrid to send the latest tuning.
     fn stop_osc_and_show_message(&self) {
         self.osc.stop();
+        // tuner::remove_tuning_data();
+        // // As we've removed tuning data, the displayed tuning data will be blanked.
+        // self.callbacks.show_tuning(tuner::is_root_freq_overridden());
         if !midi_static::are_ports_connected() {
             self.callbacks.show_pitchgrid_status(
                 CANNOT_UPDATE_TUNING_CONNECT,
@@ -496,6 +507,9 @@ impl OscCallbacks for Controller {
             self.show_info(PITCHGRID_AND_INSTRUMENT_CONNECTED);
         } else {
             // println!("Controller.on_osc_pitchgrid_connected_changed: PitchGrid is not connected");
+            tuner::remove_tuning_data();
+            // As we've removed tuning data, the displayed tuning data will be blanked.
+            self.callbacks.show_tuning(tuner::is_root_freq_overridden());
             self.show_pitchgrid_not_connected();
             self.show_warning(AWAITING_PITCHGRID_CONNECTION);
         }

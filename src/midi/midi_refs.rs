@@ -19,7 +19,7 @@ pub(super) enum DownloadStatus {
 pub(super) enum TuningStatus {
     None,
     Tuning,
-    RequestedPresetUpdate,
+    // RequestedPresetUpdate,
 }
 
 static DOWNLOAD_COMPLETED_CALLBACKS: OnceLock<Callbacks> = OnceLock::new();
