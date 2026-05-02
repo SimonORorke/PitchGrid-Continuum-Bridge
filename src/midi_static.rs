@@ -44,16 +44,16 @@ pub fn midi_clone() -> SharedMidi {
     Arc::clone(midi)
 }
 
-pub fn start_instru_connection_monitor() {
+pub fn start_instrument_connection_monitor() {
     let midi = midi_clone();
     let mut midi_guard = midi.lock().unwrap();
-    midi_guard.start_instru_connection_monitor();
+    midi_guard.start_instrument_connection_monitor();
 }
 
-pub fn stop_instru_connection_monitor() {
+pub fn stop_instrument_connection_monitor() {
     let midi = midi_clone();
     let mut midi_guard = midi.lock().unwrap();
-    midi_guard.stop_instru_connection_monitor();
+    midi_guard.stop_instrument_connection_monitor();
 }
 
 static MIDI: OnceLock<SharedMidi> = OnceLock::new();

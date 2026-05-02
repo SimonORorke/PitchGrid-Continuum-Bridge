@@ -106,7 +106,7 @@ impl Midi {
         self.disconnect_input_port();
         self.disconnect_output_port();
         // self.stop_download_monitor();
-        self.stop_instru_connection_monitor();
+        self.stop_instrument_connection_monitor();
     }
 
     pub fn connect_port(
@@ -116,7 +116,7 @@ impl Midi {
     ) -> Result<(), Box<dyn Error>> {
         let were_ports_connected = self.are_ports_connected();
         // self.stop_download_monitor();
-        self.stop_instru_connection_monitor();
+        self.stop_instrument_connection_monitor();
         match port_strategy.port_type() {
             PortType::Input => self.connect_input_port(index, port_strategy)?,
             PortType::Output => self.connect_output_port(index, port_strategy)?,
@@ -176,7 +176,7 @@ impl Midi {
     ) -> Result<(), Box<dyn Error>> {
         let were_ports_connected = self.are_ports_connected();
         // self.stop_download_monitor();
-        self.stop_instru_connection_monitor();
+        self.stop_instrument_connection_monitor();
         match port_strategy.port_type() {
             PortType::Input => self.refresh_input_devices(device_name)?,
             PortType::Output => self.refresh_output_devices(device_name)?,
@@ -231,32 +231,32 @@ impl Midi {
         );
     }
 
-    pub fn start_instru_connection_monitor(&mut self) {
-        // println!("Midi.start_instru_connection_monitor");
+    pub fn start_instrument_connection_monitor(&mut self) {
+        // println!("Midi.start_instrument_connection_monitor");
         let (stopper_sender, stopper_receiver) = mpsc::channel();
         self.connection_monitor_stopper_sender = Some(stopper_sender);
         rayon::spawn(move || {
-            Self::monitor_instru_connection(stopper_receiver);
+            Self::monitor_instrument_connection(stopper_receiver);
         });
         self.is_connection_monitor_running = true;
     }
 
-    pub fn stop_instru_connection_monitor(&mut self) {
-        // println!("Midi.stop_instru_connection_monitor");
+    pub fn stop_instrument_connection_monitor(&mut self) {
+        // println!("Midi.stop_instrument_connection_monitor");
         if !self.is_connection_monitor_running {
-            // println!("Midi.stop_instru_connection_monitor: Already stopped.");
+            // println!("Midi.stop_instrument_connection_monitor: Already stopped.");
             return;
         }
         let stopper_sender =
             self.connection_monitor_stopper_sender.take();
         if stopper_sender.is_none() { return; }
         stopper_sender.unwrap().send(()).unwrap_or_else(|_| {
-            panic!("Midi.stop_instru_connection_monitor: Failed to send stop signal to connection monitor");
+            panic!("Midi.stop_instrument_connection_monitor: Failed to send stop signal to connection monitor");
         });
-        // println!("Midi.stop_instru_connection_monitor: Stopped monitor thread.");
+        // println!("Midi.stop_instrument_connection_monitor: Stopped monitor thread.");
         self.is_connection_monitor_running = false;
         IS_RECEIVING_DATA.store(false, Ordering::Relaxed);
-        // println!("Midi.stop_instru_connection_monitor: Done.");
+        // println!("Midi.stop_instrument_connection_monitor: Done.");
     }
 
     pub fn on_updating_tuning() {
@@ -310,6 +310,7 @@ impl Midi {
         rayon::spawn(move || {
             sleep(Duration::from_secs(MIDI_WAIT_SECS));
             if !IS_RECEIVING_DATA.load(Ordering::Relaxed) {
+                println!("Midi.connect_input_port: Stopped receiving data");
                 Self::call_back(receiving_data_stopped_callbacks().clone());
             }
         });
@@ -457,7 +458,7 @@ impl Midi {
     /// a second later. This application will receive both sets of heartbeat messages. To be safe,
     /// if we have not had any data for 2 seconds, we assume
     /// the editor or instrument has disconnected.
-    fn monitor_instru_connection(stopper_receiver: mpsc::Receiver<()>) {
+    fn monitor_instrument_connection(stopper_receiver: mpsc::Receiver<()>) {
         let start_time = Instant::now();
         let mut has_initially_not_connected_callback_been_called = false;
         loop {
@@ -469,7 +470,7 @@ impl Midi {
                     let duration = now.duration_since(last_time);
                     let seconds = duration.as_secs();
                     if seconds > MIDI_WAIT_SECS {
-                        // println!("midi.monitor_instru_connection: Instrument disconnected.");
+                        println!("midi.monitor_instrument_connection: Instrument disconnected.");
                         *last_message_received_time().lock().unwrap() = None;
                         IS_RECEIVING_DATA.store(false, Ordering::Relaxed);
                         Self::call_back(receiving_data_stopped_callbacks().clone());
@@ -481,7 +482,7 @@ impl Midi {
                 let seconds = duration.as_secs();
                 // Give a chance for the instrument heartbeat messages to arrive.
                 if seconds > MIDI_WAIT_SECS {
-                    // println!("midi.monitor_instru_connection: Instrument not connected for 2 seconds on startup.");
+                    println!("midi.monitor_instrument_connection: Instrument not connected for 2 seconds on startup.");
                     // Not connected for 2 seconds after application start.
                     // So we can assume that the instrument is not yet connected.
                     // Provide an opportunity for a helpful message to be displayed.

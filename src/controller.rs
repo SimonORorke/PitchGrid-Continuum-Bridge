@@ -135,7 +135,7 @@ impl Controller {
             // println!("Controller.init: Showing Checking instrument connection");
             self.show_info(CHECKING_INSTRUMENT_CONNECTION);
             // println!("Controller.init: Starting instrument connection monitor");
-            midi_static::start_instru_connection_monitor();
+            midi_static::start_instrument_connection_monitor();
         }
         // println!("Controller.init: Done");
     }
@@ -177,7 +177,7 @@ impl Controller {
         let midi = midi_static::midi_clone();
         let port_strategy = port_strategy.clone_box();
         // println!("Controller.connect_port: Stopping OSC and instrument connection monitor");
-        self.stop_osc_and_instru_connection_monitor();
+        self.stop_osc_and_instrument_connection_monitor();
         // println!("Controller.connect_port: Showing PitchGrid disconnected");
         self.show_pitchgrid_disconnected();
         // println!("Controller.connect_port: Connecting selected port");
@@ -252,7 +252,7 @@ impl Controller {
     pub fn refresh_devices(&mut self, port_strategy: &dyn PortStrategy) {
         let midi = midi_static::midi_clone();
         let port_strategy = port_strategy.clone_box();
-        self.stop_osc_and_instru_connection_monitor();
+        self.stop_osc_and_instrument_connection_monitor();
         let device_name = port_strategy.port_setting(&self.settings).to_string();
         if let Err(err) = midi.lock().unwrap().refresh_devices(
             &device_name, &*port_strategy) {
@@ -276,7 +276,8 @@ impl Controller {
         Arc::clone(controller)
     }
 
-    /// Sets the root frequency override and sends it to the instrument, if connected.
+    /// Sets the root frequency override and sends it to the instrument,
+    /// if the instrument and PitchGrid are both connected.
     /// We probably don't need a setting for this.
     /// The player should have to choose an override, if required, on startup.
     pub fn set_root_freq_override(&mut self, index: usize) {
@@ -340,9 +341,9 @@ impl Controller {
             return;
         }
         // Instrument is not connected. Stop OSC if running.
-        // println!("Controller.on_instru_connected_changed: Instrument is not connected.");
+        // println!("Controller.on_ports_connected_changed: Instrument is not connected.");
         if self.osc.is_running() {
-            // println!("Controller.on_instru_connected_changed: Stopping OSC");
+            // println!("Controller.on_ports_connected_changed: Stopping OSC");
             self.osc.stop();
             self.show_warning(INSTRUMENT_DISCONNECTED);
         }
@@ -361,7 +362,9 @@ impl Controller {
         }
     }
 
+    /// Started receiving data from the instrument.
     fn on_receiving_data_started_callback(&mut self) {
+        println!("Controller.on_receiving_data_started_callback");
         // The input port is connected, as we are receiving data from the instrument.
         // But the output port might not be, in which case we can't send data to the instrument
         // and should not overwrite the "Connect MIDI output port" warning message that should
@@ -372,6 +375,7 @@ impl Controller {
         }
     }
 
+    /// Stopped receiving data from the instrument.
     fn on_receiving_data_stopped_callback(&mut self) {
         println!("Controller.on_receiving_data_stopped_callback");
         if self.osc.is_running() {
@@ -457,10 +461,10 @@ impl Controller {
         self.osc.start(Self::clone_controller());
     }
 
-    fn stop_osc_and_instru_connection_monitor(&mut self) {
-        midi_static::stop_instru_connection_monitor();
+    fn stop_osc_and_instrument_connection_monitor(&mut self) {
+        midi_static::stop_instrument_connection_monitor();
         self.osc.stop();
-        // println!("Controller.stop_osc_and_instru_connection_monitor: Done");
+        // println!("Controller.stop_osc_and_instrument_connection_monitor: Done");
     }
 
     /// Stops PitchGrid OSC and shows a message.
