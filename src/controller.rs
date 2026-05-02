@@ -379,9 +379,11 @@ impl Controller {
     fn on_receiving_data_stopped_callback(&mut self) {
         println!("Controller.on_receiving_data_stopped_callback");
         if self.osc.is_running() {
+            println!("Controller.on_receiving_data_stopped_callback: Stopping OSC");
             self.stop_osc_and_show_message();
         }
-        if midi_static::are_ports_connected() {
+        if midi_static::are_ports_connected() && !self.has_restart_been_requested {
+            println!("Controller.on_receiving_data_stopped_callback: Showing instrument not connected warning");
             self.show_warning(INSTRUMENT_NOT_CONNECTED);
         }
     }
