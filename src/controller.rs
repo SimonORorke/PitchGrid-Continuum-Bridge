@@ -342,11 +342,11 @@ impl Controller {
         if midi_static::are_ports_connected() {
             return;
         }
-        // Instrument is not connected. Stop OSC if running.
-        // println!("Controller.on_ports_connected_changed: Instrument is not connected.");
+        // At least one MIDI port is not connected. Stop OSC if running.
+        // println!("Controller.on_ports_connected_changed: Ports are not connected.");
         if self.osc.is_running() {
             // println!("Controller.on_ports_connected_changed: Stopping OSC");
-            self.osc.stop();
+            self.stop_osc_and_show_pitchgrid_status();
             self.show_warning(INSTRUMENT_DISCONNECTED);
         }
         self.callbacks.show_pitchgrid_status(
@@ -382,7 +382,7 @@ impl Controller {
         // println!("Controller.on_receiving_data_stopped_callback");
         if self.osc.is_running() {
             println!("Controller.on_receiving_data_stopped_callback: Stopping OSC");
-            self.stop_osc_and_show_message();
+            self.stop_osc_and_show_pitchgrid_status();
         }
         if midi_static::are_ports_connected() {
             // println!("Controller.on_receiving_data_stopped_callback: Showing instrument not connected warning");
@@ -466,19 +466,18 @@ impl Controller {
     }
 
     fn stop_osc_and_instrument_connection_monitor(&mut self) {
+        // println!("Controller.stop_osc_and_instrument_connection_monitor");
         midi_static::stop_instrument_connection_monitor();
-        self.osc.stop();
+        self.stop_osc_and_show_pitchgrid_status();
         // println!("Controller.stop_osc_and_instrument_connection_monitor: Done");
     }
 
-    /// Stops PitchGrid OSC and shows a message.
+    /// Stops PitchGrid OSC, blanks the displayed tuning and shows a PitchGrid status message.
     /// When the application is reconnected to the instrument, OSC will be restarted, which will
     /// force PitchGrid to send the latest tuning.
-    fn stop_osc_and_show_message(&self) {
+    fn stop_osc_and_show_pitchgrid_status(&self) {
         self.osc.stop();
-        // tuner::remove_tuning_data();
-        // // As we've removed tuning data, the displayed tuning data will be blanked.
-        // self.callbacks.show_tuning(tuner::is_root_freq_overridden());
+        self.remove_tuning_data();
         if !midi_static::are_ports_connected() {
             self.callbacks.show_pitchgrid_status(
                 CANNOT_UPDATE_TUNING_CONNECT,
@@ -488,6 +487,13 @@ impl Controller {
                 CANNOT_UPDATE_TUNING_LOST,
                 MessageType::Error);
         }
+    }
+
+    fn remove_tuning_data(&self) {
+        // println!("Controller.remove_tuning_data");
+        tuner::remove_tuning_data();
+        // As we've removed tuning data, the displayed tuning data will be blanked.
+        self.callbacks.show_tuning(tuner::is_root_freq_overridden());
     }
 }
 
@@ -515,9 +521,7 @@ impl OscCallbacks for Controller {
             self.show_info(PITCHGRID_AND_INSTRUMENT_CONNECTED);
         } else {
             // println!("Controller.on_osc_pitchgrid_connected_changed: PitchGrid is not connected");
-            tuner::remove_tuning_data();
-            // As we've removed tuning data, the displayed tuning data will be blanked.
-            self.callbacks.show_tuning(tuner::is_root_freq_overridden());
+            self.remove_tuning_data();
             self.show_pitchgrid_not_connected();
             self.show_warning(AWAITING_PITCHGRID_CONNECTION);
         }
@@ -534,7 +538,7 @@ impl OscCallbacks for Controller {
             self.callbacks.show_pitchgrid_status(UPDATING_INSTRUMENT_TUNING, MessageType::Info);
             tuner::on_tuning_received(tuning_params);
         } else {
-            self.stop_osc_and_show_message();
+            self.stop_osc_and_show_pitchgrid_status();
         }
     }
 }
@@ -548,6 +552,8 @@ const DISCONNECTED_FROM_PITCHGRID: &str = "Disconnected from PitchGrid because M
 const INSTRUMENT_DISCONNECTED: &str = "Instrument is disconnected; closed PitchGrid connection.";
 const INSTRUMENT_NOT_CONNECTED: &str = "The instrument is not connected. Waiting for the editor to be \
         opened with this application and the instrument connected to it...";
+const INSTRUMENT_TUNING_UPDATE_NOT_CONFIRMED: &str = "Instrument tuning update has not been \
+    confirmed. Check whether MIDI output is connected to the editor.";
 const INSTRUMENT_TUNING_UPDATED: &str = "Instrument tuning updated";
 const NEW_PRESET_SELECTED: &str = "New instrument preset selected. Resent tuning...";
 const OPENING_PITCHGRID_CONNECTION: &str = "Opening PitchGrid connection...";
