@@ -146,7 +146,7 @@ impl Osc {
         ] = args[..] {
             rayon::spawn(move || {
                 if !IS_PITCHGRID_CONNECTED.load(Ordering::SeqCst) {
-                    // println!("Osc.handle_tuning: PitchGrid connected");
+                    println!("Osc.handle_tuning: PitchGrid connected");
                     IS_PITCHGRID_CONNECTED.store(true, Ordering::SeqCst);
                     callbacks.on_osc_pitchgrid_connected_changed();
                 }

@@ -6,7 +6,7 @@ use midi_refs::{download_completed_callbacks, download_started_callbacks,
                 last_message_received_time, new_preset_selected_callbacks, output_connection,
                 ports_connected_changed_callbacks,
                 receiving_data_started_callbacks, receiving_data_stopped_callbacks,
-                tuning_status, tuning_updated_callbacks};
+                tuning_status, tuning_updated_callbacks, updating_tuning_callbacks};
 use midir::{
     MidiInput, MidiInputConnection, MidiInputPort, MidiOutput, MidiOutputPort,
 };
@@ -19,7 +19,7 @@ use std::thread::sleep;
 use crate::global::{PortType};
 use crate::midi_ports::{Io, IIo};
 use crate::port_strategy::PortStrategy;
-// use crate::tuner;
+use crate::tuner;
 
 pub struct Midi {
     connection_monitor_stopper_sender: Option<mpsc::Sender<()>>,
@@ -91,6 +91,11 @@ impl Midi {
     pub fn add_tuning_updated_callback(&mut self, callback: Box<dyn Fn() + Send + Sync + 'static>) {
         // println!("Midi.add_tuning_updated_callback");
         tuning_updated_callbacks().lock().unwrap().push(callback);
+    }
+
+    pub fn add_updating_tuning_callback(&mut self, callback: Box<dyn Fn() + Send + Sync + 'static>) {
+        // println!("Midi.add_updating_tuning_callback");
+        updating_tuning_callbacks().lock().unwrap().push(callback);
     }
 
     /// Return whether both input and output ports are connected.
@@ -261,7 +266,9 @@ impl Midi {
     }
 
     pub fn on_updating_tuning() {
+        println!("Midi.on_updating_tuning");
         *tuning_status().lock().unwrap() = TuningStatus::Tuning;
+        Self::call_back(updating_tuning_callbacks().clone());
     }
 
     /// Call the subscribed callback functions on a separate thread.
@@ -312,7 +319,7 @@ impl Midi {
         rayon::spawn(move || {
             sleep(Duration::from_secs(MIDI_WAIT_SECS));
             if !IS_RECEIVING_DATA.load(Ordering::Relaxed) {
-                println!("Midi.connect_input_port: Stopped receiving data");
+                // println!k("Midi.connect_input_port: Stopped receiving data");
                 Self::call_back(receiving_data_stopped_callbacks().clone());
             }
         });
@@ -528,10 +535,16 @@ impl Midi {
                         // Workaround for firmware 10.73 Beta not sending update confirmation
                         // for some presets.
                         if status == TuningStatus::Tuning {
-                            println!("midi.on_message_received: Preset's pitch table \
-                                        update requested, pitch table no: {}", pitch_table);
-                            *tuning_status().lock().unwrap() = TuningStatus::None;
-                            Self::call_back(tuning_updated_callbacks().clone());
+                            // Check that the value is the correct pitch table index
+                            // for the tuning this application sent to the instrument:
+                            // when a preset is loaded, there will be a Grid message
+                            // for the preset's initial tuning table, which will be zero.
+                            if pitch_table == tuner::pitch_table() {
+                                // println!("midi.on_message_received: Preset's pitch table \
+                                //             update requested, pitch table no: {}", pitch_table);
+                                *tuning_status().lock().unwrap() = TuningStatus::None;
+                                Self::call_back(tuning_updated_callbacks().clone());
+                            }
                         }
                         // match status {
                         //     TuningStatus::None => {}

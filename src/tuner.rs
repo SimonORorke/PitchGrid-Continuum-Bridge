@@ -41,6 +41,7 @@ pub fn on_tuning_received(tuning_params: TuningParams) {
 /// This is decoupled from receiving the tuning parameters from PitchGrid, as additional parameters
 /// specified in the UI may need to be updated
 fn tune() {
+    println!("tuner.tune");
     let send_now:bool;
     {
         let params_clone = params_clone();
@@ -71,11 +72,12 @@ fn tune() {
         // That will work because we will have just overwritten any previous pending tuning with a
         // new one.
         let is_already_updating = IS_ALREADY_UPDATING.load(Ordering::Relaxed);
-        // println!("tuner.on_tuning_received: is_already_updating = {is_already_updating}");
+        println!("tuner.tune: IS_ALREADY_UPDATING = {is_already_updating}");
         if is_already_updating {
             IS_ANOTHER_UPDATE_PENDING.store(true, Ordering::Relaxed);
             send_now = false;
         } else {
+            println!("tuner.tune: Setting IS_ALREADY_UPDATING to true");
             IS_ALREADY_UPDATING.store(true, Ordering::Relaxed);
             send_now = true;
         }
@@ -150,7 +152,8 @@ pub fn has_tuning_data() -> bool {
 }
 
 pub fn remove_tuning_data() {
-    // println!("tuner.remove_tuning_data");
+    println!("tuner.remove_tuning_data: Setting IS_ALREADY_UPDATING to false");
+    IS_ALREADY_UPDATING.store(false, Ordering::Relaxed);
     *params_clone().lock().unwrap() = TuningParams::default();
     set_keys(vec![]);
 }
@@ -160,6 +163,7 @@ fn send_tuning() {
     let mut keys = keys_clone();
     set_to_key_numbers(&mut keys);
     calculate_offsets(&mut keys);
+    println!("tuner.send_tuning: Raising Midi::on_updating_tuning");
     Midi::on_updating_tuning();
     send_rounding_params();
     send_pitch_table(pitch_table(), &keys);
@@ -335,11 +339,12 @@ pub fn on_tuning_updated() {
     let send_again:bool;
     {
         let is_another_update_pending = IS_ANOTHER_UPDATE_PENDING.load(Ordering::Relaxed);
-        // println!("tuner.on_tuning_updated: is_another_update_pending = {is_another_update_pending}");
+        println!("tuner.on_tuning_updated: IS_ANOTHER_UPDATE_PENDING = {is_another_update_pending}");
         if is_another_update_pending {
             IS_ANOTHER_UPDATE_PENDING.store(false, Ordering::Relaxed);
             send_again = true;
         } else {
+            println!("tuner.on_tuning_updated: Setting IS_ALREADY_UPDATING to false");
             IS_ALREADY_UPDATING.store(false, Ordering::Relaxed);
             send_again = false;
         }

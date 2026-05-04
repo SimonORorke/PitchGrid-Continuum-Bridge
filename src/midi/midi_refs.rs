@@ -34,6 +34,7 @@ static RECEIVING_DATA_STARTED_CALLBACKS: OnceLock<Callbacks> = OnceLock::new();
 static RECEIVING_DATA_STOPPED_CALLBACKS: OnceLock<Callbacks> = OnceLock::new();
 static TUNING_STATUS: Mutex<TuningStatus> = Mutex::new(TuningStatus::None);
 static TUNING_UPDATED_CALLBACKS: OnceLock<Callbacks> = OnceLock::new();
+static UPDATING_TUNING_CALLBACKS: OnceLock<Callbacks> = OnceLock::new();
 
 pub(super) fn download_completed_callbacks() -> &'static Callbacks {
     DOWNLOAD_COMPLETED_CALLBACKS.get_or_init(|| Arc::new(Mutex::new(Vec::new())))
@@ -79,4 +80,8 @@ pub(super) fn tuning_status() -> &'static Mutex<TuningStatus> { &TUNING_STATUS }
 
 pub(super) fn tuning_updated_callbacks() -> &'static Callbacks {
     TUNING_UPDATED_CALLBACKS.get_or_init(|| Arc::new(Mutex::new(Vec::new())))
+}
+
+pub(super) fn updating_tuning_callbacks() -> &'static Callbacks {
+    UPDATING_TUNING_CALLBACKS.get_or_init(|| Arc::new(Mutex::new(Vec::new())))
 }
