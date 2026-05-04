@@ -76,40 +76,40 @@ impl Controller {
         }
         // println!("Controller.init: Getting midi");
         self.callbacks.set_main_window_position(main_window_x, main_window_y);
-        let midi = midi_static::midi_clone();
-        let mut midi_guard = midi.lock().unwrap();
-        if let Err(err) = midi_guard.init(
+        let shared_midi = midi_static::midi_clone();
+        let mut midi = shared_midi.lock().unwrap();
+        if let Err(err) = midi.init(
             &input_device_name, &output_device_name) {
             self.show_error(&err.to_string());
             return;
         }
         // println!("Controller.init: Adding download completed callback");
-        midi_guard.add_init_download_completed_callback(Box::new(|| {
+        midi.add_init_download_completed_callback(Box::new(|| {
             Self::clone_controller().lock().unwrap().on_init_data_download_completed();
         }));
-        midi_guard.add_init_download_started_callback(Box::new(|| {
+        midi.add_init_download_started_callback(Box::new(|| {
             Self::clone_controller().lock().unwrap().on_init_data_download_started();
         }));
-        midi_guard.add_ports_connected_changed_callback(Box::new(|| {
+        midi.add_ports_connected_changed_callback(Box::new(|| {
             Self::clone_controller().lock().unwrap().on_ports_connected_changed();
         }));
         // println!("Controller.init: Adding selected preset loaded callback");
-        midi_guard.add_new_preset_selected_callback(Box::new(|| {
+        midi.add_new_preset_selected_callback(Box::new(|| {
             Self::clone_controller().lock().unwrap().on_new_preset_selected();
         }));
-        midi_guard.add_receiving_data_started_callback(Box::new(|| {
+        midi.add_receiving_data_started_callback(Box::new(|| {
             Self::clone_controller().lock().unwrap().on_receiving_data_started_callback();
         }));
-        midi_guard.add_receiving_data_stopped_callback(Box::new(|| {
+        midi.add_receiving_data_stopped_callback(Box::new(|| {
             Self::clone_controller().lock().unwrap().on_receiving_data_stopped_callback();
         }));
-        midi_guard.add_tuning_updated_callback(Box::new(|| {
+        midi.add_tuning_updated_callback(Box::new(|| {
             Self::clone_controller().lock().unwrap().on_tuning_updated();
         }));
-        midi_guard.add_updating_tuning_callback(Box::new(|| {
+        midi.add_updating_tuning_callback(Box::new(|| {
             Self::clone_controller().lock().unwrap().on_updating_tuning();
         }));
-        drop(midi_guard); // Release MIDI lock before calling device_names which needs to acquire it
+        drop(midi); // Release MIDI lock before calling device_names which needs to acquire it
         let input_strategy = InputStrategy::new();
         let output_strategy = OutputStrategy::new();
         // println!("Controller.init: Getting input port names");
@@ -167,16 +167,16 @@ impl Controller {
 
     fn connect_initial_port(&mut self, port_strategy: &dyn PortStrategy) {
         // println!("Controller.connect_initial_port: {:?}", port_strategy.port_type());
-        let midi = midi_static::midi_clone();
+        let shared_midi = midi_static::midi_clone();
         let maybe_index = {
-            let midi_guard = midi.lock().unwrap();
-            midi_guard.io(port_strategy).device().as_ref()
+            let midi = shared_midi.lock().unwrap();
+            midi.io(port_strategy).device().as_ref()
                 .map(|port| port.index())
         };
         if let Some(index) = maybe_index {
             // println!("Controller.connect_initial_port: Setting selected port index to {}", index);
             self.callbacks.set_selected_port_index(index, port_strategy);
-            self.connect_selected_port(&midi, port_strategy);
+            self.connect_selected_port(&shared_midi, port_strategy);
         } else {
             self.show_no_port_connected(port_strategy);
             self.show_warning(port_strategy.msg_connect());
@@ -216,7 +216,8 @@ impl Controller {
         // println!("Controller.connect_port: Done");
     }
 
-    fn connect_selected_port(&mut self, midi: &SharedMidi, port_strategy: &dyn PortStrategy) {
+    fn connect_selected_port(&mut self, shared_midi: &SharedMidi,
+                             port_strategy: &dyn PortStrategy) {
         // println!("Controller.connect_selected_port: {:?}", port_strategy.port_type());
         let selected = self.callbacks.get_selected_port_index(port_strategy);
         let index: usize = match usize::try_from(selected) {
@@ -230,14 +231,14 @@ impl Controller {
         };
         // println!("Controller.connect_selected_port: Selected port index = {}", index);
         let ui_action: Result<String, String> = {
-            // println!("Controller.connect_selected_port: Getting midi_guard.");
-            let mut midi_guard = midi.lock().unwrap();
-            // println!("Controller.connect_selected_port: Got midi_guard.");
-            let Some(name) = midi_guard.io(port_strategy).device_names().get(index).cloned()
+            // println!("Controller.connect_selected_port: Getting midi.");
+            let mut midi = shared_midi.lock().unwrap();
+            // println!("Controller.connect_selected_port: Got midi.");
+            let Some(name) = midi.io(port_strategy).device_names().get(index).cloned()
             else {
                 return;
             };
-            match midi_guard.connect_port(index, port_strategy) {
+            match midi.connect_port(index, port_strategy) {
                 Ok(()) => Ok(name),
                 Err(err) => Err(err.to_string()),
             }
@@ -254,10 +255,10 @@ impl Controller {
     }
 
     fn device_names(&self, port_strategy: &dyn PortStrategy) -> Vec<String> {
-        let midi = midi_static::midi_clone();
+        let shared_midi = midi_static::midi_clone();
         // println!("Controller.device_names: Got midi");
-        let midi_guard = midi.lock().unwrap();
-        midi_guard.io(port_strategy).device_names()
+        let midi = shared_midi.lock().unwrap();
+        midi.io(port_strategy).device_names()
     }
 
     pub fn refresh_devices(&mut self, port_strategy: &dyn PortStrategy) {

@@ -92,19 +92,19 @@ fn tune() {
 fn calculate_key_pitches(tuning_params: TuningParams) -> Vec<f32> {
     // println!("tuner.calculate_key_pitches");
     let root_freq = {
-        let override_freq = root_freq_override();
-        let mut override_freq_guard = override_freq.lock().unwrap();
+        let shared_root_freq_override = root_freq_override();
+        let mut override_freq = shared_root_freq_override.lock().unwrap();
         if ROOT_FREQ_OVERRIDE_NOTE_NO.load(Ordering::Relaxed) == 0 {
             // Override not required
             // println!("tuner.calculate_key_pitches: Override not required");
-            *override_freq_guard = 0.0;
+            *override_freq = 0.0;
             tuning_params.root_freq()
         } else {
             let note_no = ROOT_FREQ_OVERRIDE_NOTE_NO.load(Ordering::Relaxed);
             let pitch = default_pitch_keys()[note_no];
             // println!("tuner.calculate_key_pitches: Overriding root freq with note {}, pitch {} Hz",
             //          note_no, pitch);
-            *override_freq_guard = pitch;
+            *override_freq = pitch;
             pitch
         }
     };

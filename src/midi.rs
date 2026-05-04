@@ -272,10 +272,10 @@ impl Midi {
     }
 
     /// Call the subscribed callback functions on a separate thread.
-    fn call_back(callbacks: Callbacks) {
+    fn call_back(shared_callbacks: Callbacks) {
         rayon::spawn(move || {
-            let callbacks_guard = callbacks.lock().unwrap();
-            for callback in callbacks_guard.iter() {
+            let callbacks = shared_callbacks.lock().unwrap();
+            for callback in callbacks.iter() {
                 callback();
             }
         });
