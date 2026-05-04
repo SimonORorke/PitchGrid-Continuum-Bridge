@@ -540,12 +540,16 @@ impl Midi {
                             // when a preset is loaded, there will be a Grid message
                             // for the preset's initial tuning table, which will be zero.
                             if pitch_table == tuner::pitch_table() {
-                                // println!("midi.on_message_received: Preset's pitch table \
-                                //             update requested, pitch table no: {}", pitch_table);
+                                println!("midi.on_message_received: Preset's pitch table \
+                                            update requested, pitch table no: {}", pitch_table);
                                 *tuning_status().lock().unwrap() = TuningStatus::None;
                                 Self::call_back(tuning_updated_callbacks().clone());
                             }
                         }
+                        // When the firmware bug is fixed, remove the above workaround
+                        // and restore the tuning update confirmation check below.
+                        // This will fix the problem described in a comment in
+                        // Controller.await_tuning_updated.
                         // match status {
                         //     TuningStatus::None => {}
                         //     TuningStatus::Tuning => {

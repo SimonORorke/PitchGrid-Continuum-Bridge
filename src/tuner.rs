@@ -138,7 +138,7 @@ fn calculate_key_pitches(tuning_params: TuningParams) -> Vec<f32> {
 /// If tuning data has previously been received, resends it to the instrument.
 /// Returns whether tuning data was resent.
 pub fn resend_tuning() -> bool {
-    let can_send = has_tuning_data();
+    let can_send = has_data();
     if can_send {
         // Tuning data has previously been received.
         // println!("tuner.resend_tuning: Resending tuning data to instrument.");
@@ -147,13 +147,14 @@ pub fn resend_tuning() -> bool {
     can_send
 }
 
-pub fn has_tuning_data() -> bool {
+pub fn has_data() -> bool {
     keys_clone().len() > 0usize
 }
 
-pub fn remove_tuning_data() {
-    println!("tuner.remove_tuning_data: Setting IS_ALREADY_UPDATING to false");
+pub fn remove_data() {
+    println!("tuner.remove_data: Setting IS_ALREADY_UPDATING to false");
     IS_ALREADY_UPDATING.store(false, Ordering::Relaxed);
+    IS_ANOTHER_UPDATE_PENDING.store(false, Ordering::Relaxed);
     *params_clone().lock().unwrap() = TuningParams::default();
     set_keys(vec![]);
 }
@@ -257,7 +258,7 @@ fn send_pitch_table(pitch_table: u8, keys: &Vec<Key>) {
 /// The tuning parameters formatted for display.
 pub fn formatted_tuning_params() -> FormattedTuningParams {
     // println!("tuner.formatted_tuning_params");
-    if !has_tuning_data() {
+    if !has_data() {
         // println!("tuner.formatted_tuning_params: no tuning data");
         return FormattedTuningParams::default();
     }
@@ -329,7 +330,7 @@ pub fn default_pitch_table() -> u8 { 80 }
 
 pub fn on_tuning_updated() {
     // println!("tuner.on_tuning_updated");
-    if !has_tuning_data() {
+    if !has_data() {
         println!("tuner.on_tuning_updated: no tuning data");
         // Could be tuning updated when an instrument preset is loaded
         // while PitchGrid is not connected.

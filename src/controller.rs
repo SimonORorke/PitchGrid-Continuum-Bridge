@@ -417,7 +417,7 @@ impl Controller {
         tuner::on_tuning_updated();
         // If there's no tuning data, the displayed tuning data will be blanked.
         self.callbacks.show_tuning(tuner::is_root_freq_overridden());
-        if !tuner::has_tuning_data() {
+        if !tuner::has_data() {
             // Could be tuning updated when an instrument preset is loaded
             // while PitchGrid is not connected.
             return;
@@ -436,7 +436,54 @@ impl Controller {
         });
     }
 
+    /// Shows an error message if tuning update is not confirmed within 2 seconds.
+    /// The probable cause of the error is that MIDI output does not connect to one the editor's
+    /// Ext All Data MIDI inputs.
     fn await_tuning_updated(stopper_receiver: mpsc::Receiver<()>) {
+        // There's one scenario where this check is known not to behave as expected.
+        // Editor MIDI:
+        //     Input  LB1 (A)
+        //     Output LB2 (A)
+        // As we are using loopback endpoints, the following are the correct MIDI connections in
+        // this application:
+        //     Input  LB2 (B)
+        //     Output LB1 (B)
+        // But try the following MIDI connections in this application:
+        //     Input  LB2 (B)
+        //     Output LB2 (A)
+        // In this scenario, this application's MIDI input is correct, but the incorrect output is
+        // the same as the editor's output.
+        // Expected behaviour:
+        //     As our output is incorrect, the instrument tuning and the tuning shown on the
+        //     editor should not be updated.
+        //     We should not receive confirmation that the tuning has been updated.
+        // Actual behavour:
+        //     As with the expected behaviour, the instrument tuning and the tuning shown on the
+        //     editor are not updated.
+        //     However, we receive Grid message ch16 cc51 g, where g is our seleted pitch table
+        //     number. We interpret this as confirmation that the tuning has been updated.
+        //
+        // Explanation
+        //
+        // Something like the following must be happening.
+        // As Windows MIDI devices are currently shared with no way to make them exclusive,
+        // there's nothing to stop us sending MIDI direct to the instrument, bypassing the editor.
+        // But from the instrument's perspective, our tuniung data looks like invalid data from
+        // the editor, rather than a valid request from an external software component.
+        // So the firmware does not implement the request.
+        // As we request the current preset to be updated with the tuning with the same cc51 Grid
+        // message, what we currently interpret as update confirmation is just our
+        // request echoed back, which is expected. There is currently a firmware bug where,
+        // for some presets, the confirmation message is not send when the preset's tuning has been
+        // updated. Our temporary workaround is to treat the echoed back request as confirmation.
+        //
+        // Pending fix
+        //
+        // Once the firmware bug is fixed, in Midi.on_message_received we can remove the workaround
+        // and revert to interpreting not the first cc51 Grid message received, our request, but
+        // the second as confirmation.
+        // That should make the problem go away. I've tested it with a preset that still sends
+        // the confirmation message even with the firmware bug.
         if let Ok(_) = stopper_receiver.recv_timeout(Duration::from_secs(2)) {
             // Sleep was interrupted: tuning has been updated.
             println!("Controller.await_tuning_updated: Tuning updated");
@@ -523,7 +570,7 @@ impl Controller {
     fn stop_osc_and_show_pitchgrid_status(&self) {
         println!("Controller.stop_osc_and_show_pitchgrid_status");
         self.osc.stop();
-        self.remove_tuning_data();
+        self.remove_data();
         if !midi_static::are_ports_connected() {
             self.callbacks.show_pitchgrid_status(
                 CANNOT_UPDATE_TUNING_CONNECT,
@@ -536,9 +583,9 @@ impl Controller {
     }
 
     /// Blanks the displayed tuning and removes tuning data from the tuner module.
-    fn remove_tuning_data(&self) {
-        println!("Controller.remove_tuning_data");
-        tuner::remove_tuning_data();
+    fn remove_data(&self) {
+        println!("Controller.remove_data");
+        tuner::remove_data();
         // As we've removed tuning data, the displayed tuning data will be blanked.
         self.callbacks.show_tuning(tuner::is_root_freq_overridden());
     }
@@ -570,7 +617,7 @@ impl OscCallbacks for Controller {
             self.show_info(PITCHGRID_AND_INSTRUMENT_CONNECTED);
         } else {
             println!("Controller.on_osc_pitchgrid_connected_changed: PitchGrid is not connected");
-            self.remove_tuning_data();
+            self.remove_data();
             self.show_pitchgrid_not_connected();
             self.show_warning(AWAITING_PITCHGRID_CONNECTION);
         }
