@@ -83,7 +83,7 @@ fn tune() {
         }
     }
     if send_now {
-        send_tuning();
+        send_tuning_update(true);
     }
 }
 
@@ -135,18 +135,6 @@ fn calculate_key_pitches(tuning_params: TuningParams) -> Vec<f32> {
         .collect()
 }
 
-/// If tuning data has previously been received, resends it to the instrument.
-/// Returns whether tuning data was resent.
-pub fn resend_tuning() -> bool {
-    let can_send = has_data();
-    if can_send {
-        // Tuning data has previously been received.
-        // println!("tuner.resend_tuning: Resending tuning data to instrument.");
-        send_tuning();
-    }
-    can_send
-}
-
 pub fn has_data() -> bool {
     keys_clone().len() > 0usize
 }
@@ -159,15 +147,43 @@ pub fn remove_data() {
     set_keys(vec![]);
 }
 
-fn send_tuning() {
-    // println!("tuner.send_tuning");
-    let mut keys = keys_clone();
-    set_to_key_numbers(&mut keys);
-    calculate_offsets(&mut keys);
-    println!("tuner.send_tuning: Raising Midi::on_updating_tuning");
+/// If a tuning table generated from tuning parameters received from PitchGrid has previously been
+/// sent to the instrument, sends a tuning update for the instrument's current preset.
+/// The current tuning table will be assigned to the preset, which will also be updated
+/// with any rounding parameters that have been specified.
+/// Returns whether an update has been sent.
+pub fn send_current_preset_update() -> bool {
+    println!("tuner.send_current_preset_update");
+    let can_update = has_data();
+    if can_update {
+        println!("tuner.send_current_preset_update: Sending update");
+        send_tuning_update(false);
+    }
+    can_update
+}
+
+/// Sends the instrument a tuning update.
+///
+/// generate: Whether a tuning table is to be generated from the tuning parameters received from
+/// PitchGrid and sent to the instrument. Set to false if the latest tuning table has previously
+/// been sent to the instrument.
+///
+/// The tuning table will be assigned to the instrument's current preset, which will also be
+/// updated with any rounding parameters that have been specified.
+fn send_tuning_update(generate: bool) {
+    println!("tuner.send_tuning: generate = {}", generate);
     Midi::on_updating_tuning();
+    if generate {
+        let mut keys = keys_clone();
+        set_to_key_numbers(&mut keys);
+        calculate_offsets(&mut keys);
+        send_pitch_table(pitch_table(), &keys);
+    }
+    // The following commands update the instrument's current preset.
     send_rounding_params();
-    send_pitch_table(pitch_table(), &keys);
+    // Set active pitch table for performance.
+    // println!("tuner.send_tuning: Setting active pitch table to {}", pitch_table());
+    Midi::send_control_change(16, 51, pitch_table()); // Grid
 }
 
 /// Sets the to_number field of each Key in TUNER_DATA.keys to
@@ -250,9 +266,6 @@ fn send_pitch_table(pitch_table: u8, keys: &Vec<Key>) {
     }
     // Save pitch table on instrument.
     Midi::send_control_change(16, 109, 101);
-    // Set active pitch table for performance.
-    // println!("tuner.send_pitch_table_to_instrument: Setting active pitch table to {}", pitch_table);
-    Midi::send_control_change(16, 51, pitch_table); // Grid
 }
 
 /// The tuning parameters formatted for display.
@@ -351,7 +364,7 @@ pub fn on_tuning_updated() {
         }
     }
     if send_again {
-        send_tuning();
+        send_tuning_update(true);
     }
 }
 

@@ -366,9 +366,9 @@ impl Controller {
     }
 
     fn on_new_preset_selected(&self) {
-        // println!("Controller.on_new_preset_selected");
-        if tuner::resend_tuning() && self.osc.is_pitchgrid_connected() {
-            // println!("Controller.on_new_preset_selected: Resent");
+        println!("Controller.on_new_preset_selected");
+        if tuner::send_current_preset_update() {
+            println!("Controller.on_new_preset_selected: Updated");
             self.callbacks.show_pitchgrid_status(
                 NEW_PRESET_SELECTED,
                 MessageType::Info);
