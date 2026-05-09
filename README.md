@@ -12,8 +12,9 @@ The Continuum can provide MPE output, typically to control a software synth.  Ho
 
 ### Supported Instruments
 
-PitchGrid-Continuum Bridge (PCB) has so far only been tested with the Continuum.  But it should also work with the ContinuuMini. PCB is not required for the Osmose, as that instrument can be configured to be tuned via PitchGrid's MPE Input / MPE Output routing.
-And PCB does not support the Osmose anyway:  although the Osmose has the EaganMatrix sound engine in common with the Continuum, it does not provide a public API that would allow tuning.
+PitchGrid-Continuum Bridge (PCB) has so far only been tested with the Haken Continuum.  But it should also work with the Haken ContinuuMini.
+
+PCB is not required for the Osmose, as that instrument can be configured to be tuned via PitchGrid's MPE Input / MPE Output routing. And PCB does not support the Osmose anyway:  although the Osmose has the EaganMatrix sound engine in common with the Continuum, it does not provide a public API that would allow tuning.
 
 ### Supported Haken Audio Firmware Versions
 
@@ -37,14 +38,14 @@ For use with PitchGrid-Continuum Bridge and a Continuum, PitchGrid has no input 
 
 <img src="docs\images\PitchGrid OSC Enabled.png" alt="PitchGrid OSC Enabled" style="zoom: 80%;" />
 
-PCB connects to Haken Editor's External input and output in All Data mode. As usual, Haken Editor's instrument input and output connect to the instrument.
+PCB connects to Haken Editor's External input and output in All Data mode. As usual, Haken Editor's instrument input and output connect to the instrument. In the example screenshots below, PCB and Haken Editor are connected via MIDI loopback endpoints.
 
 <img src="docs\images\PCB MIDI Connections.png" alt="PCB MIDI Connections" style="zoom: 80%;" />
 <img src="docs\images\Editor MIDI Settings.png" alt="Editor MIDI Settings" style="zoom: 80%;" />
 
 > [!WARNING]
 >
-> *PitchGrid-Continuum Bridge must not be connected directly to the instrument.  Doing that causes a MIDI loop, which is indicated on the instrument's display.*
+> *PitchGrid-Continuum Bridge must not be connected directly to the instrument.  Doing that will cause a MIDI loop, which is indicated on the instrument's display.*
 >
 > <img src="docs\images\Loop.png" alt="Loop" style="zoom: 100%;" />
 
@@ -52,9 +53,10 @@ PCB connects to Haken Editor's External input and output in All Data mode. As us
 
 As PitchGrid-Continuum Bridge and Haken Editor are both software, you (obviously) cannot connect them with cables.  Instead, these options are available:
 
+- MIDI loopback endpoints, which in Windows are provided by Microsoft's recently introduced Windows MIDI Services.
+
 - Virtual MIDI ports.
 
-- Loopback endpoints, which in Windows are provided by Microsoft's recently introduced Windows MIDI Services.
 - A USB MIDI router, such as [IConnectivity's mioXL and mioXM](https://www.iconnectivity.com/midi-interfaces-1).
 
 ### Load Order
