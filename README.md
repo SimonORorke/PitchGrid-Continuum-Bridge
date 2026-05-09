@@ -38,10 +38,10 @@ For use with PitchGrid-Continuum Bridge and a Continuum, PitchGrid has no input 
 
 <img src="docs\images\PitchGrid OSC Enabled.png" alt="PitchGrid OSC Enabled" style="zoom: 80%;" />
 
-PCB connects to Haken Editor's External input and output in All Data mode. As usual, Haken Editor's instrument input and output connect to the instrument. In the example screenshots below, PCB and Haken Editor are connected via MIDI loopback endpoints.
+PCB connects to Haken Editor's External input and output in All Data mode. As usual, Haken Editor's instrument input and output connect to the instrument. In the example screenshots below, Haken Editor and PCB are connected via MIDI loopback endpoints.
 
-<img src="docs\images\PCB MIDI Connections.png" alt="PCB MIDI Connections" style="zoom: 80%;" />
 <img src="docs\images\Editor MIDI Settings.png" alt="Editor MIDI Settings" style="zoom: 80%;" />
+<img src="docs\images\PCB MIDI Connections.png" alt="PCB MIDI Connections" style="zoom: 80%;" />
 
 > [!WARNING]
 >
