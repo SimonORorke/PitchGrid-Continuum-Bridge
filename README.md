@@ -6,7 +6,7 @@ PitchGrid-Continuum Bridge is a bridging application that allows tunings specifi
 
 ## Why PitchGrid-Continuum Bridge is required
 
-The Continuum can provide MPE output, typically to control a software synth.  However, the MPE output cannot be sent to an application to be modified and sent back to the Continuum. So PitchGrid's MPE Input / MPE Output routing cannot be used to change the pitches of notes played on the Continuum's fingerboard in real time.  Instead, PitchGrid-Continuum Bridge generates a 128-key tuning table from PitchGrid's tuning parameters.  The tuning table is sent to the Continuum and assigned to the instrument's current and subsequently-loaded presets.  Realtime tuning updates are supported, though with a limitation explained in the Tuning section below.  And unfortunately the realtime lattice and keyboard visuals provided by PitchGrid cannot be shown.
+The Haken Continuum can provide MPE output, typically to control a software synth.  However, the MPE output cannot be sent to an application to be modified and sent back to the Continuum. So PitchGrid's MPE Input / MPE Output routing cannot be used to change the pitches of notes played on the Continuum's fingerboard in real time.  Instead, PitchGrid-Continuum Bridge generates a 128-key tuning table from PitchGrid's tuning parameters.  The tuning table is sent to the Continuum and assigned to the instrument's current and subsequently-loaded presets.  Real-time tuning updates are supported, though with a limitation explained in the Tuning section below.  And unfortunately the real-time lattice and keyboard visuals provided by PitchGrid cannot be shown.
 
 ## System Requirements
 
@@ -14,7 +14,7 @@ The Continuum can provide MPE output, typically to control a software synth.  Ho
 
 PitchGrid-Continuum Bridge (PCB) has so far only been tested with the Haken Continuum.  But it should also work with the Haken ContinuuMini.
 
-PCB is not required for the Osmose, as that instrument can be configured to be tuned via PitchGrid's MPE Input / MPE Output routing. And PCB does not support the Osmose anyway:  although the Osmose has the EaganMatrix sound engine in common with the Continuum, it does not provide a public API that would allow tuning.
+PCB does not support the Expressive E Osmose:  although the Osmose has the EaganMatrix sound engine in common with the Continuum, it does not provide a public API that would allow tuning.  Instead, the Osmose can be configured to be connected directly to PitchGrid's MPE Input and MPE Output. 
 
 ### Supported Haken Audio Firmware Versions
 
