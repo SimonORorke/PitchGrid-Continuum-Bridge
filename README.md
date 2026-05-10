@@ -6,7 +6,7 @@ PitchGrid-Continuum Bridge is a bridging application that allows tunings specifi
 
 ## Why PitchGrid-Continuum Bridge is required
 
-The Haken Continuum can provide MPE output, typically to control a software synth.  However, the MPE output cannot be sent to an application to be modified and sent back to the Continuum. So PitchGrid's MPE Input / MPE Output routing cannot be used to change the pitches of notes played on the Continuum's fingerboard in real time.  Instead, PitchGrid-Continuum Bridge generates a 128-key tuning table from PitchGrid's tuning parameters.  The tuning table is sent to the Continuum and assigned to the instrument's current and subsequently-loaded presets.  Real-time tuning updates are supported, though with a limitation explained in the Tuning section below.  And unfortunately the real-time lattice and keyboard visuals provided by PitchGrid cannot be shown.
+The Haken Continuum can provide MPE output, typically to control a software synth.  However, the MPE output cannot be sent to an application to be modified and sent back to the Continuum. So PitchGrid's MPE Input / MPE Output routing cannot be used to change the pitches of notes played on the Continuum's fingerboard in real time.  Instead, PitchGrid-Continuum Bridge generates a 128-key tuning table from PitchGrid's tuning parameters.  The tuning table is sent to the Continuum and assigned to the instrument's current and subsequently-loaded presets.  Real-time tuning updates are supported, though with a limitation [explained in the Tuning section below](#tuning).  And unfortunately the real-time lattice and keyboard visuals provided by PitchGrid cannot be shown.
 
 ## System Requirements
 
@@ -81,7 +81,7 @@ Whenever a preset is subsequently loaded on the instrument, PCB will update it w
 > [!NOTE]
 >
 > - **Tunings and roundings sent to the instrument are *temporary*.**  That is to say, if the current preset was loaded from a user preset slot, the changes are not saved to the slot.  However, if the instrument is turned off when the current preset's tuning/rounding have been updated, those changes will be in the current preset when the instrument is next turned on.
-> - **Real time tuning updates:**  If you sweep one of the tuning controls in PitchGrid, PCB will receive new tunings much faster than the instrument can update and load the tuning table.  Tests have shown that, If PCB were to keep sending updates regardless, the instrument's processor would soon be swamped for minutes!  The solution is to not send more updates to the instrument while another update is in progress and, once the update is complete, send the most recently received following tuning if there is one.
+> - **Real-time tuning updates:**  If you sweep one of the tuning controls in PitchGrid, PCB will receive new tunings much faster than the instrument can update and load the tuning table.  Tests have shown that, If PCB were to keep sending updates regardless, the instrument's processor would soon be swamped for minutes!  The solution is that PCB will not not send more updates to the instrument while another update is in progress and, once the update is complete, sends the most recently received following tuning if there is one.
 
 ### Tuning Parameters Display
 
