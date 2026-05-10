@@ -22,13 +22,13 @@ PCB does not support the Expressive E Osmose:  although the Osmose has the Eagan
 
 ### Supported Operating Systems
 
-PitchGrid-Continuum Bridge has so far only been tested with the Continuum.  But it should also work with macOS and Linux.
+Windows and macOS. PitchGrid-Continuum Bridge has so far only been tested with Windows.  MacOS use should be straightforward; but please [raise an Issue](https://github.com/SimonORorke/PitchGrid-Continuum-Bridge/issues) if you find a bug.
 
 ### Required Software
 
 PitchGrid 0.3.4 or later
 
-Haken Editor
+Haken Editor version matching the Haken Audio Firmware version
 
 ## Connections
 
@@ -130,3 +130,7 @@ If Rounding override **Initial** is On, rounds each note's initial pitch to the 
 If Rounding override **Rate** is On, sets Rounding Mode to Normal with the specified **Rounding Rate** value; otherwise the preset's Rounding Mode and Rounding Rate parameters are unchanged.
 
 Rounding override **Rate** On with **Rounding Rate** 127 (the maximum) effectively enforces initial rounding, even when the preset's Initial Rounding parameter is Off. In addition, it prevents  the pitch from being changed by subsequent motion of the finger on the fingerboard.
+
+### Support and Feedback
+
+To report a bug, please  [raise an Issue](https://github.com/SimonORorke/PitchGrid-Continuum-Bridge/issues).  If you have a question, suggestion or comment, please [start or contribute to a Discussion](https://github.com/SimonORorke/PitchGrid-Continuum-Bridge/discussions).
