@@ -83,7 +83,7 @@ impl Settings {
         // It is safe to unwrap as get_path() would have thrown an error if a parent folder
         // could not be specified.
         let parent_folder_path = path.parent().unwrap();
-        if !parent_folder_path.exists() {
+        if !parent_folder_path.try_exists()? {
             fs::create_dir(parent_folder_path)?;
         }
         // Serialise settings.
