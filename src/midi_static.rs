@@ -20,12 +20,6 @@ pub fn has_downloaded_init_data() -> bool {
     midi.has_downloaded_init_data()
 }
 
-// pub fn is_downloading_init_data() -> bool {
-//     let shared_midi = midi_clone();
-//     let midi = shared_midi.lock().unwrap();
-//     midi.is_downloading_init_data()
-// }
-
 pub fn is_output_port_connected() -> bool {
     let shared_midi = midi_clone();
     let midi = shared_midi.lock().unwrap();
