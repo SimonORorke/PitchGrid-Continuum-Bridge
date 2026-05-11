@@ -3,6 +3,7 @@ use std::fs;
 use std::path::PathBuf;
 use serde::{Serialize, Deserialize};
 use app_info::APP_TITLE;
+use crate::system_paths::{PathFinder, SystemPathFinder};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Settings {
@@ -15,6 +16,8 @@ pub struct Settings {
     pub override_rounding_initial: bool,
     pub override_rounding_rate: bool,
     pub rounding_rate: u8,
+    #[serde(skip, default = "default_path_finder")]
+    system_path_finder: Box<dyn PathFinder>,
 }
 
 impl Settings {
@@ -29,20 +32,16 @@ impl Settings {
             override_rounding_initial: true,
             override_rounding_rate: true,
             rounding_rate: 127,
+            system_path_finder: default_path_finder(),
         }
     }
 
     fn get_app_config_folder_path(&self) -> Result<PathBuf, Box<dyn Error>> {
-        if let Some(base_dirs) = directories::BaseDirs::new() {
-            let config_folder_path = base_dirs.config_dir().to_path_buf();
-            return Ok(config_folder_path.join(APP_TITLE));
-        }
-        Err(Box::new(std::io::Error::new(
-            std::io::ErrorKind::NotFound, NO_SETTINGS_FOLDER_PATH)))
+        Ok(self.system_path_finder.config_folder_path()?.join(APP_TITLE))
     }
 
     fn get_path(&self) -> Result<PathBuf, Box<dyn Error>> {
-        Ok(self.get_app_config_folder_path()?.join("Settings.toml"))
+        Ok(self.get_app_config_folder_path()?.join(SETTINGS_FILE_NAME))
     }
 
     pub fn read_from_file(&mut self) -> Result<(), Box<dyn Error>> {
@@ -78,6 +77,11 @@ impl Settings {
         Ok(())
     }
 
+    /// Replaces the default system path finder for testing.
+    pub fn set_system_path_finder(&mut self, path_finder: Box<dyn PathFinder>) {
+        self.system_path_finder = path_finder;
+    }
+
     pub fn write_to_file(&mut self) -> Result<(), Box<dyn Error>> {
         let path = self.get_path()?;
         // It is safe to unwrap as get_path() would have thrown an error if a parent folder
@@ -99,4 +103,8 @@ impl Settings {
     }
 }
 
-const NO_SETTINGS_FOLDER_PATH: &str = "A valid settings folder path cannot be specified.";
+fn default_path_finder() -> Box<dyn PathFinder> {
+    Box::new(SystemPathFinder::new())
+}
+
+const SETTINGS_FILE_NAME: &str = "Settings.toml";

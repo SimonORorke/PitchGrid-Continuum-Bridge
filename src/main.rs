@@ -5,6 +5,7 @@ mod global;
 mod midi;
 mod midi_ports;
 mod osc;
+mod system_paths;
 mod settings;
 mod tuner;
 mod port_strategy;
