@@ -1,0 +1,7 @@
+﻿[workspace]
+members = ["settings_tests"]
+resolver = "2"
+
+[workspace.dependencies]
+googletest = "0.14.2"
+tempfile = "3.27.0"

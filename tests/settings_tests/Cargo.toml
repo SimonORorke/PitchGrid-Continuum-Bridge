@@ -1,0 +1,8 @@
+﻿[package]
+name = "settings_tests"
+version = "0.1.0"
+edition = "2024"
+
+[dev-dependencies]
+googletest = { workspace = true }
+tempfile = { workspace = true }
