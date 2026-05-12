@@ -208,12 +208,12 @@ impl Midi {
 
     pub fn send_matrix_poke(poke_id: u8, poke_value: u8) {
         Self::send_control_change(16, 56, 20); // Matrix Poke command
-        Self::send_polyphonic_aftertouch(16, poke_id, poke_value); // Perform the Poke
+        Self::send_note_aftertouch(16, poke_id, poke_value); // Perform the Poke
     }
 
-    /// Send a MIDI polyphonic aftertouch (pressure) message.
+    /// Send a MIDI note aftertouch (pressure) message.
     /// Parameter `channel` is 1-based.
-    pub fn send_polyphonic_aftertouch(channel: u8, key: u8, pressure: u8) {
+    pub fn send_note_aftertouch(channel: u8, key: u8, pressure: u8) {
         Self::send_channel_message(
             channel,
             MidiMessage::Aftertouch {

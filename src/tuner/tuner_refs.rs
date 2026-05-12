@@ -1,10 +1,12 @@
 use std::sync::{Arc, Mutex, OnceLock};
+use crate::midi_sending::{IMidiSender, MidiSender};
 use crate::tuning_params::{TuningParams,};
 
 pub type SharedTuningParams = Arc<Mutex<TuningParams>>;
 
 static DEFAULT_KEY_PITCHES: OnceLock<Vec<f32>> = OnceLock::new();
 static KEYS: OnceLock<Mutex<Vec<super::Key>>> = OnceLock::new();
+static MIDI_SENDER: OnceLock<Box<dyn IMidiSender>> = OnceLock::new();
 static PARAMS: OnceLock<SharedTuningParams> = OnceLock::new();
 static PITCH_TABLES: OnceLock<Vec<u8>> = OnceLock::new();
 static ROOT_FREQ_OVERRIDE: OnceLock<Arc<Mutex<f32>>> = OnceLock::new();
@@ -19,6 +21,16 @@ pub(super) fn keys_clone() -> Vec<super::Key> {
 
 pub(super) fn set_keys(keys: Vec<super::Key>) {
     *KEYS.get_or_init(|| Mutex::new(vec![])).lock().unwrap() = keys;
+}
+
+pub(super) fn midi_sender() -> &'static dyn IMidiSender {
+    MIDI_SENDER.get_or_init(|| Box::new(MidiSender::new())).as_ref()
+}
+
+/// Replaces the default MIDI sender for testing.
+/// This can only be done once.
+pub(super) fn set_midi_sender(sender: Box<dyn IMidiSender>) {
+    MIDI_SENDER.set(sender).expect("Failed to set MIDI sender");
 }
 
 pub(super) fn params_clone() -> SharedTuningParams {

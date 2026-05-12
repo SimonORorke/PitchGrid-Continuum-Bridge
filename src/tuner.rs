@@ -3,8 +3,10 @@ use std::cmp::{max};
 use std::sync::atomic::{AtomicBool, AtomicU8, AtomicUsize, Ordering};
 use cxx::UniquePtr;
 use round::round;
-use tuner_refs::{default_pitch_keys, keys_clone, params_clone, root_freq_override, set_keys};
+use tuner_refs::{default_pitch_keys, keys_clone, midi_sender, params_clone, root_freq_override,
+                 set_keys};
 use crate::midi::Midi;
+use crate::midi_sending::IMidiSender;
 use crate::tuner::ffi::MOS;
 use crate::tuning_params::{TuningParams,};
 
@@ -183,7 +185,7 @@ fn send_tuning_update(generate: bool) {
     send_rounding_params();
     // Set active pitch table for performance.
     // println!("tuner.send_tuning: Setting active pitch table to {}", pitch_table());
-    Midi::send_control_change(16, 51, pitch_table()); // Grid
+    midi_sender().send_control_change(16, 51, pitch_table()); // Grid
 }
 
 /// Sets the to_number field of each Key in TUNER_DATA.keys to
@@ -248,24 +250,24 @@ fn calculate_offsets(keys: &mut Vec<Key>) {
 fn send_pitch_table(pitch_table: u8, keys: &Vec<Key>) {
     // println!("tuner.send_pitch_table_to_instrument");
     // Select pitch table to update.
-    Midi::send_control_change(16, 109, pitch_table);
+    midi_sender().send_control_change(16, 109, pitch_table);
     // Tuning for each MIDI key
     for key in keys {
         // Base/From MIDI key
-        Midi::send_control_change(16, 38, key.number);
+        midi_sender().send_control_change(16, 38, key.number);
         // Base/From MIDI key tuning MSB
-        Midi::send_control_change(16, 38, 0);
+        midi_sender().send_control_change(16, 38, 0);
         // Base/From MIDI key tuning LSB
-        Midi::send_control_change(16, 38, 0);
+        midi_sender().send_control_change(16, 38, 0);
         // Re-tuned/To MIDI key
-        Midi::send_control_change(16, 38, key.to_number);
+        midi_sender().send_control_change(16, 38, key.to_number);
         // Re-tuned/To MIDI key tuning MSB
-        Midi::send_control_change(16, 38, key.offset_msb);
+        midi_sender().send_control_change(16, 38, key.offset_msb);
         // Re-tuned/To MIDI key tuning LSB
-        Midi::send_control_change(16, 38, key.offset_lsb);
+        midi_sender().send_control_change(16, 38, key.offset_lsb);
     }
     // Save pitch table on instrument.
-    Midi::send_control_change(16, 109, 101);
+    midi_sender().send_control_change(16, 109, 101);
 }
 
 /// The tuning parameters formatted for display.
@@ -382,14 +384,20 @@ pub fn on_tuning_updated() {
 fn send_rounding_params() {
     if OVERRIDE_ROUNDING_INITIAL.load(Ordering::Relaxed) {
         // Turn on Rounding Initial
-        Midi::send_control_change(1, 28, 127); // RndIni
+        midi_sender().send_control_change(1, 28, 127); // RndIni
     }
     if OVERRIDE_ROUNDING_RATE.load(Ordering::Relaxed) {
         // Rounding Mode Normal
-        Midi::send_matrix_poke(10, 0); // RoundMode
+        midi_sender().send_matrix_poke(10, 0); // RoundMode
         // Max Rounding Rate
-        Midi::send_control_change(1, 25, ROUNDING_RATE.load(Ordering::Relaxed)); // RoundRate
+        midi_sender().send_control_change(1, 25, ROUNDING_RATE.load(Ordering::Relaxed)); // RoundRate
     }
+}
+
+/// Replaces the default MIDI sender for testing.
+/// This can only be done once.
+pub fn set_midi_sender(sender: Box<dyn IMidiSender>) {
+    tuner_refs::set_midi_sender(sender)
 }
 
 pub fn pitch_table_index() -> usize {
@@ -454,7 +462,7 @@ mod ffi {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct Key {
     /// The MIDI note number of the key (0-127).
     number: u8,
