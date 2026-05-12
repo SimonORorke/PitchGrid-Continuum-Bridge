@@ -1,31 +1,19 @@
 // Prevent console window in addition to Slint window in Windows release builds when, e.g., starting the app via file manager. Ignored on other platforms.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-mod global;
-mod midi;
-mod midi_ports;
-mod osc;
-mod system_paths;
-mod settings;
-mod tuner;
-mod port_strategy;
-mod controller;
-mod ui_methods;
-mod midi_static;
-mod tuning_params;
-
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
-use slint::{CloseRequestResponse, PhysicalPosition, WindowPosition, Weak};
+use slint::{CloseRequestResponse, ComponentHandle, PhysicalPosition, WindowPosition, Weak};
 use open;
-use controller::{Controller};
 use app_info::{APP_TITLE, COPYRIGHT, DOCUMENTATION_LINK, LICENSE, PROJECT_LINK, VERSION};
-use osc::{Osc, };
-use port_strategy::{
-    InputStrategy, OutputStrategy, PortStrategy};
-use ui_methods::UiMethods;
+use pitchgrid_continuum::{ComboBoxModel, ComboBoxItem, MainWindow, AboutWindow, SharedController, SlintPortType};
+use pitchgrid_continuum::controller::Controller;
+use pitchgrid_continuum::osc::Osc;
+use pitchgrid_continuum::port_strategy::{InputStrategy, OutputStrategy, PortStrategy};
+use pitchgrid_continuum::ui_methods::UiMethods;
+use pitchgrid_continuum::{global, tuner};
 
 /// main.rs is part of the view in the Model-View-Controller (MVC) pattern.
 /// See Controller's doc comment for more information on how the project implements MVC.
@@ -267,24 +255,5 @@ fn set_macos_app_icon() {
         let _: () = msg_send![app, setApplicationIconImage: image];
     }
 }
-
-type SharedController = Arc<Mutex<Controller>>;
-
-pub struct ComboBoxModel(pub Vec<ComboBoxItem>);
-
-impl slint::Model for ComboBoxModel {
-    type Data = ComboBoxItem;
-    fn row_count(&self) -> usize {
-        self.0.len()
-    }
-    fn row_data(&self, row: usize) -> Option<Self::Data> {
-        self.0.get(row).cloned()
-    }
-    fn model_tracker(&self) -> &dyn slint::ModelTracker {
-        &()
-    }
-}
-
-slint::include_modules!();
 
 static IS_CLOSE_ERROR_SHOWN: AtomicBool = AtomicBool::new(false);

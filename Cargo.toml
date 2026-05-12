@@ -45,5 +45,9 @@ vivi_ui = "0.2.0"
 # It's a known shortcoming of winres to always 'escape' an apostrophe.
 embed-resource = "3.0.8"
 
+[dev-dependencies]
+googletest = "0.14.2"
+tempfile = "3.27.0"
+
 [target.'cfg(target_os = "macos")'.dependencies]
 objc = "0.2"
