@@ -18,7 +18,12 @@
       "Read(//d/Simon/OneDrive/Documents/Rust Projects/pitchgrid_continuum/$USERPROFILE/.cargo/registry/**)",
       "Read(//c/Users/Simon O'Rorke/.cargo/registry/src/**)",
       "Bash(cmd /c \"dir /AL \"\"D:\\\\Simon\\\\OneDrive\\\\Documents\\\\Rust Projects\\\\pitchgrid_continuum\\\\ui\\\\components\"\"\")",
-      "Bash(powershell.exe -Command \"Get-Item ''D:\\\\Simon\\\\OneDrive\\\\Documents\\\\Rust Projects\\\\pitchgrid_continuum\\\\ui\\\\components\\\\@vivi'' | Select-Object FullName, LinkType, Target\")"
+      "Bash(powershell.exe -Command \"Get-Item ''D:\\\\Simon\\\\OneDrive\\\\Documents\\\\Rust Projects\\\\pitchgrid_continuum\\\\ui\\\\components\\\\@vivi'' | Select-Object FullName, LinkType, Target\")",
+      "Bash(rustup show active-toolchain)",
+      "Bash(rustup.exe show active-toolchain)",
+      "Bash(rustc.exe --version)",
+      "Bash(rustc --version)",
+      "Bash(cmd.exe /c \"rustc --version && rustup show active-toolchain\")"
     ]
   }
 }

@@ -2,15 +2,6 @@ use std::sync::{Arc, Mutex, OnceLock};
 use crate::midi_sending::{IMidiSender, MidiSender};
 use crate::tuning_params::{TuningParams,};
 
-pub type SharedTuningParams = Arc<Mutex<TuningParams>>;
-
-static DEFAULT_KEY_PITCHES: OnceLock<Vec<f32>> = OnceLock::new();
-static KEYS: OnceLock<Mutex<Vec<super::Key>>> = OnceLock::new();
-static MIDI_SENDER: OnceLock<Box<dyn IMidiSender>> = OnceLock::new();
-static PARAMS: OnceLock<SharedTuningParams> = OnceLock::new();
-static PITCH_TABLES: OnceLock<Vec<u8>> = OnceLock::new();
-static ROOT_FREQ_OVERRIDE: OnceLock<Arc<Mutex<f32>>> = OnceLock::new();
-
 pub(super) fn default_pitch_keys<'a>() -> &'a Vec<f32> {
     DEFAULT_KEY_PITCHES.get_or_init(|| create_default_key_pitches())
 }
@@ -23,14 +14,13 @@ pub(super) fn set_keys(keys: Vec<super::Key>) {
     *KEYS.get_or_init(|| Mutex::new(vec![])).lock().unwrap() = keys;
 }
 
-pub(super) fn midi_sender() -> &'static dyn IMidiSender {
-    MIDI_SENDER.get_or_init(|| Box::new(MidiSender::new())).as_ref()
+pub(super) fn midi_sender() -> std::sync::MutexGuard<'static, Box<dyn IMidiSender>> {
+    MIDI_SENDER.get_or_init(|| Mutex::new(Box::new(MidiSender::new()))).lock().unwrap()
 }
 
-/// Replaces the default MIDI sender for testing.
-/// This can only be done once.
+/// Replaces the MIDI sender. Can be called multiple times (e.g. in tests).
 pub(super) fn set_midi_sender(sender: Box<dyn IMidiSender>) {
-    MIDI_SENDER.set(sender).expect("Failed to set MIDI sender");
+    *MIDI_SENDER.get_or_init(|| Mutex::new(Box::new(MidiSender::new()))).lock().unwrap() = sender;
 }
 
 pub(super) fn params_clone() -> SharedTuningParams {
@@ -68,3 +58,12 @@ fn create_default_key_pitches() -> Vec<f32> {
         7039.9985, 7458.6196, 7902.1304, 8372.017, 8869.844, 9397.2705, 9956.0625, 10548.079,
         11175.302, 11839.817, 12543.852]
 }
+
+pub type SharedTuningParams = Arc<Mutex<TuningParams>>;
+
+static DEFAULT_KEY_PITCHES: OnceLock<Vec<f32>> = OnceLock::new();
+static KEYS: OnceLock<Mutex<Vec<super::Key>>> = OnceLock::new();
+static MIDI_SENDER: OnceLock<Mutex<Box<dyn IMidiSender>>> = OnceLock::new();
+static PARAMS: OnceLock<SharedTuningParams> = OnceLock::new();
+static PITCH_TABLES: OnceLock<Vec<u8>> = OnceLock::new();
+static ROOT_FREQ_OVERRIDE: OnceLock<Arc<Mutex<f32>>> = OnceLock::new();

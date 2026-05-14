@@ -213,7 +213,7 @@ impl Midi {
 
     /// Send a MIDI note aftertouch (pressure) message.
     /// Parameter `channel` is 1-based.
-    pub fn send_note_aftertouch(channel: u8, key: u8, pressure: u8) {
+    fn send_note_aftertouch(channel: u8, key: u8, pressure: u8) {
         Self::send_channel_message(
             channel,
             MidiMessage::Aftertouch {

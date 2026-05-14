@@ -8,7 +8,7 @@ use tuner_refs::{default_pitch_keys, keys_clone, midi_sender, params_clone, root
 use crate::midi::Midi;
 use crate::midi_sending::IMidiSender;
 use crate::tuner::ffi::MOS;
-use crate::tuning_params::{TuningParams,};
+use crate::tuning_params::TuningParams;
 
 pub fn init(pitch_table: u8) {
     PITCH_TABLE.store(pitch_table, Ordering::Relaxed);
@@ -29,12 +29,13 @@ pub fn init(pitch_table: u8) {
 ///             (a,b) = (s,L) depending on the relative size of the vectors.
 ///             The scalatrix MOS class also has mos.nL and mos.nS properties
 ///             which will be used when displaying the MOS system (like 5L 2s).
-pub fn on_tuning_received(tuning_params: TuningParams) {
-    // println!(
-    //     "tuner.on_tuning_received: depth = {}; mode = {}; root_freq = {}; stretch = {}; \
-    //     skew = {}; mode_offset = {}; steps = {}",
-    //     depth, mode, root_freq, stretch, skew, mode_offset, steps);
-    *params_clone().lock().unwrap() = tuning_params;
+pub fn on_tuning_received(params: TuningParams) {
+    println!(
+        "tuner.on_tuning_received: mode = {}; root_freq = {}; stretch = {}; \
+        skew = {}; mode_offset = {}; steps = {}; mos_a = {}; mos_b = {}",
+        params.mode(), params.root_freq(), params.stretch(),
+        params.skew(), params.mode_offset(), params.steps(), params.mos_a(), params.mos_b());
+    *params_clone().lock().unwrap() = params;
     tune();
 }
 
@@ -52,6 +53,7 @@ fn tune() {
             params.mode(), params.root_freq(), params.stretch(),
             params.skew(), params.mode_offset(), max(1, params.steps()),
             params.mos_a(), params.mos_b()));
+        // println!("tuner.tune has set key_pitches: key_pitches count = {}", key_pitches.len());
         set_keys(key_pitches.iter().enumerate()
             .map(|(i, pitch)| {
                 Key {
@@ -63,6 +65,7 @@ fn tune() {
                     offset_lsb: 0,
                 }
             }).collect());
+        // println!("tuner.tune has set keys: keys count = {}", keys_clone().len());
         // If the player sweeps one of the tuning controls in PitchGrid,
         // we will receive new tunings much faster than the instrument can update the tuning table,
         // which takes in the order of half a second.
@@ -173,10 +176,11 @@ pub fn send_current_preset_update() -> bool {
 /// The tuning table will be assigned to the instrument's current preset, which will also be
 /// updated with any rounding parameters that have been specified.
 fn send_tuning_update(generate: bool) {
-    println!("tuner.send_tuning: generate = {}", generate);
+    println!("tuner.send_tuning_update: generate = {}", generate);
     Midi::on_updating_tuning();
     if generate {
         let mut keys = keys_clone();
+        // println!("tuner.send_tuning_update: keys count = {}", keys.len());
         set_to_key_numbers(&mut keys);
         calculate_offsets(&mut keys);
         send_pitch_table(pitch_table(), &keys);
@@ -184,7 +188,7 @@ fn send_tuning_update(generate: bool) {
     // The following commands update the instrument's current preset.
     send_rounding_params();
     // Set active pitch table for performance.
-    // println!("tuner.send_tuning: Setting active pitch table to {}", pitch_table());
+    println!("tuner.send_tuning_update: Setting active pitch table to {}", pitch_table());
     midi_sender().send_control_change(16, 51, pitch_table()); // Grid
 }
 
@@ -248,7 +252,7 @@ fn calculate_offsets(keys: &mut Vec<Key>) {
 }
 
 fn send_pitch_table(pitch_table: u8, keys: &Vec<Key>) {
-    // println!("tuner.send_pitch_table_to_instrument");
+    // println!("tuner.send_pitch_table: keys count = {}", keys.len());
     // Select pitch table to update.
     midi_sender().send_control_change(16, 109, pitch_table);
     // Tuning for each MIDI key
@@ -344,7 +348,7 @@ pub fn set_pitch_table(pitch_table: u8) {
 pub fn default_pitch_table() -> u8 { 80 }
 
 pub fn on_tuning_updated() {
-    // println!("tuner.on_tuning_updated");
+    println!("tuner.on_tuning_updated");
     if !has_data() {
         println!("tuner.on_tuning_updated: no tuning data");
         // Could be tuning updated when an instrument preset is loaded
@@ -384,12 +388,15 @@ pub fn on_tuning_updated() {
 fn send_rounding_params() {
     if OVERRIDE_ROUNDING_INITIAL.load(Ordering::Relaxed) {
         // Turn on Rounding Initial
+        println!("tuner.send_rounding_params: Sending Rounding Initial");
         midi_sender().send_control_change(1, 28, 127); // RndIni
     }
     if OVERRIDE_ROUNDING_RATE.load(Ordering::Relaxed) {
         // Rounding Mode Normal
+        println!("tuner.send_rounding_params: Sending Rounding Mode Normal");
         midi_sender().send_matrix_poke(10, 0); // RoundMode
-        // Max Rounding Rate
+        // Rounding Rate
+        println!("tuner.send_rounding_params: Sending Rounding Rate");
         midi_sender().send_control_change(1, 25, ROUNDING_RATE.load(Ordering::Relaxed)); // RoundRate
     }
 }
@@ -502,8 +509,8 @@ impl FormattedTuningParams {
 
 static IS_ALREADY_UPDATING: AtomicBool = AtomicBool::new(false);
 static IS_ANOTHER_UPDATE_PENDING: AtomicBool = AtomicBool::new(false);
-static OVERRIDE_ROUNDING_INITIAL: AtomicBool = AtomicBool::new(true);
-static OVERRIDE_ROUNDING_RATE: AtomicBool = AtomicBool::new(true);
+static OVERRIDE_ROUNDING_INITIAL: AtomicBool = AtomicBool::new(false);
+static OVERRIDE_ROUNDING_RATE: AtomicBool = AtomicBool::new(false);
 
 /// About the name Pitch Table.
 /// The EaganMatrix Overlay Developer's Guide calls them tuning grids.
