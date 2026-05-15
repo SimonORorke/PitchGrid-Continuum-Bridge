@@ -4,7 +4,7 @@ use crate::{MainWindow, ComboBoxItem, SlintMessageType, ComboBoxModel as MainCom
 use crate::controller::ControllerCallbacks;
 use crate::global::{MessageType, PortType};
 use crate::port_strategy::PortStrategy;
-use crate::tuner;
+use crate::tuner::FormattedTuningParams;
 
 /// This struct contains the methods called by Controller to make changes to the UI.
 /// It is part of the view in the Model-View-Controller (MVC) pattern.
@@ -139,19 +139,18 @@ impl ControllerCallbacks for UiMethods {
         });
     }
 
-    fn show_tuning(&self, is_root_freq_overridden: bool) {
+    fn show_tuning(&self, tuning: FormattedTuningParams, is_root_freq_overridden: bool) {
         // println!("UiMethods.show_tuning");
         self.with_main_window(move |main_window| {
-            let params = tuner::formatted_tuning_params();
-            main_window.set_root_freq(params.root_freq.into());
-            main_window.set_stretch(params.stretch.into());
-            main_window.set_skew(params.skew.into());
-            main_window.set_mode_offset(params.mode_offset.into());
-            main_window.set_steps(params.steps.into());
+            main_window.set_root_freq(tuning.root_freq.into());
+            main_window.set_stretch(tuning.stretch.into());
+            main_window.set_skew(tuning.skew.into());
+            main_window.set_mode_offset(tuning.mode_offset.into());
+            main_window.set_steps(tuning.steps.into());
             let mos = {
-                if !params.mos_large_step_count.is_empty() {
+                if !tuning.mos_large_step_count.is_empty() {
                     format!("{}L {}s",
-                    params.mos_large_step_count, params.mos_small_step_count)
+                    tuning.mos_large_step_count, tuning.mos_small_step_count)
                 } else {
                     String::new()
                 }

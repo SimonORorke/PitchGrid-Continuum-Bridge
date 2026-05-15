@@ -8,6 +8,7 @@ use crate::port_strategy::{
     InputStrategy, OutputStrategy, PortStrategy};
 use crate::settings::Settings;
 use crate::{midi_static, tuner};
+use crate::tuner::{FormattedTuningParams, SharedTuner, Tuner};
 use crate::tuning_params::TuningParams;
 
 /// This is the main controller in the Model-View-Controller (MVC) pattern.
@@ -20,6 +21,7 @@ pub struct Controller {
     is_awaiting_tuning_updated: bool,
     osc: Osc,
     settings: Settings,
+    tuner: SharedTuner,
 }
 
 impl Controller {
@@ -30,6 +32,7 @@ impl Controller {
             is_awaiting_tuning_updated: false,
             osc: Osc::new(),
             settings: Settings::new(),
+            tuner: Arc::new(Tuner::new()),
         }
     }
 
@@ -130,11 +133,11 @@ impl Controller {
         self.osc.set_listening_port(osc_listening_port);
         self.callbacks.set_selected_osc_listening_port_index(Osc::listening_port_index() as i32);
         // println!("Controller.init: Configuring tuner");
-        tuner::init(pitch_table);
-        self.callbacks.set_selected_pitch_table_index(tuner::pitch_table_index() as i32);
-        tuner::set_override_rounding_initial(override_rounding_initial);
-        tuner::set_override_rounding_rate(override_rounding_rate);
-        tuner::set_rounding_rate(rounding_rate);
+        self.tuner.init(pitch_table);
+        self.callbacks.set_selected_pitch_table_index(self.tuner.pitch_table_index() as i32);
+        self.tuner.set_override_rounding_initial(override_rounding_initial);
+        self.tuner.set_override_rounding_rate(override_rounding_rate);
+        self.tuner.set_rounding_rate(rounding_rate);
         self.callbacks.set_override_rounding_initial(override_rounding_initial);
         self.callbacks.set_override_rounding_rate(override_rounding_rate);
         self.callbacks.set_rounding_rate(rounding_rate);
@@ -302,21 +305,21 @@ impl Controller {
                 UPDATING_ROOT_FREQ_OVERRIDE,
                 MessageType::Info);
         }
-        tuner::set_root_freq_override_note_no(index, send_tuning);
+        self.tuner.set_root_freq_override_note_no(index, send_tuning);
     }
 
     pub fn set_override_rounding_initial(&mut self, value: bool) {
-        tuner::set_override_rounding_initial(value);
+        self.tuner.set_override_rounding_initial(value);
         self.settings.override_rounding_initial = value;
     }
 
     pub fn set_override_rounding_rate(&mut self, value: bool) {
-        tuner::set_override_rounding_rate(value);
+        self.tuner.set_override_rounding_rate(value);
         self.settings.override_rounding_rate = value;
     }
 
     pub fn set_rounding_rate(&mut self, rate: u8) {
-        tuner::set_rounding_rate(rate);
+        self.tuner.set_rounding_rate(rate);
         self.settings.rounding_rate = rate;
     }
 
@@ -328,7 +331,7 @@ impl Controller {
 
     pub fn set_pitch_table(&mut self, index: usize) {
         let pitch_table = tuner::pitch_tables()[index];
-        tuner::set_pitch_table(pitch_table);
+        self.tuner.set_pitch_table(pitch_table);
         self.settings.pitch_table = pitch_table;
     }
 
@@ -367,7 +370,7 @@ impl Controller {
 
     fn on_new_preset_selected(&self) {
         println!("Controller.on_new_preset_selected");
-        if tuner::send_current_preset_update() {
+        if self.tuner.send_current_preset_update() {
             println!("Controller.on_new_preset_selected: Updated");
             self.callbacks.show_pitchgrid_status(
                 NEW_PRESET_SELECTED,
@@ -415,10 +418,10 @@ impl Controller {
             }
             self.is_awaiting_tuning_updated = false;
         }
-        tuner::on_tuning_updated();
+        self.tuner.on_tuning_updated();
         // If there's no tuning data, the displayed tuning data will be blanked.
-        self.callbacks.show_tuning(tuner::is_root_freq_overridden());
-        if !tuner::has_data() {
+        self.callbacks.show_tuning(self.tuner.formatted_tuning_params(), self.tuner.is_root_freq_overridden());
+        if !self.tuner.has_data() {
             // Could be tuning updated when an instrument preset is loaded
             // while PitchGrid is not connected.
             return;
@@ -583,12 +586,12 @@ impl Controller {
         }
     }
 
-    /// Blanks the displayed tuning and removes tuning data from the tuner module.
+    /// Blanks the displayed tuning and removes tuning data from the tuner.
     fn remove_data(&self) {
         println!("Controller.remove_data");
-        tuner::remove_data();
+        self.tuner.remove_data();
         // As we've removed tuning data, the displayed tuning data will be blanked.
-        self.callbacks.show_tuning(tuner::is_root_freq_overridden());
+        self.callbacks.show_tuning(self.tuner.formatted_tuning_params(), self.tuner.is_root_freq_overridden());
     }
 }
 
@@ -611,7 +614,7 @@ impl OscCallbacks for Controller {
         // println!("Controller.on_osc_pitchgrid_connected_changed");
         if self.osc.is_pitchgrid_connected() {
             println!("Controller.on_osc_pitchgrid_connected_changed: Showing tuning");
-            self.callbacks.show_tuning(tuner::is_root_freq_overridden());
+            self.callbacks.show_tuning(self.tuner.formatted_tuning_params(), self.tuner.is_root_freq_overridden());
             // println!("Controller.on_osc_pitchgrid_connected_changed: Showing PitchGrid is connected");
             self.show_pitchgrid_connected();
             // println!("Controller.on_osc_pitchgrid_connected_changed: PitchGrid and instrument are connected");
@@ -634,7 +637,7 @@ impl OscCallbacks for Controller {
             println!("Controller.on_osc_tuning_received: Showing Updating instrument tuning");
             self.callbacks.show_pitchgrid_status(UPDATING_INSTRUMENT_TUNING, MessageType::Info);
             println!("Controller.on_osc_tuning_received: Updating instrument tuning");
-            tuner::on_tuning_received(tuning_params);
+            self.tuner.on_tuning_received(tuning_params);
         } else {
             self.stop_osc_and_show_pitchgrid_status();
         }
@@ -673,7 +676,7 @@ pub trait ControllerCallbacks: Send + Sync {
     fn show_connected_device_name(&self, name: &str, msg_type: MessageType, port_strategy: &dyn PortStrategy);
     fn show_message(&self, msg: &str, msg_type: MessageType);
     fn show_pitchgrid_status(&self, status: &str, msg_type: MessageType);
-    fn show_tuning(&self, is_overriding_root_freq: bool);
+    fn show_tuning(&self, tuning: FormattedTuningParams, is_root_freq_overridden: bool);
     fn set_main_window_position(&self, x: i32, y: i32);
     fn set_override_rounding_initial(&self, value: bool);
     fn set_override_rounding_rate(&self, value: bool);

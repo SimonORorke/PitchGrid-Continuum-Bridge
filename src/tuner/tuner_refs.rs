@@ -1,40 +1,11 @@
-use std::sync::{Arc, Mutex, OnceLock};
-use crate::midi_sending::{IMidiSender, MidiSender};
-use crate::tuning_params::{TuningParams,};
+use std::sync::OnceLock;
 
 pub(super) fn default_pitch_keys<'a>() -> &'a Vec<f32> {
     DEFAULT_KEY_PITCHES.get_or_init(|| create_default_key_pitches())
 }
 
-pub(super) fn keys_clone() -> Vec<super::Key> {
-    KEYS.get_or_init(|| Mutex::new(vec![])).lock().unwrap().clone()
-}
-
-pub(super) fn set_keys(keys: Vec<super::Key>) {
-    *KEYS.get_or_init(|| Mutex::new(vec![])).lock().unwrap() = keys;
-}
-
-pub(super) fn midi_sender() -> std::sync::MutexGuard<'static, Box<dyn IMidiSender>> {
-    MIDI_SENDER.get_or_init(|| Mutex::new(Box::new(MidiSender::new()))).lock().unwrap()
-}
-
-/// Replaces the MIDI sender. Can be called multiple times (e.g. in tests).
-pub(super) fn set_midi_sender(sender: Box<dyn IMidiSender>) {
-    *MIDI_SENDER.get_or_init(|| Mutex::new(Box::new(MidiSender::new()))).lock().unwrap() = sender;
-}
-
-pub(super) fn params_clone() -> SharedTuningParams {
-    let params =
-        PARAMS.get_or_init(|| Arc::new(Mutex::new(TuningParams::default())));
-    Arc::clone(params)
-}
-
 pub(super) fn pitch_tables<'a>() -> &'a Vec<u8> {
     PITCH_TABLES.get_or_init(|| (80..88).collect())
-}
-
-pub(super) fn root_freq_override<'a>() -> &'a Arc<Mutex<f32>> {
-    ROOT_FREQ_OVERRIDE.get_or_init(|| Arc::new(Mutex::new(0.0)))
 }
 
 /// Returns the default key pitches in Hz, where the default scale is 12-TET
@@ -59,11 +30,5 @@ fn create_default_key_pitches() -> Vec<f32> {
         11175.302, 11839.817, 12543.852]
 }
 
-pub type SharedTuningParams = Arc<Mutex<TuningParams>>;
-
 static DEFAULT_KEY_PITCHES: OnceLock<Vec<f32>> = OnceLock::new();
-static KEYS: OnceLock<Mutex<Vec<super::Key>>> = OnceLock::new();
-static MIDI_SENDER: OnceLock<Mutex<Box<dyn IMidiSender>>> = OnceLock::new();
-static PARAMS: OnceLock<SharedTuningParams> = OnceLock::new();
 static PITCH_TABLES: OnceLock<Vec<u8>> = OnceLock::new();
-static ROOT_FREQ_OVERRIDE: OnceLock<Arc<Mutex<f32>>> = OnceLock::new();
