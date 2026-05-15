@@ -10,20 +10,12 @@ use mock_midi_sending::{MockMidiSender, sent_midi};
 static TEST_MUTEX: Mutex<()> = Mutex::new(());
 
 #[googletest::gtest]
-fn init() {
-    let _guard = TEST_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
-    tuner::init(PITCH_TABLE);
-    assert_that!(tuner::pitch_table(), eq(PITCH_TABLE));
-}
-
-#[googletest::gtest]
 fn on_tuning_received() {
-    let _guard = TEST_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
     println!("***********************************");
     println!("on_tuning_received test started");
     println!("***********************************");
-    tuner::init(PITCH_TABLE);
-    tuner::set_midi_sender(Box::new(MockMidiSender::new()));
+    let _guard = TEST_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
+    init_tuner();
     tuner::set_override_rounding_initial(true);
     tuner::set_override_rounding_rate(true);
     tuner::set_rounding_rate(MAX_ROUNDING_RATE);
@@ -60,17 +52,17 @@ fn on_tuning_received() {
 
 #[googletest::gtest]
 fn remove_data() {
-    let _guard = TEST_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
     println!("***********************************");
     println!("remove_data test started");
     println!("***********************************");
-    tuner::init(PITCH_TABLE);
-    tuner::set_midi_sender(Box::new(MockMidiSender::new()));
-    tuner::remove_data(); // In case another test has set data
+    let _guard = TEST_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
+    init_tuner();
     tuner::on_tuning_received(params_31_19());
     assert_that!(tuner::has_data(), eq(true));
     tuner::remove_data();
     assert_that!(tuner::has_data(), eq(false));
+    let formatted = tuner::formatted_tuning_params();
+    assert_that!(formatted.root_freq, eq(""));
     println!("***********************************");
     println!("remove_data test completed");
     println!("***********************************");
@@ -78,13 +70,11 @@ fn remove_data() {
 
 #[googletest::gtest]
 fn send_current_preset_update() {
-    let _guard = TEST_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
     println!("*****************************************");
     println!("send_current_preset_update test started");
     println!("*****************************************");
-    tuner::init(PITCH_TABLE);
-    tuner::set_midi_sender(Box::new(MockMidiSender::new()));
-    tuner::remove_data(); // Ensure IS_ALREADY_UPDATING is false
+    let _guard = TEST_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
+    init_tuner();
     tuner::set_override_rounding_initial(true);
     tuner::set_override_rounding_rate(true);
     tuner::set_rounding_rate(MAX_ROUNDING_RATE);
@@ -107,20 +97,28 @@ fn send_current_preset_update() {
 #[googletest::gtest]
 fn set_pitch_table() {
     let _guard = TEST_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
-    tuner::set_pitch_table(PITCH_TABLE);
+    let new_pitch_table: u8 = tuner::default_pitch_table();
+    init_tuner();
     assert_that!(tuner::pitch_table(), eq(PITCH_TABLE));
+    tuner::set_pitch_table(new_pitch_table);
+    assert_that!(tuner::pitch_table(), eq(new_pitch_table));
 }
 
 #[googletest::gtest]
 fn set_root_freq_override_note_no() {
     let _guard = TEST_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
-    tuner::init(PITCH_TABLE);
-    tuner::set_midi_sender(Box::new(MockMidiSender::new()));
+    init_tuner();
     tuner::on_tuning_received(params_31_19());
     tuner::set_root_freq_override_note_no(4 /* A */, true);
     assert_that!(tuner::is_root_freq_overridden(), eq(true));
     let formatted = tuner::formatted_tuning_params();
     assert_that!(formatted.root_freq, eq("220 Hz"));
+}
+
+fn init_tuner() {
+    tuner::init(PITCH_TABLE);
+    tuner::set_midi_sender(Box::new(MockMidiSender::new()));
+    tuner::remove_data(); // Ensure IS_ALREADY_UPDATING is false
 }
 
 fn params_31_19() -> TuningParams {
