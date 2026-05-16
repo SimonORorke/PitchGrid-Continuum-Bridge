@@ -14,7 +14,7 @@ impl MockMidiSender {
     /// Creates a new `MockMidiSender` instance, resetting the MIDI send stats that are accessed
     /// via `sent_midi()`.
     pub fn new() -> Self {
-        println!("MockMidiSender:new: resetting MIDI sent stats.");
+        // println!("MockMidiSender:new: resetting MIDI sent stats.");
         SENT_MIDI.replace(SentMidi::new());
         MockMidiSender {}
     }
