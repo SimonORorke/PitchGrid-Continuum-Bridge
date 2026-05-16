@@ -1,8 +1,8 @@
 ﻿use std::rc::Rc;
 use slint::{ComponentHandle, Weak};
 use crate::{MainWindow, ComboBoxItem, SlintMessageType, ComboBoxModel as MainComboBoxModel};
-use crate::controller::ControllerCallbacks;
 use crate::global::{MessageType, PortType};
+use crate::i_ui_methods::IUiMethods;
 use crate::port_strategy::PortStrategy;
 use crate::tuner::FormattedTuningParams;
 
@@ -54,7 +54,7 @@ impl UiMethods {
     }
 }
 
-impl ControllerCallbacks for UiMethods {
+impl IUiMethods for UiMethods {
     fn focus_port(&self, port_strategy: &dyn PortStrategy) {
         let port_strategy = port_strategy.clone_box();
         self.with_main_window(move |main_window| {

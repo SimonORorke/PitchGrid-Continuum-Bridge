@@ -1,7 +1,8 @@
 pub mod global;
+pub mod i_ui_methods;
 pub mod midi;
 pub mod midi_ports;
-pub mod midi_sending;
+pub mod midi_sender;
 pub mod osc;
 pub mod system_paths;
 pub mod settings;

@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex};
 use cxx::UniquePtr;
 use round::round;
 use crate::midi::Midi;
-use crate::midi_sending::{IMidiSender, MidiSender};
+use crate::midi_sender::{IMidiSender, MidiSender};
 use crate::tuner::ffi::MOS;
 use crate::tuning_params::TuningParams;
 
@@ -465,6 +465,7 @@ struct Key {
 }
 
 /// The tuning parameters formatted for display.
+#[derive(Clone)]
 pub struct FormattedTuningParams {
     pub root_freq: String, pub stretch: String,
     pub skew: String, pub mode_offset: String, pub steps: String,

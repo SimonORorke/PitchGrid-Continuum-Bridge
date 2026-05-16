@@ -1,11 +1,11 @@
-mod mock_midi_sending;
+mod mock_midi_sender;
 
 use std::sync::Mutex;
 use googletest::assert_that;
 use googletest::matchers::{eq, gt};
 use pitchgrid_continuum::tuner::{self, ITuner, Tuner};
 use pitchgrid_continuum::tuning_params::TuningParams;
-use mock_midi_sending::{MockMidiSender, sent_midi};
+use mock_midi_sender::{MockMidiSender, sent_midi};
 
 // PITCH_TABLE is a shared static written by tuner.init() and tuner.set_pitch_table().
 // Tests must run sequentially to avoid data races on it.

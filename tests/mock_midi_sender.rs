@@ -1,5 +1,5 @@
 ﻿use std::cell::RefCell;
-use pitchgrid_continuum::midi_sending::{IMidiSender};
+use pitchgrid_continuum::midi_sender::{IMidiSender};
 
 /// MIDI send stats since `MockMidiSender` was instantiated.
 pub fn sent_midi() -> SentMidi {

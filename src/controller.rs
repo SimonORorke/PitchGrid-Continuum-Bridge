@@ -8,7 +8,8 @@ use crate::port_strategy::{
     InputStrategy, OutputStrategy, PortStrategy};
 use crate::settings::Settings;
 use crate::{midi_static, tuner};
-use crate::tuner::{FormattedTuningParams, SharedTuner, Tuner};
+use crate::i_ui_methods::IUiMethods;
+use crate::tuner::{SharedTuner, Tuner};
 use crate::tuning_params::TuningParams;
 
 /// This is the main controller in the Model-View-Controller (MVC) pattern.
@@ -17,7 +18,7 @@ use crate::tuning_params::TuningParams;
 /// Everything else is the model.
 pub struct Controller {
     await_tuning_updated_stopper_sender: Option<mpsc::Sender<()>>,
-    callbacks: Box<dyn ControllerCallbacks>,
+    ui_methods: Box<dyn IUiMethods>,
     is_awaiting_tuning_updated: bool,
     osc: Osc,
     settings: Settings,
@@ -25,10 +26,10 @@ pub struct Controller {
 }
 
 impl Controller {
-    pub fn new(callbacks: Box<dyn ControllerCallbacks>) -> Self {
+    pub fn new(callbacks: Box<dyn IUiMethods>) -> Self {
         Self {
             await_tuning_updated_stopper_sender: None,
-            callbacks,
+            ui_methods: callbacks,
             is_awaiting_tuning_updated: false,
             osc: Osc::new(),
             settings: Settings::new(),
@@ -78,7 +79,7 @@ impl Controller {
             }
         }
         // println!("Controller.init: Getting midi");
-        self.callbacks.set_main_window_position(main_window_x, main_window_y);
+        self.ui_methods.set_main_window_position(main_window_x, main_window_y);
         let shared_midi = midi_static::midi_clone();
         let mut midi = shared_midi.lock().unwrap();
         if let Err(err) = midi.init(
@@ -119,10 +120,10 @@ impl Controller {
         let input_device_names = self.device_names(&input_strategy);
         // println!("Controller.init: Got {} input port names", input_device_names.len());
         // println!("Controller.init: About to call callbacks.set_devices_model");
-        self.callbacks.set_devices_model(&input_device_names, &input_strategy);
+        self.ui_methods.set_devices_model(&input_device_names, &input_strategy);
         // println!("Controller.init: Called callbacks.set_devices_model");
         // println!("Controller.init: Setting output ports model");
-        self.callbacks.set_devices_model(&self.device_names(&output_strategy), &output_strategy);
+        self.ui_methods.set_devices_model(&self.device_names(&output_strategy), &output_strategy);
         // println!("Controller.init: Connecting initial ports");
         self.connect_initial_port(&output_strategy);
         // Don't start listening to MIDI until we are able to send MIDI.
@@ -131,16 +132,16 @@ impl Controller {
             self.connect_initial_port(&input_strategy);
         }
         self.osc.set_listening_port(osc_listening_port);
-        self.callbacks.set_selected_osc_listening_port_index(Osc::listening_port_index() as i32);
+        self.ui_methods.set_selected_osc_listening_port_index(Osc::listening_port_index() as i32);
         // println!("Controller.init: Configuring tuner");
         self.tuner.init(pitch_table);
-        self.callbacks.set_selected_pitch_table_index(self.tuner.pitch_table_index() as i32);
+        self.ui_methods.set_selected_pitch_table_index(self.tuner.pitch_table_index() as i32);
         self.tuner.set_override_rounding_initial(override_rounding_initial);
         self.tuner.set_override_rounding_rate(override_rounding_rate);
         self.tuner.set_rounding_rate(rounding_rate);
-        self.callbacks.set_override_rounding_initial(override_rounding_initial);
-        self.callbacks.set_override_rounding_rate(override_rounding_rate);
-        self.callbacks.set_rounding_rate(rounding_rate);
+        self.ui_methods.set_override_rounding_initial(override_rounding_initial);
+        self.ui_methods.set_override_rounding_rate(override_rounding_rate);
+        self.ui_methods.set_rounding_rate(rounding_rate);
         if midi_static::are_ports_connected() {
             // println!("Controller.init: Starting instrument connection monitor");
             self.start_instrument_connection_monitor();
@@ -178,12 +179,12 @@ impl Controller {
         };
         if let Some(index) = maybe_index {
             // println!("Controller.connect_initial_port: Setting selected port index to {}", index);
-            self.callbacks.set_selected_port_index(index, port_strategy);
+            self.ui_methods.set_selected_port_index(index, port_strategy);
             self.connect_selected_port(&shared_midi, port_strategy);
         } else {
             self.show_no_port_connected(port_strategy);
             self.show_warning(port_strategy.msg_connect());
-            self.callbacks.focus_port(port_strategy);
+            self.ui_methods.focus_port(port_strategy);
         }
     }
 
@@ -222,7 +223,7 @@ impl Controller {
     fn connect_selected_port(&mut self, shared_midi: &SharedMidi,
                              port_strategy: &dyn PortStrategy) {
         // println!("Controller.connect_selected_port: {:?}", port_strategy.port_type());
-        let selected = self.callbacks.get_selected_port_index(port_strategy);
+        let selected = self.ui_methods.get_selected_port_index(port_strategy);
         let index: usize = match usize::try_from(selected) {
             Ok(i) => i,
             Err(_) => {
@@ -275,7 +276,7 @@ impl Controller {
             return;
         }
         self.show_pitchgrid_disconnected();
-        self.callbacks.set_devices_model(&self.device_names(&*port_strategy), &*port_strategy);
+        self.ui_methods.set_devices_model(&self.device_names(&*port_strategy), &*port_strategy);
         self.show_no_port_connected(&*port_strategy);
         self.show_warning(port_strategy.msg_refreshed_reconnect());
     }
@@ -301,7 +302,7 @@ impl Controller {
             && midi_static::has_downloaded_init_data()
             && self.osc.is_pitchgrid_connected();
         if send_tuning {
-            self.callbacks.show_pitchgrid_status(
+            self.ui_methods.show_pitchgrid_status(
                 UPDATING_ROOT_FREQ_OVERRIDE,
                 MessageType::Info);
         }
@@ -363,7 +364,7 @@ impl Controller {
             self.stop_osc_and_show_pitchgrid_status();
             self.show_warning(INSTRUMENT_DISCONNECTED);
         }
-        self.callbacks.show_pitchgrid_status(
+        self.ui_methods.show_pitchgrid_status(
             PITCHGRID_CONNECTION_CLOSED,
             MessageType::Warning);
     }
@@ -372,7 +373,7 @@ impl Controller {
         println!("Controller.on_new_preset_selected");
         if self.tuner.send_current_preset_update() {
             println!("Controller.on_new_preset_selected: Updated");
-            self.callbacks.show_pitchgrid_status(
+            self.ui_methods.show_pitchgrid_status(
                 NEW_PRESET_SELECTED,
                 MessageType::Info);
         }
@@ -420,14 +421,14 @@ impl Controller {
         }
         self.tuner.on_tuning_updated();
         // If there's no tuning data, the displayed tuning data will be blanked.
-        self.callbacks.show_tuning(self.tuner.formatted_tuning_params(), self.tuner.is_root_freq_overridden());
+        self.ui_methods.show_tuning(self.tuner.formatted_tuning_params(), self.tuner.is_root_freq_overridden());
         if !self.tuner.has_data() {
             // Could be tuning updated when an instrument preset is loaded
             // while PitchGrid is not connected.
             return;
         }
         println!("Controller.on_tuning_updated: Showing Instrument tuning updated");
-        self.callbacks.show_pitchgrid_status(INSTRUMENT_TUNING_UPDATED, MessageType::Info);
+        self.ui_methods.show_pitchgrid_status(INSTRUMENT_TUNING_UPDATED, MessageType::Info);
     }
 
     fn on_updating_tuning(&mut self) {
@@ -507,7 +508,7 @@ impl Controller {
         } else {
             MessageType::Info
         };
-        self.callbacks.show_connected_device_name(device_name, message_type, port_strategy);
+        self.ui_methods.show_connected_device_name(device_name, message_type, port_strategy);
         // Don't save the port setting if the port is not connected.
         // The device, if any, stored in the settings file is the one that was connected last time.
         // The persisted device may be temporarily unavailable for selection, for example if a
@@ -521,11 +522,11 @@ impl Controller {
     }
 
     fn show_error(&self, message: &str) {
-        self.callbacks.show_message(message, MessageType::Error);
+        self.ui_methods.show_message(message, MessageType::Error);
     }
 
     fn show_info(&self, message: &str) {
-        self.callbacks.show_message(message, MessageType::Info);
+        self.ui_methods.show_message(message, MessageType::Info);
     }
 
     fn show_no_port_connected(
@@ -535,26 +536,26 @@ impl Controller {
     
     fn show_pitchgrid_connected(&self) {
         // println!("Controller.show_pitchgrid_connected: Showing PitchGrid OSC is connected");
-        self.callbacks.show_pitchgrid_status(
+        self.ui_methods.show_pitchgrid_status(
             PITCHGRID_OSC_CONNECTED,
             MessageType::Info);
     }
 
     fn show_pitchgrid_disconnected(&self) {
-        self.callbacks.show_pitchgrid_status(
+        self.ui_methods.show_pitchgrid_status(
             DISCONNECTED_FROM_PITCHGRID,
             MessageType::Warning);
     }
 
     fn show_pitchgrid_not_connected(&self) {
-        self.callbacks.show_pitchgrid_status(
+        self.ui_methods.show_pitchgrid_status(
             PITCHGRID_NOT_CONNECTED,
             MessageType::Error);
     }
 
     fn show_warning(&self, message: &str) {
         // println!("Controller.show_warning: {}", message);
-        self.callbacks.show_message(message, MessageType::Warning);
+        self.ui_methods.show_message(message, MessageType::Warning);
     }
 
     fn start_osc(&mut self) {
@@ -576,11 +577,11 @@ impl Controller {
         self.osc.stop();
         self.remove_data();
         if !midi_static::are_ports_connected() {
-            self.callbacks.show_pitchgrid_status(
+            self.ui_methods.show_pitchgrid_status(
                 CANNOT_UPDATE_TUNING_CONNECT,
                 MessageType::Error);
         } else if !midi_static::is_receiving_data() {
-            self.callbacks.show_pitchgrid_status(
+            self.ui_methods.show_pitchgrid_status(
                 CANNOT_UPDATE_TUNING_LOST,
                 MessageType::Error);
         }
@@ -591,7 +592,7 @@ impl Controller {
         println!("Controller.remove_data");
         self.tuner.remove_data();
         // As we've removed tuning data, the displayed tuning data will be blanked.
-        self.callbacks.show_tuning(self.tuner.formatted_tuning_params(), self.tuner.is_root_freq_overridden());
+        self.ui_methods.show_tuning(self.tuner.formatted_tuning_params(), self.tuner.is_root_freq_overridden());
     }
 }
 
@@ -614,7 +615,7 @@ impl OscCallbacks for Controller {
         // println!("Controller.on_osc_pitchgrid_connected_changed");
         if self.osc.is_pitchgrid_connected() {
             println!("Controller.on_osc_pitchgrid_connected_changed: Showing tuning");
-            self.callbacks.show_tuning(self.tuner.formatted_tuning_params(), self.tuner.is_root_freq_overridden());
+            self.ui_methods.show_tuning(self.tuner.formatted_tuning_params(), self.tuner.is_root_freq_overridden());
             // println!("Controller.on_osc_pitchgrid_connected_changed: Showing PitchGrid is connected");
             self.show_pitchgrid_connected();
             // println!("Controller.on_osc_pitchgrid_connected_changed: PitchGrid and instrument are connected");
@@ -635,7 +636,7 @@ impl OscCallbacks for Controller {
         //     depth, mode, root_freq, stretch, skew, mode_offset, steps);
         if midi_static::are_ports_connected() && midi_static::is_receiving_data() {
             println!("Controller.on_osc_tuning_received: Showing Updating instrument tuning");
-            self.callbacks.show_pitchgrid_status(UPDATING_INSTRUMENT_TUNING, MessageType::Info);
+            self.ui_methods.show_pitchgrid_status(UPDATING_INSTRUMENT_TUNING, MessageType::Info);
             println!("Controller.on_osc_tuning_received: Updating instrument tuning");
             self.tuner.on_tuning_received(tuning_params);
         } else {
@@ -667,23 +668,6 @@ const UPDATING_INSTRUMENT_TUNING: &str = "Updating instrument tuning";
 const UPDATING_ROOT_FREQ_OVERRIDE: &str = "Updating root frequency override...";
 const WAITING_FOR_DATA_DOWNLOAD: &str =
     "Waiting (maximum 6 seconds) for possible initial data download from instrument...";
-
-pub trait ControllerCallbacks: Send + Sync {
-    fn focus_port(&self, port_strategy: &dyn PortStrategy);
-    fn get_selected_port_index(&self, port_strategy: &dyn PortStrategy) -> usize;
-    fn set_selected_port_index(&self, index: usize, port_strategy: &dyn PortStrategy);
-    fn set_devices_model(&self, device_names: &Vec<String>, port_strategy: &dyn PortStrategy);
-    fn show_connected_device_name(&self, name: &str, msg_type: MessageType, port_strategy: &dyn PortStrategy);
-    fn show_message(&self, msg: &str, msg_type: MessageType);
-    fn show_pitchgrid_status(&self, status: &str, msg_type: MessageType);
-    fn show_tuning(&self, tuning: FormattedTuningParams, is_root_freq_overridden: bool);
-    fn set_main_window_position(&self, x: i32, y: i32);
-    fn set_override_rounding_initial(&self, value: bool);
-    fn set_override_rounding_rate(&self, value: bool);
-    fn set_rounding_rate(&self, rate: u8);
-    fn set_selected_osc_listening_port_index(&self, index: i32);
-    fn set_selected_pitch_table_index(&self, index: i32);
-}
 
 type SharedController = Arc<Mutex<Controller>>;
 

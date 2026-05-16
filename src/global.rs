@@ -1,6 +1,7 @@
 ﻿use std::sync::{Arc, Mutex};
 use crate::midi::Midi;
 
+#[derive(Clone)]
 pub enum MessageType {
     Error,
     Info,

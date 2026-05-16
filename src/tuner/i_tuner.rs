@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use crate::midi_sending::IMidiSender;
+use crate::midi_sender::IMidiSender;
 use crate::tuning_params::TuningParams;
 use super::FormattedTuningParams;
 
