@@ -8,6 +8,7 @@ use crate::port_strategy::{
     InputStrategy, OutputStrategy, PortStrategy};
 use crate::settings::Settings;
 use crate::{midi_static, tuner};
+use crate::i_midi::IMidi;
 use crate::i_ui_methods::IUiMethods;
 use crate::tuner::{SharedTuner, Tuner};
 use crate::tuning_params::TuningParams;

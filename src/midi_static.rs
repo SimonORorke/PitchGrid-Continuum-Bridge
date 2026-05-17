@@ -1,5 +1,6 @@
 ﻿use std::sync::{Arc, Mutex, OnceLock};
 use crate::global::{SharedMidi,};
+use crate::i_midi::IMidi;
 use crate::midi::Midi;
 
 pub fn are_ports_connected() -> bool {

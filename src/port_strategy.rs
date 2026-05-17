@@ -1,6 +1,7 @@
 ﻿use slint::ModelRc;
 use crate::{MainWindow, ComboBoxItem, SlintMessageType};
 use crate::global::PortType;
+use crate::i_midi::IMidi;
 use crate::midi::Midi;
 use crate::midi_ports::IIo;
 use crate::settings::Settings;
