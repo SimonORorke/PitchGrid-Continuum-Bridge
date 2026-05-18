@@ -3,7 +3,7 @@ use std::fs;
 use std::path::PathBuf;
 use serde::{Serialize, Deserialize};
 use app_info::APP_TITLE;
-use crate::system_paths::{PathFinder, SystemPathFinder};
+use crate::path_finder::{PathFinder, SystemPathFinder};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Settings {
