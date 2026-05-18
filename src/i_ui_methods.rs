@@ -2,6 +2,10 @@
 use crate::port_strategy::PortStrategy;
 use crate::tuner::FormattedTuningParams;
 
+/// A trait that defines the interface for methods called by `Controller`
+/// to make changes to the UI.
+///
+/// For the The `I` prefix, see `ITuner`s doc comment.
 pub trait IUiMethods: Send + Sync {
     fn focus_port(&self, port_strategy: &dyn PortStrategy);
     fn get_selected_port_index(&self, port_strategy: &dyn PortStrategy) -> usize;

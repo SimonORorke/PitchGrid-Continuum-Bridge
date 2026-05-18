@@ -3,6 +3,9 @@ use std::error::Error;
 use crate::midi_ports::{Io, IIo};
 use crate::port_strategy::PortStrategy;
 
+/// A trait that defines the interface for managing MIDI devices and messages.
+///
+/// For the The `I` prefix, see `ITuner`s doc comment.
 pub trait IMidi {
     fn add_init_download_completed_callback(
         &mut self,

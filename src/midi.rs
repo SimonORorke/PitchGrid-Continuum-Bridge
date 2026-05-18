@@ -22,6 +22,9 @@ use crate::midi_ports::{Io, IIo};
 use crate::port_strategy::PortStrategy;
 use crate::tuner;
 
+/// A manager for MIDI devices and messages.
+///
+/// For the The `I` prefix, see `ITuner`s doc comment.
 pub struct Midi {
     connection_monitor_stopper_sender: Option<mpsc::Sender<()>>,
     input: Io<MidiInputPort>,
