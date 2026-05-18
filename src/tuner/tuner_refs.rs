@@ -4,10 +4,6 @@ pub(super) fn default_pitch_keys<'a>() -> &'a Vec<f32> {
     DEFAULT_KEY_PITCHES.get_or_init(|| create_default_key_pitches())
 }
 
-pub(super) fn pitch_tables<'a>() -> &'a Vec<u8> {
-    PITCH_TABLES.get_or_init(|| (80..88).collect())
-}
-
 /// Returns the default key pitches in Hz, where the default scale is 12-TET
 /// at standard concert pitch A=440.
 fn create_default_key_pitches() -> Vec<f32> {
@@ -31,4 +27,3 @@ fn create_default_key_pitches() -> Vec<f32> {
 }
 
 static DEFAULT_KEY_PITCHES: OnceLock<Vec<f32>> = OnceLock::new();
-static PITCH_TABLES: OnceLock<Vec<u8>> = OnceLock::new();

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use crate::midi_sender::IMidiSender;
 use crate::tuning_params::TuningParams;
-use super::FormattedTuningParams;
+use crate::tuner::FormattedTuningParams;
 
 pub trait ITuner: Send + Sync {
     fn init(&self, pitch_table: u8);

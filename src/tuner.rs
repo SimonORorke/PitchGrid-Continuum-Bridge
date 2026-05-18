@@ -1,9 +1,8 @@
-mod i_tuner;
 mod tuner_refs;
 
 use std::cmp::max;
 use std::sync::atomic::{AtomicBool, AtomicU8, AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 use cxx::UniquePtr;
 use round::round;
 use crate::midi::Midi;
@@ -11,7 +10,7 @@ use crate::midi_sender::{IMidiSender, MidiSender};
 use crate::tuner::ffi::MOS;
 use crate::tuning_params::TuningParams;
 
-pub use i_tuner::{ITuner, SharedTuner};
+pub use crate::i_tuner::{ITuner, SharedTuner};
 
 /// Returns the currently selected pitch table number.
 /// Remains a free function so that midi.rs can call it without holding a tuner reference.
@@ -20,7 +19,7 @@ pub fn pitch_table() -> u8 {
 }
 
 pub fn pitch_tables<'a>() -> &'a Vec<u8> {
-    tuner_refs::pitch_tables()
+    PITCH_TABLES.get_or_init(|| (80..88).collect())
 }
 
 pub fn default_pitch_table() -> u8 { 80 }
@@ -239,7 +238,6 @@ impl Tuner {
 impl ITuner for Tuner {
     fn init(&self, pitch_table: u8) {
         PITCH_TABLE.store(pitch_table, Ordering::Relaxed);
-        tuner_refs::pitch_tables(); // force initialization of PITCH_TABLES static
     }
 
     /// Update tuning parameters from the OSC message.
@@ -491,3 +489,5 @@ impl FormattedTuningParams {
 ///
 /// Remains a static so that midi.rs can call pitch_table() without holding a tuner reference.
 static PITCH_TABLE: AtomicU8 = AtomicU8::new(0);
+
+static PITCH_TABLES: OnceLock<Vec<u8>> = OnceLock::new();
