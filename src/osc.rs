@@ -6,7 +6,10 @@ use std::sync::atomic::{AtomicBool, AtomicU16, Ordering};
 use std::time::{Duration, Instant};
 use rosc::{decoder, encoder, OscMessage, OscPacket, OscType};
 use crate::tuning_params::TuningParams;
+use crate::i_osc::IOsc;
 
+/// A facility for communicating with PitchGrid via OSC.
+///
 /// The socket addresses are as per the PitchGrid plugin docs:
 ///     Connection Details
 ///         Plugin listens on: Port 34562 (default, configurable)
@@ -31,6 +34,8 @@ impl Osc {
         }
     }
 
+    pub fn default_listening_port() -> u16 { 34561 }
+
     pub fn listening_port() -> u16 { LISTENING_PORT.load(Ordering::Relaxed) }
 
     pub fn listening_port_index() -> usize {
@@ -47,89 +52,6 @@ impl Osc {
             ports.retain(|value| *value != SEND_TO_PITCHGRID_PORT);
             ports
         })
-    }
-
-    pub fn set_listening_port(&mut self, listening_port: u16) {
-        let bouncing = self.inner.lock().unwrap().is_running;
-        if bouncing {
-            self.stop();
-        }
-        LISTENING_PORT.store(listening_port, Ordering::Relaxed);
-        if bouncing {
-            // The unwrap() is safe because it's only called when bouncing,
-            // which means start was previously called and set callbacks to Some.
-            self.start(self.callbacks.clone().unwrap());
-        }
-    }
-
-    pub fn default_listening_port() -> u16 { 34561 }
-
-    fn create_socket_addr(port: u16) -> SocketAddrV4 {
-        SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), port)
-    }
-
-    pub fn start(&mut self, callbacks: Arc<dyn OscCallbacks>) {
-        // println!("Osc.start");
-        if self.is_pitchgrid_connected() {
-            panic!("PitchGrid is already connected.");
-        }
-        self.callbacks = Some(callbacks.clone());
-        let mut stopper_receivers: Vec<mpsc::Receiver<()>> = vec![];
-        let mut inner = self.inner.lock().unwrap();
-        for _ in 0..3 {
-            let (stopper_sender, stopper_receiver) = mpsc::channel();
-            stopper_receivers.push(stopper_receiver);
-            inner.stopper_senders.push(stopper_sender);
-        }
-        let mut stopper_receivers_iter = stopper_receivers.into_iter();
-        let heartbeat_stopper = stopper_receivers_iter.next().unwrap();
-        let listen_stopper = stopper_receivers_iter.next().unwrap();
-        let monitor_stopper = stopper_receivers_iter.next().unwrap();
-
-        let socket = UdpSocket::bind(Self::create_socket_addr(
-            Self::listening_port())).unwrap();
-        // println!("Osc.start: bound socket to {}", socket.local_addr().unwrap());
-        let send_socket = socket.try_clone().unwrap();
-        let listen_socket = socket;
-        let last_ack_time = self.last_ack_time.clone();
-        inner.is_running = true;
-        drop(inner);
-
-        rayon::spawn(move || {
-            Self::send_heartbeats(send_socket, heartbeat_stopper);
-        });
-        let last_ack_time_clone = self.last_ack_time.clone();
-        let callbacks_clone1 = callbacks.clone();
-        rayon::spawn(move || {
-            Self::listen(listen_socket, last_ack_time, callbacks_clone1, listen_stopper);
-        });
-        let callbacks_clone2 = callbacks.clone();
-        rayon::spawn(move || {
-            Self::monitor_connection(last_ack_time_clone, callbacks_clone2,
-                                     monitor_stopper);
-        });
-    }
-
-    pub fn stop(&self) {
-        // println!("Osc.stop");
-        IS_PITCHGRID_CONNECTED.store(false, Ordering::SeqCst);
-        // Stop the threads.
-        let mut inner = self.inner.lock().unwrap();
-        for stopper_sender in inner.stopper_senders.drain(..) {
-            stopper_sender.send(()).unwrap();
-        }
-        let last_ack_time_clone = self.last_ack_time.clone();
-        *last_ack_time_clone.lock().unwrap() = None;
-        inner.is_running = false;
-        // println!("Osc.stop: stopped OSC");
-    }
-
-    pub fn is_pitchgrid_connected(&self) -> bool {
-        IS_PITCHGRID_CONNECTED.load(Ordering::SeqCst)
-    }
-
-    pub fn is_running(&self) -> bool {
-        self.inner.lock().unwrap().is_running
     }
 
     fn handle_tuning(args: Vec<OscType>, callbacks: Arc<dyn OscCallbacks>) {
@@ -309,6 +231,89 @@ impl Osc {
             }
             // Slept for 1s, proceeding
         }
+    }
+
+    fn create_socket_addr(port: u16) -> SocketAddrV4 {
+        SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), port)
+    }
+}
+
+impl IOsc for Osc {
+    fn set_listening_port(&mut self, listening_port: u16) {
+        let bouncing = self.inner.lock().unwrap().is_running;
+        if bouncing {
+            self.stop();
+        }
+        LISTENING_PORT.store(listening_port, Ordering::Relaxed);
+        if bouncing {
+            // The unwrap() is safe because it's only called when bouncing,
+            // which means start was previously called and set callbacks to Some.
+            self.start(self.callbacks.clone().unwrap());
+        }
+    }
+
+    fn start(&mut self, callbacks: Arc<dyn OscCallbacks>) {
+        // println!("Osc.start");
+        if self.is_pitchgrid_connected() {
+            panic!("PitchGrid is already connected.");
+        }
+        self.callbacks = Some(callbacks.clone());
+        let mut stopper_receivers: Vec<mpsc::Receiver<()>> = vec![];
+        let mut inner = self.inner.lock().unwrap();
+        for _ in 0..3 {
+            let (stopper_sender, stopper_receiver) = mpsc::channel();
+            stopper_receivers.push(stopper_receiver);
+            inner.stopper_senders.push(stopper_sender);
+        }
+        let mut stopper_receivers_iter = stopper_receivers.into_iter();
+        let heartbeat_stopper = stopper_receivers_iter.next().unwrap();
+        let listen_stopper = stopper_receivers_iter.next().unwrap();
+        let monitor_stopper = stopper_receivers_iter.next().unwrap();
+
+        let socket = UdpSocket::bind(Self::create_socket_addr(
+            Self::listening_port())).unwrap();
+        // println!("Osc.start: bound socket to {}", socket.local_addr().unwrap());
+        let send_socket = socket.try_clone().unwrap();
+        let listen_socket = socket;
+        let last_ack_time = self.last_ack_time.clone();
+        inner.is_running = true;
+        drop(inner);
+
+        rayon::spawn(move || {
+            Self::send_heartbeats(send_socket, heartbeat_stopper);
+        });
+        let last_ack_time_clone = self.last_ack_time.clone();
+        let callbacks_clone1 = callbacks.clone();
+        rayon::spawn(move || {
+            Self::listen(listen_socket, last_ack_time, callbacks_clone1, listen_stopper);
+        });
+        let callbacks_clone2 = callbacks.clone();
+        rayon::spawn(move || {
+            Self::monitor_connection(last_ack_time_clone, callbacks_clone2,
+                                     monitor_stopper);
+        });
+    }
+
+    fn stop(&self) {
+        // println!("Osc.stop");
+        IS_PITCHGRID_CONNECTED.store(false, Ordering::SeqCst);
+        // Stop the threads.
+        let mut inner = self.inner.lock().unwrap();
+        for stopper_sender in inner.stopper_senders.drain(..) {
+            stopper_sender.send(()).unwrap();
+        }
+        let last_ack_time_clone = self.last_ack_time.clone();
+        *last_ack_time_clone.lock().unwrap() = None;
+        inner.is_running = false;
+        // println!("Osc.stop: stopped OSC");
+    }
+
+    fn is_pitchgrid_connected(&self) -> bool {
+        IS_PITCHGRID_CONNECTED.load(Ordering::SeqCst)
+    }
+
+    fn is_running(&self) -> bool {
+        self.inner.lock().unwrap().is_running
     }
 }
 

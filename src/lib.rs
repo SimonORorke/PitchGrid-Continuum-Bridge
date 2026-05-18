@@ -1,5 +1,6 @@
 pub mod global;
 pub mod i_midi;
+pub mod i_osc;
 pub mod i_ui_methods;
 pub mod midi;
 pub mod midi_ports;

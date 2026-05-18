@@ -24,7 +24,7 @@ pub fn pitch_tables<'a>() -> &'a Vec<u8> {
 
 pub fn default_pitch_table() -> u8 { 80 }
 
-/// A service for tuning a Continuum from PitchGrid parameters.
+/// A facility for tuning a Continuum from PitchGrid parameters.
 pub struct Tuner {
     is_already_updating: AtomicBool,
     is_another_update_pending: AtomicBool,

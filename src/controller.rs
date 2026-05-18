@@ -3,6 +3,7 @@ use std::sync::{Arc, Mutex, OnceLock};
 use std::sync::mpsc;
 use std::time::Duration;
 use crate::global::{MessageType, PortType, SharedMidi};
+use crate::i_osc::IOsc;
 use crate::osc::{Osc, OscCallbacks};
 use crate::port_strategy::{
     InputStrategy, OutputStrategy, PortStrategy};
@@ -21,7 +22,7 @@ pub struct Controller {
     await_tuning_updated_stopper_sender: Option<mpsc::Sender<()>>,
     ui_methods: Box<dyn IUiMethods>,
     is_awaiting_tuning_updated: bool,
-    osc: Osc,
+    osc: Box<dyn IOsc>,
     settings: Settings,
     tuner: SharedTuner,
 }
@@ -32,7 +33,7 @@ impl Controller {
             await_tuning_updated_stopper_sender: None,
             ui_methods: callbacks,
             is_awaiting_tuning_updated: false,
-            osc: Osc::new(),
+            osc: Box::new(Osc::new()),
             settings: Settings::new(),
             tuner: Arc::new(Tuner::new()),
         }
