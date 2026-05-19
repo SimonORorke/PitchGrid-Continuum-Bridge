@@ -1,6 +1,8 @@
 pub mod global;
 pub mod i_midi;
 pub mod i_osc;
+pub mod i_settings;
+pub mod i_tuner;
 pub mod i_ui_methods;
 pub mod midi;
 pub mod midi_ports;
@@ -14,7 +16,6 @@ pub mod controller;
 pub mod ui_methods;
 pub mod midi_static;
 pub mod tuning_params;
-mod i_tuner;
 
 use std::sync::{Arc, Mutex};
 use controller::Controller;

@@ -4,7 +4,7 @@ use crate::global::PortType;
 use crate::i_midi::IMidi;
 use crate::midi::Midi;
 use crate::midi_ports::IIo;
-use crate::settings::Settings;
+use crate::i_settings::ISettings;
 
 /// This trait is used to implement strategies that depend on whether a MIDI port is input or
 /// output.
@@ -20,8 +20,8 @@ pub trait PortStrategy: Send + Sync {
     fn clone_box(&self) -> Box<dyn PortStrategy>;
 
     fn focus_port(&self, main_window: &MainWindow);
-    fn port_setting<'a>(&self, settings: &'a Settings) -> &'a str;
-    fn set_port_setting(&self, settings: &mut Settings, device_name: &str);
+    fn port_setting<'a>(&self, settings: &'a dyn ISettings) -> &'a str;
+    fn set_port_setting(&self, settings: &mut dyn ISettings, device_name: &str);
     fn show_connected_device_name(
         &self, main_window: &MainWindow, device_name: &str, message_type: SlintMessageType);
     fn set_devices_model(&self, main_window: &MainWindow, model: ModelRc<ComboBoxItem>);
@@ -61,12 +61,12 @@ impl PortStrategy for InputStrategy {
         main_window.invoke_input_focus();
     }
 
-    fn port_setting<'a>(&self, settings: &'a Settings) -> &'a str {
-        &settings.midi_input_device
+    fn port_setting<'a>(&self, settings: &'a dyn ISettings) -> &'a str {
+        settings.midi_input_device()
     }
 
-    fn set_port_setting(&self, settings: &mut Settings, device_name: &str) {
-        settings.midi_input_device = device_name.into();
+    fn set_port_setting(&self, settings: &mut dyn ISettings, device_name: &str) {
+        settings.set_midi_input_device(device_name);
     }
 
     fn show_connected_device_name(&self, main_window: &MainWindow, device_name: &str,
@@ -138,12 +138,12 @@ impl PortStrategy for OutputStrategy {
         main_window.invoke_output_focus();
     }
 
-    fn port_setting<'a>(&self, settings: &'a Settings) -> &'a str {
-        &settings.midi_output_device
+    fn port_setting<'a>(&self, settings: &'a dyn ISettings) -> &'a str {
+        settings.midi_output_device()
     }
 
-    fn set_port_setting(&self, settings: &mut Settings, device_name: &str) {
-        settings.midi_output_device = device_name.into();
+    fn set_port_setting(&self, settings: &mut dyn ISettings, device_name: &str) {
+        settings.set_midi_output_device(device_name);
     }
 
     fn show_connected_device_name(&self, main_window: &MainWindow, device_name: &str,

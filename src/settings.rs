@@ -1,25 +1,27 @@
-﻿use std::error::Error;
+use std::error::Error;
 use std::fs;
 use std::path::PathBuf;
 use serde::{Serialize, Deserialize};
 use app_info::APP_TITLE;
+use crate::i_settings::ISettings;
 use crate::path_finder::{PathFinder, SystemPathFinder};
 
+// Application settings, serialised to file.
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Settings {
-    pub main_window_x: i32,
-    pub main_window_y: i32,
-    pub midi_input_device: String,
-    pub midi_output_device: String,
-    pub osc_listening_port: u16,
-    pub pitch_table: u8,
-    pub override_rounding_initial: bool,
-    pub override_rounding_rate: bool,
-    pub rounding_rate: u8,
+    main_window_x: i32,
+    main_window_y: i32,
+    midi_input_device: String,
+    midi_output_device: String,
+    osc_listening_port: u16,
+    pitch_table: u8,
+    override_rounding_initial: bool,
+    override_rounding_rate: bool,
+    rounding_rate: u8,
     #[serde(skip, default = "default_path_finder")]
     system_path_finder: Box<dyn PathFinder>,
 }
-
+/// For public functions, see `impl ISettings for Settings`.
 impl Settings {
     pub fn new() -> Self {
         Self {
@@ -43,8 +45,82 @@ impl Settings {
     fn get_path(&self) -> Result<PathBuf, Box<dyn Error>> {
         Ok(self.get_app_config_folder_path()?.join(SETTINGS_FILE_NAME))
     }
+}
 
-    pub fn read_from_file(&mut self) -> Result<(), Box<dyn Error>> {
+impl ISettings for Settings {
+    fn main_window_x(&self) -> i32 {
+        self.main_window_x
+    }
+
+    fn set_main_window_x(&mut self, value: i32) {
+        self.main_window_x = value;
+    }
+
+    fn main_window_y(&self) -> i32 {
+        self.main_window_y
+    }
+
+    fn set_main_window_y(&mut self, value: i32) {
+        self.main_window_y = value;
+    }
+
+    fn midi_input_device(&self) -> &str {
+        &self.midi_input_device
+    }
+
+    fn set_midi_input_device(&mut self, value: &str) {
+        self.midi_input_device = value.into();
+    }
+
+    fn midi_output_device(&self) -> &str {
+        &self.midi_output_device
+    }
+
+    fn set_midi_output_device(&mut self, value: &str) {
+        self.midi_output_device = value.into();
+    }
+
+    fn osc_listening_port(&self) -> u16 {
+        self.osc_listening_port
+    }
+
+    fn set_osc_listening_port(&mut self, value: u16) {
+        self.osc_listening_port = value;
+    }
+
+    fn pitch_table(&self) -> u8 {
+        self.pitch_table
+    }
+
+    fn set_pitch_table(&mut self, value: u8) {
+        self.pitch_table = value;
+    }
+
+    fn override_rounding_initial(&self) -> bool {
+        self.override_rounding_initial
+    }
+
+    fn set_override_rounding_initial(&mut self, value: bool) {
+        self.override_rounding_initial = value;
+    }
+
+    fn override_rounding_rate(&self) -> bool {
+        self.override_rounding_rate
+    }
+
+    fn set_override_rounding_rate(&mut self, value: bool) {
+        self.override_rounding_rate = value;
+    }
+
+    fn rounding_rate(&self) -> u8 {
+        self.rounding_rate
+    }
+
+    fn set_rounding_rate(&mut self, value: u8) {
+        self.rounding_rate = value;
+    }
+
+    fn read_from_file(&mut self) -> Result<(), Box<dyn Error>> {
         let path = self.get_path()?;
         let toml_str = match fs::read_to_string(&path) {
             Ok(s) => s,
@@ -77,12 +153,7 @@ impl Settings {
         Ok(())
     }
 
-    /// Replaces the default system path finder for testing.
-    pub fn set_system_path_finder(&mut self, path_finder: Box<dyn PathFinder>) {
-        self.system_path_finder = path_finder;
-    }
-
-    pub fn write_to_file(&mut self) -> Result<(), Box<dyn Error>> {
+    fn write_to_file(&mut self) -> Result<(), Box<dyn Error>> {
         let path = self.get_path()?;
         // It is safe to unwrap as get_path() would have thrown an error if a parent folder
         // could not be specified.
@@ -100,6 +171,11 @@ impl Settings {
         // println!("Settings.write_to_file: self.midi_input_device = {}; self.midi_output_device = {}; \
         // self.pitch_table = {:?};", self.midi_input_device, self.midi_output_device, self.pitch_table);
         Ok(())
+    }
+
+    /// Replaces the default system path finder for testing.
+    fn set_system_path_finder(&mut self, path_finder: Box<dyn PathFinder>) {
+        self.system_path_finder = path_finder;
     }
 }
 

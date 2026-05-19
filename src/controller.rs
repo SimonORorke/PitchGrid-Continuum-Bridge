@@ -6,6 +6,7 @@ use crate::global::{MessageType, PortType};
 use crate::i_midi::SharedMidi;
 use crate::i_osc::IOsc;
 use crate::osc::{Osc, OscCallbacks};
+use crate::i_settings::ISettings;
 use crate::port_strategy::{
     InputStrategy, OutputStrategy, PortStrategy};
 use crate::settings::Settings;
@@ -23,7 +24,7 @@ pub struct Controller {
     ui_methods: Box<dyn IUiMethods>,
     is_awaiting_tuning_updated: bool,
     osc: Box<dyn IOsc>,
-    settings: Settings,
+    settings: Box<dyn ISettings>,
     tuner: SharedTuner,
 }
 
@@ -34,7 +35,7 @@ impl Controller {
             ui_methods: callbacks,
             is_awaiting_tuning_updated: false,
             osc: Box::new(Osc::new()),
-            settings: Settings::new(),
+            settings: Box::new(Settings::new()),
             tuner: Arc::new(Tuner::new()),
         }
     }
@@ -53,27 +54,27 @@ impl Controller {
         // println!("Controller.init: Reading settings");
         match self.settings.read_from_file() {
             Ok(_) => {
-                main_window_x = self.settings.main_window_x;
-                main_window_y = self.settings.main_window_y;
-                input_device_name = self.settings.midi_input_device.clone();
-                output_device_name = self.settings.midi_output_device.clone();
+                main_window_x = self.settings.main_window_x();
+                main_window_y = self.settings.main_window_y();
+                input_device_name = self.settings.midi_input_device().to_string();
+                output_device_name = self.settings.midi_output_device().to_string();
                 osc_listening_port = {
-                    if Osc::listening_ports().contains(&self.settings.osc_listening_port) {
-                        self.settings.osc_listening_port
+                    if Osc::listening_ports().contains(&self.settings.osc_listening_port()) {
+                        self.settings.osc_listening_port()
                     } else {
                         Osc::default_listening_port()
                     }
                 };
                 pitch_table = {
-                    if tuner::pitch_tables().contains(&self.settings.pitch_table) {
-                        self.settings.pitch_table
+                    if tuner::pitch_tables().contains(&self.settings.pitch_table()) {
+                        self.settings.pitch_table()
                     } else {
                         tuner::default_pitch_table()
                     }
                 };
-                override_rounding_initial = self.settings.override_rounding_initial;
-                override_rounding_rate = self.settings.override_rounding_rate;
-                rounding_rate = self.settings.rounding_rate;
+                override_rounding_initial = self.settings.override_rounding_initial();
+                override_rounding_rate = self.settings.override_rounding_rate();
+                rounding_rate = self.settings.rounding_rate();
             }
             Err(err) => {
                 self.show_error(&err.to_string());
@@ -162,8 +163,8 @@ impl Controller {
     pub fn close(&mut self, main_window_x: i32, main_window_y: i32) -> Result<(), Box<dyn Error>> {
         midi_static::close();
         self.osc.stop();
-        self.settings.main_window_x = main_window_x;
-        self.settings.main_window_y = main_window_y;
+        self.settings.set_main_window_x(main_window_x);
+        self.settings.set_main_window_y(main_window_y);
         if let Err(err) = self.settings.write_to_file() {
             self.show_error(&err.to_string());
             return Err(err)
@@ -271,7 +272,7 @@ impl Controller {
         let midi = midi_static::midi_clone();
         let port_strategy = port_strategy.clone_box();
         self.stop_osc_and_instrument_connection_monitor();
-        let device_name = port_strategy.port_setting(&self.settings).to_string();
+        let device_name = port_strategy.port_setting(&*self.settings).to_string();
         if let Err(err) = midi.lock().unwrap().refresh_devices(
             &device_name, &*port_strategy) {
             self.show_error(&err.to_string());
@@ -284,9 +285,10 @@ impl Controller {
     }
 
     /// Replaces the default Osc instance for testing.
-    pub fn set_osc(&mut self, osc: Box<dyn IOsc>) {
-        self.osc = osc;
-    }
+    pub fn set_osc(&mut self, osc: Box<dyn IOsc>) { self.osc = osc; }
+
+    /// Replaces the default Settings instance for testing.
+    pub fn set_settings(&mut self, settings: Box<dyn ISettings>) { self.settings = settings; }
 
     /// Replaces the default Tuner instance for testing.
     pub fn set_tuner(&mut self, tuner: SharedTuner) {
@@ -323,29 +325,29 @@ impl Controller {
 
     pub fn set_override_rounding_initial(&mut self, value: bool) {
         self.tuner.set_override_rounding_initial(value);
-        self.settings.override_rounding_initial = value;
+        self.settings.set_override_rounding_initial(value);
     }
 
     pub fn set_override_rounding_rate(&mut self, value: bool) {
         self.tuner.set_override_rounding_rate(value);
-        self.settings.override_rounding_rate = value;
+        self.settings.set_override_rounding_rate(value);
     }
 
     pub fn set_rounding_rate(&mut self, rate: u8) {
         self.tuner.set_rounding_rate(rate);
-        self.settings.rounding_rate = rate;
+        self.settings.set_rounding_rate(rate);
     }
 
     pub fn set_osc_listening_port(&mut self, index: usize) {
         let osc_listening_port = Osc::listening_ports()[index];
         self.osc.set_listening_port(osc_listening_port);
-        self.settings.osc_listening_port = osc_listening_port;
+        self.settings.set_osc_listening_port(osc_listening_port);
     }
 
     pub fn set_pitch_table(&mut self, index: usize) {
         let pitch_table = tuner::pitch_tables()[index];
         self.tuner.set_pitch_table(pitch_table);
-        self.settings.pitch_table = pitch_table;
+        self.settings.set_pitch_table(pitch_table);
     }
 
     fn on_init_data_download_completed(&mut self) {
@@ -529,7 +531,7 @@ impl Controller {
         // device is available again and still have the same device automatically selected and
         // connected on startup.
         if device_name != PORT_NONE {
-            port_strategy.set_port_setting(&mut self.settings, device_name);
+            port_strategy.set_port_setting(&mut *self.settings, device_name);
         }
     }
 
