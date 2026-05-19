@@ -1,5 +1,6 @@
 use midir::{MidiInputPort, MidiOutputPort};
 use std::error::Error;
+use std::sync::{Arc, Mutex};
 use crate::midi_ports::{Io, IIo};
 use crate::port_strategy::PortStrategy;
 
@@ -79,3 +80,5 @@ pub trait IMidi {
 
     fn stop_instrument_connection_monitor(&mut self);
 }
+
+pub type SharedMidi = Arc<Mutex<Box<dyn IMidi + Send>>>;

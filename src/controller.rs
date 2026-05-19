@@ -2,14 +2,14 @@
 use std::sync::{Arc, Mutex, OnceLock};
 use std::sync::mpsc;
 use std::time::Duration;
-use crate::global::{MessageType, PortType, SharedMidi};
+use crate::global::{MessageType, PortType};
+use crate::i_midi::SharedMidi;
 use crate::i_osc::IOsc;
 use crate::osc::{Osc, OscCallbacks};
 use crate::port_strategy::{
     InputStrategy, OutputStrategy, PortStrategy};
 use crate::settings::Settings;
 use crate::{midi_static, tuner};
-use crate::i_midi::IMidi;
 use crate::i_ui_methods::IUiMethods;
 use crate::tuner::{SharedTuner, Tuner};
 use crate::tuning_params::TuningParams;
@@ -281,6 +281,16 @@ impl Controller {
         self.ui_methods.set_devices_model(&self.device_names(&*port_strategy), &*port_strategy);
         self.show_no_port_connected(&*port_strategy);
         self.show_warning(port_strategy.msg_refreshed_reconnect());
+    }
+
+    /// Replaces the default Osc instance for testing.
+    pub fn set_osc(&mut self, osc: Box<dyn IOsc>) {
+        self.osc = osc;
+    }
+
+    /// Replaces the default Tuner instance for testing.
+    pub fn set_tuner(&mut self, tuner: SharedTuner) {
+        self.tuner = tuner;
     }
 
     /// Sets a thread-safe singleton Controller instance.

@@ -7,8 +7,8 @@ use pitchgrid_continuum::tuner::{self, ITuner, Tuner};
 use pitchgrid_continuum::tuning_params::TuningParams;
 use mock_midi_sender::{MockMidiSender, sent_midi};
 
-// PITCH_TABLE is a shared static written by tuner.init() and tuner.set_pitch_table().
-// Tests must run sequentially to avoid data races on it.
+/// PITCH_TABLE is a shared static written by tuner.init() and tuner.set_pitch_table().
+/// Tests must run sequentially to avoid data races on it.
 static TEST_MUTEX: Mutex<()> = Mutex::new(());
 
 #[googletest::gtest]
@@ -16,7 +16,7 @@ fn on_tuning_received() {
     println!("***********************************");
     println!("on_tuning_received test started");
     println!("***********************************");
-    let _guard = TEST_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
+    let _guard = test_mutex_guard();
     let tuner = create_tuner();
     tuner.set_override_rounding_initial(true);
     tuner.set_override_rounding_rate(true);
@@ -49,7 +49,7 @@ fn on_tuning_received() {
 
 #[googletest::gtest]
 fn on_tuning_updated() {
-    let _guard = TEST_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
+    let _guard = test_mutex_guard();
     let tuner = create_tuner();
     assert_that!(tuner.has_data(), eq(false));
     assert_that!(sent_midi().control_change_count, eq(0));
@@ -104,7 +104,7 @@ fn remove_data() {
     println!("***********************************");
     println!("remove_data test started");
     println!("***********************************");
-    let _guard = TEST_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
+    let _guard = test_mutex_guard();
     let tuner = create_tuner();
     tuner.on_tuning_received(params_31_19());
     assert_that!(tuner.has_data(), eq(true));
@@ -122,7 +122,7 @@ fn send_current_preset_update() {
     println!("*****************************************");
     println!("send_current_preset_update test started");
     println!("*****************************************");
-    let _guard = TEST_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
+    let _guard = test_mutex_guard();
     let tuner = create_tuner();
     tuner.set_override_rounding_initial(true);
     tuner.set_override_rounding_rate(true);
@@ -145,7 +145,7 @@ fn send_current_preset_update() {
 
 #[googletest::gtest]
 fn set_pitch_table() {
-    let _guard = TEST_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
+    let _guard = test_mutex_guard();
     let new_pitch_table: u8 = tuner::default_pitch_table();
     let tuner = create_tuner();
     assert_that!(tuner::pitch_table(), eq(PITCH_TABLE));
@@ -157,7 +157,7 @@ fn set_pitch_table() {
 
 #[googletest::gtest]
 fn set_root_freq_override_note_no() {
-    let _guard = TEST_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
+    let _guard = test_mutex_guard();
     let tuner = create_tuner();
     tuner.on_tuning_received(params_31_19());
     tuner.on_tuning_updated(); // Allow a subsequent tuning to be sent.
@@ -193,6 +193,10 @@ fn params_17_17() -> TuningParams {
 fn params_31_19() -> TuningParams {
     TuningParams::new(1, 261.62558, 0.99999994, 0.5806459,
                       8.250002, 19, 5, 2)
+}
+
+fn test_mutex_guard() -> std::sync::MutexGuard<'static, ()> {
+    TEST_MUTEX.lock().unwrap_or_else(|e| e.into_inner())
 }
 
 const MAX_ROUNDING_RATE: u8 = 127;

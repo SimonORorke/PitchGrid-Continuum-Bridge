@@ -383,7 +383,7 @@ impl ITuner for Tuner {
         }
     }
 
-    /// Replaces the MIDI sender. Primarily used for testing.
+    /// Replaces the MIDI sender for testing.
     fn set_midi_sender(&self, sender: Box<dyn IMidiSender>) {
         *self.midi_sender.lock().unwrap() = sender;
     }
@@ -471,7 +471,7 @@ pub struct FormattedTuningParams {
     pub mos_large_step_count: String, pub mos_small_step_count: String,
 }
 
-impl FormattedTuningParams {
+impl Default for FormattedTuningParams {
     fn default() -> Self {
         Self {
             root_freq: String::new(), stretch: String::new(),

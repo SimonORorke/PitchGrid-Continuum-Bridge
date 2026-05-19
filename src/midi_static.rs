@@ -1,6 +1,5 @@
 ﻿use std::sync::{Arc, Mutex, OnceLock};
-use crate::global::{SharedMidi,};
-use crate::i_midi::IMidi;
+use crate::i_midi::{IMidi, SharedMidi};
 use crate::midi::Midi;
 
 pub fn are_ports_connected() -> bool {
@@ -35,8 +34,14 @@ pub fn is_receiving_data() -> bool {
 
 /// Returns a clone of the thread-safe singleton Midi instance.
 pub fn midi_clone() -> SharedMidi {
-    let midi = MIDI.get_or_init(|| Arc::new(Mutex::new(Midi::new())));
+    let midi =
+        MIDI.get_or_init(|| Arc::new(Mutex::new(Box::new(Midi::new()) as Box<dyn IMidi + Send>)));
     Arc::clone(midi)
+}
+
+/// Replaces the default Midi instance for testing.
+pub fn set_midi(midi: Box<dyn IMidi + Send>) {
+    *midi_clone().lock().unwrap() = midi;
 }
 
 pub fn start_instrument_connection_monitor() {
