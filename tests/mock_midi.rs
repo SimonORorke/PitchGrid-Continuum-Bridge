@@ -117,8 +117,8 @@ impl IMidi for MockMidi {
     ) -> Result<(), Box<dyn Error>> {
         MIDI_STATE.with_borrow_mut(|s| {
             s.connect_port_count += 1;
-            s.last_connect_port_index = Some(index);
-            s.last_connect_port_port_strategy = Some(port_strategy.clone_box());
+            s.connect_port_index = Some(index);
+            s.connect_port_port_strategy = Some(port_strategy.clone_box());
         });
         Ok(())
     }
@@ -131,8 +131,8 @@ impl IMidi for MockMidi {
     ) -> Result<(), Box<dyn Error>> {
         MIDI_STATE.with_borrow_mut(|s| {
             s.init_count += 1;
-            s.last_init_input_device_name = Some(input_device_name.to_string());
-            s.last_init_output_device_name = Some(output_device_name.to_string());
+            s.init_input_device_name = Some(input_device_name.to_string());
+            s.init_output_device_name = Some(output_device_name.to_string());
         });
         Ok(())
     }
@@ -149,7 +149,7 @@ impl IMidi for MockMidi {
     fn io(&self, port_strategy: &dyn PortStrategy) -> &dyn IIo {
         MIDI_STATE.with_borrow_mut(|s| {
             s.io_count += 1;
-            s.last_io_port_strategy = Some(port_strategy.clone_box());
+            s.io_port_strategy = Some(port_strategy.clone_box());
         });
         unimplemented!("MockMidi::io")
     }
@@ -194,8 +194,8 @@ impl IMidi for MockMidi {
     ) -> Result<(), Box<dyn Error>> {
         MIDI_STATE.with_borrow_mut(|s| {
             s.refresh_devices_count += 1;
-            s.last_refresh_devices_device_name = Some(device_name.to_string());
-            s.last_refresh_devices_port_strategy = Some(port_strategy.clone_box());
+            s.refresh_devices_device_name = Some(device_name.to_string());
+            s.refresh_devices_port_strategy = Some(port_strategy.clone_box());
         });
         Ok(())
     }
@@ -231,20 +231,20 @@ pub struct MidiState {
     pub close_count: u16,
 
     pub connect_port_count: u16,
-    pub last_connect_port_index: Option<usize>,
-    pub last_connect_port_port_strategy: Option<Box<dyn PortStrategy>>,
+    pub connect_port_index: Option<usize>,
+    pub connect_port_port_strategy: Option<Box<dyn PortStrategy>>,
 
     pub has_downloaded_init_data_count: u16,
     pub has_downloaded_init_data_result: bool,
 
     pub init_count: u16,
-    pub last_init_input_device_name: Option<String>,
-    pub last_init_output_device_name: Option<String>,
+    pub init_input_device_name: Option<String>,
+    pub init_output_device_name: Option<String>,
 
     pub input_count: u16,
 
     pub io_count: u16,
-    pub last_io_port_strategy: Option<Box<dyn PortStrategy>>,
+    pub io_port_strategy: Option<Box<dyn PortStrategy>>,
 
     pub is_output_port_connected_count: u16,
     pub is_output_port_connected_result: bool,
@@ -255,8 +255,8 @@ pub struct MidiState {
     pub output_count: u16,
 
     pub refresh_devices_count: u16,
-    pub last_refresh_devices_device_name: Option<String>,
-    pub last_refresh_devices_port_strategy: Option<Box<dyn PortStrategy>>,
+    pub refresh_devices_device_name: Option<String>,
+    pub refresh_devices_port_strategy: Option<Box<dyn PortStrategy>>,
 
     pub start_instrument_connection_monitor_count: u16,
     pub stop_instrument_connection_monitor_count: u16,
@@ -280,20 +280,20 @@ impl MidiState {
             close_count: 0,
 
             connect_port_count: 0,
-            last_connect_port_index: None,
-            last_connect_port_port_strategy: None,
+            connect_port_index: None,
+            connect_port_port_strategy: None,
 
             has_downloaded_init_data_count: 0,
             has_downloaded_init_data_result: false,
 
             init_count: 0,
-            last_init_input_device_name: None,
-            last_init_output_device_name: None,
+            init_input_device_name: None,
+            init_output_device_name: None,
 
             input_count: 0,
 
             io_count: 0,
-            last_io_port_strategy: None,
+            io_port_strategy: None,
 
             is_output_port_connected_count: 0,
             is_output_port_connected_result: false,
@@ -304,8 +304,8 @@ impl MidiState {
             output_count: 0,
 
             refresh_devices_count: 0,
-            last_refresh_devices_device_name: None,
-            last_refresh_devices_port_strategy: None,
+            refresh_devices_device_name: None,
+            refresh_devices_port_strategy: None,
 
             start_instrument_connection_monitor_count: 0,
             stop_instrument_connection_monitor_count: 0,
@@ -331,20 +331,20 @@ impl Clone for MidiState {
             close_count: self.close_count,
 
             connect_port_count: self.connect_port_count,
-            last_connect_port_index: self.last_connect_port_index,
-            last_connect_port_port_strategy: self.last_connect_port_port_strategy.as_ref().map(|s| s.clone_box()),
+            connect_port_index: self.connect_port_index,
+            connect_port_port_strategy: self.connect_port_port_strategy.as_ref().map(|s| s.clone_box()),
 
             has_downloaded_init_data_count: self.has_downloaded_init_data_count,
             has_downloaded_init_data_result: self.has_downloaded_init_data_result,
 
             init_count: self.init_count,
-            last_init_input_device_name: self.last_init_input_device_name.clone(),
-            last_init_output_device_name: self.last_init_output_device_name.clone(),
+            init_input_device_name: self.init_input_device_name.clone(),
+            init_output_device_name: self.init_output_device_name.clone(),
 
             input_count: self.input_count,
 
             io_count: self.io_count,
-            last_io_port_strategy: self.last_io_port_strategy.as_ref().map(|s| s.clone_box()),
+            io_port_strategy: self.io_port_strategy.as_ref().map(|s| s.clone_box()),
 
             is_output_port_connected_count: self.is_output_port_connected_count,
             is_output_port_connected_result: self.is_output_port_connected_result,
@@ -355,8 +355,8 @@ impl Clone for MidiState {
             output_count: self.output_count,
 
             refresh_devices_count: self.refresh_devices_count,
-            last_refresh_devices_device_name: self.last_refresh_devices_device_name.clone(),
-            last_refresh_devices_port_strategy: self.last_refresh_devices_port_strategy.as_ref().map(|s| s.clone_box()),
+            refresh_devices_device_name: self.refresh_devices_device_name.clone(),
+            refresh_devices_port_strategy: self.refresh_devices_port_strategy.as_ref().map(|s| s.clone_box()),
 
             start_instrument_connection_monitor_count: self.start_instrument_connection_monitor_count,
             stop_instrument_connection_monitor_count: self.stop_instrument_connection_monitor_count,

@@ -22,7 +22,7 @@ impl IOsc for MockOsc {
     fn set_listening_port(&mut self, listening_port: u16) {
         OSC_STATE.with_borrow_mut(|s| {
             s.set_listening_port_count += 1;
-            s.last_set_listening_port_listening_port = Some(listening_port);
+            s.set_listening_port_listening_port = Some(listening_port);
         });
     }
 
@@ -30,7 +30,7 @@ impl IOsc for MockOsc {
     fn start(&mut self, callbacks: Arc<dyn OscCallbacks>) {
         OSC_STATE.with_borrow_mut(|s| {
             s.start_count += 1;
-            s.last_start_callbacks = Some(callbacks);
+            s.start_callbacks = Some(callbacks);
         });
     }
 
@@ -60,10 +60,10 @@ impl IOsc for MockOsc {
 
 pub struct OscState {
     pub set_listening_port_count: u16,
-    pub last_set_listening_port_listening_port: Option<u16>,
+    pub set_listening_port_listening_port: Option<u16>,
 
     pub start_count: u16,
-    pub last_start_callbacks: Option<Arc<dyn OscCallbacks>>,
+    pub start_callbacks: Option<Arc<dyn OscCallbacks>>,
 
     pub stop_count: u16,
 
@@ -78,10 +78,10 @@ impl OscState {
     pub fn new() -> Self {
         OscState {
             set_listening_port_count: 0,
-            last_set_listening_port_listening_port: None,
+            set_listening_port_listening_port: None,
 
             start_count: 0,
-            last_start_callbacks: None,
+            start_callbacks: None,
 
             stop_count: 0,
 
@@ -98,10 +98,10 @@ impl Clone for OscState {
     fn clone(&self) -> Self {
         OscState {
             set_listening_port_count: self.set_listening_port_count,
-            last_set_listening_port_listening_port: self.last_set_listening_port_listening_port,
+            set_listening_port_listening_port: self.set_listening_port_listening_port,
 
             start_count: self.start_count,
-            last_start_callbacks: self.last_start_callbacks.clone(),
+            start_callbacks: self.start_callbacks.clone(),
 
             stop_count: self.stop_count,
 

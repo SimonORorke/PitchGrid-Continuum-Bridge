@@ -23,7 +23,7 @@ impl ITuner for MockTuner {
     fn init(&self, pitch_table: u8) {
         TUNER_STATE.with_borrow_mut(|s| {
             s.init_count += 1;
-            s.last_init_pitch_table = Some(pitch_table);
+            s.init_pitch_table = Some(pitch_table);
         });
     }
 
@@ -31,7 +31,7 @@ impl ITuner for MockTuner {
     fn on_tuning_received(&self, params: TuningParams) {
         TUNER_STATE.with_borrow_mut(|s| {
             s.on_tuning_received_count += 1;
-            s.last_on_tuning_received_params = Some(params);
+            s.on_tuning_received_params = Some(params);
         });
     }
 
@@ -78,8 +78,8 @@ impl ITuner for MockTuner {
     fn set_root_freq_override_note_no(&self, index: usize, send_tuning: bool) {
         TUNER_STATE.with_borrow_mut(|s| {
             s.set_root_freq_override_note_no_count += 1;
-            s.last_set_root_freq_override_note_no_index = Some(index);
-            s.last_set_root_freq_override_note_no_send_tuning = Some(send_tuning);
+            s.set_root_freq_override_note_no_index = Some(index);
+            s.set_root_freq_override_note_no_send_tuning = Some(send_tuning);
         });
     }
 
@@ -87,7 +87,7 @@ impl ITuner for MockTuner {
     fn set_override_rounding_initial(&self, value: bool) {
         TUNER_STATE.with_borrow_mut(|s| {
             s.set_override_rounding_initial_count += 1;
-            s.last_set_override_rounding_initial_value = Some(value);
+            s.set_override_rounding_initial_value = Some(value);
         });
     }
 
@@ -95,7 +95,7 @@ impl ITuner for MockTuner {
     fn set_override_rounding_rate(&self, value: bool) {
         TUNER_STATE.with_borrow_mut(|s| {
             s.set_override_rounding_rate_count += 1;
-            s.last_set_override_rounding_rate_value = Some(value);
+            s.set_override_rounding_rate_value = Some(value);
         });
     }
 
@@ -103,7 +103,7 @@ impl ITuner for MockTuner {
     fn set_rounding_rate(&self, rate: u8) {
         TUNER_STATE.with_borrow_mut(|s| {
             s.set_rounding_rate_count += 1;
-            s.last_set_rounding_rate_rate = Some(rate);
+            s.set_rounding_rate_rate = Some(rate);
         });
     }
 
@@ -111,7 +111,7 @@ impl ITuner for MockTuner {
     fn set_pitch_table(&self, pitch_table: u8) {
         TUNER_STATE.with_borrow_mut(|s| {
             s.set_pitch_table_count += 1;
-            s.last_set_pitch_table_pitch_table = Some(pitch_table);
+            s.set_pitch_table_pitch_table = Some(pitch_table);
         });
     }
 
@@ -141,10 +141,10 @@ impl ITuner for MockTuner {
 #[derive(Clone)]
 pub struct TunerState {
     pub init_count: u16,
-    pub last_init_pitch_table: Option<u8>,
+    pub init_pitch_table: Option<u8>,
 
     pub on_tuning_received_count: u16,
-    pub last_on_tuning_received_params: Option<TuningParams>,
+    pub on_tuning_received_params: Option<TuningParams>,
 
     pub has_data_count: u16,
     pub has_data_result: bool,
@@ -161,20 +161,20 @@ pub struct TunerState {
     pub is_root_freq_overridden_result: bool,
 
     pub set_root_freq_override_note_no_count: u16,
-    pub last_set_root_freq_override_note_no_index: Option<usize>,
-    pub last_set_root_freq_override_note_no_send_tuning: Option<bool>,
+    pub set_root_freq_override_note_no_index: Option<usize>,
+    pub set_root_freq_override_note_no_send_tuning: Option<bool>,
 
     pub set_override_rounding_initial_count: u16,
-    pub last_set_override_rounding_initial_value: Option<bool>,
+    pub set_override_rounding_initial_value: Option<bool>,
 
     pub set_override_rounding_rate_count: u16,
-    pub last_set_override_rounding_rate_value: Option<bool>,
+    pub set_override_rounding_rate_value: Option<bool>,
 
     pub set_rounding_rate_count: u16,
-    pub last_set_rounding_rate_rate: Option<u8>,
+    pub set_rounding_rate_rate: Option<u8>,
 
     pub set_pitch_table_count: u16,
-    pub last_set_pitch_table_pitch_table: Option<u8>,
+    pub set_pitch_table_pitch_table: Option<u8>,
 
     pub on_tuning_updated_count: u16,
 
@@ -188,10 +188,10 @@ impl TunerState {
     pub fn new() -> Self {
         TunerState {
             init_count: 0,
-            last_init_pitch_table: None,
+            init_pitch_table: None,
 
             on_tuning_received_count: 0,
-            last_on_tuning_received_params: None,
+            on_tuning_received_params: None,
 
             has_data_count: 0,
             has_data_result: false,
@@ -208,20 +208,20 @@ impl TunerState {
             is_root_freq_overridden_result: false,
 
             set_root_freq_override_note_no_count: 0,
-            last_set_root_freq_override_note_no_index: None,
-            last_set_root_freq_override_note_no_send_tuning: None,
+            set_root_freq_override_note_no_index: None,
+            set_root_freq_override_note_no_send_tuning: None,
 
             set_override_rounding_initial_count: 0,
-            last_set_override_rounding_initial_value: None,
+            set_override_rounding_initial_value: None,
 
             set_override_rounding_rate_count: 0,
-            last_set_override_rounding_rate_value: None,
+            set_override_rounding_rate_value: None,
 
             set_rounding_rate_count: 0,
-            last_set_rounding_rate_rate: None,
+            set_rounding_rate_rate: None,
 
             set_pitch_table_count: 0,
-            last_set_pitch_table_pitch_table: None,
+            set_pitch_table_pitch_table: None,
 
             on_tuning_updated_count: 0,
 

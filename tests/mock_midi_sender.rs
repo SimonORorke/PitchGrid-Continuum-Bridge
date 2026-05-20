@@ -24,9 +24,9 @@ impl IMidiSender for MockMidiSender {
     fn send_control_change(&self, channel: u8, cc_no: u8, value: u8) {
         SENT_MIDI.with_borrow_mut(|s| {
             s.control_change_count += 1;
-            s.last_control_change_channel = channel;
-            s.last_control_change_cc_no = cc_no;
-            s.last_control_change_value = value;
+            s.control_change_channel = channel;
+            s.control_change_cc_no = cc_no;
+            s.control_change_value = value;
         });
     }
 
@@ -35,8 +35,8 @@ impl IMidiSender for MockMidiSender {
             println!("MockMidiSender:send_matrix_poke: s.matrix_poke_count = {}", s.matrix_poke_count);
             s.matrix_poke_count += 1;
             println!("MockMidiSender:send_matrix_poke: added 1 to s.matrix_poke_count, which now = {}", s.matrix_poke_count);
-            s.last_matrix_poke_id = poke_id;
-            s.last_matrix_poke_value = poke_value;
+            s.matrix_poke_id = poke_id;
+            s.matrix_poke_value = poke_value;
         });
     }
 }
@@ -44,11 +44,11 @@ impl IMidiSender for MockMidiSender {
 #[derive(Clone, Debug)]
 pub struct SentMidi {
     pub control_change_count: u16,
-    pub last_control_change_channel: u8,
-    pub last_control_change_cc_no: u8,
-    pub last_control_change_value: u8,
-    pub last_matrix_poke_id: u8,
-    pub last_matrix_poke_value: u8,
+    pub control_change_channel: u8,
+    pub control_change_cc_no: u8,
+    pub control_change_value: u8,
+    pub matrix_poke_id: u8,
+    pub matrix_poke_value: u8,
     pub matrix_poke_count: u16,
 }
 
@@ -56,11 +56,11 @@ impl SentMidi {
     pub fn new() -> Self {
         SentMidi {
             control_change_count: 0,
-            last_control_change_channel: 0,
-            last_control_change_cc_no: 0,
-            last_control_change_value: 0,
-            last_matrix_poke_id: 0,
-            last_matrix_poke_value: 0,
+            control_change_channel: 0,
+            control_change_cc_no: 0,
+            control_change_value: 0,
+            matrix_poke_id: 0,
+            matrix_poke_value: 0,
             matrix_poke_count: 0,
         }
     }

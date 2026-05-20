@@ -40,7 +40,7 @@ impl IIo for MockIo {
     fn populate_devices(&mut self, persisted_device_name: &str) -> Result<(), Box<dyn Error>> {
         IO_STATE.with_borrow_mut(|s| {
             s.populate_devices_count += 1;
-            s.last_populate_devices_persisted_device_name = Some(persisted_device_name.to_string());
+            s.populate_devices_persisted_device_name = Some(persisted_device_name.to_string());
         });
         if IO_STATE.with(|s| s.borrow().populate_devices_ok) {
             Ok(())
@@ -67,7 +67,7 @@ pub struct IoState {
     pub device_names_result: Vec<String>,
 
     pub populate_devices_count: u16,
-    pub last_populate_devices_persisted_device_name: Option<String>,
+    pub populate_devices_persisted_device_name: Option<String>,
     pub populate_devices_ok: bool,
 }
 
@@ -80,7 +80,7 @@ impl IoState {
             device_names_result: Vec::new(),
 
             populate_devices_count: 0,
-            last_populate_devices_persisted_device_name: None,
+            populate_devices_persisted_device_name: None,
             populate_devices_ok: true,
         }
     }
@@ -95,7 +95,7 @@ impl Clone for IoState {
             device_names_result: self.device_names_result.clone(),
 
             populate_devices_count: self.populate_devices_count,
-            last_populate_devices_persisted_device_name: self.last_populate_devices_persisted_device_name.clone(),
+            populate_devices_persisted_device_name: self.populate_devices_persisted_device_name.clone(),
             populate_devices_ok: self.populate_devices_ok,
         }
     }

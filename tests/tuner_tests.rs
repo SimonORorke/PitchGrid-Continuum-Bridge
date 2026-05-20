@@ -27,13 +27,13 @@ fn on_tuning_received() {
     // Rounding Initial, Rounding Rate, active pitch table
     assert_that!(sent_midi().control_change_count, eq(773));
     // Active pitch table
-    assert_that!(sent_midi().last_control_change_channel, eq(16));
-    assert_that!(sent_midi().last_control_change_cc_no, eq(51));
-    assert_that!(sent_midi().last_control_change_value, eq(PITCH_TABLE));
+    assert_that!(sent_midi().control_change_channel, eq(16));
+    assert_that!(sent_midi().control_change_cc_no, eq(51));
+    assert_that!(sent_midi().control_change_value, eq(PITCH_TABLE));
     // Rounding Mode Normal, because Rounding Rate is on
     assert_that!(sent_midi().matrix_poke_count, eq(1));
-    assert_that!(sent_midi().last_matrix_poke_id, eq(10));
-    assert_that!(sent_midi().last_matrix_poke_value, eq(0));
+    assert_that!(sent_midi().matrix_poke_id, eq(10));
+    assert_that!(sent_midi().matrix_poke_value, eq(0));
     let formatted = tuner.formatted_tuning_params();
     assert_that!(formatted.root_freq, eq("261.626 Hz"));
     assert_that!(formatted.stretch, eq("1200 ct"));
