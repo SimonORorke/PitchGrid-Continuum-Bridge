@@ -23,8 +23,6 @@ use crate::port_strategy::PortStrategy;
 use crate::tuner;
 
 /// A manager for MIDI devices and messages.
-///
-/// For the The `I` prefix, see `ITuner`s doc comment.
 pub struct Midi {
     connection_monitor_stopper_sender: Option<mpsc::Sender<()>>,
     input: Io<MidiInputPort>,
@@ -110,7 +108,7 @@ impl Midi {
     ) -> Result<(), Box<dyn Error>> {
         // println!("Midi.connect_input_port: start");
         self.disconnect_input_port();
-        let input: &mut Io<MidiInputPort> = &mut self.input;
+        let input = &mut self.input;
         if let Some(port) = input.ports().get(index) {
             // println!("Midi.connect_input_port: found port");
             let device_name = port.device_name();
@@ -154,7 +152,7 @@ impl Midi {
         port_strategy: &dyn PortStrategy,
     ) -> Result<(), Box<dyn Error>> {
         self.disconnect_output_port();
-        let output: &mut Io<MidiOutputPort> = &mut self.output;
+        let output = &mut self.output;
         if let Some(port) = output.ports().get(index) {
             let device_name = port.device_name();
             let midi_port = port.midi_port();
@@ -623,7 +621,7 @@ impl IMidi for Midi {
         Ok(())
     }
 
-    fn input(&self) -> &Io<MidiInputPort> {
+    fn input(&self) -> &dyn IIo {
         &self.input
     }
 
@@ -646,7 +644,7 @@ impl IMidi for Midi {
         IS_RECEIVING_DATA.load(Ordering::Relaxed)
     }
 
-    fn output(&self) -> &Io<MidiOutputPort> {
+    fn output(&self) -> &dyn IIo {
         &self.output
     }
 

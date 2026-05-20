@@ -1,7 +1,6 @@
-use midir::{MidiInputPort, MidiOutputPort};
 use std::error::Error;
 use std::sync::{Arc, Mutex};
-use crate::midi_ports::{Io, IIo};
+use crate::midi_ports::IIo;
 use crate::port_strategy::PortStrategy;
 
 /// A trait that defines the interface for managing MIDI devices and messages.
@@ -58,7 +57,7 @@ pub trait IMidi {
         output_device_name: &str,
     ) -> Result<(), Box<dyn Error>>;
 
-    fn input(&self) -> &Io<MidiInputPort>;
+    fn input(&self) -> &dyn IIo;
 
     fn io(&self, port_strategy: &dyn PortStrategy) -> &dyn IIo;
 
@@ -68,7 +67,7 @@ pub trait IMidi {
 
     fn is_receiving_data(&self) -> bool;
 
-    fn output(&self) -> &Io<MidiOutputPort>;
+    fn output(&self) -> &dyn IIo;
 
     fn refresh_devices(
         &mut self,

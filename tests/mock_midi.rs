@@ -1,21 +1,29 @@
+#[path = "mock_io.rs"] mod mock_io;
+
 use std::cell::RefCell;
 use std::error::Error;
-use midir::{MidiInputPort, MidiOutputPort};
 use pitchgrid_continuum::i_midi::IMidi;
-use pitchgrid_continuum::midi_ports::{Io, IIo};
+use pitchgrid_continuum::midi_ports::{IIo};
 use pitchgrid_continuum::port_strategy::PortStrategy;
+use mock_io::MockIo;
 
 /// Returns a clone of the current `MidiState`.
 pub fn midi_state() -> MidiState {
     MIDI_STATE.with(|s| s.borrow().clone())
 }
 
-pub struct MockMidi {}
+pub struct MockMidi {
+    input: MockIo,
+    output: MockIo,
+}
 
 impl MockMidi {
     pub fn new() -> Self {
         MIDI_STATE.replace(MidiState::new());
-        MockMidi {}
+        MockMidi {
+            input: MockIo::new(),
+            output: MockIo::new(),
+        }
     }
 }
 
@@ -138,11 +146,11 @@ impl IMidi for MockMidi {
     }
 
     #[allow(dead_code)]
-    fn input(&self) -> &Io<MidiInputPort> {
+    fn input(&self) -> &dyn IIo {
         MIDI_STATE.with_borrow_mut(|s| {
             s.input_count += 1;
         });
-        unimplemented!("MockMidi::input")
+        &self.input
     }
 
     #[allow(dead_code)]
@@ -151,7 +159,7 @@ impl IMidi for MockMidi {
             s.io_count += 1;
             s.io_port_strategy = Some(port_strategy.clone_box());
         });
-        unimplemented!("MockMidi::io")
+        port_strategy.io(self)
     }
 
     #[allow(dead_code)]
@@ -179,11 +187,11 @@ impl IMidi for MockMidi {
     }
 
     #[allow(dead_code)]
-    fn output(&self) -> &Io<MidiOutputPort> {
+    fn output(&self) -> &dyn IIo {
         MIDI_STATE.with_borrow_mut(|s| {
             s.output_count += 1;
         });
-        unimplemented!("MockMidi::output")
+        &self.output
     }
 
     #[allow(dead_code)]

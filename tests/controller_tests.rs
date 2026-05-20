@@ -20,6 +20,7 @@ static TEST_MUTEX: Mutex<()> = Mutex::new(());
 
 #[googletest::gtest]
 fn init() {
+    let _guard = test_mutex_guard();
     let mut controller = create_controller();
 }
 

@@ -2,7 +2,6 @@
 use crate::{MainWindow, ComboBoxItem, SlintMessageType};
 use crate::global::PortType;
 use crate::i_midi::IMidi;
-use crate::midi::Midi;
 use crate::midi_ports::IIo;
 use crate::i_settings::ISettings;
 
@@ -12,7 +11,7 @@ use crate::i_settings::ISettings;
 /// See Controller's doc comment for more information on how the project implements MVC.
 pub trait PortStrategy: Send + Sync {
     fn port_type(&self) -> &PortType;
-    fn io<'a>(&self, midi: &'a Midi) -> &'a dyn IIo;
+    fn io<'a>(&self, midi: &'a dyn IMidi) -> &'a dyn IIo;
 
     /// Makes a clone of the current strategy that needs to be used when cross-threading.
     /// The code is the same for all strategies. But the compiler does not allow it to be
@@ -49,7 +48,7 @@ impl PortStrategy for InputStrategy {
         &PortType::Input
     }
 
-    fn io<'a>(&self, midi: &'a Midi) -> &'a dyn IIo {
+    fn io<'a>(&self, midi: &'a dyn IMidi) -> &'a dyn IIo {
         midi.input()
     }
 
@@ -126,7 +125,7 @@ impl PortStrategy for OutputStrategy {
         &PortType::Output
     }
 
-    fn io<'a>(&self, midi: &'a Midi) -> &'a dyn IIo {
+    fn io<'a>(&self, midi: &'a dyn IMidi) -> &'a dyn IIo {
         midi.output()
     }
 
