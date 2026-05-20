@@ -23,7 +23,7 @@ impl ITuner for MockTuner {
     fn init(&self, pitch_table: u8) {
         TUNER_STATE.with_borrow_mut(|s| {
             s.init_count += 1;
-            s.init_pitch_table = Some(pitch_table);
+            s.pitch_table = Some(pitch_table);
         });
     }
 
@@ -111,7 +111,7 @@ impl ITuner for MockTuner {
     fn set_pitch_table(&self, pitch_table: u8) {
         TUNER_STATE.with_borrow_mut(|s| {
             s.set_pitch_table_count += 1;
-            s.set_pitch_table_pitch_table = Some(pitch_table);
+            s.pitch_table = Some(pitch_table);
         });
     }
 
@@ -140,8 +140,8 @@ impl ITuner for MockTuner {
 
 #[derive(Clone)]
 pub struct TunerState {
+    pub pitch_table: Option<u8>,
     pub init_count: u16,
-    pub init_pitch_table: Option<u8>,
 
     pub on_tuning_received_count: u16,
     pub on_tuning_received_params: Option<TuningParams>,
@@ -174,7 +174,6 @@ pub struct TunerState {
     pub set_rounding_rate_rate: Option<u8>,
 
     pub set_pitch_table_count: u16,
-    pub set_pitch_table_pitch_table: Option<u8>,
 
     pub on_tuning_updated_count: u16,
 
@@ -187,8 +186,8 @@ pub struct TunerState {
 impl TunerState {
     pub fn new() -> Self {
         TunerState {
+            pitch_table: None,
             init_count: 0,
-            init_pitch_table: None,
 
             on_tuning_received_count: 0,
             on_tuning_received_params: None,
@@ -221,7 +220,6 @@ impl TunerState {
             set_rounding_rate_rate: None,
 
             set_pitch_table_count: 0,
-            set_pitch_table_pitch_table: None,
 
             on_tuning_updated_count: 0,
 

@@ -13,7 +13,8 @@ use pitchgrid_continuum::controller::Controller;
 use pitchgrid_continuum::osc::Osc;
 use pitchgrid_continuum::port_strategy::{InputStrategy, OutputStrategy, PortStrategy};
 use pitchgrid_continuum::ui_methods::UiMethods;
-use pitchgrid_continuum::{global, tuner};
+use pitchgrid_continuum::global;
+use pitchgrid_continuum::tuner::Tuner;
 
 /// main.rs is part of the view in the Model-View-Controller (MVC) pattern.
 /// See Controller's doc comment for more information on how the project implements MVC.
@@ -230,7 +231,7 @@ fn set_osc_listening_ports_model(main_window: &MainWindow) {
 }
 
 fn set_pitch_tables_model(main_window: &MainWindow) {
-    let pitch_table_items: Vec<ComboBoxItem> = tuner::pitch_tables()
+    let pitch_table_items: Vec<ComboBoxItem> = Tuner::pitch_tables()
         .iter()
         .map(|grid_no| ComboBoxItem { text: grid_no.to_string().into() })
         .collect();

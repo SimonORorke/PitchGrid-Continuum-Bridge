@@ -6,9 +6,11 @@ mod mock_ui_methods;
 
 use std::sync::{Arc, Mutex};
 use googletest::assert_that;
-use googletest::matchers::{eq};
+use googletest::matchers::{eq, some};
 use pitchgrid_continuum::controller::Controller;
-use pitchgrid_continuum::midi_static;
+use pitchgrid_continuum::midi_static::MidiStatic;
+use pitchgrid_continuum::osc::Osc;
+use pitchgrid_continuum::tuner::Tuner;
 use mock_midi::{MockMidi, midi_state};
 use mock_osc::{MockOsc, osc_state};
 use mock_settings::{MockSettings, settings_state};
@@ -19,13 +21,17 @@ use mock_ui_methods::{MockUiMethods, ui_state};
 static TEST_MUTEX: Mutex<()> = Mutex::new(());
 
 #[googletest::gtest]
-fn init() {
+fn init_no_settings() {
     let _guard = test_mutex_guard();
-    let mut controller = create_controller();
+    let _controller = create_controller();
+    assert_that!(osc_state().listening_port,
+        some(eq(Osc::default_listening_port())));
+    assert_that!(tuner_state().pitch_table,
+        some(eq(Tuner::default_pitch_table())));
 }
 
 fn create_controller() -> Controller {
-    midi_static::set_midi(Box::new(MockMidi::new()));
+    MidiStatic::set_midi(Box::new(MockMidi::new()));
     let mut controller = Controller::new(Box::new(MockUiMethods::new()));
     controller.set_osc(Box::new(MockOsc::new()));
     controller.set_settings(Box::new(MockSettings::new()));

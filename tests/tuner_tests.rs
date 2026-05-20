@@ -3,7 +3,7 @@ mod mock_midi_sender;
 use std::sync::Mutex;
 use googletest::assert_that;
 use googletest::matchers::{eq, gt};
-use pitchgrid_continuum::tuner::{self, ITuner, Tuner};
+use pitchgrid_continuum::tuner::{ITuner, Tuner};
 use pitchgrid_continuum::tuning_params::TuningParams;
 use mock_midi_sender::{MockMidiSender, sent_midi};
 
@@ -146,12 +146,12 @@ fn send_current_preset_update() {
 #[googletest::gtest]
 fn set_pitch_table() {
     let _guard = test_mutex_guard();
-    let new_pitch_table: u8 = tuner::default_pitch_table();
+    let new_pitch_table: u8 = Tuner::default_pitch_table();
     let tuner = create_tuner();
-    assert_that!(tuner::pitch_table(), eq(PITCH_TABLE));
+    assert_that!(Tuner::pitch_table(), eq(PITCH_TABLE));
     assert_that!(tuner.pitch_table_index(), eq(1));
     tuner.set_pitch_table(new_pitch_table);
-    assert_that!(tuner::pitch_table(), eq(new_pitch_table));
+    assert_that!(Tuner::pitch_table(), eq(new_pitch_table));
     assert_that!(tuner.pitch_table_index(), eq(0));
 }
 

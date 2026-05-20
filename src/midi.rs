@@ -20,7 +20,7 @@ use std::thread::sleep;
 use crate::global::{PortType};
 use crate::midi_ports::{Io, IIo};
 use crate::port_strategy::PortStrategy;
-use crate::tuner;
+use crate::tuner::Tuner;
 
 /// A manager for MIDI devices and messages.
 pub struct Midi {
@@ -359,7 +359,7 @@ impl Midi {
                             // for the tuning this application sent to the instrument:
                             // when a preset is loaded, there will be a Grid message
                             // for the preset's initial tuning table, which will be zero.
-                            if pitch_table == tuner::pitch_table() {
+                            if pitch_table == Tuner::pitch_table() {
                                 println!("midi.on_message_received: Preset's pitch table \
                                             update requested, pitch table no: {}", pitch_table);
                                 *tuning_status().lock().unwrap() = TuningStatus::None;
@@ -377,7 +377,7 @@ impl Midi {
                         //         // for the tuning this application sent to the instrument.
                         //         // When there have been problems at the instrument end,
                         //         // it has sent back a ch16 cc51 messages, but with value 0.
-                        //         if pitch_table == tuner::pitch_table() {
+                        //         if pitch_table == Tuner::pitch_table() {
                         //             // The editor sends us back what we send to the instrument,
                         //             // as well as what the instrument sends back to us.
                         //             // So we have just requested that the current preset be updated

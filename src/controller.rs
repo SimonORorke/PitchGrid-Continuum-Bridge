@@ -10,7 +10,7 @@ use crate::i_settings::ISettings;
 use crate::port_strategy::{
     InputStrategy, OutputStrategy, PortStrategy};
 use crate::settings::Settings;
-use crate::{midi_static, tuner};
+use crate::midi_static::MidiStatic;
 use crate::i_ui_methods::IUiMethods;
 use crate::tuner::{SharedTuner, Tuner};
 use crate::tuning_params::TuningParams;
@@ -66,10 +66,10 @@ impl Controller {
                     }
                 };
                 pitch_table = {
-                    if tuner::pitch_tables().contains(&self.settings.pitch_table()) {
+                    if Tuner::pitch_tables().contains(&self.settings.pitch_table()) {
                         self.settings.pitch_table()
                     } else {
-                        tuner::default_pitch_table()
+                        Tuner::default_pitch_table()
                     }
                 };
                 override_rounding_initial = self.settings.override_rounding_initial();
@@ -83,7 +83,7 @@ impl Controller {
         }
         // println!("Controller.init: Getting midi");
         self.ui_methods.set_main_window_position(main_window_x, main_window_y);
-        let shared_midi = midi_static::midi_clone();
+        let shared_midi = MidiStatic::midi_clone();
         let mut midi = shared_midi.lock().unwrap();
         if let Err(err) = midi.init(
             &input_device_name, &output_device_name) {
@@ -130,7 +130,7 @@ impl Controller {
         // println!("Controller.init: Connecting initial ports");
         self.connect_initial_port(&output_strategy);
         // Don't start listening to MIDI until we are able to send MIDI.
-        if midi_static::is_output_port_connected() {
+        if MidiStatic::is_output_port_connected() {
             // println!("Controller.init: Connecting input port");
             self.connect_initial_port(&input_strategy);
         }
@@ -145,7 +145,7 @@ impl Controller {
         self.ui_methods.set_override_rounding_initial(override_rounding_initial);
         self.ui_methods.set_override_rounding_rate(override_rounding_rate);
         self.ui_methods.set_rounding_rate(rounding_rate);
-        if midi_static::are_ports_connected() {
+        if MidiStatic::are_ports_connected() {
             // println!("Controller.init: Starting instrument connection monitor");
             self.start_instrument_connection_monitor();
         }
@@ -155,13 +155,13 @@ impl Controller {
     fn start_instrument_connection_monitor(&mut self) {
         // println!("Controller.start_instrument_connection_monitor");
         self.show_info(CHECKING_INSTRUMENT_CONNECTION);
-        midi_static::start_instrument_connection_monitor();
+        MidiStatic::start_instrument_connection_monitor();
         // println!("Controller.start_instrument_connection_monitor: Instrument connection monitor started");
     }
 
     #[allow(clippy::unwrap_used)]
     pub fn close(&mut self, main_window_x: i32, main_window_y: i32) -> Result<(), Box<dyn Error>> {
-        midi_static::close();
+        MidiStatic::close();
         self.osc.stop();
         self.settings.set_main_window_x(main_window_x);
         self.settings.set_main_window_y(main_window_y);
@@ -174,7 +174,7 @@ impl Controller {
 
     fn connect_initial_port(&mut self, port_strategy: &dyn PortStrategy) {
         // println!("Controller.connect_initial_port: {:?}", port_strategy.port_type());
-        let shared_midi = midi_static::midi_clone();
+        let shared_midi = MidiStatic::midi_clone();
         let maybe_index = {
             let midi = shared_midi.lock().unwrap();
             midi.io(port_strategy).device().as_ref()
@@ -193,7 +193,7 @@ impl Controller {
 
     pub fn connect_port(&mut self, port_strategy: &dyn PortStrategy) {
         // println!("Controller.connect_port");
-        let midi = midi_static::midi_clone();
+        let midi = MidiStatic::midi_clone();
         let port_strategy = port_strategy.clone_box();
         // println!("Controller.connect_port: Stopping OSC and instrument connection monitor");
         self.stop_osc_and_instrument_connection_monitor();
@@ -209,7 +209,7 @@ impl Controller {
         // println!("Controller.connect_port: Got port");
         if let Some(device_name) = device_name_opt {
             self.show_info(port_strategy.msg_connected(&device_name));
-            if midi_static::are_ports_connected() {
+            if MidiStatic::are_ports_connected() {
                 // println!("Controller.connect_port: Starting instrument connection monitor");
                 self.start_instrument_connection_monitor();
             } else {
@@ -262,14 +262,14 @@ impl Controller {
     }
 
     fn device_names(&self, port_strategy: &dyn PortStrategy) -> Vec<String> {
-        let shared_midi = midi_static::midi_clone();
+        let shared_midi = MidiStatic::midi_clone();
         // println!("Controller.device_names: Got midi");
         let midi = shared_midi.lock().unwrap();
         midi.io(port_strategy).device_names()
     }
 
     pub fn refresh_devices(&mut self, port_strategy: &dyn PortStrategy) {
-        let midi = midi_static::midi_clone();
+        let midi = MidiStatic::midi_clone();
         let port_strategy = port_strategy.clone_box();
         self.stop_osc_and_instrument_connection_monitor();
         let device_name = port_strategy.port_setting(&*self.settings).to_string();
@@ -311,9 +311,9 @@ impl Controller {
     /// We probably don't need a setting for this.
     /// The player should have to choose an override, if required, on startup.
     pub fn set_root_freq_override(&mut self, index: usize) {
-        let send_tuning = midi_static::is_receiving_data()
-            && midi_static::are_ports_connected()
-            && midi_static::has_downloaded_init_data()
+        let send_tuning = MidiStatic::is_receiving_data()
+            && MidiStatic::are_ports_connected()
+            && MidiStatic::has_downloaded_init_data()
             && self.osc.is_pitchgrid_connected();
         if send_tuning {
             self.ui_methods.show_pitchgrid_status(
@@ -345,15 +345,15 @@ impl Controller {
     }
 
     pub fn set_pitch_table(&mut self, index: usize) {
-        let pitch_table = tuner::pitch_tables()[index];
+        let pitch_table = Tuner::pitch_tables()[index];
         self.tuner.set_pitch_table(pitch_table);
         self.settings.set_pitch_table(pitch_table);
     }
 
     fn on_init_data_download_completed(&mut self) {
         println!("Controller.on_init_data_download_completed");
-        if midi_static::is_receiving_data()
-                && midi_static::are_ports_connected()
+        if MidiStatic::is_receiving_data()
+                && MidiStatic::are_ports_connected()
                 && !self.osc.is_running() {
             println!("Controller.on_init_data_download_completed: Starting OSC");
             self.start_osc();
@@ -368,7 +368,7 @@ impl Controller {
 
     fn on_ports_connected_changed(&mut self) {
         // println!("Controller.on_ports_connected_changed");
-        if midi_static::are_ports_connected() {
+        if MidiStatic::are_ports_connected() {
             return;
         }
         // At least one MIDI port is not connected. Stop OSC if running.
@@ -400,7 +400,7 @@ impl Controller {
         // But the output port might not be, in which case we can't send data to the instrument
         // and should not overwrite the "Connect MIDI output port" warning message that should
         // already be displayed.
-        if midi_static::are_ports_connected() {
+        if MidiStatic::are_ports_connected() {
             // println!("Controller.on_receiving_data_started_callback: Waiting for data download to complete.");
             self.show_info(WAITING_FOR_DATA_DOWNLOAD);
         }
@@ -413,7 +413,7 @@ impl Controller {
             println!("Controller.on_receiving_data_stopped_callback: Stopping OSC");
             self.stop_osc_and_show_pitchgrid_status();
         }
-        if midi_static::are_ports_connected() {
+        if MidiStatic::are_ports_connected() {
             // println!("Controller.on_receiving_data_stopped_callback: Showing instrument not connected warning");
             self.show_warning(INSTRUMENT_NOT_CONNECTED);
         }
@@ -578,7 +578,7 @@ impl Controller {
 
     fn stop_osc_and_instrument_connection_monitor(&mut self) {
         // println!("Controller.stop_osc_and_instrument_connection_monitor");
-        midi_static::stop_instrument_connection_monitor();
+        MidiStatic::stop_instrument_connection_monitor();
         self.stop_osc_and_show_pitchgrid_status();
         // println!("Controller.stop_osc_and_instrument_connection_monitor: Done");
     }
@@ -590,11 +590,11 @@ impl Controller {
         println!("Controller.stop_osc_and_show_pitchgrid_status");
         self.osc.stop();
         self.remove_data();
-        if !midi_static::are_ports_connected() {
+        if !MidiStatic::are_ports_connected() {
             self.ui_methods.show_pitchgrid_status(
                 CANNOT_UPDATE_TUNING_CONNECT,
                 MessageType::Error);
-        } else if !midi_static::is_receiving_data() {
+        } else if !MidiStatic::is_receiving_data() {
             self.ui_methods.show_pitchgrid_status(
                 CANNOT_UPDATE_TUNING_LOST,
                 MessageType::Error);
@@ -648,7 +648,7 @@ impl OscCallbacks for Controller {
         //     "Controller.on_osc_tuning_received: depth = {}; mode = {}; root_freq = {}; stretch = {}; \
         //     skew = {}; mode_offset = {}; steps = {}",
         //     depth, mode, root_freq, stretch, skew, mode_offset, steps);
-        if midi_static::are_ports_connected() && midi_static::is_receiving_data() {
+        if MidiStatic::are_ports_connected() && MidiStatic::is_receiving_data() {
             println!("Controller.on_osc_tuning_received: Showing Updating instrument tuning");
             self.ui_methods.show_pitchgrid_status(UPDATING_INSTRUMENT_TUNING, MessageType::Info);
             println!("Controller.on_osc_tuning_received: Updating instrument tuning");

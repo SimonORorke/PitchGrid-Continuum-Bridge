@@ -12,18 +12,6 @@ use crate::tuning_params::TuningParams;
 
 pub use crate::i_tuner::{ITuner, SharedTuner};
 
-/// Returns the currently selected pitch table number.
-/// Remains a free function so that midi.rs can call it without holding a tuner reference.
-pub fn pitch_table() -> u8 {
-    PITCH_TABLE.load(Ordering::Relaxed)
-}
-
-pub fn pitch_tables<'a>() -> &'a Vec<u8> {
-    PITCH_TABLES.get_or_init(|| (80..88).collect())
-}
-
-pub fn default_pitch_table() -> u8 { 80 }
-
 /// A facility for tuning a Continuum from PitchGrid parameters.
 pub struct Tuner {
     is_already_updating: AtomicBool,
@@ -39,6 +27,18 @@ pub struct Tuner {
 }
 
 impl Tuner {
+    /// Returns the currently selected pitch table number.
+    /// Remains an associated function so that midi.rs can call it without holding a tuner reference.
+    pub fn pitch_table() -> u8 {
+        PITCH_TABLE.load(Ordering::Relaxed)
+    }
+
+    pub fn pitch_tables<'a>() -> &'a Vec<u8> {
+        PITCH_TABLES.get_or_init(|| (80..88).collect())
+    }
+
+    pub fn default_pitch_table() -> u8 { 80 }
+
     pub fn new() -> Self {
         Self {
             is_already_updating: AtomicBool::new(false),
@@ -155,13 +155,13 @@ impl Tuner {
             let mut keys = self.keys.lock().unwrap().clone();
             self.set_to_key_numbers(&mut keys);
             self.calculate_offsets(&mut keys);
-            self.send_pitch_table(pitch_table(), &keys);
+            self.send_pitch_table(Self::pitch_table(), &keys);
         }
         // The following commands update the instrument's current preset.
         self.send_rounding_params();
         // Set active pitch table for performance.
-        println!("tuner.send_tuning_update: Setting active pitch table to {}", pitch_table());
-        self.midi_sender.lock().unwrap().send_control_change(16, 51, pitch_table());
+        println!("tuner.send_tuning_update: Setting active pitch table to {}", Self::pitch_table());
+        self.midi_sender.lock().unwrap().send_control_change(16, 51, Self::pitch_table());
     }
 
     /// Sets the to_number field of each Key to the index of the pitch in DEFAULT_KEY_PITCHES
@@ -390,7 +390,7 @@ impl ITuner for Tuner {
 
     fn pitch_table_index(&self) -> usize {
         // Return the index of the pitch_tables item that equals pitch_table.
-        pitch_tables().iter().position(|&x| x == pitch_table()).unwrap_or(0)
+        Self::pitch_tables().iter().position(|&x| x == Self::pitch_table()).unwrap_or(0)
     }
 }
 
@@ -488,7 +488,7 @@ impl Default for FormattedTuningParams {
 /// scattered references to tuning grids.
 /// We call them pitch tables, as that has the best chance of being understood by users.
 ///
-/// Remains a static so that midi.rs can call pitch_table() without holding a tuner reference.
+/// Remains a static so that Tuner::pitch_table() can be called without holding a tuner reference.
 static PITCH_TABLE: AtomicU8 = AtomicU8::new(0);
 
 static PITCH_TABLES: OnceLock<Vec<u8>> = OnceLock::new();

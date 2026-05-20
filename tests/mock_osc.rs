@@ -22,7 +22,7 @@ impl IOsc for MockOsc {
     fn set_listening_port(&mut self, listening_port: u16) {
         OSC_STATE.with_borrow_mut(|s| {
             s.set_listening_port_count += 1;
-            s.set_listening_port_listening_port = Some(listening_port);
+            s.listening_port = Some(listening_port);
         });
     }
 
@@ -60,7 +60,7 @@ impl IOsc for MockOsc {
 
 pub struct OscState {
     pub set_listening_port_count: u16,
-    pub set_listening_port_listening_port: Option<u16>,
+    pub listening_port: Option<u16>,
 
     pub start_count: u16,
     pub start_callbacks: Option<Arc<dyn OscCallbacks>>,
@@ -78,7 +78,7 @@ impl OscState {
     pub fn new() -> Self {
         OscState {
             set_listening_port_count: 0,
-            set_listening_port_listening_port: None,
+            listening_port: None,
 
             start_count: 0,
             start_callbacks: None,
@@ -98,7 +98,7 @@ impl Clone for OscState {
     fn clone(&self) -> Self {
         OscState {
             set_listening_port_count: self.set_listening_port_count,
-            set_listening_port_listening_port: self.set_listening_port_listening_port,
+            listening_port: self.listening_port,
 
             start_count: self.start_count,
             start_callbacks: self.start_callbacks.clone(),
