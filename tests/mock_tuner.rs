@@ -60,18 +60,12 @@ impl ITuner for MockTuner {
 
     #[allow(dead_code)]
     fn formatted_tuning_params(&self) -> FormattedTuningParams {
-        TUNER_STATE.with_borrow_mut(|s| {
-            s.formatted_tuning_params_count += 1;
-        });
-        TUNER_STATE.with(|s| s.borrow().formatted_tuning_params_result.clone())
+        TUNER_STATE.with(|s| s.borrow().formatted_tuning_params.clone())
     }
 
     #[allow(dead_code)]
     fn is_root_freq_overridden(&self) -> bool {
-        TUNER_STATE.with_borrow_mut(|s| {
-            s.is_root_freq_overridden_count += 1;
-        });
-        TUNER_STATE.with(|s| s.borrow().is_root_freq_overridden_result)
+        TUNER_STATE.with(|s| s.borrow().is_root_freq_overridden)
     }
 
     #[allow(dead_code)]
@@ -86,24 +80,21 @@ impl ITuner for MockTuner {
     #[allow(dead_code)]
     fn set_override_rounding_initial(&self, value: bool) {
         TUNER_STATE.with_borrow_mut(|s| {
-            s.set_override_rounding_initial_count += 1;
-            s.set_override_rounding_initial_value = Some(value);
+            s.override_rounding_initial = Some(value);
         });
     }
 
     #[allow(dead_code)]
     fn set_override_rounding_rate(&self, value: bool) {
         TUNER_STATE.with_borrow_mut(|s| {
-            s.set_override_rounding_rate_count += 1;
-            s.set_override_rounding_rate_value = Some(value);
+            s.override_rounding_rate = Some(value);
         });
     }
 
     #[allow(dead_code)]
     fn set_rounding_rate(&self, rate: u8) {
         TUNER_STATE.with_borrow_mut(|s| {
-            s.set_rounding_rate_count += 1;
-            s.set_rounding_rate_rate = Some(rate);
+            s.rounding_rate = Some(rate);
         });
     }
 
@@ -131,10 +122,7 @@ impl ITuner for MockTuner {
 
     #[allow(dead_code)]
     fn pitch_table_index(&self) -> usize {
-        TUNER_STATE.with_borrow_mut(|s| {
-            s.pitch_table_index_count += 1;
-        });
-        TUNER_STATE.with(|s| s.borrow().pitch_table_index_result)
+        TUNER_STATE.with(|s| s.borrow().pitch_table_index)
     }
 }
 
@@ -154,33 +142,21 @@ pub struct TunerState {
     pub send_current_preset_update_count: u16,
     pub send_current_preset_update_result: bool,
 
-    pub formatted_tuning_params_count: u16,
-    pub formatted_tuning_params_result: FormattedTuningParams,
+    pub formatted_tuning_params: FormattedTuningParams,
 
-    pub is_root_freq_overridden_count: u16,
-    pub is_root_freq_overridden_result: bool,
+    pub is_root_freq_overridden: bool,
 
     pub set_root_freq_override_note_no_count: u16,
     pub set_root_freq_override_note_no_index: Option<usize>,
     pub set_root_freq_override_note_no_send_tuning: Option<bool>,
 
-    pub set_override_rounding_initial_count: u16,
-    pub set_override_rounding_initial_value: Option<bool>,
-
-    pub set_override_rounding_rate_count: u16,
-    pub set_override_rounding_rate_value: Option<bool>,
-
-    pub set_rounding_rate_count: u16,
-    pub set_rounding_rate_rate: Option<u8>,
-
+    pub override_rounding_initial: Option<bool>,
+    pub override_rounding_rate: Option<bool>,
+    pub rounding_rate: Option<u8>,
     pub set_pitch_table_count: u16,
-
     pub on_tuning_updated_count: u16,
-
     pub set_midi_sender_count: u16,
-
-    pub pitch_table_index_count: u16,
-    pub pitch_table_index_result: usize,
+    pub pitch_table_index: usize,
 }
 
 impl TunerState {
@@ -200,33 +176,20 @@ impl TunerState {
             send_current_preset_update_count: 0,
             send_current_preset_update_result: false,
 
-            formatted_tuning_params_count: 0,
-            formatted_tuning_params_result: FormattedTuningParams::default(),
+            formatted_tuning_params: FormattedTuningParams::default(),
 
-            is_root_freq_overridden_count: 0,
-            is_root_freq_overridden_result: false,
+            is_root_freq_overridden: false,
 
             set_root_freq_override_note_no_count: 0,
             set_root_freq_override_note_no_index: None,
             set_root_freq_override_note_no_send_tuning: None,
-
-            set_override_rounding_initial_count: 0,
-            set_override_rounding_initial_value: None,
-
-            set_override_rounding_rate_count: 0,
-            set_override_rounding_rate_value: None,
-
-            set_rounding_rate_count: 0,
-            set_rounding_rate_rate: None,
-
+            override_rounding_initial: None,
+            override_rounding_rate: None,
+            rounding_rate: None,
             set_pitch_table_count: 0,
-
             on_tuning_updated_count: 0,
-
             set_midi_sender_count: 0,
-
-            pitch_table_index_count: 0,
-            pitch_table_index_result: 0,
+            pitch_table_index: 0,
         }
     }
 }

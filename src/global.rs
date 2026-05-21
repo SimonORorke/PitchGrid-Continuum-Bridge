@@ -1,11 +1,11 @@
-﻿#[derive(Clone)]
+﻿#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum MessageType {
     Error,
     Info,
     Warning
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum PortType {
     Input,
     Output,

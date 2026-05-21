@@ -159,9 +159,9 @@ impl SettingsState {
             midi_output_device: String::new(),
             osc_listening_port: 0,
             pitch_table: 0,
-            override_rounding_initial: false,
-            override_rounding_rate: false,
-            rounding_rate: 0,
+            override_rounding_initial: true,
+            override_rounding_rate: true,
+            rounding_rate: 127,
 
             read_from_file_count: 0,
             read_from_file_result: Ok(()),

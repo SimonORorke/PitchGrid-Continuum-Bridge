@@ -178,7 +178,7 @@ impl Controller {
         let maybe_index = {
             let midi = shared_midi.lock().unwrap();
             midi.io(port_strategy).device().as_ref()
-                .map(|port| port.index())
+                .map(|device| device.index())
         };
         if let Some(index) = maybe_index {
             // println!("Controller.connect_initial_port: Setting selected port index to {}", index);

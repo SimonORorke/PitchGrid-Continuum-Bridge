@@ -6,6 +6,7 @@ use pitchgrid_continuum::i_midi::IMidi;
 use pitchgrid_continuum::midi_ports::{IIo};
 use pitchgrid_continuum::port_strategy::PortStrategy;
 use mock_io::MockIo;
+use pitchgrid_continuum::global::PortType;
 
 /// Returns a clone of the current `MidiState`.
 pub fn midi_state() -> MidiState {
@@ -18,11 +19,16 @@ pub struct MockMidi {
 }
 
 impl MockMidi {
-    pub fn new() -> Self {
+    pub fn new(input_device_names: Vec<String>, output_device_names: Vec<String>,
+        initial_input_device_name: &str, initial_output_device_name: &str) -> Self {
         MIDI_STATE.replace(MidiState::new());
+        let mut input = MockIo::new(input_device_names);
+        input.set_device(initial_input_device_name);
+        let mut output = MockIo::new(output_device_names);
+        output.set_device(initial_output_device_name);
         MockMidi {
-            input: MockIo::new(),
-            output: MockIo::new(),
+            input,
+            output,
         }
     }
 }
@@ -104,10 +110,7 @@ impl IMidi for MockMidi {
 
     #[allow(dead_code)]
     fn are_ports_connected(&self) -> bool {
-        MIDI_STATE.with_borrow_mut(|s| {
-            s.are_ports_connected_count += 1;
-        });
-        MIDI_STATE.with(|s| s.borrow().are_ports_connected_result)
+        MIDI_STATE.with(|s| s.borrow().are_ports_connected)
     }
 
     #[allow(dead_code)]
@@ -127,6 +130,16 @@ impl IMidi for MockMidi {
             s.connect_port_count += 1;
             s.connect_port_index = Some(index);
             s.connect_port_port_strategy = Some(port_strategy.clone_box());
+            match port_strategy.port_type() {
+                PortType::Input => {
+                    if s.is_output_port_connected {
+                        s.are_ports_connected = true;
+                    }
+                }
+                PortType::Output => {
+                    s.is_output_port_connected = true;
+                }
+            }
         });
         Ok(())
     }
@@ -172,18 +185,12 @@ impl IMidi for MockMidi {
 
     #[allow(dead_code)]
     fn is_output_port_connected(&self) -> bool {
-        MIDI_STATE.with_borrow_mut(|s| {
-            s.is_output_port_connected_count += 1;
-        });
-        MIDI_STATE.with(|s| s.borrow().is_output_port_connected_result)
+        MIDI_STATE.with(|s| s.borrow().is_output_port_connected)
     }
 
     #[allow(dead_code)]
     fn is_receiving_data(&self) -> bool {
-        MIDI_STATE.with_borrow_mut(|s| {
-            s.is_receiving_data_count += 1;
-        });
-        MIDI_STATE.with(|s| s.borrow().is_receiving_data_result)
+        MIDI_STATE.with(|s| s.borrow().is_receiving_data)
     }
 
     #[allow(dead_code)]
@@ -204,6 +211,10 @@ impl IMidi for MockMidi {
             s.refresh_devices_count += 1;
             s.refresh_devices_device_name = Some(device_name.to_string());
             s.refresh_devices_port_strategy = Some(port_strategy.clone_box());
+            s.are_ports_connected = false;
+            if *port_strategy.port_type() == PortType::Output {
+                s.is_output_port_connected = false;
+            }
         });
         Ok(())
     }
@@ -233,8 +244,7 @@ pub struct MidiState {
     pub add_tuning_updated_callback_count: u16,
     pub add_updating_tuning_callback_count: u16,
 
-    pub are_ports_connected_count: u16,
-    pub are_ports_connected_result: bool,
+    pub are_ports_connected: bool,
 
     pub close_count: u16,
 
@@ -254,11 +264,8 @@ pub struct MidiState {
     pub io_count: u16,
     pub io_port_strategy: Option<Box<dyn PortStrategy>>,
 
-    pub is_output_port_connected_count: u16,
-    pub is_output_port_connected_result: bool,
-
-    pub is_receiving_data_count: u16,
-    pub is_receiving_data_result: bool,
+    pub is_output_port_connected: bool,
+    pub is_receiving_data: bool,
 
     pub output_count: u16,
 
@@ -282,8 +289,7 @@ impl MidiState {
             add_tuning_updated_callback_count: 0,
             add_updating_tuning_callback_count: 0,
 
-            are_ports_connected_count: 0,
-            are_ports_connected_result: false,
+            are_ports_connected: false,
 
             close_count: 0,
 
@@ -303,11 +309,8 @@ impl MidiState {
             io_count: 0,
             io_port_strategy: None,
 
-            is_output_port_connected_count: 0,
-            is_output_port_connected_result: false,
-
-            is_receiving_data_count: 0,
-            is_receiving_data_result: false,
+            is_output_port_connected: false,
+            is_receiving_data: false,
 
             output_count: 0,
 
@@ -333,8 +336,7 @@ impl Clone for MidiState {
             add_tuning_updated_callback_count: self.add_tuning_updated_callback_count,
             add_updating_tuning_callback_count: self.add_updating_tuning_callback_count,
 
-            are_ports_connected_count: self.are_ports_connected_count,
-            are_ports_connected_result: self.are_ports_connected_result,
+            are_ports_connected: self.are_ports_connected,
 
             close_count: self.close_count,
 
@@ -354,11 +356,8 @@ impl Clone for MidiState {
             io_count: self.io_count,
             io_port_strategy: self.io_port_strategy.as_ref().map(|s| s.clone_box()),
 
-            is_output_port_connected_count: self.is_output_port_connected_count,
-            is_output_port_connected_result: self.is_output_port_connected_result,
-
-            is_receiving_data_count: self.is_receiving_data_count,
-            is_receiving_data_result: self.is_receiving_data_result,
+            is_output_port_connected: self.is_output_port_connected,
+            is_receiving_data: self.is_receiving_data,
 
             output_count: self.output_count,
 

@@ -23,7 +23,7 @@ impl IUiMethods for MockUiMethods {
     fn focus_port(&self, port_strategy: &dyn PortStrategy) {
         UI_STATE.with_borrow_mut(|s| {
             s.focus_port_count += 1;
-            s.focus_port_port_strategy = Some(port_strategy.clone_box());
+            s.focus_port_strategy = Some(port_strategy.clone_box());
         });
     }
 
@@ -95,56 +95,50 @@ impl IUiMethods for MockUiMethods {
     #[allow(dead_code)]
     fn set_main_window_position(&self, x: i32, y: i32) {
         UI_STATE.with_borrow_mut(|s| {
-            s.set_main_window_position_count += 1;
-            s.set_main_window_position_x = Some(x);
-            s.set_main_window_position_y = Some(y);
+            s.main_window_position_x = Some(x);
+            s.main_window_position_y = Some(y);
         });
     }
 
     #[allow(dead_code)]
     fn set_override_rounding_initial(&self, value: bool) {
         UI_STATE.with_borrow_mut(|s| {
-            s.set_override_rounding_initial_count += 1;
-            s.set_override_rounding_initial_value = Some(value);
+            s.override_rounding_initial = Some(value);
         });
     }
 
     #[allow(dead_code)]
     fn set_override_rounding_rate(&self, value: bool) {
         UI_STATE.with_borrow_mut(|s| {
-            s.set_override_rounding_rate_count += 1;
-            s.set_override_rounding_rate_value = Some(value);
+            s.override_rounding_rate = Some(value);
         });
     }
 
     #[allow(dead_code)]
     fn set_rounding_rate(&self, rate: u8) {
         UI_STATE.with_borrow_mut(|s| {
-            s.set_rounding_rate_count += 1;
-            s.set_rounding_rate_rate = Some(rate);
+            s.rounding_rate = Some(rate);
         });
     }
 
     #[allow(dead_code)]
     fn set_selected_osc_listening_port_index(&self, index: i32) {
         UI_STATE.with_borrow_mut(|s| {
-            s.set_selected_osc_listening_port_index_count += 1;
-            s.set_selected_osc_listening_port_index_index = Some(index);
+            s.selected_osc_listening_port_index = Some(index);
         });
     }
 
     #[allow(dead_code)]
     fn set_selected_pitch_table_index(&self, index: i32) {
         UI_STATE.with_borrow_mut(|s| {
-            s.set_selected_pitch_table_index_count += 1;
-            s.set_selected_pitch_table_index_index = Some(index);
+            s.selected_pitch_table_index = Some(index);
         });
     }
 }
 
 pub struct UiMethodsState {
     pub focus_port_count: u16,
-    pub focus_port_port_strategy: Option<Box<dyn PortStrategy>>,
+    pub focus_port_strategy: Option<Box<dyn PortStrategy>>,
 
     pub get_selected_port_index_count: u16,
     pub get_selected_port_index_port_strategy: Option<Box<dyn PortStrategy>>,
@@ -174,31 +168,21 @@ pub struct UiMethodsState {
     pub show_tuning_tuning: Option<FormattedTuningParams>,
     pub show_tuning_is_root_freq_overridden: Option<bool>,
 
-    pub set_main_window_position_count: u16,
-    pub set_main_window_position_x: Option<i32>,
-    pub set_main_window_position_y: Option<i32>,
+    pub main_window_position_x: Option<i32>,
+    pub main_window_position_y: Option<i32>,
 
-    pub set_override_rounding_initial_count: u16,
-    pub set_override_rounding_initial_value: Option<bool>,
-
-    pub set_override_rounding_rate_count: u16,
-    pub set_override_rounding_rate_value: Option<bool>,
-
-    pub set_rounding_rate_count: u16,
-    pub set_rounding_rate_rate: Option<u8>,
-
-    pub set_selected_osc_listening_port_index_count: u16,
-    pub set_selected_osc_listening_port_index_index: Option<i32>,
-
-    pub set_selected_pitch_table_index_count: u16,
-    pub set_selected_pitch_table_index_index: Option<i32>,
+    pub override_rounding_initial: Option<bool>,
+    pub override_rounding_rate: Option<bool>,
+    pub rounding_rate: Option<u8>,
+    pub selected_osc_listening_port_index: Option<i32>,
+    pub selected_pitch_table_index: Option<i32>,
 }
 
 impl UiMethodsState {
     pub fn new() -> Self {
         UiMethodsState {
             focus_port_count: 0,
-            focus_port_port_strategy: None,
+            focus_port_strategy: None,
 
             get_selected_port_index_count: 0,
             get_selected_port_index_port_strategy: None,
@@ -228,24 +212,13 @@ impl UiMethodsState {
             show_tuning_tuning: None,
             show_tuning_is_root_freq_overridden: None,
 
-            set_main_window_position_count: 0,
-            set_main_window_position_x: None,
-            set_main_window_position_y: None,
-
-            set_override_rounding_initial_count: 0,
-            set_override_rounding_initial_value: None,
-
-            set_override_rounding_rate_count: 0,
-            set_override_rounding_rate_value: None,
-
-            set_rounding_rate_count: 0,
-            set_rounding_rate_rate: None,
-
-            set_selected_osc_listening_port_index_count: 0,
-            set_selected_osc_listening_port_index_index: None,
-
-            set_selected_pitch_table_index_count: 0,
-            set_selected_pitch_table_index_index: None,
+            main_window_position_x: None,
+            main_window_position_y: None,
+            override_rounding_initial: None,
+            override_rounding_rate: None,
+            rounding_rate: None,
+            selected_osc_listening_port_index: None,
+            selected_pitch_table_index: None,
         }
     }
 }
@@ -254,7 +227,7 @@ impl Clone for UiMethodsState {
     fn clone(&self) -> Self {
         UiMethodsState {
             focus_port_count: self.focus_port_count,
-            focus_port_port_strategy: self.focus_port_port_strategy.as_ref().map(|s| s.clone_box()),
+            focus_port_strategy: self.focus_port_strategy.as_ref().map(|s| s.clone_box()),
 
             get_selected_port_index_count: self.get_selected_port_index_count,
             get_selected_port_index_port_strategy: self.get_selected_port_index_port_strategy.as_ref().map(|s| s.clone_box()),
@@ -284,24 +257,13 @@ impl Clone for UiMethodsState {
             show_tuning_tuning: self.show_tuning_tuning.clone(),
             show_tuning_is_root_freq_overridden: self.show_tuning_is_root_freq_overridden,
 
-            set_main_window_position_count: self.set_main_window_position_count,
-            set_main_window_position_x: self.set_main_window_position_x,
-            set_main_window_position_y: self.set_main_window_position_y,
-
-            set_override_rounding_initial_count: self.set_override_rounding_initial_count,
-            set_override_rounding_initial_value: self.set_override_rounding_initial_value,
-
-            set_override_rounding_rate_count: self.set_override_rounding_rate_count,
-            set_override_rounding_rate_value: self.set_override_rounding_rate_value,
-
-            set_rounding_rate_count: self.set_rounding_rate_count,
-            set_rounding_rate_rate: self.set_rounding_rate_rate,
-
-            set_selected_osc_listening_port_index_count: self.set_selected_osc_listening_port_index_count,
-            set_selected_osc_listening_port_index_index: self.set_selected_osc_listening_port_index_index,
-
-            set_selected_pitch_table_index_count: self.set_selected_pitch_table_index_count,
-            set_selected_pitch_table_index_index: self.set_selected_pitch_table_index_index,
+            main_window_position_x: self.main_window_position_x,
+            main_window_position_y: self.main_window_position_y,
+            override_rounding_initial: self.override_rounding_initial,
+            override_rounding_rate: self.override_rounding_rate,
+            rounding_rate: self.rounding_rate,
+            selected_osc_listening_port_index: self.selected_osc_listening_port_index,
+            selected_pitch_table_index: self.selected_pitch_table_index,
         }
     }
 }
