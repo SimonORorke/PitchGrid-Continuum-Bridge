@@ -5,7 +5,7 @@ use std::error::Error;
 use pitchgrid_continuum::i_midi::IMidi;
 use pitchgrid_continuum::midi_ports::{IIo};
 use pitchgrid_continuum::port_strategy::PortStrategy;
-use mock_io::MockIo;
+use mock_io::{IoState, MockIo};
 use pitchgrid_continuum::global::PortType;
 
 /// Returns a clone of the current `MidiState`.
@@ -30,6 +30,14 @@ impl MockMidi {
             input,
             output,
         }
+    }
+
+    pub fn input_state(&self) -> IoState {
+        self.input.state()
+    }
+
+    pub fn output_state(&self) -> IoState {
+        self.output.state()
     }
 }
 
