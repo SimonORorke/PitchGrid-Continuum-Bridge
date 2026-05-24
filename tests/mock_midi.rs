@@ -5,7 +5,8 @@ use std::error::Error;
 use pitchgrid_continuum::i_midi::IMidi;
 use pitchgrid_continuum::midi_ports::{IIo};
 use pitchgrid_continuum::port_strategy::PortStrategy;
-use mock_io::{IoState, MockIo};
+use mock_io::{MockIo};
+pub use mock_io::{input_state, output_state};
 use pitchgrid_continuum::global::PortType;
 
 /// Returns a clone of the current `MidiState`.
@@ -14,30 +15,22 @@ pub fn midi_state() -> MidiState {
 }
 
 pub struct MockMidi {
-    input: MockIo,
-    output: MockIo,
+    pub mock_input: MockIo,
+    pub mock_output: MockIo,
 }
 
 impl MockMidi {
     pub fn new(input_device_names: Vec<String>, output_device_names: Vec<String>,
         initial_input_device_name: &str, initial_output_device_name: &str) -> Self {
         MIDI_STATE.replace(MidiState::new());
-        let mut input = MockIo::new(input_device_names);
+        let mut input = MockIo::new(PortType::Input, input_device_names);
         input.set_device(initial_input_device_name);
-        let mut output = MockIo::new(output_device_names);
+        let mut output = MockIo::new(PortType::Output, output_device_names);
         output.set_device(initial_output_device_name);
         MockMidi {
-            input,
-            output,
+            mock_input: input,
+            mock_output: output,
         }
-    }
-
-    pub fn input_state(&self) -> IoState {
-        self.input.state()
-    }
-
-    pub fn output_state(&self) -> IoState {
-        self.output.state()
     }
 }
 
@@ -159,7 +152,6 @@ impl IMidi for MockMidi {
         output_device_name: &str,
     ) -> Result<(), Box<dyn Error>> {
         MIDI_STATE.with_borrow_mut(|s| {
-            s.init_count += 1;
             s.init_input_device_name = Some(input_device_name.to_string());
             s.init_output_device_name = Some(output_device_name.to_string());
         });
@@ -168,10 +160,7 @@ impl IMidi for MockMidi {
 
     #[allow(dead_code)]
     fn input(&self) -> &dyn IIo {
-        MIDI_STATE.with_borrow_mut(|s| {
-            s.input_count += 1;
-        });
-        &self.input
+        &self.mock_input
     }
 
     #[allow(dead_code)]
@@ -203,10 +192,7 @@ impl IMidi for MockMidi {
 
     #[allow(dead_code)]
     fn output(&self) -> &dyn IIo {
-        MIDI_STATE.with_borrow_mut(|s| {
-            s.output_count += 1;
-        });
-        &self.output
+        &self.mock_output
     }
 
     #[allow(dead_code)]
@@ -263,19 +249,14 @@ pub struct MidiState {
     pub has_downloaded_init_data_count: u16,
     pub has_downloaded_init_data_result: bool,
 
-    pub init_count: u16,
     pub init_input_device_name: Option<String>,
     pub init_output_device_name: Option<String>,
-
-    pub input_count: u16,
 
     pub io_count: u16,
     pub io_port_strategy: Option<Box<dyn PortStrategy>>,
 
     pub is_output_port_connected: bool,
     pub is_receiving_data: bool,
-
-    pub output_count: u16,
 
     pub refresh_devices_count: u16,
     pub refresh_devices_device_name: Option<String>,
@@ -308,19 +289,14 @@ impl MidiState {
             has_downloaded_init_data_count: 0,
             has_downloaded_init_data_result: false,
 
-            init_count: 0,
             init_input_device_name: None,
             init_output_device_name: None,
-
-            input_count: 0,
 
             io_count: 0,
             io_port_strategy: None,
 
             is_output_port_connected: false,
             is_receiving_data: false,
-
-            output_count: 0,
 
             refresh_devices_count: 0,
             refresh_devices_device_name: None,
@@ -355,19 +331,14 @@ impl Clone for MidiState {
             has_downloaded_init_data_count: self.has_downloaded_init_data_count,
             has_downloaded_init_data_result: self.has_downloaded_init_data_result,
 
-            init_count: self.init_count,
             init_input_device_name: self.init_input_device_name.clone(),
             init_output_device_name: self.init_output_device_name.clone(),
-
-            input_count: self.input_count,
 
             io_count: self.io_count,
             io_port_strategy: self.io_port_strategy.as_ref().map(|s| s.clone_box()),
 
             is_output_port_connected: self.is_output_port_connected,
             is_receiving_data: self.is_receiving_data,
-
-            output_count: self.output_count,
 
             refresh_devices_count: self.refresh_devices_count,
             refresh_devices_device_name: self.refresh_devices_device_name.clone(),

@@ -1,22 +1,38 @@
 use std::cell::RefCell;
 use std::error::Error;
+use pitchgrid_continuum::global::PortType;
 use pitchgrid_continuum::midi_ports::{IIo, IoDevice};
 
+pub fn input_state() -> IoState {
+    INPUT_STATE.with(|s| s.borrow().clone())
+}
+
+pub fn output_state() -> IoState {
+    OUTPUT_STATE.with(|s| s.borrow().clone())
+}
+
 pub struct MockIo {
+    port_type: PortType,
     /// Controls the return value of `device()`. Set directly on the mock to configure.
     pub device: Option<MockDevice>,
-    state: RefCell<IoState>,
 }
 
 impl MockIo {
-    pub fn new(device_names: Vec<String>) -> Self {
+    pub fn new(port_type: PortType, device_names: Vec<String>) -> Self {
         let mut state = IoState::new();
         state.device_names = device_names;
-        MockIo { device: None, state: RefCell::new(state) }
+        match port_type {
+            PortType::Input => INPUT_STATE.replace(state),
+            PortType::Output => OUTPUT_STATE.replace(state),
+        };
+        MockIo { port_type, device: None }
     }
 
     pub fn state(&self) -> IoState {
-        self.state.borrow().clone()
+        match self.port_type {
+            PortType::Input => input_state(),
+            PortType::Output => output_state(),
+        }
     }
 
     /// If the specified device name can be found in the device_names,
@@ -25,39 +41,50 @@ impl MockIo {
     /// Otherwise sets the device to None.
     pub fn set_device(&mut self, name: &str) {
         self.device = {
-            let s = self.state.borrow();
-            s.device_names.iter().position(|n| n == name).map(|index| MockDevice {
+            let device_names = self.state().device_names;
+            device_names.iter().position(|n| n == name).map(|index| MockDevice {
                 index,
                 name: name.to_string(),
             })
         };
+        let device_clone = self.device.clone();
+        match self.port_type {
+            PortType::Input => INPUT_STATE.with_borrow_mut(|s| s.device = device_clone),
+            PortType::Output => OUTPUT_STATE.with_borrow_mut(|s| s.device = device_clone),
+        }
     }
 }
 
 impl IIo for MockIo {
     #[allow(dead_code)]
     fn device(&self) -> Option<&dyn IoDevice> {
-        self.state.borrow_mut().device_count += 1;
         self.device.as_ref().map(|d| d as &dyn IoDevice)
     }
 
     #[allow(dead_code)]
     fn device_names(&self) -> Vec<String> {
-        self.state.borrow().device_names.clone()
+        self.state().device_names
     }
 
     #[allow(dead_code)]
     fn populate_devices(&mut self, persisted_device_name: &str) -> Result<(), Box<dyn Error>> {
-        let ok = {
-            let mut s = self.state.borrow_mut();
-            s.populate_devices_count += 1;
-            s.populate_devices_persisted_device_name = Some(persisted_device_name.to_string());
-            s.populate_devices_ok
+        let ok = match self.port_type {
+            PortType::Input => INPUT_STATE.with_borrow_mut(|s| {
+                s.populate_devices_count += 1;
+                s.populate_devices_persisted_device_name = Some(persisted_device_name.to_string());
+                s.populate_devices_ok
+            }),
+            PortType::Output => OUTPUT_STATE.with_borrow_mut(|s| {
+                s.populate_devices_count += 1;
+                s.populate_devices_persisted_device_name = Some(persisted_device_name.to_string());
+                s.populate_devices_ok
+            }),
         };
         if ok { Ok(()) } else { Err("mock error".into()) }
     }
 }
 
+#[derive(Clone)]
 pub struct MockDevice {
     pub index: usize,
     pub name: String,
@@ -69,20 +96,26 @@ impl IoDevice for MockDevice {
 }
 
 pub struct IoState {
-    pub device_count: u16,
-
+    pub device: Option<MockDevice>,
     pub device_names: Vec<String>,
-
     pub populate_devices_count: u16,
     pub populate_devices_persisted_device_name: Option<String>,
     pub populate_devices_ok: bool,
 }
 
 impl IoState {
+    pub fn device_name(&self) -> Option<String> {
+        self.device.as_ref().map(|d| d.name.clone())
+    }
+
+    pub fn device_index(&self) -> Option<usize> {
+        self.device.as_ref().map(|d| d.index)
+    }
+
     pub fn new() -> Self {
         IoState {
-            device_count: 0,
-            device_names: Vec::new(),
+            device: None,
+            device_names: vec![],
             populate_devices_count: 0,
             populate_devices_persisted_device_name: None,
             populate_devices_ok: true,
@@ -93,9 +126,8 @@ impl IoState {
 impl Clone for IoState {
     fn clone(&self) -> Self {
         IoState {
-            device_count: self.device_count,
+            device: self.device.clone(),
             device_names: self.device_names.clone(),
-
             populate_devices_count: self.populate_devices_count,
             populate_devices_persisted_device_name: self.populate_devices_persisted_device_name.clone(),
             populate_devices_ok: self.populate_devices_ok,
@@ -103,3 +135,7 @@ impl Clone for IoState {
     }
 }
 
+thread_local! {
+    static INPUT_STATE: RefCell<IoState> = RefCell::new(IoState::new());
+    static OUTPUT_STATE: RefCell<IoState> = RefCell::new(IoState::new());
+}

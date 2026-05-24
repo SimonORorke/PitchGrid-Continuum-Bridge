@@ -1,6 +1,6 @@
 mod mock_midi_sender;
 
-use std::sync::Mutex;
+use std::sync::{Mutex, MutexGuard};
 use googletest::assert_that;
 use googletest::matchers::{eq, gt};
 use pitchgrid_continuum::tuner::{ITuner, Tuner};
@@ -195,7 +195,7 @@ fn params_31_19() -> TuningParams {
                       8.250002, 19, 5, 2)
 }
 
-fn test_mutex_guard() -> std::sync::MutexGuard<'static, ()> {
+fn test_mutex_guard() -> MutexGuard<'static, ()> {
     TEST_MUTEX.lock().unwrap_or_else(|e| e.into_inner())
 }
 

@@ -1,10 +1,11 @@
-﻿mod mock_midi;
+﻿// mod mock_io;
+mod mock_midi;
 mod mock_osc;
 mod mock_settings;
 mod mock_tuner;
 mod mock_ui_methods;
 
-use std::sync::{Arc, LazyLock, Mutex};
+use std::sync::{Arc, LazyLock, Mutex, MutexGuard};
 use googletest::assert_that;
 use googletest::matchers::{eq, len, ok, some};
 use pitchgrid_continuum::controller::Controller;
@@ -12,7 +13,8 @@ use pitchgrid_continuum::global::{MessageType, PortType};
 use pitchgrid_continuum::midi_static::MidiStatic;
 use pitchgrid_continuum::osc::Osc;
 use pitchgrid_continuum::tuner::Tuner;
-use mock_midi::{MockMidi, midi_state};
+// pub use mock_io::{input_state, output_state};
+use mock_midi::{MockMidi, midi_state, input_state, output_state};
 use mock_osc::{MockOsc, osc_state};
 use mock_settings::{MockSettings, settings_state};
 use mock_tuner::{MockTuner, tuner_state};
@@ -37,7 +39,11 @@ fn init_from_settings() {
     mock_settings.set_rounding_rate(ROUNDING_RATE);
     let _controller = create_controller(mock_settings);
     assert_that!(midi_state().init_input_device_name, some(eq(&INPUT_DEVICE_NAMES[0])));
+    assert_that!(input_state().device_name(), some(eq(&INPUT_DEVICE_NAMES[0])));
+    assert_that!(input_state().device_index(), some(eq(0)));
     assert_that!(midi_state().init_output_device_name, some(eq(&OUTPUT_DEVICE_NAMES[0])));
+    assert_that!(output_state().device_name(), some(eq(&OUTPUT_DEVICE_NAMES[0])));
+    assert_that!(output_state().device_index(), some(eq(0)));
     assert_that!(ui_state().show_connected_device_name_count, eq(2));
     assert_that!(ui_state().show_connected_device_name_name, some(eq(&INPUT_DEVICE_NAMES[0])));
     assert_that!(ui_state().show_connected_device_name_msg_type, some(eq(MessageType::Info)));
@@ -100,8 +106,10 @@ fn create_controller(mock_settings: MockSettings) -> Controller {
     controller
 }
 
+
+
 /// Hold the returned guard in each test to ensure sequential execution of tests.
-fn test_mutex_guard() -> std::sync::MutexGuard<'static, ()> {
+fn test_mutex_guard() -> MutexGuard<'static, ()> {
     TEST_MUTEX.lock().unwrap_or_else(|e| e.into_inner())
 }
 
