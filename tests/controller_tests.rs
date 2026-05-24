@@ -1,5 +1,4 @@
-﻿// mod mock_io;
-mod mock_midi;
+﻿mod mock_midi;
 mod mock_osc;
 mod mock_settings;
 mod mock_tuner;
@@ -13,8 +12,8 @@ use pitchgrid_continuum::global::{MessageType, PortType};
 use pitchgrid_continuum::midi_static::MidiStatic;
 use pitchgrid_continuum::osc::Osc;
 use pitchgrid_continuum::tuner::Tuner;
-// pub use mock_io::{input_state, output_state};
-use mock_midi::{MockMidi, midi_state, input_state, output_state};
+use mock_midi::{MockMidi, midi_state};
+use mock_midi::mock_io::{input_state, output_state};
 use mock_osc::{MockOsc, osc_state};
 use mock_settings::{MockSettings, settings_state};
 use mock_tuner::{MockTuner, tuner_state};
@@ -56,6 +55,7 @@ fn init_from_settings() {
     assert_that!(tuner_state().override_rounding_initial, some(eq(OVERRIDE_ROUNDING_INITIAL)));
     assert_that!(tuner_state().override_rounding_rate, some(eq(OVERRIDE_ROUNDING_RATE)));
     assert_that!(tuner_state().rounding_rate, some(eq(ROUNDING_RATE)));
+    assert_that!(midi_state().start_instrument_connection_monitor_count, eq(1));
 }
 
 #[googletest::gtest]
@@ -91,7 +91,7 @@ fn init_no_settings() {
     assert_that!(ui_state().override_rounding_initial, some(eq(true)));
     assert_that!(ui_state().override_rounding_rate, some(eq(true)));
     assert_that!(ui_state().rounding_rate, some(eq(127)));
-    assert_that!(midi_state().start_instrument_connection_monitor_count, eq(1));
+    assert_that!(midi_state().start_instrument_connection_monitor_count, eq(0));
 }
 
 fn create_controller(mock_settings: MockSettings) -> Controller {

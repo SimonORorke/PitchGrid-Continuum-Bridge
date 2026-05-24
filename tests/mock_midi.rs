@@ -1,12 +1,11 @@
-#[path = "mock_io.rs"] mod mock_io;
+#[path = "mock_io.rs"] pub mod mock_io;
 
 use std::cell::RefCell;
 use std::error::Error;
 use pitchgrid_continuum::i_midi::IMidi;
 use pitchgrid_continuum::midi_ports::{IIo};
 use pitchgrid_continuum::port_strategy::PortStrategy;
-use mock_io::{MockIo};
-pub use mock_io::{input_state, output_state};
+use mock_io::MockIo;
 use pitchgrid_continuum::global::PortType;
 
 /// Returns a clone of the current `MidiState`.
@@ -15,8 +14,8 @@ pub fn midi_state() -> MidiState {
 }
 
 pub struct MockMidi {
-    pub mock_input: MockIo,
-    pub mock_output: MockIo,
+    mock_input: MockIo,
+    mock_output: MockIo,
 }
 
 impl MockMidi {
