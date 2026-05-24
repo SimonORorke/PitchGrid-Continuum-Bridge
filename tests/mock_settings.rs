@@ -16,6 +16,11 @@ impl MockSettings {
         SETTINGS_STATE.replace(SettingsState::new());
         MockSettings {}
     }
+
+    pub fn simulate_read_from_file_err(&self, msg: &str) {
+        SETTINGS_STATE.with_borrow_mut(|s| s.read_from_file_result =
+            Err(Arc::new(std::io::Error::new(std::io::ErrorKind::Other, msg))));
+    }
 }
 
 impl ISettings for MockSettings {

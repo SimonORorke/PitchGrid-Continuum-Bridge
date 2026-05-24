@@ -94,6 +94,20 @@ fn init_no_settings() {
     assert_that!(midi_state().start_instrument_connection_monitor_count, eq(0));
 }
 
+#[googletest::gtest]
+fn init_read_settings_err() {
+    const ERROR_MESSAGE: &str = "Test error";
+    let _guard = test_mutex_guard();
+    let mock_settings = MockSettings::new();
+    mock_settings.simulate_read_from_file_err(ERROR_MESSAGE);
+    let _controller = create_controller(mock_settings);
+    assert_that!(settings_state().read_from_file_count, eq(1));
+    assert_that!(ui_state().show_message_count, eq(1));
+    assert_that!(ui_state().show_message_msg, some(eq(ERROR_MESSAGE)));
+    assert_that!(ui_state().show_message_msg_type, some(eq(MessageType::Error)));
+    assert_that!(midi_state().start_instrument_connection_monitor_count, eq(0));
+}
+
 fn create_controller(mock_settings: MockSettings) -> Controller {
     MidiStatic::set_midi(Box::new(MockMidi::new(
         INPUT_DEVICE_NAMES.clone(), OUTPUT_DEVICE_NAMES.clone(),
