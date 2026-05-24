@@ -2,6 +2,7 @@
 
 use std::cell::RefCell;
 use std::error::Error;
+use std::sync::Arc;
 use pitchgrid_continuum::i_midi::IMidi;
 use pitchgrid_continuum::midi_ports::{IIo};
 use pitchgrid_continuum::port_strategy::PortStrategy;
@@ -30,6 +31,11 @@ impl MockMidi {
             mock_input: input,
             mock_output: output,
         }
+    }
+
+    pub fn simulate_init_err(msg: &str) {
+        MIDI_STATE.with_borrow_mut(|s| s.init_result =
+            Err(Arc::new(std::io::Error::new(std::io::ErrorKind::Other, msg))));
     }
 }
 
@@ -150,11 +156,16 @@ impl IMidi for MockMidi {
         input_device_name: &str,
         output_device_name: &str,
     ) -> Result<(), Box<dyn Error>> {
-        MIDI_STATE.with_borrow_mut(|s| {
-            s.init_input_device_name = Some(input_device_name.to_string());
-            s.init_output_device_name = Some(output_device_name.to_string());
-        });
-        Ok(())
+        match MIDI_STATE.with(|s| s.borrow().init_result.clone()) {
+            Ok(()) => {
+                MIDI_STATE.with_borrow_mut(|s| {
+                    s.init_input_device_name = Some(input_device_name.to_string());
+                    s.init_output_device_name = Some(output_device_name.to_string());
+                });
+                Ok(())
+            }
+            Err(e) => Err(e.to_string().into()),
+        }
     }
 
     #[allow(dead_code)]
@@ -248,6 +259,7 @@ pub struct MidiState {
     pub has_downloaded_init_data_count: u16,
     pub has_downloaded_init_data_result: bool,
 
+    pub init_result: Result<(), Arc<dyn Error>>,
     pub init_input_device_name: Option<String>,
     pub init_output_device_name: Option<String>,
 
@@ -288,6 +300,7 @@ impl MidiState {
             has_downloaded_init_data_count: 0,
             has_downloaded_init_data_result: false,
 
+            init_result: Ok(()),
             init_input_device_name: None,
             init_output_device_name: None,
 
@@ -330,6 +343,7 @@ impl Clone for MidiState {
             has_downloaded_init_data_count: self.has_downloaded_init_data_count,
             has_downloaded_init_data_result: self.has_downloaded_init_data_result,
 
+            init_result: self.init_result.clone(),
             init_input_device_name: self.init_input_device_name.clone(),
             init_output_device_name: self.init_output_device_name.clone(),
 

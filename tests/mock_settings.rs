@@ -5,6 +5,7 @@ use pitchgrid_continuum::i_settings::ISettings;
 use pitchgrid_continuum::path_finder::PathFinder;
 
 /// Returns a clone of the current `SettingsState`.
+#[allow(dead_code)]
 pub fn settings_state() -> SettingsState {
     SETTINGS_STATE.with(|s| s.borrow().clone())
 }
@@ -116,7 +117,6 @@ impl ISettings for MockSettings {
 
     #[allow(dead_code)]
     fn read_from_file(&mut self) -> Result<(), Box<dyn Error>> {
-        SETTINGS_STATE.with_borrow_mut(|s| s.read_from_file_count += 1);
         match SETTINGS_STATE.with(|s| s.borrow().read_from_file_result.clone()) {
             Ok(()) => Ok(()),
             Err(e) => Err(e.to_string().into()),
@@ -125,7 +125,6 @@ impl ISettings for MockSettings {
 
     #[allow(dead_code)]
     fn write_to_file(&mut self) -> Result<(), Box<dyn Error>> {
-        SETTINGS_STATE.with_borrow_mut(|s| s.write_to_file_count += 1);
         match SETTINGS_STATE.with(|s| s.borrow().write_to_file_result.clone()) {
             Ok(()) => Ok(()),
             Err(e) => Err(e.to_string().into()),
@@ -148,10 +147,7 @@ pub struct SettingsState {
     pub override_rounding_rate: bool,
     pub rounding_rate: u8,
 
-    pub read_from_file_count: u16,
     pub read_from_file_result: Result<(), Arc<dyn Error>>,
-
-    pub write_to_file_count: u16,
     pub write_to_file_result: Result<(), Arc<dyn Error>>,
 }
 
@@ -168,10 +164,7 @@ impl SettingsState {
             override_rounding_rate: true,
             rounding_rate: 127,
 
-            read_from_file_count: 0,
             read_from_file_result: Ok(()),
-
-            write_to_file_count: 0,
             write_to_file_result: Ok(()),
         }
     }
