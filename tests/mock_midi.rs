@@ -259,7 +259,7 @@ pub struct MidiState {
     pub has_downloaded_init_data_count: u16,
     pub has_downloaded_init_data_result: bool,
 
-    pub init_result: Result<(), Arc<dyn Error>>,
+    init_result: Result<(), Arc<dyn Error>>,
     pub init_input_device_name: Option<String>,
     pub init_output_device_name: Option<String>,
 

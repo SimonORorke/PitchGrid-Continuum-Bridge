@@ -6,7 +6,7 @@ mod mock_ui_methods;
 
 use std::sync::{Arc, LazyLock, Mutex, MutexGuard};
 use googletest::assert_that;
-use googletest::matchers::{eq, len, some};
+use googletest::matchers::{displays_as, eq, err, len, ok, some};
 use pitchgrid_continuum::controller::Controller;
 use pitchgrid_continuum::global::{MessageType, PortType};
 use pitchgrid_continuum::midi_static::MidiStatic;
@@ -15,19 +15,19 @@ use pitchgrid_continuum::tuner::Tuner;
 use mock_midi::{MockMidi, midi_state};
 use mock_midi::mock_io::{input_state, output_state};
 use mock_osc::{MockOsc, osc_state};
-use mock_settings::{MockSettings};
+use mock_settings::{MockSettings, settings_state};
 use mock_tuner::{MockTuner, tuner_state};
 use mock_ui_methods::{MockUiMethods, ui_state};
 use pitchgrid_continuum::i_settings::ISettings;
 
 #[googletest::gtest]
 fn init_from_settings() {
+    let _guard = test_mutex_guard();
     const LISTENING_PORT: u16 = 34563;
     const PITCH_TABLE: u8 = 81;
     const OVERRIDE_ROUNDING_INITIAL: bool = false; // as the default is true
     const OVERRIDE_ROUNDING_RATE: bool = false; // as the default is true
     const ROUNDING_RATE: u8 = 100;
-    let _guard = test_mutex_guard();
     let mut mock_settings = MockSettings::new();
     mock_settings.set_midi_input_device(&INPUT_DEVICE_NAMES[0]);
     mock_settings.set_midi_output_device(&OUTPUT_DEVICE_NAMES[0]);
@@ -61,8 +61,8 @@ fn init_from_settings() {
 
 #[googletest::gtest]
 fn init_midi_err() {
-    const ERR_MSG: &str = "Test error";
     let _guard = test_mutex_guard();
+    const ERR_MSG: &str = "Test error";
     let mock_settings = MockSettings::new();
     let mut controller = create_controller(mock_settings);
     MockMidi::simulate_init_err(ERR_MSG);
@@ -110,8 +110,8 @@ fn init_no_settings() {
 
 #[googletest::gtest]
 fn init_read_settings_err() {
-    const ERR_MSG: &str = "Test error";
     let _guard = test_mutex_guard();
+    const ERR_MSG: &str = "Test error";
     let mock_settings = MockSettings::new();
     mock_settings.simulate_read_from_file_err(ERR_MSG);
     let mut controller = create_controller(mock_settings);
@@ -120,6 +120,56 @@ fn init_read_settings_err() {
     assert_that!(ui_state().show_message_msg, some(eq(ERR_MSG)));
     assert_that!(ui_state().show_message_msg_type, some(eq(MessageType::Error)));
     assert_that!(midi_state().start_instrument_connection_monitor_count, eq(0));
+}
+
+#[googletest::gtest]
+fn close() {
+    let _guard = test_mutex_guard();
+    const OLD_MAIN_WINDOW_X: i32 = 100;
+    const OLD_MAIN_WINDOW_Y: i32 = 200;
+    const NEW_MAIN_WINDOW_X: i32 = 150;
+    const NEW_MAIN_WINDOW_Y: i32 = 250;
+    let mut mock_settings = MockSettings::new();
+    mock_settings.set_midi_input_device(&INPUT_DEVICE_NAMES[0]);
+    mock_settings.set_midi_output_device(&OUTPUT_DEVICE_NAMES[0]);
+    mock_settings.set_main_window_x(OLD_MAIN_WINDOW_X);
+    mock_settings.set_main_window_y(OLD_MAIN_WINDOW_Y);
+    let mut controller = create_controller(mock_settings);
+    controller.init();
+    assert_that!(midi_state().start_instrument_connection_monitor_count, eq(1));
+    let result = controller.close(NEW_MAIN_WINDOW_X, NEW_MAIN_WINDOW_Y);
+    assert_that!(result, ok(()));
+    assert_that!(midi_state().close_count, eq(1));
+    assert_that!(osc_state().stop_count, eq(1));
+    assert_that!(settings_state().main_window_x, eq(NEW_MAIN_WINDOW_X));
+    assert_that!(settings_state().main_window_y, eq(NEW_MAIN_WINDOW_Y));
+}
+
+#[googletest::gtest]
+fn close_err() {
+    let _guard = test_mutex_guard();
+    const ERR_MSG: &str = "Test error";
+    const OLD_MAIN_WINDOW_X: i32 = 100;
+    const OLD_MAIN_WINDOW_Y: i32 = 200;
+    const NEW_MAIN_WINDOW_X: i32 = 150;
+    const NEW_MAIN_WINDOW_Y: i32 = 250;
+    let mut mock_settings = MockSettings::new();
+    mock_settings.set_midi_input_device(&INPUT_DEVICE_NAMES[0]);
+    mock_settings.set_midi_output_device(&OUTPUT_DEVICE_NAMES[0]);
+    mock_settings.set_main_window_x(OLD_MAIN_WINDOW_X);
+    mock_settings.set_main_window_y(OLD_MAIN_WINDOW_Y);
+    mock_settings.simulate_write_to_file_err(ERR_MSG);
+    let mut controller = create_controller(mock_settings);
+    controller.init();
+    assert_that!(midi_state().start_instrument_connection_monitor_count, eq(1));
+    let result = controller.close(NEW_MAIN_WINDOW_X, NEW_MAIN_WINDOW_Y);
+    assert_that!(result, err(displays_as(eq(ERR_MSG))));
+    assert_that!(midi_state().close_count, eq(1));
+    assert_that!(osc_state().stop_count, eq(1));
+    assert_that!(settings_state().main_window_x, eq(NEW_MAIN_WINDOW_X));
+    assert_that!(settings_state().main_window_y, eq(NEW_MAIN_WINDOW_Y));
+    assert_that!(ui_state().show_message_msg, some(eq(ERR_MSG)));
+    assert_that!(ui_state().show_message_msg_type, some(eq(MessageType::Error)));
 }
 
 fn create_controller(mock_settings: MockSettings) -> Controller {
@@ -133,9 +183,8 @@ fn create_controller(mock_settings: MockSettings) -> Controller {
     controller
 }
 
-
-
-/// Hold the returned guard in each test to ensure sequential execution of tests.
+/// To avoid races on static data, hold the returned guard in each test to ensure sequential
+/// execution of tests.
 fn test_mutex_guard() -> MutexGuard<'static, ()> {
     TEST_MUTEX.lock().unwrap_or_else(|e| e.into_inner())
 }

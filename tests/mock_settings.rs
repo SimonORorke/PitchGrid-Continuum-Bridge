@@ -5,7 +5,6 @@ use pitchgrid_continuum::i_settings::ISettings;
 use pitchgrid_continuum::path_finder::PathFinder;
 
 /// Returns a clone of the current `SettingsState`.
-#[allow(dead_code)]
 pub fn settings_state() -> SettingsState {
     SETTINGS_STATE.with(|s| s.borrow().clone())
 }
@@ -20,6 +19,11 @@ impl MockSettings {
 
     pub fn simulate_read_from_file_err(&self, msg: &str) {
         SETTINGS_STATE.with_borrow_mut(|s| s.read_from_file_result =
+            Err(Arc::new(std::io::Error::new(std::io::ErrorKind::Other, msg))));
+    }
+
+    pub fn simulate_write_to_file_err(&self, msg: &str) {
+        SETTINGS_STATE.with_borrow_mut(|s| s.write_to_file_result =
             Err(Arc::new(std::io::Error::new(std::io::ErrorKind::Other, msg))));
     }
 }
@@ -147,8 +151,8 @@ pub struct SettingsState {
     pub override_rounding_rate: bool,
     pub rounding_rate: u8,
 
-    pub read_from_file_result: Result<(), Arc<dyn Error>>,
-    pub write_to_file_result: Result<(), Arc<dyn Error>>,
+    read_from_file_result: Result<(), Arc<dyn Error>>,
+    write_to_file_result: Result<(), Arc<dyn Error>>,
 }
 
 impl SettingsState {
