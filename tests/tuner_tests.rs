@@ -195,6 +195,8 @@ fn params_31_19() -> TuningParams {
                       8.250002, 19, 5, 2)
 }
 
+/// To avoid races on static data, hold the returned guard in each test to ensure sequential
+/// execution of tests.
 fn test_mutex_guard() -> MutexGuard<'static, ()> {
     TEST_MUTEX.lock().unwrap_or_else(|e| e.into_inner())
 }

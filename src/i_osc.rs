@@ -1,5 +1,10 @@
 use std::sync::Arc;
-use crate::osc::OscCallbacks;
+use crate::tuning_params::TuningParams;
+
+pub trait OscCallbacks: Send + Sync {
+    fn on_osc_pitchgrid_connected_changed(&self);
+    fn on_osc_tuning_received(&self, tuning_params: TuningParams);
+}
 
 /// A trait that defines the interface for communicating with PitchGrid via OSC.
 ///

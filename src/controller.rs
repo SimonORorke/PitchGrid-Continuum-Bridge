@@ -4,8 +4,8 @@ use std::sync::mpsc;
 use std::time::Duration;
 use crate::global::{MessageType, PortType};
 use crate::i_midi::SharedMidi;
-use crate::i_osc::IOsc;
-use crate::osc::{Osc, OscCallbacks};
+use crate::i_osc::{IOsc, OscCallbacks};
+use crate::osc::Osc;
 use crate::i_settings::ISettings;
 use crate::port_strategy::{
     InputStrategy, OutputStrategy, PortStrategy};

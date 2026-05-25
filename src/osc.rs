@@ -6,7 +6,7 @@ use std::sync::atomic::{AtomicBool, AtomicU16, Ordering};
 use std::time::{Duration, Instant};
 use rosc::{decoder, encoder, OscMessage, OscPacket, OscType};
 use crate::tuning_params::TuningParams;
-use crate::i_osc::IOsc;
+use crate::i_osc::{IOsc, OscCallbacks};
 
 /// A facility for communicating with PitchGrid via OSC.
 ///
@@ -330,11 +330,6 @@ const SPECTRUM_ADDR: &str = "/pitchgrid/plugin/spectrum";
 const CONSONANCE_ADDR: &str = "/pitchgrid/plugin/consonance";
 const NOTE_ON_ADDR: &str = "/pitchgrid/plugin/note_on";
 const NOTE_OFF_ADDR: &str = "/pitchgrid/plugin/note_off";
-
-pub trait OscCallbacks: Send + Sync {
-    fn on_osc_pitchgrid_connected_changed(&self);
-    fn on_osc_tuning_received(&self, tuning_params: TuningParams);
-}
 
 static IS_PITCHGRID_CONNECTED: AtomicBool = AtomicBool::new(false);
 static LISTENING_PORT: AtomicU16 = AtomicU16::new(0);

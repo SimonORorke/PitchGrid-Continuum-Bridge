@@ -1,7 +1,8 @@
 use std::cell::RefCell;
 use std::sync::Arc;
 use pitchgrid_continuum::i_osc::IOsc;
-use pitchgrid_continuum::osc::OscCallbacks;
+use pitchgrid_continuum::i_osc::OscCallbacks;
+use pitchgrid_continuum::tuning_params::TuningParams;
 
 /// Returns a clone of the current `OscState`.
 pub fn osc_state() -> OscState {
@@ -15,7 +16,23 @@ impl MockOsc {
         OSC_STATE.replace(OscState::new());
         MockOsc {}
     }
+
+    #[allow(dead_code)]
+    pub fn simulate_pitchgrid_connected_changed(is_pitchgrid_connected: bool) {
+        OSC_STATE.with_borrow_mut(|s| {
+            s.is_pitchgrid_connected_result = is_pitchgrid_connected;
+            s.callbacks.as_ref().unwrap().on_osc_pitchgrid_connected_changed();
+        });
+    }
+
+    #[allow(dead_code)]
+    pub fn simulate_tuning_received(tuning_params: TuningParams) {
+        OSC_STATE.with_borrow_mut(|s| {
+            s.callbacks.as_ref().unwrap().on_osc_tuning_received(tuning_params);
+        });
+    }
 }
+
 
 impl IOsc for MockOsc {
     #[allow(dead_code)]
@@ -30,7 +47,7 @@ impl IOsc for MockOsc {
     fn start(&mut self, callbacks: Arc<dyn OscCallbacks>) {
         OSC_STATE.with_borrow_mut(|s| {
             s.start_count += 1;
-            s.start_callbacks = Some(callbacks);
+            s.callbacks = Some(callbacks);
         });
     }
 
@@ -63,7 +80,7 @@ pub struct OscState {
     pub listening_port: Option<u16>,
 
     pub start_count: u16,
-    pub start_callbacks: Option<Arc<dyn OscCallbacks>>,
+    pub callbacks: Option<Arc<dyn OscCallbacks>>,
 
     pub stop_count: u16,
 
@@ -81,7 +98,7 @@ impl OscState {
             listening_port: None,
 
             start_count: 0,
-            start_callbacks: None,
+            callbacks: None,
 
             stop_count: 0,
 
@@ -101,7 +118,7 @@ impl Clone for OscState {
             listening_port: self.listening_port,
 
             start_count: self.start_count,
-            start_callbacks: self.start_callbacks.clone(),
+            callbacks: self.callbacks.clone(),
 
             stop_count: self.stop_count,
 
