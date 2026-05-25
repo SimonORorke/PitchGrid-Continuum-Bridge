@@ -7,12 +7,12 @@ use crate::port_strategy::PortStrategy;
 ///
 /// For the The `I` prefix, see `ITuner`s doc comment.
 pub trait IMidi {
-    fn add_init_download_completed_callback(
+    fn add_download_completed_callback(
         &mut self,
         callback: Box<dyn Fn() + Send + Sync + 'static>,
     );
 
-    fn add_init_download_started_callback(
+    fn add_download_started_callback(
         &mut self,
         callback: Box<dyn Fn() + Send + Sync + 'static>,
     );

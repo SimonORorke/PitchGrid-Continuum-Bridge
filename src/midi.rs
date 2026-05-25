@@ -514,7 +514,7 @@ static IS_MONITORING_DOWNLOAD: AtomicBool = AtomicBool::new(false);
 static IS_RECEIVING_DATA: AtomicBool = AtomicBool::new(false);
 
 impl IMidi for Midi {
-    fn add_init_download_completed_callback(
+    fn add_download_completed_callback(
         &mut self,
         callback: Box<dyn Fn() + Send + Sync + 'static>,
     ) {
@@ -522,7 +522,7 @@ impl IMidi for Midi {
         download_completed_callbacks().lock().unwrap().push(callback);
     }
 
-    fn add_init_download_started_callback(
+    fn add_download_started_callback(
         &mut self,
         callback: Box<dyn Fn() + Send + Sync + 'static>,
     ) {

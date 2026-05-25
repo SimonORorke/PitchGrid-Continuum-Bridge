@@ -41,7 +41,7 @@ impl MockMidi {
 
 impl IMidi for MockMidi {
     #[allow(dead_code)]
-    fn add_init_download_completed_callback(
+    fn add_download_completed_callback(
         &mut self,
         _callback: Box<dyn Fn() + Send + Sync + 'static>,
     ) {
@@ -51,7 +51,7 @@ impl IMidi for MockMidi {
     }
 
     #[allow(dead_code)]
-    fn add_init_download_started_callback(
+    fn add_download_started_callback(
         &mut self,
         _callback: Box<dyn Fn() + Send + Sync + 'static>,
     ) {

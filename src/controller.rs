@@ -91,11 +91,11 @@ impl Controller {
             return;
         }
         // println!("Controller.init: Adding download completed callback");
-        midi.add_init_download_completed_callback(Box::new(|| {
-            Self::clone_controller().lock().unwrap().on_init_data_download_completed();
+        midi.add_download_completed_callback(Box::new(|| {
+            Self::clone_controller().lock().unwrap().on_data_download_completed();
         }));
-        midi.add_init_download_started_callback(Box::new(|| {
-            Self::clone_controller().lock().unwrap().on_init_data_download_started();
+        midi.add_download_started_callback(Box::new(|| {
+            Self::clone_controller().lock().unwrap().on_data_download_started();
         }));
         midi.add_ports_connected_changed_callback(Box::new(|| {
             Self::clone_controller().lock().unwrap().on_ports_connected_changed();
@@ -350,7 +350,7 @@ impl Controller {
         self.settings.set_pitch_table(pitch_table);
     }
 
-    fn on_init_data_download_completed(&mut self) {
+    fn on_data_download_completed(&mut self) {
         println!("Controller.on_init_data_download_completed");
         if MidiStatic::is_receiving_data()
                 && MidiStatic::are_ports_connected()
@@ -361,7 +361,7 @@ impl Controller {
         }
     }
 
-    fn on_init_data_download_started(&mut self) {
+    fn on_data_download_started(&mut self) {
         // println!("Controller.on_init_data_download_started");
         self.show_info(AWAITING_DATA_DOWNLOAD_COMPLETION);
     }
