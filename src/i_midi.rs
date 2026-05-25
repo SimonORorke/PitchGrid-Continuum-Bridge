@@ -3,44 +3,21 @@ use std::sync::{Arc, Mutex};
 use crate::midi_ports::IIo;
 use crate::port_strategy::PortStrategy;
 
+pub trait MidiCallbacks: Send + Sync {
+    fn on_download_completed(&self);
+    fn on_download_started(&self);
+    fn on_new_preset_selected(&self);
+    fn on_ports_connected_changed(&self);
+    fn on_receiving_data_started(&self);
+    fn on_receiving_data_stopped(&self);
+    fn on_tuning_updated(&self);
+    fn on_updating_tuning(&self);
+}
+
 /// A trait that defines the interface for managing MIDI devices and messages.
 ///
 /// For the The `I` prefix, see `ITuner`s doc comment.
 pub trait IMidi {
-    fn add_download_completed_callback(
-        &mut self,
-        callback: Box<dyn Fn() + Send + Sync + 'static>,
-    );
-
-    fn add_download_started_callback(
-        &mut self,
-        callback: Box<dyn Fn() + Send + Sync + 'static>,
-    );
-
-    fn add_ports_connected_changed_callback(
-        &mut self,
-        callback: Box<dyn Fn() + Send + Sync + 'static>,
-    );
-
-    fn add_new_preset_selected_callback(
-        &mut self,
-        callback: Box<dyn Fn() + Send + Sync + 'static>,
-    );
-
-    fn add_receiving_data_started_callback(
-        &mut self,
-        callback: Box<dyn Fn() + Send + Sync + 'static>,
-    );
-
-    fn add_receiving_data_stopped_callback(
-        &mut self,
-        callback: Box<dyn Fn() + Send + Sync + 'static>,
-    );
-
-    fn add_tuning_updated_callback(&mut self, callback: Box<dyn Fn() + Send + Sync + 'static>);
-
-    fn add_updating_tuning_callback(&mut self, callback: Box<dyn Fn() + Send + Sync + 'static>);
-
     fn are_ports_connected(&self) -> bool;
 
     fn close(&mut self);
@@ -55,6 +32,7 @@ pub trait IMidi {
         &mut self,
         input_device_name: &str,
         output_device_name: &str,
+        callbacks: Arc<dyn MidiCallbacks>,
     ) -> Result<(), Box<dyn Error>>;
 
     fn input(&self) -> &dyn IIo;

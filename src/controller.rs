@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex, OnceLock};
 use std::sync::mpsc;
 use std::time::Duration;
 use crate::global::{MessageType, PortType};
-use crate::i_midi::SharedMidi;
+use crate::i_midi::{MidiCallbacks, SharedMidi};
 use crate::i_osc::{IOsc, OscCallbacks};
 use crate::osc::Osc;
 use crate::i_settings::ISettings;
@@ -86,36 +86,10 @@ impl Controller {
         let shared_midi = MidiStatic::midi_clone();
         let mut midi = shared_midi.lock().unwrap();
         if let Err(err) = midi.init(
-            &input_device_name, &output_device_name) {
+            &input_device_name, &output_device_name, Self::clone_controller()) {
             self.show_error(&err.to_string());
             return;
         }
-        // println!("Controller.init: Adding download completed callback");
-        midi.add_download_completed_callback(Box::new(|| {
-            Self::clone_controller().lock().unwrap().on_data_download_completed();
-        }));
-        midi.add_download_started_callback(Box::new(|| {
-            Self::clone_controller().lock().unwrap().on_data_download_started();
-        }));
-        midi.add_ports_connected_changed_callback(Box::new(|| {
-            Self::clone_controller().lock().unwrap().on_ports_connected_changed();
-        }));
-        // println!("Controller.init: Adding selected preset loaded callback");
-        midi.add_new_preset_selected_callback(Box::new(|| {
-            Self::clone_controller().lock().unwrap().on_new_preset_selected();
-        }));
-        midi.add_receiving_data_started_callback(Box::new(|| {
-            Self::clone_controller().lock().unwrap().on_receiving_data_started_callback();
-        }));
-        midi.add_receiving_data_stopped_callback(Box::new(|| {
-            Self::clone_controller().lock().unwrap().on_receiving_data_stopped_callback();
-        }));
-        midi.add_tuning_updated_callback(Box::new(|| {
-            Self::clone_controller().lock().unwrap().on_tuning_updated();
-        }));
-        midi.add_updating_tuning_callback(Box::new(|| {
-            Self::clone_controller().lock().unwrap().on_updating_tuning();
-        }));
         drop(midi); // Release MIDI lock before calling device_names which needs to acquire it
         let input_strategy = InputStrategy::new();
         let output_strategy = OutputStrategy::new();
@@ -656,6 +630,40 @@ impl OscCallbacks for Controller {
         } else {
             self.stop_osc_and_show_pitchgrid_status();
         }
+    }
+}
+
+impl MidiCallbacks for Mutex<Controller> {
+    fn on_download_completed(&self) {
+        self.lock().unwrap().on_data_download_completed();
+    }
+
+    fn on_download_started(&self) {
+        self.lock().unwrap().on_data_download_started();
+    }
+
+    fn on_new_preset_selected(&self) {
+        self.lock().unwrap().on_new_preset_selected();
+    }
+
+    fn on_ports_connected_changed(&self) {
+        self.lock().unwrap().on_ports_connected_changed();
+    }
+
+    fn on_receiving_data_started(&self) {
+        self.lock().unwrap().on_receiving_data_started_callback();
+    }
+
+    fn on_receiving_data_stopped(&self) {
+        self.lock().unwrap().on_receiving_data_stopped_callback();
+    }
+
+    fn on_tuning_updated(&self) {
+        self.lock().unwrap().on_tuning_updated();
+    }
+
+    fn on_updating_tuning(&self) {
+        self.lock().unwrap().on_updating_tuning();
     }
 }
 

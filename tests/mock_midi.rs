@@ -3,7 +3,7 @@
 use std::cell::RefCell;
 use std::error::Error;
 use std::sync::Arc;
-use pitchgrid_continuum::i_midi::IMidi;
+use pitchgrid_continuum::i_midi::{IMidi, MidiCallbacks};
 use pitchgrid_continuum::midi_ports::{IIo};
 use pitchgrid_continuum::port_strategy::PortStrategy;
 use mock_io::MockIo;
@@ -37,83 +37,49 @@ impl MockMidi {
         MIDI_STATE.with_borrow_mut(|s| s.init_result =
             Err(Arc::new(std::io::Error::new(std::io::ErrorKind::Other, msg))));
     }
+
+    #[allow(dead_code)]
+    pub fn simulate_download_completed() {
+        MIDI_STATE.with(|s| s.borrow().callbacks.as_ref().unwrap().on_download_completed());
+    }
+
+    #[allow(dead_code)]
+    pub fn simulate_download_started() {
+        MIDI_STATE.with(|s| s.borrow().callbacks.as_ref().unwrap().on_download_started());
+    }
+
+    #[allow(dead_code)]
+    pub fn simulate_new_preset_selected() {
+        MIDI_STATE.with(|s| s.borrow().callbacks.as_ref().unwrap().on_new_preset_selected());
+    }
+
+    #[allow(dead_code)]
+    pub fn simulate_ports_connected_changed() {
+        MIDI_STATE.with(|s| s.borrow().callbacks.as_ref().unwrap().on_ports_connected_changed());
+    }
+
+    #[allow(dead_code)]
+    pub fn simulate_receiving_data_started() {
+        MIDI_STATE.with(|s| s.borrow().callbacks.as_ref().unwrap().on_receiving_data_started());
+    }
+
+    #[allow(dead_code)]
+    pub fn simulate_receiving_data_stopped() {
+        MIDI_STATE.with(|s| s.borrow().callbacks.as_ref().unwrap().on_receiving_data_stopped());
+    }
+
+    #[allow(dead_code)]
+    pub fn simulate_tuning_updated() {
+        MIDI_STATE.with(|s| s.borrow().callbacks.as_ref().unwrap().on_tuning_updated());
+    }
+
+    #[allow(dead_code)]
+    pub fn simulate_updating_tuning() {
+        MIDI_STATE.with(|s| s.borrow().callbacks.as_ref().unwrap().on_updating_tuning());
+    }
 }
 
 impl IMidi for MockMidi {
-    #[allow(dead_code)]
-    fn add_download_completed_callback(
-        &mut self,
-        _callback: Box<dyn Fn() + Send + Sync + 'static>,
-    ) {
-        MIDI_STATE.with_borrow_mut(|s| {
-            s.add_init_download_completed_callback_count += 1;
-        });
-    }
-
-    #[allow(dead_code)]
-    fn add_download_started_callback(
-        &mut self,
-        _callback: Box<dyn Fn() + Send + Sync + 'static>,
-    ) {
-        MIDI_STATE.with_borrow_mut(|s| {
-            s.add_init_download_started_callback_count += 1;
-        });
-    }
-
-    #[allow(dead_code)]
-    fn add_ports_connected_changed_callback(
-        &mut self,
-        _callback: Box<dyn Fn() + Send + Sync + 'static>,
-    ) {
-        MIDI_STATE.with_borrow_mut(|s| {
-            s.add_ports_connected_changed_callback_count += 1;
-        });
-    }
-
-    #[allow(dead_code)]
-    fn add_new_preset_selected_callback(
-        &mut self,
-        _callback: Box<dyn Fn() + Send + Sync + 'static>,
-    ) {
-        MIDI_STATE.with_borrow_mut(|s| {
-            s.add_new_preset_selected_callback_count += 1;
-        });
-    }
-
-    #[allow(dead_code)]
-    fn add_receiving_data_started_callback(
-        &mut self,
-        _callback: Box<dyn Fn() + Send + Sync + 'static>,
-    ) {
-        MIDI_STATE.with_borrow_mut(|s| {
-            s.add_receiving_data_started_callback_count += 1;
-        });
-    }
-
-    #[allow(dead_code)]
-    fn add_receiving_data_stopped_callback(
-        &mut self,
-        _callback: Box<dyn Fn() + Send + Sync + 'static>,
-    ) {
-        MIDI_STATE.with_borrow_mut(|s| {
-            s.add_receiving_data_stopped_callback_count += 1;
-        });
-    }
-
-    #[allow(dead_code)]
-    fn add_tuning_updated_callback(&mut self, _callback: Box<dyn Fn() + Send + Sync + 'static>) {
-        MIDI_STATE.with_borrow_mut(|s| {
-            s.add_tuning_updated_callback_count += 1;
-        });
-    }
-
-    #[allow(dead_code)]
-    fn add_updating_tuning_callback(&mut self, _callback: Box<dyn Fn() + Send + Sync + 'static>) {
-        MIDI_STATE.with_borrow_mut(|s| {
-            s.add_updating_tuning_callback_count += 1;
-        });
-    }
-
     #[allow(dead_code)]
     fn are_ports_connected(&self) -> bool {
         MIDI_STATE.with(|s| s.borrow().are_ports_connected)
@@ -155,10 +121,12 @@ impl IMidi for MockMidi {
         &mut self,
         input_device_name: &str,
         output_device_name: &str,
+        callbacks: Arc<dyn MidiCallbacks>,
     ) -> Result<(), Box<dyn Error>> {
         match MIDI_STATE.with(|s| s.borrow().init_result.clone()) {
             Ok(()) => {
                 MIDI_STATE.with_borrow_mut(|s| {
+                    s.callbacks = Some(callbacks);
                     s.init_input_device_name = Some(input_device_name.to_string());
                     s.init_output_device_name = Some(output_device_name.to_string());
                 });
@@ -239,14 +207,7 @@ impl IMidi for MockMidi {
 }
 
 pub struct MidiState {
-    pub add_init_download_completed_callback_count: u16,
-    pub add_init_download_started_callback_count: u16,
-    pub add_ports_connected_changed_callback_count: u16,
-    pub add_new_preset_selected_callback_count: u16,
-    pub add_receiving_data_started_callback_count: u16,
-    pub add_receiving_data_stopped_callback_count: u16,
-    pub add_tuning_updated_callback_count: u16,
-    pub add_updating_tuning_callback_count: u16,
+    pub callbacks: Option<Arc<dyn MidiCallbacks>>,
 
     pub are_ports_connected: bool,
 
@@ -280,14 +241,7 @@ pub struct MidiState {
 impl MidiState {
     pub fn new() -> Self {
         MidiState {
-            add_init_download_completed_callback_count: 0,
-            add_init_download_started_callback_count: 0,
-            add_ports_connected_changed_callback_count: 0,
-            add_new_preset_selected_callback_count: 0,
-            add_receiving_data_started_callback_count: 0,
-            add_receiving_data_stopped_callback_count: 0,
-            add_tuning_updated_callback_count: 0,
-            add_updating_tuning_callback_count: 0,
+            callbacks: None,
 
             are_ports_connected: false,
 
@@ -323,14 +277,7 @@ impl MidiState {
 impl Clone for MidiState {
     fn clone(&self) -> Self {
         MidiState {
-            add_init_download_completed_callback_count: self.add_init_download_completed_callback_count,
-            add_init_download_started_callback_count: self.add_init_download_started_callback_count,
-            add_ports_connected_changed_callback_count: self.add_ports_connected_changed_callback_count,
-            add_new_preset_selected_callback_count: self.add_new_preset_selected_callback_count,
-            add_receiving_data_started_callback_count: self.add_receiving_data_started_callback_count,
-            add_receiving_data_stopped_callback_count: self.add_receiving_data_stopped_callback_count,
-            add_tuning_updated_callback_count: self.add_tuning_updated_callback_count,
-            add_updating_tuning_callback_count: self.add_updating_tuning_callback_count,
+            callbacks: self.callbacks.clone(),
 
             are_ports_connected: self.are_ports_connected,
 

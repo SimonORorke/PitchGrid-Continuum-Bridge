@@ -1,18 +1,19 @@
 mod midi_refs;
-use crate::i_midi::IMidi;
-use midi_refs::{Callbacks, DownloadStatus, TuningStatus};
-use midi_refs::{download_completed_callbacks, download_started_callbacks,
-                download_status,
-                download_wait_start_time,
-                last_message_received_time, new_preset_selected_callbacks, output_connection,
-                ports_connected_changed_callbacks,
-                receiving_data_started_callbacks, receiving_data_stopped_callbacks,
-                tuning_status, tuning_updated_callbacks, updating_tuning_callbacks};
+use crate::i_midi::{IMidi, MidiCallbacks};
+use midi_refs::{DownloadStatus, TuningStatus};
+use midi_refs::{
+    download_status,
+    download_wait_start_time,
+    callbacks,
+    last_message_received_time, output_connection,
+    set_callbacks,
+    tuning_status};
 use midir::{
     MidiInput, MidiInputConnection, MidiInputPort, MidiOutput, MidiOutputPort,
 };
 use midly::{MidiMessage, live::LiveEvent};
 use std::error::Error;
+use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
@@ -88,17 +89,9 @@ impl Midi {
     pub fn on_updating_tuning() {
         println!("Midi.on_updating_tuning");
         *tuning_status().lock().unwrap() = TuningStatus::Tuning;
-        Self::call_back(updating_tuning_callbacks().clone());
-    }
-
-    /// Call the subscribed callback functions on a separate thread.
-    fn call_back(shared_callbacks: Callbacks) {
-        rayon::spawn(move || {
-            let callbacks = shared_callbacks.lock().unwrap();
-            for callback in callbacks.iter() {
-                callback();
-            }
-        });
+        if let Some(cb) = callbacks() {
+            rayon::spawn(move || cb.on_updating_tuning());
+        }
     }
 
     fn connect_input_port(
@@ -139,8 +132,10 @@ impl Midi {
         rayon::spawn(move || {
             sleep(Duration::from_secs(MIDI_WAIT_SECS));
             if !IS_RECEIVING_DATA.load(Ordering::Relaxed) {
-                // println!k("Midi.connect_input_port: Stopped receiving data");
-                Self::call_back(receiving_data_stopped_callbacks().clone());
+                // println!("Midi.connect_input_port: Stopped receiving data");
+                if let Some(cb) = callbacks() {
+                    cb.on_receiving_data_stopped();
+                }
             }
         });
         Ok(())
@@ -236,8 +231,10 @@ impl Midi {
             *download_status().lock().unwrap() = DownloadStatus::Waiting;
             // println!("Midi.log_message_received_time: Setting download wait start time");
             *download_wait_start_time().lock().unwrap() = Some(now);
-            // println!("Midi.log_message_received_time: receiving_data_started_callbacks");
-            Self::call_back(receiving_data_started_callbacks().clone());
+            // println!("Midi.log_message_received_time: on_receiving_data_started");
+            if let Some(cb) = callbacks() {
+                rayon::spawn(move || cb.on_receiving_data_started());
+            }
             return;
         }
         if IS_MONITORING_DOWNLOAD.load(Ordering::Relaxed) {
@@ -278,7 +275,9 @@ impl Midi {
         IS_MONITORING_DOWNLOAD.store(false, Ordering::Relaxed);
         IS_DOWNLOADING_INIT_DATA.store(false, Ordering::Relaxed);
         *download_status().lock().unwrap() = DownloadStatus::Complete;
-        Self::call_back(download_completed_callbacks().clone());
+        if let Some(cb) = callbacks() {
+            rayon::spawn(move || cb.on_download_completed());
+        }
     }
 
     /// Monitor the connection status of the instrument.
@@ -302,7 +301,9 @@ impl Midi {
                         // println!("midi.monitor_instrument_connection: Instrument disconnected.");
                         *last_message_received_time().lock().unwrap() = None;
                         IS_RECEIVING_DATA.store(false, Ordering::Relaxed);
-                        Self::call_back(receiving_data_stopped_callbacks().clone());
+                        if let Some(cb) = callbacks() {
+                            cb.on_receiving_data_stopped();
+                        }
                     }
                 }
             } else if !has_initially_not_connected_callback_been_called {
@@ -315,7 +316,9 @@ impl Midi {
                     // Not connected for 2 seconds after application start.
                     // So we can assume that the instrument is not yet connected.
                     // Provide an opportunity for a helpful message to be displayed.
-                    Self::call_back(receiving_data_stopped_callbacks().clone());
+                    if let Some(cb) = callbacks() {
+                        cb.on_receiving_data_stopped();
+                    }
                     has_initially_not_connected_callback_been_called = true;
                 }
             }
@@ -363,7 +366,9 @@ impl Midi {
                                 println!("midi.on_message_received: Preset's pitch table \
                                             update requested, pitch table no: {}", pitch_table);
                                 *tuning_status().lock().unwrap() = TuningStatus::None;
-                                Self::call_back(tuning_updated_callbacks().clone());
+                                if let Some(cb) = callbacks() {
+                                    rayon::spawn(move || cb.on_tuning_updated());
+                                }
                             }
                         }
                         // When the firmware bug is fixed, remove the above workaround
@@ -453,7 +458,9 @@ impl Midi {
                             // from disc.
                             // println!("midi.on_message_received: Program, preset selected");
                             // *preset_select_status().lock().unwrap() = PresetSelectStatus::None;
-                            Self::call_back(new_preset_selected_callbacks().clone());
+                            if let Some(cb) = callbacks() {
+                                rayon::spawn(move || cb.on_new_preset_selected());
+                            }
                             return;
                         }
                     }
@@ -514,64 +521,6 @@ static IS_MONITORING_DOWNLOAD: AtomicBool = AtomicBool::new(false);
 static IS_RECEIVING_DATA: AtomicBool = AtomicBool::new(false);
 
 impl IMidi for Midi {
-    fn add_download_completed_callback(
-        &mut self,
-        callback: Box<dyn Fn() + Send + Sync + 'static>,
-    ) {
-        // println!("Midi.add_init_download_completed_callback");
-        download_completed_callbacks().lock().unwrap().push(callback);
-    }
-
-    fn add_download_started_callback(
-        &mut self,
-        callback: Box<dyn Fn() + Send + Sync + 'static>,
-    ) {
-        // println!("Midi.add_init_download_started_callback");
-        download_started_callbacks().lock().unwrap().push(callback);
-    }
-
-    fn add_ports_connected_changed_callback(
-        &mut self,
-        callback: Box<dyn Fn() + Send + Sync + 'static>,
-    ) {
-        // println!("Midi.add_tuning_updated_callback");
-        ports_connected_changed_callbacks().lock().unwrap().push(callback);
-    }
-
-    fn add_new_preset_selected_callback(
-        &mut self,
-        callback: Box<dyn Fn() + Send + Sync + 'static>,
-    ) {
-        // println!("Midi.add_new_preset_selected_callback");
-        new_preset_selected_callbacks().lock().unwrap().push(callback);
-    }
-
-    fn add_receiving_data_started_callback(
-        &mut self,
-        callback: Box<dyn Fn() + Send + Sync + 'static>,
-    ) {
-        // println!("Midi.add_receiving_data_started_callback");
-        receiving_data_started_callbacks().lock().unwrap().push(callback);
-    }
-
-    fn add_receiving_data_stopped_callback(
-        &mut self,
-        callback: Box<dyn Fn() + Send + Sync + 'static>,
-    ) {
-        // println!("Midi.add_receiving_data_stopped_callback");
-        receiving_data_stopped_callbacks().lock().unwrap().push(callback);
-    }
-
-    fn add_tuning_updated_callback(&mut self, callback: Box<dyn Fn() + Send + Sync + 'static>) {
-        // println!("Midi.add_tuning_updated_callback");
-        tuning_updated_callbacks().lock().unwrap().push(callback);
-    }
-
-    fn add_updating_tuning_callback(&mut self, callback: Box<dyn Fn() + Send + Sync + 'static>) {
-        // println!("Midi.add_updating_tuning_callback");
-        updating_tuning_callbacks().lock().unwrap().push(callback);
-    }
-
     /// Return whether both input and output ports are connected.
     fn are_ports_connected(&self) -> bool {
         if self.input_connection.is_none() {
@@ -603,9 +552,11 @@ impl IMidi for Midi {
         if !were_ports_connected {
             // The other port was already connected, so now they both are.
             if self.are_ports_connected() {
-                // println!("Midi.connect_port {:?}: Calling ports_connected_changed_callbacks() \
+                // println!("Midi.connect_port {:?}: Calling on_ports_connected_changed \
                 // because both ports are now connected", port_strategy.port_type());
-                Self::call_back(ports_connected_changed_callbacks().clone());
+                if let Some(cb) = callbacks() {
+                    rayon::spawn(move || cb.on_ports_connected_changed());
+                }
             }
         }
         Ok(())
@@ -615,7 +566,9 @@ impl IMidi for Midi {
         &mut self,
         input_device_name: &str,
         output_device_name: &str,
+        callbacks: Arc<dyn MidiCallbacks>,
     ) -> Result<(), Box<dyn Error>> {
+        set_callbacks(callbacks);
         self.input.populate_devices(input_device_name)?;
         self.output.populate_devices(output_device_name)?;
         Ok(())
@@ -662,8 +615,10 @@ impl IMidi for Midi {
         }
         if were_ports_connected {
             // We have just disconnected one of the ports.
-            // println!("Midi.refresh_devices: Calling ports_connected_changed_callbacks() because we have just disconnected one of the ports");
-            Self::call_back(ports_connected_changed_callbacks().clone());
+            // println!("Midi.refresh_devices: Calling on_ports_connected_changed because we have just disconnected one of the ports");
+            if let Some(cb) = callbacks() {
+                rayon::spawn(move || cb.on_ports_connected_changed());
+            }
         }
         Ok(())
     }
