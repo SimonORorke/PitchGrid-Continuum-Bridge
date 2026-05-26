@@ -113,7 +113,7 @@ fn init_read_settings_err() {
     let _guard = test_mutex_guard();
     const ERR_MSG: &str = "Test error";
     let mock_settings = MockSettings::new();
-    mock_settings.simulate_read_from_file_err(ERR_MSG);
+    MockSettings::simulate_read_from_file_err(ERR_MSG);
     let mut controller = create_controller(mock_settings);
     controller.init();
     assert_that!(ui_state().show_message_count, eq(1));
@@ -158,7 +158,7 @@ fn close_err() {
     mock_settings.set_midi_output_device(&OUTPUT_DEVICE_NAMES[0]);
     mock_settings.set_main_window_x(OLD_MAIN_WINDOW_X);
     mock_settings.set_main_window_y(OLD_MAIN_WINDOW_Y);
-    mock_settings.simulate_write_to_file_err(ERR_MSG);
+    MockSettings::simulate_write_to_file_err(ERR_MSG);
     let mut controller = create_controller(mock_settings);
     controller.init();
     assert_that!(midi_state().start_instrument_connection_monitor_count, eq(1));

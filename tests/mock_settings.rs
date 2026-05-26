@@ -17,12 +17,12 @@ impl MockSettings {
         MockSettings {}
     }
 
-    pub fn simulate_read_from_file_err(&self, msg: &str) {
+    pub fn simulate_read_from_file_err(msg: &str) {
         SETTINGS_STATE.with_borrow_mut(|s| s.read_from_file_result =
             Err(Arc::new(std::io::Error::new(std::io::ErrorKind::Other, msg))));
     }
 
-    pub fn simulate_write_to_file_err(&self, msg: &str) {
+    pub fn simulate_write_to_file_err(msg: &str) {
         SETTINGS_STATE.with_borrow_mut(|s| s.write_to_file_result =
             Err(Arc::new(std::io::Error::new(std::io::ErrorKind::Other, msg))));
     }
