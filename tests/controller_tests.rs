@@ -176,6 +176,12 @@ fn create_controller(mock_settings: MockSettings) -> Controller {
     MidiStatic::set_midi(Box::new(MockMidi::new(
         INPUT_DEVICE_NAMES.clone(), OUTPUT_DEVICE_NAMES.clone(),
         mock_settings.midi_input_device(), mock_settings.midi_output_device())));
+    // Controller::init calls clone_controller(), which requires the CONTROLLER singleton to be set.
+    // In main, the same shared instance is used for both set_controller and init. Here we use a
+    // separate instance so tests can call init() directly without locking a shared controller.
+    // This is safe because tests do not exercise code paths that access the CONTROLLER static.
+    Controller::set_controller(
+        Arc::new(Mutex::new(Controller::new(Box::new(MockUiMethods::new())))));
     let mut controller = Controller::new(Box::new(MockUiMethods::new()));
     controller.set_osc(Box::new(MockOsc::new()));
     controller.set_settings(Box::new(mock_settings));
