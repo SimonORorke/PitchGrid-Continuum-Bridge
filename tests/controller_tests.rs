@@ -6,7 +6,7 @@ mod mock_ui_methods;
 
 use std::sync::{Arc, LazyLock, Mutex, MutexGuard};
 use googletest::assert_that;
-use googletest::matchers::{displays_as, eq, err, len, ok, some};
+use googletest::matchers::{displays_as, eq, err, len, ok, some, starts_with};
 use pitchgrid_continuum::controller::Controller;
 use pitchgrid_continuum::global::{MessageType, PortType};
 use pitchgrid_continuum::midi_static::MidiStatic;
@@ -170,6 +170,16 @@ fn close_err() {
     assert_that!(settings_state().main_window_y, eq(NEW_MAIN_WINDOW_Y));
     assert_that!(ui_state().show_message_msg, some(eq(ERR_MSG)));
     assert_that!(ui_state().show_message_msg_type, some(eq(MessageType::Error)));
+}
+
+#[googletest::gtest]
+fn on_data_download_started() {
+    let _guard = test_mutex_guard();
+    let mut controller = create_controller(MockSettings::new());
+    controller.init();
+    MockMidi::simulate_download_started();
+    assert_that!(ui_state().show_message_msg, some(starts_with("Awaiting completion")));
+    assert_that!(ui_state().show_message_msg_type, some(eq(MessageType::Info)));
 }
 
 fn create_controller(mock_settings: MockSettings) -> Controller {

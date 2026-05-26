@@ -325,18 +325,18 @@ impl Controller {
     }
 
     fn on_data_download_completed(&mut self) {
-        println!("Controller.on_init_data_download_completed");
+        println!("Controller.on_data_download_completed");
         if MidiStatic::is_receiving_data()
                 && MidiStatic::are_ports_connected()
                 && !self.osc.is_running() {
-            println!("Controller.on_init_data_download_completed: Starting OSC");
+            println!("Controller.on_data_download_completed: Starting OSC");
             self.start_osc();
             self.show_info(OPENING_PITCHGRID_CONNECTION);
         }
     }
 
     fn on_data_download_started(&mut self) {
-        // println!("Controller.on_init_data_download_started");
+        // println!("Controller.on_data_download_started");
         self.show_info(AWAITING_DATA_DOWNLOAD_COMPLETION);
     }
 
