@@ -166,10 +166,21 @@ fn close_err() {
 }
 
 #[googletest::gtest]
+fn on_receiving_data_started_show_waiting_for_download() {
+    let _guard = test_mutex_guard();
+    let mut controller = create_controller(MockSettings::new(), true);
+    controller.init();
+    MockMidi::simulate_receiving_data_started();
+    assert_that!(ui_state().show_message_msg, some(starts_with("Waiting (maximum 6 seconds)")));
+    assert_that!(ui_state().show_message_msg_type, some(eq(MessageType::Info)));
+}
+
+#[googletest::gtest]
 fn on_data_download_started() {
     let _guard = test_mutex_guard();
     let mut controller = create_controller(MockSettings::new(), true);
     controller.init();
+    MockMidi::set_are_ports_connected(true);
     MockMidi::simulate_download_started();
     assert_that!(ui_state().show_message_msg, some(starts_with("Awaiting completion")));
     assert_that!(ui_state().show_message_msg_type, some(eq(MessageType::Info)));
