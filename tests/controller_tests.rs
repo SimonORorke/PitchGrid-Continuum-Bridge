@@ -29,14 +29,12 @@ fn init_from_settings() {
     const OVERRIDE_ROUNDING_RATE: bool = false; // as the default is true
     const ROUNDING_RATE: u8 = 100;
     let mut mock_settings = MockSettings::new();
-    mock_settings.set_midi_input_device(&INPUT_DEVICE_NAMES[0]);
-    mock_settings.set_midi_output_device(&OUTPUT_DEVICE_NAMES[0]);
     mock_settings.set_osc_listening_port(LISTENING_PORT);
     mock_settings.set_pitch_table(PITCH_TABLE);
     mock_settings.set_override_rounding_initial(OVERRIDE_ROUNDING_INITIAL);
     mock_settings.set_override_rounding_rate(OVERRIDE_ROUNDING_RATE);
     mock_settings.set_rounding_rate(ROUNDING_RATE);
-    let mut controller = create_controller(mock_settings);
+    let mut controller = create_controller(mock_settings, true);
     controller.init();
     assert_that!(midi_state().init_input_device_name, some(eq(&INPUT_DEVICE_NAMES[0])));
     assert_that!(input_state().device_name(), some(eq(&INPUT_DEVICE_NAMES[0])));
@@ -63,8 +61,7 @@ fn init_from_settings() {
 fn init_midi_err() {
     let _guard = test_mutex_guard();
     const ERR_MSG: &str = "Test error";
-    let mock_settings = MockSettings::new();
-    let mut controller = create_controller(mock_settings);
+    let mut controller = create_controller(MockSettings::new(), true);
     MockMidi::simulate_init_err(ERR_MSG);
     controller.init();
     assert_that!(ui_state().show_message_count, eq(1));
@@ -76,7 +73,7 @@ fn init_midi_err() {
 #[googletest::gtest]
 fn init_no_settings() {
     let _guard = test_mutex_guard();
-    let mut controller = create_controller(MockSettings::new());
+    let mut controller = create_controller(MockSettings::new(), false);
     controller.init();
     assert_that!(ui_state().main_window_position_x, some(eq(0)));
     assert_that!(ui_state().main_window_position_y, some(eq(0)));
@@ -112,9 +109,9 @@ fn init_no_settings() {
 fn init_read_settings_err() {
     let _guard = test_mutex_guard();
     const ERR_MSG: &str = "Test error";
-    let mock_settings = MockSettings::new();
-    MockSettings::simulate_read_from_file_err(ERR_MSG);
-    let mut controller = create_controller(mock_settings);
+    let mut mock_settings = MockSettings::new();
+    mock_settings.simulate_read_from_file_err(ERR_MSG);
+    let mut controller = create_controller(mock_settings, true);
     controller.init();
     assert_that!(ui_state().show_message_count, eq(1));
     assert_that!(ui_state().show_message_msg, some(eq(ERR_MSG)));
@@ -130,11 +127,9 @@ fn close() {
     const NEW_MAIN_WINDOW_X: i32 = 150;
     const NEW_MAIN_WINDOW_Y: i32 = 250;
     let mut mock_settings = MockSettings::new();
-    mock_settings.set_midi_input_device(&INPUT_DEVICE_NAMES[0]);
-    mock_settings.set_midi_output_device(&OUTPUT_DEVICE_NAMES[0]);
     mock_settings.set_main_window_x(OLD_MAIN_WINDOW_X);
     mock_settings.set_main_window_y(OLD_MAIN_WINDOW_Y);
-    let mut controller = create_controller(mock_settings);
+    let mut controller = create_controller(mock_settings, true);
     controller.init();
     assert_that!(midi_state().start_instrument_connection_monitor_count, eq(1));
     let result = controller.close(NEW_MAIN_WINDOW_X, NEW_MAIN_WINDOW_Y);
@@ -154,12 +149,10 @@ fn close_err() {
     const NEW_MAIN_WINDOW_X: i32 = 150;
     const NEW_MAIN_WINDOW_Y: i32 = 250;
     let mut mock_settings = MockSettings::new();
-    mock_settings.set_midi_input_device(&INPUT_DEVICE_NAMES[0]);
-    mock_settings.set_midi_output_device(&OUTPUT_DEVICE_NAMES[0]);
     mock_settings.set_main_window_x(OLD_MAIN_WINDOW_X);
     mock_settings.set_main_window_y(OLD_MAIN_WINDOW_Y);
-    MockSettings::simulate_write_to_file_err(ERR_MSG);
-    let mut controller = create_controller(mock_settings);
+    mock_settings.simulate_write_to_file_err(ERR_MSG);
+    let mut controller = create_controller(mock_settings, true);
     controller.init();
     assert_that!(midi_state().start_instrument_connection_monitor_count, eq(1));
     let result = controller.close(NEW_MAIN_WINDOW_X, NEW_MAIN_WINDOW_Y);
@@ -175,23 +168,42 @@ fn close_err() {
 #[googletest::gtest]
 fn on_data_download_started() {
     let _guard = test_mutex_guard();
-    let mut controller = create_controller(MockSettings::new());
+    let mut controller = create_controller(MockSettings::new(), true);
     controller.init();
     MockMidi::simulate_download_started();
     assert_that!(ui_state().show_message_msg, some(starts_with("Awaiting completion")));
     assert_that!(ui_state().show_message_msg_type, some(eq(MessageType::Info)));
 }
 
-fn create_controller(mock_settings: MockSettings) -> Controller {
+#[googletest::gtest]
+fn on_data_download_completed_start_osc() {
+    let _guard = test_mutex_guard();
+    let mut controller = create_controller(MockSettings::new(), true);
+    controller.init();
+    MockMidi::set_is_receiving_data(true);
+    MockMidi::set_are_ports_connected(true);
+    MockMidi::simulate_download_completed();
+    assert_that!(osc_state().start_count, eq(1));
+    assert_that!(ui_state().show_message_msg, some(starts_with("Opening PitchGrid")));
+    assert_that!(ui_state().show_message_msg_type, some(eq(MessageType::Info)));
+}
+
+fn create_controller(mut mock_settings: MockSettings, default_midi_devices: bool) -> Controller {
+    if default_midi_devices {
+        mock_settings.set_midi_input_device(&INPUT_DEVICE_NAMES[0]);
+        mock_settings.set_midi_output_device(&OUTPUT_DEVICE_NAMES[0]);
+    }
     MidiStatic::set_midi(Box::new(MockMidi::new(
         INPUT_DEVICE_NAMES.clone(), OUTPUT_DEVICE_NAMES.clone(),
         mock_settings.midi_input_device(), mock_settings.midi_output_device())));
     // Controller::init calls clone_controller(), which requires the CONTROLLER singleton to be set.
-    // In main, the same shared instance is used for both set_controller and init. Here we use a
-    // separate instance so tests can call init() directly without locking a shared controller.
-    // This is safe because tests do not exercise code paths that access the CONTROLLER static.
-    Controller::set_controller(
-        Arc::new(Mutex::new(Controller::new(Box::new(MockUiMethods::new())))));
+    // In main, the same shared instance is used for both set_controller and init. Here we use
+    // separate instances: the local controller is used to call init() directly without locking a
+    // shared controller, while the singleton is used only for MIDI callbacks. Both are configured
+    // with MockOsc so that callback-triggered OSC calls are recorded in osc_state().
+    let mut singleton = Controller::new(Box::new(MockUiMethods::new()));
+    singleton.set_osc(Box::new(MockOsc::new()));
+    Controller::set_controller(Arc::new(Mutex::new(singleton)));
     let mut controller = Controller::new(Box::new(MockUiMethods::new()));
     controller.set_osc(Box::new(MockOsc::new()));
     controller.set_settings(Box::new(mock_settings));

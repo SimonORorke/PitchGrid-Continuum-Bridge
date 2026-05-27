@@ -23,7 +23,15 @@
       "Bash(rustup.exe show active-toolchain)",
       "Bash(rustc.exe --version)",
       "Bash(rustc --version)",
-      "Bash(cmd.exe /c \"rustc --version && rustup show active-toolchain\")"
+      "Bash(cmd.exe /c \"rustc --version && rustup show active-toolchain\")",
+      "Bash(powershell -Command \"Get-Process | Where-Object {$_MainWindowTitle -like ''*controller.rs*'' -or $_Name -like ''*RustRover*''} | Select-Object Name, Id\")",
+      "Bash(FILE=\"D:/Simon/OneDrive/Documents/Rust Projects/pitchgrid_continuum/src/controller_tmp.rs\")",
+      "Read(//d/Simon/OneDrive/Documents/Rust Projects/pitchgrid_continuum/**)",
+      "Bash(DIR=\"D:/Simon/OneDrive/Documents/Rust Projects/pitchgrid_continuum/src\")",
+      "Bash(/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe -Command \":*)",
+      "Bash(echo \"$PATH\")",
+      "Bash(/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe -Command \"[Environment]::GetEnvironmentVariable\\(''PATH'', ''User''\\)\")",
+      "Bash(/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe -Command \"[Environment]::GetEnvironmentVariable\\(''PATH'', ''Machine''\\)\")"
     ]
   }
 }

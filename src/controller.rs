@@ -1,5 +1,5 @@
 ﻿use std::error::Error;
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Arc, Mutex};
 use std::sync::mpsc;
 use std::time::Duration;
 use crate::global::{MessageType, PortType};
@@ -271,13 +271,12 @@ impl Controller {
 
     /// Sets a thread-safe singleton Controller instance.
     pub fn set_controller(controller: SharedController) {
-        CONTROLLER.set(controller).ok();
+        *CONTROLLER.lock().unwrap() = Some(controller);
     }
 
     /// Returns a clone of the thread-safe singleton Controller instance.
     fn clone_controller() -> SharedController {
-        let controller = CONTROLLER.get().unwrap();
-        Arc::clone(controller)
+        Arc::clone(CONTROLLER.lock().unwrap().as_ref().unwrap())
     }
 
     /// Sets the root frequency override and sends it to the instrument,
@@ -693,4 +692,4 @@ const WAITING_FOR_DATA_DOWNLOAD: &str =
 
 type SharedController = Arc<Mutex<Controller>>;
 
-static CONTROLLER: OnceLock<SharedController> = OnceLock::new();
+static CONTROLLER: Mutex<Option<SharedController>> = Mutex::new(None);

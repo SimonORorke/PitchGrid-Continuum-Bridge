@@ -33,6 +33,14 @@ impl MockMidi {
         }
     }
 
+    pub fn set_are_ports_connected(value: bool) {
+        MIDI_STATE.with_borrow_mut(|s| s.are_ports_connected = value);
+    }
+
+    pub fn set_is_receiving_data(value: bool) {
+        MIDI_STATE.with_borrow_mut(|s| s.is_receiving_data = value);
+    }
+
     pub fn simulate_init_err(msg: &str) {
         MIDI_STATE.with_borrow_mut(|s| s.init_result =
             Err(Arc::new(std::io::Error::new(std::io::ErrorKind::Other, msg))));

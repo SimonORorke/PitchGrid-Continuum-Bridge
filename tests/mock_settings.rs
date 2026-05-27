@@ -17,12 +17,16 @@ impl MockSettings {
         MockSettings {}
     }
 
-    pub fn simulate_read_from_file_err(msg: &str) {
+    /// As `new()` resets state, this method takes `&mut self`, making it clear that is operates
+    /// on the instance and must be called after construction.
+    pub fn simulate_read_from_file_err(&mut self, msg: &str) {
         SETTINGS_STATE.with_borrow_mut(|s| s.read_from_file_result =
             Err(Arc::new(std::io::Error::new(std::io::ErrorKind::Other, msg))));
     }
 
-    pub fn simulate_write_to_file_err(msg: &str) {
+    /// As `new()` resets state, this method takes `&mut self`, making it clear that is operates
+    /// on the instance and must be called after construction.
+    pub fn simulate_write_to_file_err(&mut self, msg: &str) {
         SETTINGS_STATE.with_borrow_mut(|s| s.write_to_file_result =
             Err(Arc::new(std::io::Error::new(std::io::ErrorKind::Other, msg))));
     }
