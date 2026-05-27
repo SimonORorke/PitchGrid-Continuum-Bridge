@@ -482,8 +482,8 @@ impl Controller {
             return;
         }
         println!("Controller.await_tuning_updated: Tuning update not confirmed");
-        let controller_binding = Self::clone_controller();
-        let mut controller = controller_binding.lock().unwrap();
+        let shared_controller = Self::clone_controller();
+        let mut controller = shared_controller.lock().unwrap();
         controller.show_error(INSTRUMENT_TUNING_UPDATE_NOT_CONFIRMED);
         controller.is_awaiting_tuning_updated = false;
     }
