@@ -19,17 +19,17 @@ impl MockOsc {
 
     #[allow(dead_code)]
     pub fn simulate_pitchgrid_connected_changed(is_pitchgrid_connected: bool) {
-        OSC_STATE.with_borrow_mut(|s| {
+        let callbacks = OSC_STATE.with_borrow_mut(|s| {
             s.is_pitchgrid_connected_result = is_pitchgrid_connected;
-            s.callbacks.as_ref().unwrap().on_osc_pitchgrid_connected_changed();
+            s.callbacks.clone().unwrap()
         });
+        callbacks.on_osc_pitchgrid_connected_changed();
     }
 
     #[allow(dead_code)]
     pub fn simulate_tuning_received(tuning_params: TuningParams) {
-        OSC_STATE.with_borrow_mut(|s| {
-            s.callbacks.as_ref().unwrap().on_osc_tuning_received(tuning_params);
-        });
+        let callbacks = OSC_STATE.with_borrow(|s| s.callbacks.clone().unwrap());
+        callbacks.on_osc_tuning_received(tuning_params);
     }
 }
 

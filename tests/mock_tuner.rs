@@ -71,7 +71,6 @@ impl ITuner for MockTuner {
     #[allow(dead_code)]
     fn set_root_freq_override_note_no(&self, index: usize, send_tuning: bool) {
         TUNER_STATE.with_borrow_mut(|s| {
-            s.set_root_freq_override_note_no_count += 1;
             s.set_root_freq_override_note_no_index = Some(index);
             s.set_root_freq_override_note_no_send_tuning = Some(send_tuning);
         });
@@ -146,7 +145,6 @@ pub struct TunerState {
 
     pub is_root_freq_overridden: bool,
 
-    pub set_root_freq_override_note_no_count: u16,
     pub set_root_freq_override_note_no_index: Option<usize>,
     pub set_root_freq_override_note_no_send_tuning: Option<bool>,
 
@@ -180,7 +178,6 @@ impl TunerState {
 
             is_root_freq_overridden: false,
 
-            set_root_freq_override_note_no_count: 0,
             set_root_freq_override_note_no_index: None,
             set_root_freq_override_note_no_send_tuning: None,
             override_rounding_initial: None,

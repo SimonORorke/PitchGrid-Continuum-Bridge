@@ -78,7 +78,7 @@ impl IUiMethods for MockUiMethods {
     fn show_pitchgrid_status(&self, status: &str, msg_type: MessageType) {
         UI_STATE.with_borrow_mut(|s| {
             s.show_pitchgrid_status_count += 1;
-            s.show_pitchgrid_status_status = Some(status.to_string());
+            s.show_pitchgrid_status_msg = Some(status.to_string());
             s.show_pitchgrid_status_msg_type = Some(msg_type);
         });
     }
@@ -161,7 +161,7 @@ pub struct UiMethodsState {
     pub show_message_msg_type: Option<MessageType>,
 
     pub show_pitchgrid_status_count: u16,
-    pub show_pitchgrid_status_status: Option<String>,
+    pub show_pitchgrid_status_msg: Option<String>,
     pub show_pitchgrid_status_msg_type: Option<MessageType>,
 
     pub show_tuning_count: u16,
@@ -205,7 +205,7 @@ impl UiMethodsState {
             show_message_msg_type: None,
 
             show_pitchgrid_status_count: 0,
-            show_pitchgrid_status_status: None,
+            show_pitchgrid_status_msg: None,
             show_pitchgrid_status_msg_type: None,
 
             show_tuning_count: 0,
@@ -250,7 +250,7 @@ impl Clone for UiMethodsState {
             show_message_msg_type: self.show_message_msg_type.clone(),
 
             show_pitchgrid_status_count: self.show_pitchgrid_status_count,
-            show_pitchgrid_status_status: self.show_pitchgrid_status_status.clone(),
+            show_pitchgrid_status_msg: self.show_pitchgrid_status_msg.clone(),
             show_pitchgrid_status_msg_type: self.show_pitchgrid_status_msg_type.clone(),
 
             show_tuning_count: self.show_tuning_count,

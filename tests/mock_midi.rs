@@ -48,7 +48,11 @@ impl MockMidi {
 
     #[allow(dead_code)]
     pub fn simulate_download_completed() {
-        MIDI_STATE.with(|s| s.borrow().callbacks.as_ref().unwrap().on_download_completed());
+        let callbacks = MIDI_STATE.with_borrow_mut(|s| {
+            s.has_downloaded_init_data_result = true;
+            s.callbacks.clone().unwrap()
+        });
+        callbacks.on_download_completed();
     }
 
     #[allow(dead_code)]

@@ -6,7 +6,7 @@ mod mock_ui_methods;
 
 use std::sync::{Arc, LazyLock, Mutex, MutexGuard};
 use googletest::assert_that;
-use googletest::matchers::{displays_as, eq, err, len, ok, some, starts_with};
+use googletest::matchers::{displays_as, eq, err, len, not, ok, some, starts_with};
 use pitchgrid_continuum::controller::Controller;
 use pitchgrid_continuum::global::{MessageType, PortType};
 use pitchgrid_continuum::midi_static::MidiStatic;
@@ -195,8 +195,50 @@ fn on_data_download_completed_start_osc() {
     MockMidi::set_are_ports_connected(true);
     MockMidi::simulate_download_completed();
     assert_that!(osc_state().start_count, eq(1));
-    assert_that!(ui_state().show_message_msg, some(starts_with("Opening PitchGrid")));
+    assert_that!(ui_state().show_message_msg, some(starts_with("Opening PitchGrid connection")));
     assert_that!(ui_state().show_message_msg_type, some(eq(MessageType::Info)));
+}
+
+#[googletest::gtest]
+fn on_updating_tuning_ok() {
+    let _guard = test_mutex_guard();
+    let mut controller = create_controller(MockSettings::new(), true);
+    controller.init();
+    MockMidi::simulate_updating_tuning();
+    assert_that!(ui_state().show_message_msg_type, some(not(eq(MessageType::Error))));
+}
+
+#[googletest::gtest]
+fn on_tuning_updated() {
+    let _guard = test_mutex_guard();
+    let mut controller = create_controller(MockSettings::new(), true);
+    controller.init();
+    MockMidi::simulate_updating_tuning();
+    MockMidi::simulate_tuning_updated();
+    assert_that!(tuner_state().on_tuning_updated_count, eq(1));
+    assert_that!(ui_state().show_tuning_count, eq(1));
+    // TODO: Check formatted_tuning_params and is_root_freq_overridden passed to ui_methods.show_tuning.
+    // Maybe create a test or tests for set_root_freq_override first.
+}
+
+#[googletest::gtest]
+fn  set_root_freq_override() {
+    let _guard = test_mutex_guard();
+    const NOTE_INDEX: usize = 1;
+    let mut controller = create_controller(MockSettings::new(), true);
+    controller.init();
+    MockMidi::set_is_receiving_data(true);
+    MockMidi::set_are_ports_connected(true);
+    MockMidi::simulate_download_completed();
+    assert_that!(ui_state().show_pitchgrid_status_count, eq(0));
+    MockOsc::simulate_pitchgrid_connected_changed(true);
+    assert_that!(ui_state().show_pitchgrid_status_count, eq(1));
+    controller.set_root_freq_override(NOTE_INDEX);
+    assert_that!(ui_state().show_pitchgrid_status_count, eq(2));
+    assert_that!(ui_state().show_pitchgrid_status_msg, some(starts_with("Updating root")));
+    assert_that!(ui_state().show_pitchgrid_status_msg_type, some(eq(MessageType::Info)));
+    assert_that!(tuner_state().set_root_freq_override_note_no_index, some(eq(NOTE_INDEX)));
+    assert_that!(tuner_state().set_root_freq_override_note_no_send_tuning, some(eq(true)));
 }
 
 fn create_controller(mut mock_settings: MockSettings, default_midi_devices: bool) -> Controller {
@@ -214,6 +256,7 @@ fn create_controller(mut mock_settings: MockSettings, default_midi_devices: bool
     // with MockOsc so that callback-triggered OSC calls are recorded in osc_state().
     let mut singleton = Controller::new(Box::new(MockUiMethods::new()));
     singleton.set_osc(Box::new(MockOsc::new()));
+    singleton.set_tuner(Arc::new(MockTuner::new()));
     Controller::set_controller(Arc::new(Mutex::new(singleton)));
     let mut controller = Controller::new(Box::new(MockUiMethods::new()));
     controller.set_osc(Box::new(MockOsc::new()));
