@@ -46,7 +46,6 @@ impl MockMidi {
             Err(Arc::new(std::io::Error::new(std::io::ErrorKind::Other, msg))));
     }
 
-    #[allow(dead_code)]
     pub fn simulate_download_completed() {
         let callbacks = MIDI_STATE.with_borrow_mut(|s| {
             s.has_downloaded_init_data_result = true;
@@ -55,7 +54,6 @@ impl MockMidi {
         callbacks.on_download_completed();
     }
 
-    #[allow(dead_code)]
     pub fn simulate_download_started() {
         MIDI_STATE.with(|s| s.borrow().callbacks.as_ref().unwrap().on_download_started());
     }

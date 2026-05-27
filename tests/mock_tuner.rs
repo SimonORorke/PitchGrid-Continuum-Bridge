@@ -73,6 +73,7 @@ impl ITuner for MockTuner {
         TUNER_STATE.with_borrow_mut(|s| {
             s.set_root_freq_override_note_no_index = Some(index);
             s.set_root_freq_override_note_no_send_tuning = Some(send_tuning);
+            s.is_root_freq_overridden = index != 0;
         });
     }
 

@@ -17,7 +17,6 @@ impl MockOsc {
         MockOsc {}
     }
 
-    #[allow(dead_code)]
     pub fn simulate_pitchgrid_connected_changed(is_pitchgrid_connected: bool) {
         let callbacks = OSC_STATE.with_borrow_mut(|s| {
             s.is_pitchgrid_connected_result = is_pitchgrid_connected;
@@ -26,9 +25,11 @@ impl MockOsc {
         callbacks.on_osc_pitchgrid_connected_changed();
     }
 
-    #[allow(dead_code)]
     pub fn simulate_tuning_received(tuning_params: TuningParams) {
-        let callbacks = OSC_STATE.with_borrow(|s| s.callbacks.clone().unwrap());
+        let callbacks = OSC_STATE.with_borrow_mut(|s| {
+            s.tuning_params = Some(tuning_params.clone());
+            s.callbacks.clone().unwrap()
+        });
         callbacks.on_osc_tuning_received(tuning_params);
     }
 }
@@ -89,6 +90,7 @@ pub struct OscState {
 
     pub is_running_count: u16,
     pub is_running_result: bool,
+    pub tuning_params: Option<TuningParams>,
 }
 
 impl OscState {
@@ -107,6 +109,7 @@ impl OscState {
 
             is_running_count: 0,
             is_running_result: false,
+            tuning_params: None,
         }
     }
 }
@@ -127,6 +130,8 @@ impl Clone for OscState {
 
             is_running_count: self.is_running_count,
             is_running_result: self.is_running_result,
+
+            tuning_params: self.tuning_params.clone(),
         }
     }
 }

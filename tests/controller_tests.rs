@@ -3,12 +3,14 @@ mod mock_osc;
 mod mock_settings;
 mod mock_tuner;
 mod mock_ui_methods;
+mod tuner_tests;
 
 use std::sync::{Arc, LazyLock, Mutex, MutexGuard};
 use googletest::assert_that;
 use googletest::matchers::{displays_as, eq, err, len, not, ok, some, starts_with};
 use pitchgrid_continuum::controller::Controller;
 use pitchgrid_continuum::global::{MessageType, PortType};
+use pitchgrid_continuum::i_settings::ISettings;
 use pitchgrid_continuum::midi_static::MidiStatic;
 use pitchgrid_continuum::osc::Osc;
 use pitchgrid_continuum::tuner::Tuner;
@@ -18,7 +20,7 @@ use mock_osc::{MockOsc, osc_state};
 use mock_settings::{MockSettings, settings_state};
 use mock_tuner::{MockTuner, tuner_state};
 use mock_ui_methods::{MockUiMethods, ui_state};
-use pitchgrid_continuum::i_settings::ISettings;
+use tuner_tests::{params_16_16};
 
 #[googletest::gtest]
 fn init_from_settings() {
@@ -211,14 +213,20 @@ fn on_updating_tuning_ok() {
 #[googletest::gtest]
 fn on_tuning_updated() {
     let _guard = test_mutex_guard();
+    const NOTE_INDEX: usize = 1;
     let mut controller = create_controller(MockSettings::new(), true);
     controller.init();
+    controller.set_root_freq_override(NOTE_INDEX);
+    MockMidi::set_is_receiving_data(true);
+    MockMidi::set_are_ports_connected(true);
+    MockMidi::simulate_download_completed();
+    MockOsc::simulate_tuning_received(params_16_16());
     MockMidi::simulate_updating_tuning();
     MockMidi::simulate_tuning_updated();
     assert_that!(tuner_state().on_tuning_updated_count, eq(1));
     assert_that!(ui_state().show_tuning_count, eq(1));
-    // TODO: Check formatted_tuning_params and is_root_freq_overridden passed to ui_methods.show_tuning.
-    // Maybe create a test or tests for set_root_freq_override first.
+    assert_that!(ui_state().show_tuning_is_root_freq_overridden, some(eq(true)));
+    // assert_that!(ui_state().show_tuning_formatted_tuning, some(eq(Tuner::format_tuning_params(params_16_16()))));
 }
 
 #[googletest::gtest]

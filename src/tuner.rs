@@ -27,6 +27,31 @@ pub struct Tuner {
 }
 
 impl Tuner {
+
+    /// Formats the specified tuning parameters for display.
+    pub fn format_tuning_params(
+        params: TuningParams, root_freq_override: Option<f32>) -> FormattedTuningParams {
+        let root_freq = {
+            if let Some(freq) = root_freq_override {
+                freq
+            } else {
+                params.root_freq()
+            }
+        };
+        let mos = mos_from_tuning_params(&params);
+        FormattedTuningParams {
+            root_freq: format!("{} Hz", round(root_freq as f64, 3)),
+            // The stretch parameter is in octaves, so we need to multiply by 1200 to get the
+            // number of cents to display.
+            stretch: format!("{} ct", (params.stretch() * 1200.0).round()),
+            skew: format!("{}", round(params.skew() as f64, 5)),
+            mode_offset: format!("{}", round(params.mode_offset() as f64, 5)),
+            steps: format!("{}", params.steps()),
+            mos_large_step_count: format!("{}", ffi::get_mos_large_step_count(&mos)),
+            mos_small_step_count: format!("{}", ffi::get_mos_small_step_count(&mos)),
+        }
+    }
+
     /// Returns the currently selected pitch table number.
     /// Remains an associated function so that midi.rs can call it without holding a tuner reference.
     pub fn pitch_table() -> u8 {
@@ -298,26 +323,35 @@ impl ITuner for Tuner {
             return FormattedTuningParams::default();
         }
         let params = self.params.lock().unwrap();
-        let root_freq = {
+        let root_freq_override: Option<f32> = {
             if self.root_freq_override_note_no.load(Ordering::Relaxed) == 0 {
                 // No override
-                params.root_freq()
+                None
             } else {
-                self.root_freq_override.lock().unwrap().clone()
+                Some(self.root_freq_override.lock().unwrap().clone())
             }
         };
-        let mos = mos_from_tuning_params(&params);
-        FormattedTuningParams {
-            root_freq: format!("{} Hz", round(root_freq as f64, 3)),
-            // The stretch parameter is in octaves, so we need to multiply by 1200 to get the
-            // number of cents to display.
-            stretch: format!("{} ct", (params.stretch() * 1200.0).round()),
-            skew: format!("{}", round(params.skew() as f64, 5)),
-            mode_offset: format!("{}", round(params.mode_offset() as f64, 5)),
-            steps: format!("{}", params.steps()),
-            mos_large_step_count: format!("{}", ffi::get_mos_large_step_count(&mos)),
-            mos_small_step_count: format!("{}", ffi::get_mos_small_step_count(&mos)),
-        }
+        Self::format_tuning_params(params.clone(), root_freq_override)
+        // let root_freq = {
+        //     if self.root_freq_override_note_no.load(Ordering::Relaxed) == 0 {
+        //         // No override
+        //         params.root_freq()
+        //     } else {
+        //         self.root_freq_override.lock().unwrap().clone()
+        //     }
+        // };
+        // let mos = mos_from_tuning_params(&params);
+        // FormattedTuningParams {
+        //     root_freq: format!("{} Hz", round(root_freq as f64, 3)),
+        //     // The stretch parameter is in octaves, so we need to multiply by 1200 to get the
+        //     // number of cents to display.
+        //     stretch: format!("{} ct", (params.stretch() * 1200.0).round()),
+        //     skew: format!("{}", round(params.skew() as f64, 5)),
+        //     mode_offset: format!("{}", round(params.mode_offset() as f64, 5)),
+        //     steps: format!("{}", params.steps()),
+        //     mos_large_step_count: format!("{}", ffi::get_mos_large_step_count(&mos)),
+        //     mos_small_step_count: format!("{}", ffi::get_mos_small_step_count(&mos)),
+        // }
     }
 
     fn is_root_freq_overridden(&self) -> bool {

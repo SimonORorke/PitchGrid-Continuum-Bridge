@@ -87,7 +87,7 @@ impl IUiMethods for MockUiMethods {
     fn show_tuning(&self, tuning: FormattedTuningParams, is_root_freq_overridden: bool) {
         UI_STATE.with_borrow_mut(|s| {
             s.show_tuning_count += 1;
-            s.show_tuning_tuning = Some(tuning);
+            s.show_tuning_formatted_tuning = Some(tuning);
             s.show_tuning_is_root_freq_overridden = Some(is_root_freq_overridden);
         });
     }
@@ -165,7 +165,7 @@ pub struct UiMethodsState {
     pub show_pitchgrid_status_msg_type: Option<MessageType>,
 
     pub show_tuning_count: u16,
-    pub show_tuning_tuning: Option<FormattedTuningParams>,
+    pub show_tuning_formatted_tuning: Option<FormattedTuningParams>,
     pub show_tuning_is_root_freq_overridden: Option<bool>,
 
     pub main_window_position_x: Option<i32>,
@@ -209,7 +209,7 @@ impl UiMethodsState {
             show_pitchgrid_status_msg_type: None,
 
             show_tuning_count: 0,
-            show_tuning_tuning: None,
+            show_tuning_formatted_tuning: None,
             show_tuning_is_root_freq_overridden: None,
 
             main_window_position_x: None,
@@ -254,7 +254,7 @@ impl Clone for UiMethodsState {
             show_pitchgrid_status_msg_type: self.show_pitchgrid_status_msg_type.clone(),
 
             show_tuning_count: self.show_tuning_count,
-            show_tuning_tuning: self.show_tuning_tuning.clone(),
+            show_tuning_formatted_tuning: self.show_tuning_formatted_tuning.clone(),
             show_tuning_is_root_freq_overridden: self.show_tuning_is_root_freq_overridden,
 
             main_window_position_x: self.main_window_position_x,
