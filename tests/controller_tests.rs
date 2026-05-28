@@ -222,12 +222,36 @@ fn on_data_download_completed_start_osc() {
 }
 
 #[googletest::gtest]
+fn on_osc_tuning_received() {
+    let _guard = test_mutex_guard();
+    let mut controller = create_controller(MockSettings::new(), true);
+    controller.init();
+    MockMidi::set_is_receiving_data(true);
+    MockMidi::set_are_ports_connected(true);
+    MockMidi::simulate_download_completed();
+    MockOsc::simulate_tuning_received(params_16_16());
+    assert_that!(tuner_state().tuning_params, some(params_16_16()));
+    assert_that!(ui_state().show_pitchgrid_status_count, eq(1));
+    assert_that!(ui_state().show_pitchgrid_status_msg,
+        some(eq("Updating instrument tuning")));
+    assert_that!(ui_state().show_pitchgrid_status_msg_type, some(eq(MessageType::Info)));
+}
+
+#[googletest::gtest]
 fn on_updating_tuning_ok() {
     let _guard = test_mutex_guard();
     let mut controller = create_controller(MockSettings::new(), true);
     controller.init();
+    MockMidi::set_is_receiving_data(true);
+    MockMidi::set_are_ports_connected(true);
+    MockMidi::simulate_download_completed();
+    MockOsc::simulate_tuning_received(params_16_16());
     MockMidi::simulate_updating_tuning();
-    assert_that!(ui_state().show_message_msg_type, some(not(eq(MessageType::Error))));
+    assert_that!(tuner_state().tuning_params, eq(1));
+    assert_that!(ui_state().show_pitchgrid_status_count, eq(1));
+    assert_that!(ui_state().show_pitchgrid_status_msg,
+        some(eq("Updating instrument tuning")));
+    assert_that!(ui_state().show_pitchgrid_status_msg_type, some(eq(MessageType::Info)));
 }
 
 #[googletest::gtest]
@@ -265,12 +289,11 @@ fn on_new_preset_selected() {
     MockMidi::simulate_updating_tuning();
     MockMidi::simulate_tuning_updated();
     MockMidi::simulate_new_preset_selected();
-    // assert_that!(tuner_state().on_tuning_updated_count, eq(1));
-    // assert_that!(ui_state().show_tuning_count, eq(1));
-    // assert_that!(ui_state().show_tuning_is_root_freq_overridden, some(eq(true)));
-    // assert_that!(tuner_state().tuning_params, some(anything()));
-    // assert_that!(ui_state().show_tuning_formatted_tuning,
-    //     some(eq(&tuner_state().tuning_params.unwrap().format_tuning_params())));
+    assert_that!(tuner_state().send_current_preset_update_count, eq(1));
+    assert_that!(ui_state().show_pitchgrid_status_count, eq(1));
+    assert_that!(ui_state().show_pitchgrid_status_msg,
+        some(starts_with("New instrument preset selected")));
+    assert_that!(ui_state().show_pitchgrid_status_msg_type, some(eq(MessageType::Info)));
 }
 
 fn create_controller(mut mock_settings: MockSettings, default_midi_devices: bool) -> Controller {
