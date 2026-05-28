@@ -60,10 +60,7 @@ fn init_from_settings() {
     assert_that!(ui_state().show_message_msg_type, some(eq(MessageType::Info)));
     assert_that!(midi_state().start_instrument_connection_monitor_count, eq(1));
     assert_that!(osc_state().listening_port, some(eq(LISTENING_PORT)));
-    // assert_that!(tuner_state().pitch_table, some(eq(PITCH_TABLE)));
-    // assert_that!(tuner_state().override_rounding_initial, some(eq(OVERRIDE_ROUNDING_INITIAL)));
-    // assert_that!(tuner_state().override_rounding_rate, some(eq(OVERRIDE_ROUNDING_RATE)));
-    // assert_that!(tuner_state().rounding_rate, some(eq(ROUNDING_RATE)));
+    assert_that!(Tuner::pitch_table(), eq(PITCH_TABLE));
     assert_that!(midi_state().start_instrument_connection_monitor_count, eq(1));
 }
 
@@ -103,12 +100,8 @@ fn init_no_settings() {
     assert_that!(osc_state().listening_port, some(eq(Osc::default_listening_port())));
     assert_that!(ui_state().selected_osc_listening_port_index,
         some(eq(Osc::listening_port_index() as i32)));
-    // assert_that!(tuner_state().init_count, eq(1));
-    // assert_that!(tuner_state().pitch_table, some(eq(Tuner::default_pitch_table())));
+    assert_that!(Tuner::pitch_table(), eq(Tuner::default_pitch_table()));
     assert_that!(ui_state().selected_pitch_table_index, some(eq(0)));
-    // assert_that!(tuner_state().override_rounding_initial, some(eq(true)));
-    // assert_that!(tuner_state().override_rounding_rate, some(eq(true)));
-    // assert_that!(tuner_state().rounding_rate, some(eq(127)));
     assert_that!(ui_state().override_rounding_initial, some(eq(true)));
     assert_that!(ui_state().override_rounding_rate, some(eq(true)));
     assert_that!(ui_state().rounding_rate, some(eq(127)));
@@ -146,10 +139,8 @@ fn refresh_devices() {
     controller.refresh_devices(&port_strategy);
     assert_that!(midi_state().stop_instrument_connection_monitor_count, eq(1));
     assert_that!(osc_state().stop_count, eq(1));
-    // assert_that!(tuner_state().remove_data_count, eq(1));
-    // let formatted_tuning =
-    //     tuner_state().tuning_params.as_ref().unwrap().format_tuning_params();
-    // assert_that!(formatted_tuning.root_freq, eq("")); // Tuning data has been removed.
+    assert_that!(tuner().has_data(), eq(false));
+    assert_that!(tuner().formatted_tuning_params().root_freq, eq(""));
     assert_that!(ui_state().show_tuning_count, eq(2));
     assert_that!(ui_state().show_pitchgrid_status_msg,
         some(eq("Disconnected from PitchGrid because MIDI is not connected")));
@@ -251,7 +242,7 @@ fn on_osc_tuning_received() {
     MockMidi::set_are_ports_connected(true);
     MockMidi::simulate_download_completed();
     MockOsc::simulate_tuning_received(params_16_16());
-    // assert_that!(tuner_state().tuning_params, some(eq(&params_16_16())));
+    assert_that!(tuner().has_data(), eq(true));
     assert_that!(ui_state().show_pitchgrid_status_count, eq(1));
     assert_that!(ui_state().show_pitchgrid_status_msg,
         some(eq("Updating instrument tuning")));
@@ -280,12 +271,12 @@ fn on_tuning_updated() {
     MockOsc::simulate_tuning_received(params_16_16());
     MockMidi::simulate_updating_tuning();
     MockMidi::simulate_tuning_updated();
-    // assert_that!(tuner_state().on_tuning_updated_count, eq(1));
+    assert_that!(tuner().has_data(), eq(true));
+    assert_that!(tuner().is_root_freq_overridden(), eq(true));
     assert_that!(ui_state().show_tuning_count, eq(1));
     assert_that!(ui_state().show_tuning_is_root_freq_overridden, some(eq(true)));
-    // assert_that!(tuner_state().tuning_params, some(anything()));
-    // assert_that!(ui_state().show_tuning_formatted_tuning,
-    //     some(eq(&tuner_state().tuning_params.unwrap().format_tuning_params())));
+    assert_that!(ui_state().show_tuning_formatted_tuning,
+        some(eq(&tuner().formatted_tuning_params())));
 }
 
 #[googletest::gtest]
@@ -303,7 +294,7 @@ fn on_new_preset_selected() {
     MockMidi::simulate_updating_tuning();
     MockMidi::simulate_tuning_updated();
     MockMidi::simulate_new_preset_selected();
-    // assert_that!(tuner_state().send_current_preset_update_count, eq(1));
+    assert_that!(tuner().has_data(), eq(true));
     assert_that!(ui_state().show_pitchgrid_status_msg,
         some(starts_with("New instrument preset selected")));
     assert_that!(ui_state().show_pitchgrid_status_msg_type, some(eq(MessageType::Info)));
@@ -325,8 +316,7 @@ fn  set_root_freq_override() {
     assert_that!(ui_state().show_pitchgrid_status_count, eq(2));
     assert_that!(ui_state().show_pitchgrid_status_msg, some(starts_with("Updating root")));
     assert_that!(ui_state().show_pitchgrid_status_msg_type, some(eq(MessageType::Info)));
-    // assert_that!(tuner_state().root_freq_override_note_no, some(eq(NOTE_INDEX)));
-    // assert_that!(tuner_state().set_root_freq_override_note_no_send_tuning, some(eq(true)));
+    assert_that!(tuner().is_root_freq_overridden(), eq(true));
 }
 
 fn create_controller(mut mock_settings: MockSettings, default_midi_devices: bool) -> Controller {
