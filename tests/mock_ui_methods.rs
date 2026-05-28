@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use pitchgrid_continuum::global::MessageType;
 use pitchgrid_continuum::i_ui_methods::IUiMethods;
 use pitchgrid_continuum::port_strategy::PortStrategy;
-use pitchgrid_continuum::tuner::FormattedTuningParams;
+use pitchgrid_continuum::tuning_params::FormattedTuningParams;
 
 /// Returns a clone of the current `UiMethodsState`.
 pub fn ui_state() -> UiMethodsState {

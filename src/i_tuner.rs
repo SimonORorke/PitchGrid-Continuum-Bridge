@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use crate::midi_sender::IMidiSender;
 use crate::tuning_params::TuningParams;
-use crate::tuner::FormattedTuningParams;
+use crate::tuning_params::FormattedTuningParams;
 
 /// A trait that defines the interface for tuning a Continuum from PitchGrid parameters.
 ///

@@ -1,16 +1,9 @@
-mod tuner_refs;
-
-use std::cmp::max;
 use std::sync::atomic::{AtomicBool, AtomicU8, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
-use cxx::UniquePtr;
-use round::round;
+use crate::i_tuner::ITuner;
 use crate::midi::Midi;
 use crate::midi_sender::{IMidiSender, MidiSender};
-use crate::tuner::ffi::MOS;
-use crate::tuning_params::TuningParams;
-
-pub use crate::i_tuner::{ITuner, SharedTuner};
+use crate::tuning_params::{FormattedTuningParams, TuningParams};
 
 /// A facility for tuning a Continuum from PitchGrid parameters.
 pub struct Tuner {
@@ -23,34 +16,9 @@ pub struct Tuner {
     keys: Mutex<Vec<Key>>,
     midi_sender: Mutex<Box<dyn IMidiSender>>,
     params: Arc<Mutex<TuningParams>>,
-    root_freq_override: Arc<Mutex<f32>>,
 }
 
 impl Tuner {
-
-    /// Formats the specified tuning parameters for display.
-    pub fn format_tuning_params(
-        params: TuningParams, root_freq_override: Option<f32>) -> FormattedTuningParams {
-        let root_freq = {
-            if let Some(freq) = root_freq_override {
-                freq
-            } else {
-                params.root_freq()
-            }
-        };
-        let mos = mos_from_tuning_params(&params);
-        FormattedTuningParams {
-            root_freq: format!("{} Hz", round(root_freq as f64, 3)),
-            // The stretch parameter is in octaves, so we need to multiply by 1200 to get the
-            // number of cents to display.
-            stretch: format!("{} ct", (params.stretch() * 1200.0).round()),
-            skew: format!("{}", round(params.skew() as f64, 5)),
-            mode_offset: format!("{}", round(params.mode_offset() as f64, 5)),
-            steps: format!("{}", params.steps()),
-            mos_large_step_count: format!("{}", ffi::get_mos_large_step_count(&mos)),
-            mos_small_step_count: format!("{}", ffi::get_mos_small_step_count(&mos)),
-        }
-    }
 
     /// Returns the currently selected pitch table number.
     /// Remains an associated function so that midi.rs can call it without holding a tuner reference.
@@ -75,7 +43,6 @@ impl Tuner {
             keys: Mutex::new(vec![]),
             midi_sender: Mutex::new(Box::new(MidiSender::new())),
             params: Arc::new(Mutex::new(TuningParams::default())),
-            root_freq_override: Arc::new(Mutex::new(0.0)),
         }
     }
 
@@ -85,11 +52,9 @@ impl Tuner {
         println!("tuner.tune");
         let send_now: bool;
         {
-            let params = self.params.lock().unwrap();
-            let key_pitches = self.calculate_key_pitches(TuningParams::new(
-                params.mode(), params.root_freq(), params.stretch(),
-                params.skew(), params.mode_offset(), max(1, params.steps()),
-                params.mos_a(), params.mos_b()));
+            let mut params = self.params.lock().unwrap();
+            let key_pitches = params.calculate_key_pitches(
+                self.root_freq_override_note_no.load(Ordering::Relaxed));
             *self.keys.lock().unwrap() = key_pitches.iter().enumerate()
                 .map(|(i, pitch)| Key {
                     number: i as u8,
@@ -123,48 +88,6 @@ impl Tuner {
         }
     }
 
-    /// Calculates and returns the pitch required for each key in the MIDI range,
-    /// given the tuning parameters.
-    fn calculate_key_pitches(&self, tuning_params: TuningParams) -> Vec<f32> {
-        let root_freq = {
-            let mut override_freq = self.root_freq_override.lock().unwrap();
-            if self.root_freq_override_note_no.load(Ordering::Relaxed) == 0 {
-                *override_freq = 0.0;
-                tuning_params.root_freq()
-            } else {
-                let note_no = self.root_freq_override_note_no.load(Ordering::Relaxed);
-                let pitch = tuner_refs::default_pitch_keys()[note_no];
-                *override_freq = pitch;
-                pitch
-            }
-        };
-        let mos = mos_from_tuning_params(&tuning_params);
-        let a1 = ffi::vector2d(0.0, 0.0);
-        let a2 = ffi::vector2d(
-            ffi::get_mos_v_gen_x(&mos) as f64, ffi::get_mos_v_gen_y(&mos) as f64);
-        let a3 = ffi::vector2d(
-            ffi::get_mos_a(&mos) as f64, ffi::get_mos_b(&mos) as f64);
-        let b1 = ffi::vector2d(
-            0.0, (tuning_params.mode_offset() as f64 + 0.5) / tuning_params.steps() as f64);
-        let b2 = ffi::vector2d(
-            (tuning_params.skew() * tuning_params.stretch()) as f64,
-            (tuning_params.mode_offset() as f64 + 1.5) / tuning_params.steps() as f64);
-        let b3 = ffi::vector2d(
-            tuning_params.stretch() as f64,
-            (tuning_params.mode_offset() as f64 + 0.5) / tuning_params.steps() as f64);
-        let affine = ffi::affine_from_three_dots(&a1, &a2, &a3, &b1, &b2, &b3);
-        let scale = ffi::scale_from_affine(
-            &affine, root_freq as f64,
-            128, // MIDI note number range 0 to 127
-            60); // Middle C
-        let scale_nodes = ffi::get_scale_nodes(&scale);
-        scale_nodes.iter().map(|node|
-            // root_freq is received as f32 rounded to 5 decimal places,
-            // so let's store the pitch with the same precision.
-            round(ffi::get_node_pitch(&node), 5) as f32)
-            .collect()
-    }
-
     /// Sends the instrument a tuning update.
     ///
     /// generate: Whether a tuning table is to be generated from the tuning parameters received
@@ -193,7 +116,7 @@ impl Tuner {
     /// that matches the Key's pitch.
     fn set_to_key_numbers(&self, keys: &mut Vec<Key>) {
         for key_being_matched in keys.iter_mut() {
-            key_being_matched.to_number = tuner_refs::default_pitch_keys()
+            key_being_matched.to_number = TuningParams::default_pitch_keys()
                 .binary_search_by(|&x| x.partial_cmp(&key_being_matched.required_pitch).unwrap())
                 .unwrap_or_else(|i| {
                     if i == 0 { 0 } else { i - 1 }
@@ -205,7 +128,7 @@ impl Tuner {
     fn calculate_offsets(&self, keys: &mut Vec<Key>) {
         for i in 0..keys.len() {
             let note_pitch = keys[i].required_pitch;
-            let to_note_pitch = tuner_refs::default_pitch_keys()[keys[i].to_number as usize];
+            let to_note_pitch = TuningParams::default_pitch_keys()[keys[i].to_number as usize];
             let mut offset_ratio = 12.0 * (note_pitch / to_note_pitch).log2();
             if offset_ratio > 1.0 {
                 offset_ratio = 1.0;
@@ -323,35 +246,7 @@ impl ITuner for Tuner {
             return FormattedTuningParams::default();
         }
         let params = self.params.lock().unwrap();
-        let root_freq_override: Option<f32> = {
-            if self.root_freq_override_note_no.load(Ordering::Relaxed) == 0 {
-                // No override
-                None
-            } else {
-                Some(self.root_freq_override.lock().unwrap().clone())
-            }
-        };
-        Self::format_tuning_params(params.clone(), root_freq_override)
-        // let root_freq = {
-        //     if self.root_freq_override_note_no.load(Ordering::Relaxed) == 0 {
-        //         // No override
-        //         params.root_freq()
-        //     } else {
-        //         self.root_freq_override.lock().unwrap().clone()
-        //     }
-        // };
-        // let mos = mos_from_tuning_params(&params);
-        // FormattedTuningParams {
-        //     root_freq: format!("{} Hz", round(root_freq as f64, 3)),
-        //     // The stretch parameter is in octaves, so we need to multiply by 1200 to get the
-        //     // number of cents to display.
-        //     stretch: format!("{} ct", (params.stretch() * 1200.0).round()),
-        //     skew: format!("{}", round(params.skew() as f64, 5)),
-        //     mode_offset: format!("{}", round(params.mode_offset() as f64, 5)),
-        //     steps: format!("{}", params.steps()),
-        //     mos_large_step_count: format!("{}", ffi::get_mos_large_step_count(&mos)),
-        //     mos_small_step_count: format!("{}", ffi::get_mos_small_step_count(&mos)),
-        // }
+        params.format_tuning_params()
     }
 
     fn is_root_freq_overridden(&self) -> bool {
@@ -428,55 +323,6 @@ impl ITuner for Tuner {
     }
 }
 
-fn mos_from_tuning_params(tuning_params: &TuningParams) -> UniquePtr<MOS> {
-    ffi::mos_from_params(
-        tuning_params.mos_a(),
-        tuning_params.mos_b(),
-        tuning_params.mode(),
-        tuning_params.stretch() as f64,
-        tuning_params.skew() as f64)
-}
-
-/// Interface to Peter Jung's scalatrix https://github.com/pitchgrid-io/scalatrix
-/// C++ code, a version of which is embedded in this application,
-/// used in the key pitch frequency calculation.
-/// #[cxx::bridge] is a proc macro that requires the module body to be inline in the same file.
-/// So the ffi module cannot be moved to a separate file.
-#[cxx::bridge(namespace = "scalatrix")]
-mod ffi {
-    unsafe extern "C++" {
-        include!("scalatrix.hpp");
-
-        type AffineTransform;
-        type MOS;
-        type Node;
-        type Scale;
-        type Vector2d;
-
-        // If you add, remove, or modify any of the functions defined below,
-        // you must update the corresponding C++ functions defined in scalatrix/scalatrix.hpp.
-        fn  affine_from_three_dots(
-            a1: &Vector2d, a2: &Vector2d, a3: &Vector2d,
-            b1: &Vector2d, b2: &Vector2d, b3: &Vector2d) -> UniquePtr<AffineTransform>;
-
-        fn mos_from_params(a: i32, b: i32, m: i32, e: f64, g: f64) -> UniquePtr<MOS>;
-        fn get_mos_a(mos: &MOS) -> i32;
-        fn get_mos_b(mos: &MOS) -> i32;
-        fn get_mos_large_step_count(mos: &MOS) -> i32;
-        fn get_mos_small_step_count(mos: &MOS) -> i32;
-        fn get_mos_v_gen_x(mos: &MOS) -> i32;
-        fn get_mos_v_gen_y(mos: &MOS) -> i32;
-        fn get_node_pitch(node: &Node) -> f64;
-        fn get_scale_nodes(scale: &Scale) -> UniquePtr<CxxVector<Node>>;
-
-        fn scale_from_affine(
-            affine: &AffineTransform, base_freq: f64,
-            num_nodes_to_generate: i32, root_index: i32) -> UniquePtr<Scale>;
-
-        fn vector2d(x: f64, y: f64) -> UniquePtr<Vector2d>;
-    }
-}
-
 #[derive(Clone, Debug)]
 struct Key {
     /// The MIDI note number of the key (0-127).
@@ -495,24 +341,6 @@ struct Key {
     /// The lower 7 bits (LSB) of the offset ratio, as a 14-bit value,
     /// for sending to the instrument via MIDI.
     offset_lsb: u8,
-}
-
-/// The tuning parameters formatted for display.
-#[derive(Clone)]
-pub struct FormattedTuningParams {
-    pub root_freq: String, pub stretch: String,
-    pub skew: String, pub mode_offset: String, pub steps: String,
-    pub mos_large_step_count: String, pub mos_small_step_count: String,
-}
-
-impl Default for FormattedTuningParams {
-    fn default() -> Self {
-        Self {
-            root_freq: String::new(), stretch: String::new(),
-            skew: String::new(), mode_offset: String::new(), steps: String::new(),
-            mos_large_step_count: String::new(), mos_small_step_count: String::new(),
-        }
-    }
 }
 
 /// About the name Pitch Table.

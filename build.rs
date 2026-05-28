@@ -4,7 +4,7 @@ fn main() {
         slint_build::CompilerConfiguration::new().with_library_paths(vivi_ui::import_paths()),
     )
     .unwrap();
-    cxx_build::bridge("src/tuner.rs")  // returns a cc::Build
+    cxx_build::bridge("src/tuning_params.rs")  // returns a cc::Build
         // If you add, remove, or rename cpp files in the scalatrix/src directory,
         // you must also update this, in order for the C++ code to be compiled.
         .file("scalatrix/src/affine_transform.cpp")

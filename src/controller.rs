@@ -12,7 +12,8 @@ use crate::port_strategy::{
 use crate::settings::Settings;
 use crate::midi_static::MidiStatic;
 use crate::i_ui_methods::IUiMethods;
-use crate::tuner::{SharedTuner, Tuner};
+use crate::i_tuner::SharedTuner;
+use crate::tuner::Tuner;
 use crate::tuning_params::TuningParams;
 
 /// This is the main controller in the Model-View-Controller (MVC) pattern.

@@ -3,7 +3,8 @@
 use std::sync::{Mutex, MutexGuard};
 use googletest::assert_that;
 use googletest::matchers::{eq, gt};
-use pitchgrid_continuum::tuner::{ITuner, Tuner};
+use pitchgrid_continuum::i_tuner::ITuner;
+use pitchgrid_continuum::tuner::Tuner;
 use pitchgrid_continuum::tuning_params::TuningParams;
 use mock_midi_sender::{MockMidiSender, sent_midi};
 

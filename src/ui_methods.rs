@@ -4,7 +4,7 @@ use crate::{MainWindow, ComboBoxItem, SlintMessageType, ComboBoxModel as MainCom
 use crate::global::{MessageType, PortType};
 use crate::i_ui_methods::IUiMethods;
 use crate::port_strategy::PortStrategy;
-use crate::tuner::FormattedTuningParams;
+use crate::tuning_params::FormattedTuningParams;
 
 /// This struct contains the methods called by `Controller` to make changes to the UI.
 /// It is part of the view in the Model-View-Controller (MVC) pattern.

@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 use pitchgrid_continuum::i_tuner::ITuner;
 use pitchgrid_continuum::midi_sender::IMidiSender;
-use pitchgrid_continuum::tuner::FormattedTuningParams;
+use pitchgrid_continuum::tuning_params::FormattedTuningParams;
 use pitchgrid_continuum::tuning_params::TuningParams;
 
 /// Returns a clone of the current `TunerState`.

@@ -1,6 +1,6 @@
 ﻿use crate::global::MessageType;
 use crate::port_strategy::PortStrategy;
-use crate::tuner::FormattedTuningParams;
+use crate::tuning_params::FormattedTuningParams;
 
 /// A trait that defines the interface for methods called by `Controller`
 /// to make changes to the UI.
