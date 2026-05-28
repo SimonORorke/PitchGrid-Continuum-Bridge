@@ -30,6 +30,7 @@ impl ITuner for MockTuner {
         TUNER_STATE.with_borrow_mut(|s| {
             s.formatted_tuning_params = params.format_tuning_params();
             s.tuning_params = Some(params);
+            s.has_data_result = true;
         });
     }
 
@@ -43,6 +44,9 @@ impl ITuner for MockTuner {
     fn remove_data(&self) {
         TUNER_STATE.with_borrow_mut(|s| {
             s.remove_data_count += 1;
+            s.tuning_params = Some(TuningParams::default());
+            s.formatted_tuning_params = FormattedTuningParams::default();
+            s.has_data_result = false;
         });
     }
 
@@ -54,6 +58,9 @@ impl ITuner for MockTuner {
     }
 
     fn formatted_tuning_params(&self) -> FormattedTuningParams {
+        if !self.has_data() {
+            return FormattedTuningParams::default();
+        }
         TUNER_STATE.with(|s| s.borrow().formatted_tuning_params.clone())
     }
 

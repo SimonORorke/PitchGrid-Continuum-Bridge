@@ -7,12 +7,14 @@ mod tuner_tests;
 
 use std::sync::{Arc, LazyLock, Mutex, MutexGuard};
 use googletest::assert_that;
-use googletest::matchers::{anything, displays_as, eq, err, len, ok, not, some, starts_with};
+use googletest::matchers::{
+    anything, displays_as, eq, err, len, ok, not, some, starts_with};
 use pitchgrid_continuum::controller::Controller;
 use pitchgrid_continuum::global::{MessageType, PortType};
 use pitchgrid_continuum::i_settings::ISettings;
 use pitchgrid_continuum::midi_static::MidiStatic;
 use pitchgrid_continuum::osc::Osc;
+use pitchgrid_continuum::port_strategy::InputStrategy;
 use pitchgrid_continuum::tuner::Tuner;
 use mock_midi::{MockMidi, midi_state};
 use mock_midi::mock_io::{input_state, output_state};
@@ -122,6 +124,39 @@ fn init_read_settings_err() {
 }
 
 #[googletest::gtest]
+fn refresh_devices() {
+    let _guard = test_mutex_guard();
+    let mut controller = create_controller(MockSettings::new(), true);
+    controller.init();
+    assert_that!(ui_state().set_devices_model_count, eq(2));
+    MockMidi::set_is_receiving_data(true);
+    MockMidi::set_are_ports_connected(true);
+    MockMidi::simulate_download_completed();
+    MockOsc::simulate_tuning_received(params_16_16());
+    MockMidi::simulate_updating_tuning();
+    MockMidi::simulate_tuning_updated();
+    assert_that!(ui_state().show_tuning_count, eq(1));
+    let port_strategy = InputStrategy::new();
+    controller.refresh_devices(&port_strategy);
+    assert_that!(midi_state().stop_instrument_connection_monitor_count, eq(1));
+    assert_that!(osc_state().stop_count, eq(1));
+    assert_that!(tuner_state().remove_data_count, eq(1));
+    let formatted_tuning =
+        tuner_state().tuning_params.as_ref().unwrap().format_tuning_params();
+    assert_that!(formatted_tuning.root_freq, eq("")); // Tuning data has been removed.
+    assert_that!(ui_state().show_tuning_count, eq(2));
+    assert_that!(ui_state().show_pitchgrid_status_msg,
+        some(eq("Disconnected from PitchGrid because MIDI is not connected")));
+    assert_that!(ui_state().show_pitchgrid_status_msg_type, some(eq(MessageType::Warning)));
+    assert_that!(ui_state().set_devices_model_count, eq(3));
+    let strategy = ui_state().set_devices_model_port_strategy;
+    assert_that!(strategy.as_ref().map(|s| *s.port_type()), some(eq(PortType::Input)));
+    assert_that!(ui_state().show_connected_device_name_name, some(eq("[None]")));
+    assert_that!(ui_state().show_message_msg, some(starts_with("Refreshed MIDI input ports.")));
+    assert_that!(ui_state().show_message_msg_type, some(eq(MessageType::Warning)));
+}
+
+#[googletest::gtest]
 fn close() {
     let _guard = test_mutex_guard();
     const OLD_MAIN_WINDOW_X: i32 = 100;
@@ -165,26 +200,6 @@ fn close_err() {
     assert_that!(settings_state().main_window_y, eq(NEW_MAIN_WINDOW_Y));
     assert_that!(ui_state().show_message_msg, some(eq(ERR_MSG)));
     assert_that!(ui_state().show_message_msg_type, some(eq(MessageType::Error)));
-}
-
-#[googletest::gtest]
-fn  set_root_freq_override() {
-    let _guard = test_mutex_guard();
-    const NOTE_INDEX: usize = 1;
-    let mut controller = create_controller(MockSettings::new(), true);
-    controller.init();
-    MockMidi::set_is_receiving_data(true);
-    MockMidi::set_are_ports_connected(true);
-    MockMidi::simulate_download_completed();
-    assert_that!(ui_state().show_pitchgrid_status_count, eq(0));
-    MockOsc::simulate_pitchgrid_connected_changed(true);
-    assert_that!(ui_state().show_pitchgrid_status_count, eq(1));
-    controller.set_root_freq_override(NOTE_INDEX);
-    assert_that!(ui_state().show_pitchgrid_status_count, eq(2));
-    assert_that!(ui_state().show_pitchgrid_status_msg, some(starts_with("Updating root")));
-    assert_that!(ui_state().show_pitchgrid_status_msg_type, some(eq(MessageType::Info)));
-    assert_that!(tuner_state().root_freq_override_note_no, some(eq(NOTE_INDEX)));
-    assert_that!(tuner_state().set_root_freq_override_note_no_send_tuning, some(eq(true)));
 }
 
 #[googletest::gtest]
@@ -283,10 +298,29 @@ fn on_new_preset_selected() {
     MockMidi::simulate_tuning_updated();
     MockMidi::simulate_new_preset_selected();
     assert_that!(tuner_state().send_current_preset_update_count, eq(1));
-    assert_that!(ui_state().show_pitchgrid_status_count, eq(2));
     assert_that!(ui_state().show_pitchgrid_status_msg,
         some(starts_with("New instrument preset selected")));
     assert_that!(ui_state().show_pitchgrid_status_msg_type, some(eq(MessageType::Info)));
+}
+
+#[googletest::gtest]
+fn  set_root_freq_override() {
+    let _guard = test_mutex_guard();
+    const NOTE_INDEX: usize = 1;
+    let mut controller = create_controller(MockSettings::new(), true);
+    controller.init();
+    MockMidi::set_is_receiving_data(true);
+    MockMidi::set_are_ports_connected(true);
+    MockMidi::simulate_download_completed();
+    assert_that!(ui_state().show_pitchgrid_status_count, eq(0));
+    MockOsc::simulate_pitchgrid_connected_changed(true);
+    assert_that!(ui_state().show_pitchgrid_status_count, eq(1));
+    controller.set_root_freq_override(NOTE_INDEX);
+    assert_that!(ui_state().show_pitchgrid_status_count, eq(2));
+    assert_that!(ui_state().show_pitchgrid_status_msg, some(starts_with("Updating root")));
+    assert_that!(ui_state().show_pitchgrid_status_msg_type, some(eq(MessageType::Info)));
+    assert_that!(tuner_state().root_freq_override_note_no, some(eq(NOTE_INDEX)));
+    assert_that!(tuner_state().set_root_freq_override_note_no_send_tuning, some(eq(true)));
 }
 
 fn create_controller(mut mock_settings: MockSettings, default_midi_devices: bool) -> Controller {

@@ -86,6 +86,10 @@ impl TuningParams {
 
     /// Formats the tuning parameters for display.
     pub fn format_tuning_params(&self) -> FormattedTuningParams {
+        if self.root_freq == 0.0 {
+            // Tuning data has been removed.
+            return FormattedTuningParams::default();
+        }
         let root_freq = self.root_freq_override.unwrap_or(self.root_freq);
         let mos = mos_from_tuning_params(self);
         FormattedTuningParams {
