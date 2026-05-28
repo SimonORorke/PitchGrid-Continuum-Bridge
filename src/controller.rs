@@ -584,6 +584,40 @@ impl Controller {
     }
 }
 
+impl MidiCallbacks for Mutex<Controller> {
+    fn on_download_completed(&self) {
+        self.lock().unwrap().on_data_download_completed();
+    }
+
+    fn on_download_started(&self) {
+        self.lock().unwrap().on_data_download_started();
+    }
+
+    fn on_new_preset_selected(&self) {
+        self.lock().unwrap().on_new_preset_selected();
+    }
+
+    fn on_ports_connected_changed(&self) {
+        self.lock().unwrap().on_ports_connected_changed();
+    }
+
+    fn on_receiving_data_started(&self) {
+        self.lock().unwrap().on_receiving_data_started_callback();
+    }
+
+    fn on_receiving_data_stopped(&self) {
+        self.lock().unwrap().on_receiving_data_stopped_callback();
+    }
+
+    fn on_tuning_updated(&self) {
+        self.lock().unwrap().on_tuning_updated();
+    }
+
+    fn on_updating_tuning(&self) {
+        self.lock().unwrap().on_updating_tuning();
+    }
+}
+
 impl OscCallbacks for Mutex<Controller> {
     fn on_osc_pitchgrid_connected_changed(&self) {
         // println!("OscCallbacks for Mutex<Controller>.on_osc_pitchgrid_connected_changed");
@@ -630,40 +664,6 @@ impl OscCallbacks for Controller {
         } else {
             self.stop_osc_and_show_pitchgrid_status();
         }
-    }
-}
-
-impl MidiCallbacks for Mutex<Controller> {
-    fn on_download_completed(&self) {
-        self.lock().unwrap().on_data_download_completed();
-    }
-
-    fn on_download_started(&self) {
-        self.lock().unwrap().on_data_download_started();
-    }
-
-    fn on_new_preset_selected(&self) {
-        self.lock().unwrap().on_new_preset_selected();
-    }
-
-    fn on_ports_connected_changed(&self) {
-        self.lock().unwrap().on_ports_connected_changed();
-    }
-
-    fn on_receiving_data_started(&self) {
-        self.lock().unwrap().on_receiving_data_started_callback();
-    }
-
-    fn on_receiving_data_stopped(&self) {
-        self.lock().unwrap().on_receiving_data_stopped_callback();
-    }
-
-    fn on_tuning_updated(&self) {
-        self.lock().unwrap().on_tuning_updated();
-    }
-
-    fn on_updating_tuning(&self) {
-        self.lock().unwrap().on_updating_tuning();
     }
 }
 

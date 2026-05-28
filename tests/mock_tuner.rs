@@ -19,7 +19,6 @@ impl MockTuner {
 }
 
 impl ITuner for MockTuner {
-    #[allow(dead_code)]
     fn init(&self, pitch_table: u8) {
         TUNER_STATE.with_borrow_mut(|s| {
             s.init_count += 1;
@@ -27,7 +26,6 @@ impl ITuner for MockTuner {
         });
     }
 
-    #[allow(dead_code)]
     fn on_tuning_received(&self, params: TuningParams) {
         TUNER_STATE.with_borrow_mut(|s| {
             s.formatted_tuning_params = params.format_tuning_params();
@@ -35,7 +33,6 @@ impl ITuner for MockTuner {
         });
     }
 
-    #[allow(dead_code)]
     fn has_data(&self) -> bool {
         TUNER_STATE.with_borrow_mut(|s| {
             s.has_data_count += 1;
@@ -43,14 +40,12 @@ impl ITuner for MockTuner {
         TUNER_STATE.with(|s| s.borrow().has_data_result)
     }
 
-    #[allow(dead_code)]
     fn remove_data(&self) {
         TUNER_STATE.with_borrow_mut(|s| {
             s.remove_data_count += 1;
         });
     }
 
-    #[allow(dead_code)]
     fn send_current_preset_update(&self) -> bool {
         TUNER_STATE.with_borrow_mut(|s| {
             s.send_current_preset_update_count += 1;
@@ -58,17 +53,14 @@ impl ITuner for MockTuner {
         TUNER_STATE.with(|s| s.borrow().send_current_preset_update_result)
     }
 
-    #[allow(dead_code)]
     fn formatted_tuning_params(&self) -> FormattedTuningParams {
         TUNER_STATE.with(|s| s.borrow().formatted_tuning_params.clone())
     }
 
-    #[allow(dead_code)]
     fn is_root_freq_overridden(&self) -> bool {
         TUNER_STATE.with(|s| s.borrow().is_root_freq_overridden)
     }
 
-    #[allow(dead_code)]
     fn set_root_freq_override_note_no(&self, index: usize, send_tuning: bool) {
         TUNER_STATE.with_borrow_mut(|s| {
             s.root_freq_override_note_no = Some(index);
@@ -77,28 +69,24 @@ impl ITuner for MockTuner {
         });
     }
 
-    #[allow(dead_code)]
     fn set_override_rounding_initial(&self, value: bool) {
         TUNER_STATE.with_borrow_mut(|s| {
             s.override_rounding_initial = Some(value);
         });
     }
 
-    #[allow(dead_code)]
     fn set_override_rounding_rate(&self, value: bool) {
         TUNER_STATE.with_borrow_mut(|s| {
             s.override_rounding_rate = Some(value);
         });
     }
 
-    #[allow(dead_code)]
     fn set_rounding_rate(&self, rate: u8) {
         TUNER_STATE.with_borrow_mut(|s| {
             s.rounding_rate = Some(rate);
         });
     }
 
-    #[allow(dead_code)]
     fn set_pitch_table(&self, pitch_table: u8) {
         TUNER_STATE.with_borrow_mut(|s| {
             s.set_pitch_table_count += 1;
@@ -106,21 +94,18 @@ impl ITuner for MockTuner {
         });
     }
 
-    #[allow(dead_code)]
     fn on_tuning_updated(&self) {
         TUNER_STATE.with_borrow_mut(|s| {
             s.on_tuning_updated_count += 1;
         });
     }
 
-    #[allow(dead_code)]
     fn set_midi_sender(&self, _sender: Box<dyn IMidiSender>) {
         TUNER_STATE.with_borrow_mut(|s| {
             s.set_midi_sender_count += 1;
         });
     }
 
-    #[allow(dead_code)]
     fn pitch_table_index(&self) -> usize {
         TUNER_STATE.with(|s| s.borrow().pitch_table_index)
     }

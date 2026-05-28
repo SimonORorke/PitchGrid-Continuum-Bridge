@@ -68,7 +68,6 @@ impl MockMidi {
         MIDI_STATE.with(|s| s.borrow().callbacks.as_ref().unwrap().on_ports_connected_changed());
     }
 
-    #[allow(dead_code)]
     pub fn simulate_receiving_data_started() {
         MIDI_STATE.with(|s| s.borrow().callbacks.as_ref().unwrap().on_receiving_data_started());
     }
@@ -78,31 +77,26 @@ impl MockMidi {
         MIDI_STATE.with(|s| s.borrow().callbacks.as_ref().unwrap().on_receiving_data_stopped());
     }
 
-    #[allow(dead_code)]
     pub fn simulate_tuning_updated() {
         MIDI_STATE.with(|s| s.borrow().callbacks.as_ref().unwrap().on_tuning_updated());
     }
 
-    #[allow(dead_code)]
     pub fn simulate_updating_tuning() {
         MIDI_STATE.with(|s| s.borrow().callbacks.as_ref().unwrap().on_updating_tuning());
     }
 }
 
 impl IMidi for MockMidi {
-    #[allow(dead_code)]
     fn are_ports_connected(&self) -> bool {
         MIDI_STATE.with(|s| s.borrow().are_ports_connected)
     }
 
-    #[allow(dead_code)]
     fn close(&mut self) {
         MIDI_STATE.with_borrow_mut(|s| {
             s.close_count += 1;
         });
     }
 
-    #[allow(dead_code)]
     fn connect_port(
         &mut self,
         index: usize,
@@ -126,7 +120,6 @@ impl IMidi for MockMidi {
         Ok(())
     }
 
-    #[allow(dead_code)]
     fn init(
         &mut self,
         input_device_name: &str,
@@ -146,12 +139,10 @@ impl IMidi for MockMidi {
         }
     }
 
-    #[allow(dead_code)]
     fn input(&self) -> &dyn IIo {
         &self.mock_input
     }
 
-    #[allow(dead_code)]
     fn io(&self, port_strategy: &dyn PortStrategy) -> &dyn IIo {
         MIDI_STATE.with_borrow_mut(|s| {
             s.io_count += 1;
@@ -160,7 +151,6 @@ impl IMidi for MockMidi {
         port_strategy.io(self)
     }
 
-    #[allow(dead_code)]
     fn has_downloaded_init_data(&self) -> bool {
         MIDI_STATE.with_borrow_mut(|s| {
             s.has_downloaded_init_data_count += 1;
@@ -168,22 +158,18 @@ impl IMidi for MockMidi {
         MIDI_STATE.with(|s| s.borrow().has_downloaded_init_data_result)
     }
 
-    #[allow(dead_code)]
     fn is_output_port_connected(&self) -> bool {
         MIDI_STATE.with(|s| s.borrow().is_output_port_connected)
     }
 
-    #[allow(dead_code)]
     fn is_receiving_data(&self) -> bool {
         MIDI_STATE.with(|s| s.borrow().is_receiving_data)
     }
 
-    #[allow(dead_code)]
     fn output(&self) -> &dyn IIo {
         &self.mock_output
     }
 
-    #[allow(dead_code)]
     fn refresh_devices(
         &mut self,
         device_name: &str,
@@ -201,14 +187,12 @@ impl IMidi for MockMidi {
         Ok(())
     }
 
-    #[allow(dead_code)]
     fn start_instrument_connection_monitor(&mut self) {
         MIDI_STATE.with_borrow_mut(|s| {
             s.start_instrument_connection_monitor_count += 1;
         });
     }
 
-    #[allow(dead_code)]
     fn stop_instrument_connection_monitor(&mut self) {
         MIDI_STATE.with_borrow_mut(|s| {
             s.stop_instrument_connection_monitor_count += 1;

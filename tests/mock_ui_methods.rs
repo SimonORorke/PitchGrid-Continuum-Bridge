@@ -19,7 +19,6 @@ impl MockUiMethods {
 }
 
 impl IUiMethods for MockUiMethods {
-    #[allow(dead_code)]
     fn focus_port(&self, port_strategy: &dyn PortStrategy) {
         UI_STATE.with_borrow_mut(|s| {
             s.focus_port_count += 1;
@@ -27,7 +26,6 @@ impl IUiMethods for MockUiMethods {
         });
     }
 
-    #[allow(dead_code)]
     fn get_selected_port_index(&self, port_strategy: &dyn PortStrategy) -> usize {
         UI_STATE.with_borrow_mut(|s| {
             s.get_selected_port_index_count += 1;
@@ -36,7 +34,6 @@ impl IUiMethods for MockUiMethods {
         0
     }
 
-    #[allow(dead_code)]
     fn set_selected_port_index(&self, index: usize, port_strategy: &dyn PortStrategy) {
         UI_STATE.with_borrow_mut(|s| {
             s.set_selected_port_index_count += 1;
@@ -45,7 +42,6 @@ impl IUiMethods for MockUiMethods {
         });
     }
 
-    #[allow(dead_code)]
     fn set_devices_model(&self, device_names: &Vec<String>, port_strategy: &dyn PortStrategy) {
         UI_STATE.with_borrow_mut(|s| {
             s.set_devices_model_count += 1;
@@ -54,7 +50,6 @@ impl IUiMethods for MockUiMethods {
         });
     }
 
-    #[allow(dead_code)]
     fn show_connected_device_name(&self, name: &str, msg_type: MessageType,
                                   port_strategy: &dyn PortStrategy) {
         UI_STATE.with_borrow_mut(|s| {
@@ -65,7 +60,6 @@ impl IUiMethods for MockUiMethods {
         });
     }
 
-    #[allow(dead_code)]
     fn show_message(&self, msg: &str, msg_type: MessageType) {
         UI_STATE.with_borrow_mut(|s| {
             s.show_message_count += 1;
@@ -74,7 +68,6 @@ impl IUiMethods for MockUiMethods {
         });
     }
 
-    #[allow(dead_code)]
     fn show_pitchgrid_status(&self, status: &str, msg_type: MessageType) {
         UI_STATE.with_borrow_mut(|s| {
             s.show_pitchgrid_status_count += 1;
@@ -83,7 +76,6 @@ impl IUiMethods for MockUiMethods {
         });
     }
 
-    #[allow(dead_code)]
     fn show_tuning(&self, tuning: FormattedTuningParams, is_root_freq_overridden: bool) {
         UI_STATE.with_borrow_mut(|s| {
             s.show_tuning_count += 1;
@@ -92,7 +84,6 @@ impl IUiMethods for MockUiMethods {
         });
     }
 
-    #[allow(dead_code)]
     fn set_main_window_position(&self, x: i32, y: i32) {
         UI_STATE.with_borrow_mut(|s| {
             s.main_window_position_x = Some(x);
@@ -100,35 +91,30 @@ impl IUiMethods for MockUiMethods {
         });
     }
 
-    #[allow(dead_code)]
     fn set_override_rounding_initial(&self, value: bool) {
         UI_STATE.with_borrow_mut(|s| {
             s.override_rounding_initial = Some(value);
         });
     }
 
-    #[allow(dead_code)]
     fn set_override_rounding_rate(&self, value: bool) {
         UI_STATE.with_borrow_mut(|s| {
             s.override_rounding_rate = Some(value);
         });
     }
 
-    #[allow(dead_code)]
     fn set_rounding_rate(&self, rate: u8) {
         UI_STATE.with_borrow_mut(|s| {
             s.rounding_rate = Some(rate);
         });
     }
 
-    #[allow(dead_code)]
     fn set_selected_osc_listening_port_index(&self, index: i32) {
         UI_STATE.with_borrow_mut(|s| {
             s.selected_osc_listening_port_index = Some(index);
         });
     }
 
-    #[allow(dead_code)]
     fn set_selected_pitch_table_index(&self, index: i32) {
         UI_STATE.with_borrow_mut(|s| {
             s.selected_pitch_table_index = Some(index);

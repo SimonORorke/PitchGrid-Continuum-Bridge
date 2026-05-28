@@ -168,6 +168,26 @@ fn close_err() {
 }
 
 #[googletest::gtest]
+fn  set_root_freq_override() {
+    let _guard = test_mutex_guard();
+    const NOTE_INDEX: usize = 1;
+    let mut controller = create_controller(MockSettings::new(), true);
+    controller.init();
+    MockMidi::set_is_receiving_data(true);
+    MockMidi::set_are_ports_connected(true);
+    MockMidi::simulate_download_completed();
+    assert_that!(ui_state().show_pitchgrid_status_count, eq(0));
+    MockOsc::simulate_pitchgrid_connected_changed(true);
+    assert_that!(ui_state().show_pitchgrid_status_count, eq(1));
+    controller.set_root_freq_override(NOTE_INDEX);
+    assert_that!(ui_state().show_pitchgrid_status_count, eq(2));
+    assert_that!(ui_state().show_pitchgrid_status_msg, some(starts_with("Updating root")));
+    assert_that!(ui_state().show_pitchgrid_status_msg_type, some(eq(MessageType::Info)));
+    assert_that!(tuner_state().root_freq_override_note_no, some(eq(NOTE_INDEX)));
+    assert_that!(tuner_state().set_root_freq_override_note_no_send_tuning, some(eq(true)));
+}
+
+#[googletest::gtest]
 fn on_receiving_data_started_show_waiting_for_download() {
     let _guard = test_mutex_guard();
     let mut controller = create_controller(MockSettings::new(), true);
@@ -232,23 +252,25 @@ fn on_tuning_updated() {
 }
 
 #[googletest::gtest]
-fn  set_root_freq_override() {
+fn on_new_preset_selected() {
     let _guard = test_mutex_guard();
     const NOTE_INDEX: usize = 1;
     let mut controller = create_controller(MockSettings::new(), true);
     controller.init();
+    controller.set_root_freq_override(NOTE_INDEX);
     MockMidi::set_is_receiving_data(true);
     MockMidi::set_are_ports_connected(true);
     MockMidi::simulate_download_completed();
-    assert_that!(ui_state().show_pitchgrid_status_count, eq(0));
-    MockOsc::simulate_pitchgrid_connected_changed(true);
-    assert_that!(ui_state().show_pitchgrid_status_count, eq(1));
-    controller.set_root_freq_override(NOTE_INDEX);
-    assert_that!(ui_state().show_pitchgrid_status_count, eq(2));
-    assert_that!(ui_state().show_pitchgrid_status_msg, some(starts_with("Updating root")));
-    assert_that!(ui_state().show_pitchgrid_status_msg_type, some(eq(MessageType::Info)));
-    assert_that!(tuner_state().root_freq_override_note_no, some(eq(NOTE_INDEX)));
-    assert_that!(tuner_state().set_root_freq_override_note_no_send_tuning, some(eq(true)));
+    MockOsc::simulate_tuning_received(params_16_16());
+    MockMidi::simulate_updating_tuning();
+    MockMidi::simulate_tuning_updated();
+    MockMidi::simulate_new_preset_selected();
+    // assert_that!(tuner_state().on_tuning_updated_count, eq(1));
+    // assert_that!(ui_state().show_tuning_count, eq(1));
+    // assert_that!(ui_state().show_tuning_is_root_freq_overridden, some(eq(true)));
+    // assert_that!(tuner_state().tuning_params, some(anything()));
+    // assert_that!(ui_state().show_tuning_formatted_tuning,
+    //     some(eq(&tuner_state().tuning_params.unwrap().format_tuning_params())));
 }
 
 fn create_controller(mut mock_settings: MockSettings, default_midi_devices: bool) -> Controller {

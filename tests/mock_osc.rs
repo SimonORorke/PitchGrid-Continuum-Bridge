@@ -36,7 +36,6 @@ impl MockOsc {
 
 
 impl IOsc for MockOsc {
-    #[allow(dead_code)]
     fn set_listening_port(&mut self, listening_port: u16) {
         OSC_STATE.with_borrow_mut(|s| {
             s.set_listening_port_count += 1;
@@ -44,7 +43,6 @@ impl IOsc for MockOsc {
         });
     }
 
-    #[allow(dead_code)]
     fn start(&mut self, callbacks: Arc<dyn OscCallbacks>) {
         OSC_STATE.with_borrow_mut(|s| {
             s.start_count += 1;
@@ -52,14 +50,12 @@ impl IOsc for MockOsc {
         });
     }
 
-    #[allow(dead_code)]
     fn stop(&self) {
         OSC_STATE.with_borrow_mut(|s| {
             s.stop_count += 1;
         });
     }
 
-    #[allow(dead_code)]
     fn is_pitchgrid_connected(&self) -> bool {
         OSC_STATE.with_borrow_mut(|s| {
             s.is_pitchgrid_connected_count += 1;
@@ -67,7 +63,6 @@ impl IOsc for MockOsc {
         OSC_STATE.with(|s| s.borrow().is_pitchgrid_connected_result)
     }
 
-    #[allow(dead_code)]
     fn is_running(&self) -> bool {
         OSC_STATE.with_borrow_mut(|s| {
             s.is_running_count += 1;
