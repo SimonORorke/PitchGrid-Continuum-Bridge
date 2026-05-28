@@ -261,7 +261,7 @@ impl ITuner for Tuner {
             index + 53 // E.g. for middle C, index = 7, note_no = 60.
         };
         self.root_freq_override_note_no.store(note_no, Ordering::Relaxed);
-        if send_tuning {
+        if send_tuning && self.has_data() {
             self.tune();
         }
     }

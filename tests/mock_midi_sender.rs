@@ -2,6 +2,7 @@
 use pitchgrid_continuum::midi_sender::{IMidiSender};
 
 /// MIDI send stats since `MockMidiSender` was instantiated.
+#[allow(dead_code)]
 pub fn sent_midi() -> SentMidi {
     SENT_MIDI.with(|s| s.borrow().clone())
 }
