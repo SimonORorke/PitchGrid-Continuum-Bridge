@@ -156,7 +156,7 @@ impl TunerState {
             remove_data_count: 0,
 
             send_current_preset_update_count: 0,
-            send_current_preset_update_result: false,
+            send_current_preset_update_result: true,
 
             formatted_tuning_params: FormattedTuningParams::default(),
 

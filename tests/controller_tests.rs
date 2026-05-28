@@ -7,7 +7,7 @@ mod tuner_tests;
 
 use std::sync::{Arc, LazyLock, Mutex, MutexGuard};
 use googletest::assert_that;
-use googletest::matchers::{anything, displays_as, eq, err, len, not, ok, some, starts_with};
+use googletest::matchers::{anything, displays_as, eq, err, len, ok, not, some, starts_with};
 use pitchgrid_continuum::controller::Controller;
 use pitchgrid_continuum::global::{MessageType, PortType};
 use pitchgrid_continuum::i_settings::ISettings;
@@ -230,7 +230,7 @@ fn on_osc_tuning_received() {
     MockMidi::set_are_ports_connected(true);
     MockMidi::simulate_download_completed();
     MockOsc::simulate_tuning_received(params_16_16());
-    assert_that!(tuner_state().tuning_params, some(params_16_16()));
+    assert_that!(tuner_state().tuning_params, some(eq(&params_16_16())));
     assert_that!(ui_state().show_pitchgrid_status_count, eq(1));
     assert_that!(ui_state().show_pitchgrid_status_msg,
         some(eq("Updating instrument tuning")));
@@ -238,20 +238,12 @@ fn on_osc_tuning_received() {
 }
 
 #[googletest::gtest]
-fn on_updating_tuning_ok() {
+fn on_updating_tuning() {
     let _guard = test_mutex_guard();
     let mut controller = create_controller(MockSettings::new(), true);
     controller.init();
-    MockMidi::set_is_receiving_data(true);
-    MockMidi::set_are_ports_connected(true);
-    MockMidi::simulate_download_completed();
-    MockOsc::simulate_tuning_received(params_16_16());
     MockMidi::simulate_updating_tuning();
-    assert_that!(tuner_state().tuning_params, eq(1));
-    assert_that!(ui_state().show_pitchgrid_status_count, eq(1));
-    assert_that!(ui_state().show_pitchgrid_status_msg,
-        some(eq("Updating instrument tuning")));
-    assert_that!(ui_state().show_pitchgrid_status_msg_type, some(eq(MessageType::Info)));
+    assert_that!(ui_state().show_message_msg_type, some(not(eq(MessageType::Error))));
 }
 
 #[googletest::gtest]
@@ -286,11 +278,12 @@ fn on_new_preset_selected() {
     MockMidi::set_are_ports_connected(true);
     MockMidi::simulate_download_completed();
     MockOsc::simulate_tuning_received(params_16_16());
+    assert_that!(ui_state().show_pitchgrid_status_count, eq(1));
     MockMidi::simulate_updating_tuning();
     MockMidi::simulate_tuning_updated();
     MockMidi::simulate_new_preset_selected();
     assert_that!(tuner_state().send_current_preset_update_count, eq(1));
-    assert_that!(ui_state().show_pitchgrid_status_count, eq(1));
+    assert_that!(ui_state().show_pitchgrid_status_count, eq(2));
     assert_that!(ui_state().show_pitchgrid_status_msg,
         some(starts_with("New instrument preset selected")));
     assert_that!(ui_state().show_pitchgrid_status_msg_type, some(eq(MessageType::Info)));

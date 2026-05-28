@@ -4,7 +4,7 @@ use cxx::UniquePtr;
 use round::round;
 
 /// Tuning parameters received from PitchGrid.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct TuningParams {
     mode: i32,
     root_freq: f32,
