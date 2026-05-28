@@ -84,8 +84,7 @@ impl Controller {
         }
         // println!("Controller.init: Getting midi");
         self.ui_methods.set_main_window_position(main_window_x, main_window_y);
-        let shared_midi = MidiStatic::midi_clone();
-        let mut midi = shared_midi.lock().unwrap();
+        let mut midi = MidiStatic::midi();
         if let Err(err) = midi.init(
             &input_device_name, &output_device_name, Self::clone_controller()) {
             self.show_error(&err.to_string());
@@ -237,18 +236,14 @@ impl Controller {
     }
 
     fn device_names(&self, port_strategy: &dyn PortStrategy) -> Vec<String> {
-        let shared_midi = MidiStatic::midi_clone();
-        // println!("Controller.device_names: Got midi");
-        let midi = shared_midi.lock().unwrap();
-        midi.io(port_strategy).device_names()
+        MidiStatic::midi().io(port_strategy).device_names()
     }
 
     pub fn refresh_devices(&mut self, port_strategy: &dyn PortStrategy) {
-        let midi = MidiStatic::midi_clone();
         let port_strategy = port_strategy.clone_box();
         self.stop_osc_and_instrument_connection_monitor();
         let device_name = port_strategy.port_setting(&*self.settings).to_string();
-        if let Err(err) = midi.lock().unwrap().refresh_devices(
+        if let Err(err) = MidiStatic::midi().refresh_devices(
             &device_name, &*port_strategy) {
             self.show_error(&err.to_string());
             return;
