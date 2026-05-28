@@ -28,7 +28,7 @@ use mock_osc::{MockOsc, osc_state};
 use mock_settings::{MockSettings, settings_state};
 use mock_midi_sender::MockMidiSender;
 use mock_ui_methods::{MockUiMethods, ui_state};
-use test_tunings::params_16_16;
+use test_tunings::TestTunings;
 
 #[googletest::gtest]
 fn init_from_settings() {
@@ -131,7 +131,7 @@ fn refresh_devices() {
     MockMidi::set_is_receiving_data(true);
     MockMidi::set_are_ports_connected(true);
     MockMidi::simulate_download_completed();
-    MockOsc::simulate_tuning_received(params_16_16());
+    MockOsc::simulate_tuning_received(TestTunings::params_16_16());
     MockMidi::simulate_updating_tuning();
     MockMidi::simulate_tuning_updated();
     assert_that!(ui_state().show_tuning_count, eq(1));
@@ -241,7 +241,7 @@ fn on_osc_tuning_received() {
     MockMidi::set_is_receiving_data(true);
     MockMidi::set_are_ports_connected(true);
     MockMidi::simulate_download_completed();
-    MockOsc::simulate_tuning_received(params_16_16());
+    MockOsc::simulate_tuning_received(TestTunings::params_16_16());
     assert_that!(tuner().has_data(), eq(true));
     assert_that!(ui_state().show_pitchgrid_status_count, eq(1));
     assert_that!(ui_state().show_pitchgrid_status_msg,
@@ -268,7 +268,7 @@ fn on_tuning_updated() {
     MockMidi::set_is_receiving_data(true);
     MockMidi::set_are_ports_connected(true);
     MockMidi::simulate_download_completed();
-    MockOsc::simulate_tuning_received(params_16_16());
+    MockOsc::simulate_tuning_received(TestTunings::params_16_16());
     MockMidi::simulate_updating_tuning();
     MockMidi::simulate_tuning_updated();
     assert_that!(tuner().has_data(), eq(true));
@@ -289,7 +289,7 @@ fn on_new_preset_selected() {
     MockMidi::set_is_receiving_data(true);
     MockMidi::set_are_ports_connected(true);
     MockMidi::simulate_download_completed();
-    MockOsc::simulate_tuning_received(params_16_16());
+    MockOsc::simulate_tuning_received(TestTunings::params_16_16());
     assert_that!(ui_state().show_pitchgrid_status_count, eq(1));
     MockMidi::simulate_updating_tuning();
     MockMidi::simulate_tuning_updated();

@@ -7,7 +7,7 @@ use googletest::matchers::{eq, gt};
 use pitchgrid_continuum::i_tuner::ITuner;
 use pitchgrid_continuum::tuner::Tuner;
 use mock_midi_sender::{MockMidiSender, sent_midi};
-use test_tunings::{params_16_16, params_17_17, params_31_19};
+use test_tunings::TestTunings;
 
 /// PITCH_TABLE is a shared static written by tuner.init() and tuner.set_pitch_table().
 /// Tests must run sequentially to avoid data races on it.
@@ -23,7 +23,7 @@ fn on_tuning_received() {
     tuner.set_override_rounding_initial(true);
     tuner.set_override_rounding_rate(true);
     tuner.set_rounding_rate(MAX_ROUNDING_RATE);
-    tuner.on_tuning_received(params_31_19());
+    tuner.on_tuning_received(TestTunings::params_31_19());
     assert_that!(tuner.is_root_freq_overridden(), eq(false));
     // tuning start, key params 128 * 6, tuning end,
     // Rounding Initial, Rounding Rate, active pitch table
@@ -61,7 +61,7 @@ fn on_tuning_updated() {
     assert_that!(sent_midi().control_change_count, eq(0));
     // First tuning received.
     // No tuning updates are pending, so the tuning should be sent immediately.
-    tuner.on_tuning_received(params_31_19());
+    tuner.on_tuning_received(TestTunings::params_31_19());
     let single_tuning_control_change_count = sent_midi().control_change_count;
     println!("First tuning should have been sent: cumulative control_change_count = {}",
              sent_midi().control_change_count);
@@ -77,7 +77,7 @@ fn on_tuning_updated() {
         "First tuning update confirmed.");
     // Second tuning received.
     // No tuning updates are pending, so the tuning should be sent immediately.
-    tuner.on_tuning_received(params_16_16());
+    tuner.on_tuning_received(TestTunings::params_16_16());
     // Check that the tuning has been sent.
     println!("Second tuning should have been sent: cumulative control_change_count = {}",
              sent_midi().control_change_count);
@@ -86,7 +86,7 @@ fn on_tuning_updated() {
     // Send the third tuning before update confirmation has been received for the second tuning.
     // Because update of a previously sent tuning is pending, the third tuning should not be sent
     // yet.
-    tuner.on_tuning_received(params_17_17());
+    tuner.on_tuning_received(TestTunings::params_17_17());
     // Check that the tuning has not yet been sent.
     println!("Third tuning has been received but should not have been sent yet: \
         cumulative control_change_count = {}", sent_midi().control_change_count);
@@ -108,7 +108,7 @@ fn remove_data() {
     println!("***********************************");
     let _guard = test_mutex_guard();
     let tuner = create_tuner();
-    tuner.on_tuning_received(params_31_19());
+    tuner.on_tuning_received(TestTunings::params_31_19());
     assert_that!(tuner.has_data(), eq(true));
     tuner.remove_data();
     assert_that!(tuner.has_data(), eq(false));
@@ -129,7 +129,7 @@ fn send_current_preset_update() {
     tuner.set_override_rounding_initial(true);
     tuner.set_override_rounding_rate(true);
     tuner.set_rounding_rate(MAX_ROUNDING_RATE);
-    tuner.on_tuning_received(params_31_19());
+    tuner.on_tuning_received(TestTunings::params_31_19());
     let first_time_sent_control_change_count = sent_midi().control_change_count;
     assert_that!(tuner.send_current_preset_update(), eq(true));
     let cumulative_sent_control_change_count = sent_midi().control_change_count;
@@ -161,7 +161,7 @@ fn set_pitch_table() {
 fn set_root_freq_override_note_no() {
     let _guard = test_mutex_guard();
     let tuner = create_tuner();
-    tuner.on_tuning_received(params_31_19());
+    tuner.on_tuning_received(TestTunings::params_31_19());
     tuner.on_tuning_updated(); // Allow a subsequent tuning to be sent.
     tuner.set_root_freq_override_note_no(4 /* A */, true);
     assert_that!(tuner.is_root_freq_overridden(), eq(true));
