@@ -7,7 +7,7 @@ mod tuner_tests;
 
 use std::sync::{Arc, LazyLock, Mutex, MutexGuard};
 use googletest::assert_that;
-use googletest::matchers::{displays_as, eq, err, len, not, ok, some, starts_with};
+use googletest::matchers::{anything, displays_as, eq, err, len, not, ok, some, starts_with};
 use pitchgrid_continuum::controller::Controller;
 use pitchgrid_continuum::global::{MessageType, PortType};
 use pitchgrid_continuum::i_settings::ISettings;
@@ -226,7 +226,9 @@ fn on_tuning_updated() {
     assert_that!(tuner_state().on_tuning_updated_count, eq(1));
     assert_that!(ui_state().show_tuning_count, eq(1));
     assert_that!(ui_state().show_tuning_is_root_freq_overridden, some(eq(true)));
-    // assert_that!(ui_state().show_tuning_formatted_tuning, some(eq(Tuner::format_tuning_params(params_16_16()))));
+    assert_that!(tuner_state().tuning_params, some(anything()));
+    assert_that!(ui_state().show_tuning_formatted_tuning,
+        some(eq(&tuner_state().tuning_params.unwrap().format_tuning_params())));
 }
 
 #[googletest::gtest]
@@ -245,7 +247,7 @@ fn  set_root_freq_override() {
     assert_that!(ui_state().show_pitchgrid_status_count, eq(2));
     assert_that!(ui_state().show_pitchgrid_status_msg, some(starts_with("Updating root")));
     assert_that!(ui_state().show_pitchgrid_status_msg_type, some(eq(MessageType::Info)));
-    assert_that!(tuner_state().set_root_freq_override_note_no_index, some(eq(NOTE_INDEX)));
+    assert_that!(tuner_state().root_freq_override_note_no, some(eq(NOTE_INDEX)));
     assert_that!(tuner_state().set_root_freq_override_note_no_send_tuning, some(eq(true)));
 }
 

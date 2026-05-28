@@ -30,8 +30,8 @@ impl ITuner for MockTuner {
     #[allow(dead_code)]
     fn on_tuning_received(&self, params: TuningParams) {
         TUNER_STATE.with_borrow_mut(|s| {
-            s.on_tuning_received_count += 1;
-            s.on_tuning_received_params = Some(params);
+            s.formatted_tuning_params = params.format_tuning_params();
+            s.tuning_params = Some(params);
         });
     }
 
@@ -71,7 +71,7 @@ impl ITuner for MockTuner {
     #[allow(dead_code)]
     fn set_root_freq_override_note_no(&self, index: usize, send_tuning: bool) {
         TUNER_STATE.with_borrow_mut(|s| {
-            s.set_root_freq_override_note_no_index = Some(index);
+            s.root_freq_override_note_no = Some(index);
             s.set_root_freq_override_note_no_send_tuning = Some(send_tuning);
             s.is_root_freq_overridden = index != 0;
         });
@@ -131,8 +131,7 @@ pub struct TunerState {
     pub pitch_table: Option<u8>,
     pub init_count: u16,
 
-    pub on_tuning_received_count: u16,
-    pub on_tuning_received_params: Option<TuningParams>,
+    pub tuning_params: Option<TuningParams>,
 
     pub has_data_count: u16,
     pub has_data_result: bool,
@@ -146,7 +145,7 @@ pub struct TunerState {
 
     pub is_root_freq_overridden: bool,
 
-    pub set_root_freq_override_note_no_index: Option<usize>,
+    pub root_freq_override_note_no: Option<usize>,
     pub set_root_freq_override_note_no_send_tuning: Option<bool>,
 
     pub override_rounding_initial: Option<bool>,
@@ -164,8 +163,7 @@ impl TunerState {
             pitch_table: None,
             init_count: 0,
 
-            on_tuning_received_count: 0,
-            on_tuning_received_params: None,
+            tuning_params: None,
 
             has_data_count: 0,
             has_data_result: false,
@@ -179,7 +177,7 @@ impl TunerState {
 
             is_root_freq_overridden: false,
 
-            set_root_freq_override_note_no_index: None,
+            root_freq_override_note_no: None,
             set_root_freq_override_note_no_send_tuning: None,
             override_rounding_initial: None,
             override_rounding_rate: None,

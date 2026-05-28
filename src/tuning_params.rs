@@ -136,7 +136,7 @@ fn mos_from_tuning_params(tuning_params: &TuningParams) -> UniquePtr<ffi::MOS> {
 }
 
 /// The tuning parameters formatted for display.
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct FormattedTuningParams {
     pub root_freq: String, pub stretch: String,
     pub skew: String, pub mode_offset: String, pub steps: String,
