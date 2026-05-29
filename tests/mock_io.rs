@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 use std::error::Error;
-use pitchgrid_continuum::global::PortType;
+use pitchgrid_continuum::global::DeviceType;
 use pitchgrid_continuum::midi_ports::{IIo, IoDevice};
 
 pub fn input_state() -> IoState {
@@ -12,26 +12,26 @@ pub fn output_state() -> IoState {
 }
 
 pub struct MockIo {
-    port_type: PortType,
+    device_type: DeviceType,
     /// Controls the return value of `device()`. Set directly on the mock to configure.
     device: Option<MockDevice>,
 }
 
 impl MockIo {
-    pub fn new(port_type: PortType, device_names: Vec<String>) -> Self {
+    pub fn new(device_type: DeviceType, device_names: Vec<String>) -> Self {
         let mut state = IoState::new();
         state.device_names = device_names;
-        match port_type {
-            PortType::Input => INPUT_STATE.replace(state),
-            PortType::Output => OUTPUT_STATE.replace(state),
+        match device_type {
+            DeviceType::Input => INPUT_STATE.replace(state),
+            DeviceType::Output => OUTPUT_STATE.replace(state),
         };
-        MockIo { port_type, device: None }
+        MockIo { device_type, device: None }
     }
 
     pub fn state(&self) -> IoState {
-        match self.port_type {
-            PortType::Input => input_state(),
-            PortType::Output => output_state(),
+        match self.device_type {
+            DeviceType::Input => input_state(),
+            DeviceType::Output => output_state(),
         }
     }
 
@@ -48,9 +48,9 @@ impl MockIo {
             })
         };
         let device_clone = self.device.clone();
-        match self.port_type {
-            PortType::Input => INPUT_STATE.with_borrow_mut(|s| s.device = device_clone),
-            PortType::Output => OUTPUT_STATE.with_borrow_mut(|s| s.device = device_clone),
+        match self.device_type {
+            DeviceType::Input => INPUT_STATE.with_borrow_mut(|s| s.device = device_clone),
+            DeviceType::Output => OUTPUT_STATE.with_borrow_mut(|s| s.device = device_clone),
         }
     }
 }
@@ -65,12 +65,12 @@ impl IIo for MockIo {
     }
 
     fn populate_devices(&mut self, persisted_device_name: &str) -> Result<(), Box<dyn Error>> {
-        let ok = match self.port_type {
-            PortType::Input => INPUT_STATE.with_borrow_mut(|s| {
+        let ok = match self.device_type {
+            DeviceType::Input => INPUT_STATE.with_borrow_mut(|s| {
                 s.populate_devices_persisted_device_name = Some(persisted_device_name.to_string());
                 s.populate_devices_ok
             }),
-            PortType::Output => OUTPUT_STATE.with_borrow_mut(|s| {
+            DeviceType::Output => OUTPUT_STATE.with_borrow_mut(|s| {
                 s.populate_devices_persisted_device_name = Some(persisted_device_name.to_string());
                 s.populate_devices_ok
             }),

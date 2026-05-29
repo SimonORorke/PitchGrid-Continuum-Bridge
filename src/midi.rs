@@ -1,5 +1,5 @@
 mod midi_refs;
-use crate::i_midi::{IMidi, MidiCallbacks};
+use crate::i_midi::{IMidi, MidiCallbacks, SharedMidi};
 use midi_refs::{DownloadStatus, TuningStatus};
 use midi_refs::{
     download_status,
@@ -13,14 +13,14 @@ use midir::{
 };
 use midly::{MidiMessage, live::LiveEvent};
 use std::error::Error;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
 use std::thread::sleep;
-use crate::global::{PortType};
+use crate::global::{DeviceType};
 use crate::midi_ports::{Io, IIo};
-use crate::port_strategy::PortStrategy;
+use crate::device_strategy::DeviceStrategy;
 use crate::tuner::Tuner;
 
 /// A manager for MIDI devices and messages.
@@ -42,6 +42,25 @@ impl Midi {
             is_connection_monitor_running: false,
             output: Io::<MidiOutputPort>::new(Box::new(Self::create_midi_output())),
         }
+    }
+
+    /// Locks and returns the singleton Midi instance.
+    pub fn midi() -> MutexGuard<'static, Box<dyn IMidi + Send>> {
+        Self::shared().lock().unwrap()
+    }
+
+    /// Returns a clone of the thread-safe singleton Midi instance.
+    pub fn midi_clone() -> SharedMidi {
+        Arc::clone(Self::shared())
+    }
+
+    /// Replaces the default Midi instance for testing.
+    pub fn set_midi(midi: Box<dyn IMidi + Send>) {
+        *Self::midi() = midi;
+    }
+
+    fn shared() -> &'static SharedMidi {
+        MIDI.get_or_init(|| Arc::new(Mutex::new(Box::new(Midi::new()) as Box<dyn IMidi + Send>)))
     }
 
     /// Send a MIDI control change message.
@@ -94,16 +113,16 @@ impl Midi {
         }
     }
 
-    fn connect_input_port(
+    fn connect_input_device(
         &mut self,
         index: usize,
-        port_strategy: &dyn PortStrategy,
+        device_strategy: &dyn DeviceStrategy,
     ) -> Result<(), Box<dyn Error>> {
-        // println!("Midi.connect_input_port: start");
-        self.disconnect_input_port();
+        // println!("Midi.connect_input_device: start");
+        self.disconnect_input_device();
         let input = &mut self.input;
         if let Some(port) = input.ports().get(index) {
-            // println!("Midi.connect_input_port: found port");
+            // println!("Midi.connect_input_device: found port");
             let device_name = port.device_name();
             let midi_port = port.midi_port();
             let midi_input = Self::create_midi_input();
@@ -117,12 +136,12 @@ impl Midi {
                     input.set_port(port.clone());
                     let connection_option = Option::from(connection);
                     self.input_connection = connection_option;
-                    // println!("Midi.connect_input_port: success");
+                    // println!("Midi.connect_input_device: success");
                 }
                 Err(_) => {
-                    // println!("Midi.connect_input_port: error");
-                    // See comment in connect_output_port.
-                    return Err(port_strategy.msg_cannot_connect(&device_name).into());
+                    // println!("Midi.connect_input_device: error");
+                    // See comment in connect_output_device.
+                    return Err(device_strategy.msg_cannot_connect(&device_name).into());
                 }
             }
         }
@@ -132,7 +151,7 @@ impl Midi {
         rayon::spawn(move || {
             sleep(Duration::from_secs(MIDI_WAIT_SECS));
             if !IS_RECEIVING_DATA.load(Ordering::Relaxed) {
-                // println!("Midi.connect_input_port: Stopped receiving data");
+                // println!("Midi.connect_input_device: Stopped receiving data");
                 if let Some(cb) = callbacks() {
                     cb.on_receiving_data_stopped();
                 }
@@ -141,12 +160,12 @@ impl Midi {
         Ok(())
     }
 
-    fn connect_output_port(
+    fn connect_output_device(
         &mut self,
         index: usize,
-        port_strategy: &dyn PortStrategy,
+        device_strategy: &dyn DeviceStrategy,
     ) -> Result<(), Box<dyn Error>> {
-        self.disconnect_output_port();
+        self.disconnect_output_device();
         let output = &mut self.output;
         if let Some(port) = output.ports().get(index) {
             let device_name = port.device_name();
@@ -174,7 +193,7 @@ impl Midi {
                 // I don't see how to disable multi-client support.
                 // So I currently cannot test exclusive connections any more.
                 {
-                    return Err(port_strategy.msg_cannot_connect(&device_name).into());
+                    return Err(device_strategy.msg_cannot_connect(&device_name).into());
                 }
             }
         }
@@ -189,8 +208,8 @@ impl Midi {
         MidiOutput::new(OUTPUT_CLIENT_NAME).unwrap()
     }
 
-    fn disconnect_input_port(&mut self) {
-        // println!("Midi.disconnect_input_port start");
+    fn disconnect_input_device(&mut self) {
+        // println!("Midi.disconnect_input_device start");
         let input_connection = self.input_connection.take();
         if let Some(connection) = input_connection {
             connection.close();
@@ -199,8 +218,8 @@ impl Midi {
         }
     }
 
-    fn disconnect_output_port(&mut self) {
-        // println!("Midi.disconnect_output_port start");
+    fn disconnect_output_device(&mut self) {
+        // println!("Midi.disconnect_output_device start");
         let connection_opt = output_connection().lock().unwrap().take();
         if let Some(connection) = connection_opt {
             connection.close();
@@ -473,14 +492,14 @@ impl Midi {
 
     fn refresh_input_devices(&mut self, input_device_name: &str) -> Result<(), Box<dyn Error>> {
         // println!("Midi.refresh_input_devices: start");
-        self.disconnect_input_port();
+        self.disconnect_input_device();
         self.input.populate_devices(input_device_name)?;
         Ok(())
     }
 
     fn refresh_output_devices(&mut self, output_device_name: &str) -> Result<(), Box<dyn Error>> {
         // println!("Midi.refresh_output_devices: start");
-        self.disconnect_output_port();
+        self.disconnect_output_device();
         self.output.populate_devices(output_device_name)?;
         Ok(())
     }
@@ -512,50 +531,42 @@ impl Midi {
     }
 }
 
-const INPUT_CLIENT_NAME: &str = "My MIDI Input";
-const MIDI_WAIT_SECS: u64 = 2;
-const OUTPUT_CLIENT_NAME: &str = "My MIDI Output";
-
-static IS_DOWNLOADING_INIT_DATA: AtomicBool = AtomicBool::new(false);
-static IS_MONITORING_DOWNLOAD: AtomicBool = AtomicBool::new(false);
-static IS_RECEIVING_DATA: AtomicBool = AtomicBool::new(false);
-
 impl IMidi for Midi {
-    /// Return whether both input and output ports are connected.
-    fn are_ports_connected(&self) -> bool {
+    /// Return whether both input and output devices are connected.
+    fn are_devices_connected(&self) -> bool {
         if self.input_connection.is_none() {
             return false;
         }
-        self.is_output_port_connected()
+        self.is_output_device_connected()
     }
 
     fn close(&mut self) {
         // println!("Midi.close");
-        self.disconnect_input_port();
-        self.disconnect_output_port();
+        self.disconnect_input_device();
+        self.disconnect_output_device();
         // self.stop_download_monitor();
         self.stop_instrument_connection_monitor();
     }
 
-    fn connect_port(
+    fn connect_device(
         &mut self,
         index: usize,
-        port_strategy: &dyn PortStrategy,
+        device_strategy: &dyn DeviceStrategy,
     ) -> Result<(), Box<dyn Error>> {
-        let were_ports_connected = self.are_ports_connected();
+        let were_ports_connected = self.are_devices_connected();
         // self.stop_download_monitor();
         self.stop_instrument_connection_monitor();
-        match port_strategy.port_type() {
-            PortType::Input => self.connect_input_port(index, port_strategy)?,
-            PortType::Output => self.connect_output_port(index, port_strategy)?,
+        match device_strategy.device_type() {
+            DeviceType::Input => self.connect_input_device(index, device_strategy)?,
+            DeviceType::Output => self.connect_output_device(index, device_strategy)?,
         }
         if !were_ports_connected {
             // The other port was already connected, so now they both are.
-            if self.are_ports_connected() {
-                // println!("Midi.connect_port {:?}: Calling on_ports_connected_changed \
-                // because both ports are now connected", port_strategy.port_type());
+            if self.are_devices_connected() {
+                // println!("Midi.connect_device {:?}: Calling on_ports_connected_changed \
+                // because both ports are now connected", device_strategy.device_type());
                 if let Some(cb) = callbacks() {
-                    rayon::spawn(move || cb.on_ports_connected_changed());
+                    rayon::spawn(move || cb.on_devices_connected_changed());
                 }
             }
         }
@@ -578,15 +589,15 @@ impl IMidi for Midi {
         &self.input
     }
 
-    fn io(&self, port_strategy: &dyn PortStrategy) -> &dyn IIo {
-        port_strategy.io(self)
+    fn io(&self, device_strategy: &dyn DeviceStrategy) -> &dyn IIo {
+        device_strategy.io(self)
     }
 
     fn has_downloaded_init_data(&self) -> bool {
         *download_status().lock().unwrap() == DownloadStatus::Complete
     }
 
-    fn is_output_port_connected(&self) -> bool {
+    fn is_output_device_connected(&self) -> bool {
         output_connection().lock().unwrap().is_some()
     }
 
@@ -604,20 +615,20 @@ impl IMidi for Midi {
     fn refresh_devices(
         &mut self,
         device_name: &str,
-        port_strategy: &dyn PortStrategy,
+        device_strategy: &dyn DeviceStrategy,
     ) -> Result<(), Box<dyn Error>> {
-        let were_ports_connected = self.are_ports_connected();
+        let were_ports_connected = self.are_devices_connected();
         // self.stop_download_monitor();
         self.stop_instrument_connection_monitor();
-        match port_strategy.port_type() {
-            PortType::Input => self.refresh_input_devices(device_name)?,
-            PortType::Output => self.refresh_output_devices(device_name)?,
+        match device_strategy.device_type() {
+            DeviceType::Input => self.refresh_input_devices(device_name)?,
+            DeviceType::Output => self.refresh_output_devices(device_name)?,
         }
         if were_ports_connected {
             // We have just disconnected one of the ports.
             // println!("Midi.refresh_devices: Calling on_ports_connected_changed because we have just disconnected one of the ports");
             if let Some(cb) = callbacks() {
-                rayon::spawn(move || cb.on_ports_connected_changed());
+                rayon::spawn(move || cb.on_devices_connected_changed());
             }
         }
         Ok(())
@@ -652,3 +663,12 @@ impl IMidi for Midi {
         // println!("Midi.stop_instrument_connection_monitor: Done.");
     }
 }
+
+const INPUT_CLIENT_NAME: &str = "My MIDI Input";
+const MIDI_WAIT_SECS: u64 = 2;
+const OUTPUT_CLIENT_NAME: &str = "My MIDI Output";
+
+static IS_DOWNLOADING_INIT_DATA: AtomicBool = AtomicBool::new(false);
+static IS_MONITORING_DOWNLOAD: AtomicBool = AtomicBool::new(false);
+static IS_RECEIVING_DATA: AtomicBool = AtomicBool::new(false);
+static MIDI: OnceLock<SharedMidi> = OnceLock::new();

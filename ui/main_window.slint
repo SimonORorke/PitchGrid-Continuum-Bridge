@@ -13,7 +13,7 @@ import { NiceMenu } from "components/nice_menu.slint";
 import { Globals } from "globals.slint";
 import { Palette, SpinBox, VerticalBox, } from "std-widgets.slint";
 
-export enum SlintPortType {
+export enum SlintDeviceType {
     input,
     output
 }
@@ -60,8 +60,8 @@ export component MainWindow inherits MagicWindow {
     in property pitch_tables_model <=> pitch_tables_combo.model;
     in property <string> window_title;
 
-    callback connect_port(port_type: SlintPortType);
-    callback refresh_devices(port_type: SlintPortType);
+    callback connect_device(device_type: SlintDeviceType);
+    callback refresh_devices(device_type: SlintDeviceType);
     callback override_rounding_initial_changed(override_rounding_initial: bool);
     callback override_rounding_rate_changed(override_rounding_rate: bool);
     callback open_documentation();
@@ -82,7 +82,7 @@ export component MainWindow inherits MagicWindow {
     }
 
     in property input_devices_model <=> midi_io.input_devices_model;
-    in-out property <int> input_selected_port_index <=> midi_io.input_selected_port_index;
+    in-out property <int> input_selected_device_index <=> midi_io.input_selected_device_index;
     public function input_focus() {
         midi_io.input_focus();
     }
@@ -91,7 +91,7 @@ export component MainWindow inherits MagicWindow {
     }
 
     in property output_devices_model <=> midi_io.output_devices_model;
-    in-out property <int> output_selected_port_index <=> midi_io.output_selected_port_index;
+    in-out property <int> output_selected_device_index <=> midi_io.output_selected_device_index;
     public function output_focus() {
         midi_io.output_focus();
     }
@@ -274,17 +274,17 @@ export component MainWindow inherits MagicWindow {
             padding_top: 10px;
             midi_io := MidiIo {
                 group_title: "From/To Editor All Data External Ports";
-                input_connect_port => {
-                    root.connect_port(SlintPortType.input)
+                input_connect_device => {
+                    root.connect_device(SlintDeviceType.input)
                 }
-                output_connect_port => {
-                    root.connect_port(SlintPortType.output)
+                output_connect_device => {
+                    root.connect_device(SlintDeviceType.output)
                 }
                 input_refresh_devices => {
-                    root.refresh_devices(SlintPortType.input)
+                    root.refresh_devices(SlintDeviceType.input)
                 }
                 output_refresh_devices => {
-                    root.refresh_devices(SlintPortType.output)
+                    root.refresh_devices(SlintDeviceType.output)
                 }
             }
         }

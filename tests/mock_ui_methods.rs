@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 use pitchgrid_continuum::global::MessageType;
 use pitchgrid_continuum::i_ui_methods::IUiMethods;
-use pitchgrid_continuum::port_strategy::PortStrategy;
+use pitchgrid_continuum::device_strategy::DeviceStrategy;
 use pitchgrid_continuum::tuning_params::FormattedTuningParams;
 
 /// Returns a clone of the current `UiMethodsState`.
@@ -25,46 +25,46 @@ impl MockUiMethods {
 }
 
 impl IUiMethods for MockUiMethods {
-    fn focus_port(&self, port_strategy: &dyn PortStrategy) {
+    fn focus_device(&self, device_strategy: &dyn DeviceStrategy) {
         UI_STATE.with_borrow_mut(|s| {
-            s.focus_port_count += 1;
-            s.focus_port_strategy = Some(port_strategy.clone_box());
+            s.focus_device_count += 1;
+            s.focus_device_strategy = Some(device_strategy.clone_box());
         });
     }
 
-    fn get_selected_device_index(&self, port_strategy: &dyn PortStrategy) -> usize {
+    fn get_selected_device_index(&self, device_strategy: &dyn DeviceStrategy) -> usize {
         let mut result: usize = 0;
         UI_STATE.with_borrow_mut(|s| {
-            s.get_selected_port_index_count += 1;
-            s.get_selected_port_index_port_strategy = Some(port_strategy.clone_box());
+            s.get_selected_device_index_count += 1;
+            s.get_selected_device_index_device_strategy = Some(device_strategy.clone_box());
             result = s.selected_device_index.unwrap_or(0);
         });
         result
     }
 
-    fn set_selected_device_index(&self, index: usize, port_strategy: &dyn PortStrategy) {
+    fn set_selected_device_index(&self, index: usize, device_strategy: &dyn DeviceStrategy) {
         UI_STATE.with_borrow_mut(|s| {
-            s.set_selected_port_index_count += 1;
+            s.set_selected_device_index_count += 1;
             s.selected_device_index = Some(index);
-            s.set_selected_port_index_port_strategy = Some(port_strategy.clone_box());
+            s.set_selected_device_index_device_strategy = Some(device_strategy.clone_box());
         });
     }
 
-    fn set_devices_model(&self, device_names: &Vec<String>, port_strategy: &dyn PortStrategy) {
+    fn set_devices_model(&self, device_names: &Vec<String>, device_strategy: &dyn DeviceStrategy) {
         UI_STATE.with_borrow_mut(|s| {
             s.set_devices_model_count += 1;
             s.set_devices_model_device_names = Some(device_names.clone());
-            s.set_devices_model_port_strategy = Some(port_strategy.clone_box());
+            s.set_devices_model_device_strategy = Some(device_strategy.clone_box());
         });
     }
 
     fn show_connected_device_name(&self, name: &str, msg_type: MessageType,
-                                  port_strategy: &dyn PortStrategy) {
+                                  device_strategy: &dyn DeviceStrategy) {
         UI_STATE.with_borrow_mut(|s| {
             s.show_connected_device_name_count += 1;
             s.show_connected_device_name_name = Some(name.to_string());
             s.show_connected_device_name_msg_type = Some(msg_type);
-            s.show_connected_device_name_port_strategy = Some(port_strategy.clone_box());
+            s.show_connected_device_name_device_strategy = Some(device_strategy.clone_box());
         });
     }
 
@@ -131,24 +131,24 @@ impl IUiMethods for MockUiMethods {
 }
 
 pub struct UiMethodsState {
-    pub focus_port_count: u16,
-    pub focus_port_strategy: Option<Box<dyn PortStrategy>>,
+    pub focus_device_count: u16,
+    pub focus_device_strategy: Option<Box<dyn DeviceStrategy>>,
 
-    pub get_selected_port_index_count: u16,
-    pub get_selected_port_index_port_strategy: Option<Box<dyn PortStrategy>>,
+    pub get_selected_device_index_count: u16,
+    pub get_selected_device_index_device_strategy: Option<Box<dyn DeviceStrategy>>,
 
-    pub set_selected_port_index_count: u16,
+    pub set_selected_device_index_count: u16,
     pub selected_device_index: Option<usize>,
-    pub set_selected_port_index_port_strategy: Option<Box<dyn PortStrategy>>,
+    pub set_selected_device_index_device_strategy: Option<Box<dyn DeviceStrategy>>,
 
     pub set_devices_model_count: u16,
     pub set_devices_model_device_names: Option<Vec<String>>,
-    pub set_devices_model_port_strategy: Option<Box<dyn PortStrategy>>,
+    pub set_devices_model_device_strategy: Option<Box<dyn DeviceStrategy>>,
 
     pub show_connected_device_name_count: u16,
     pub show_connected_device_name_name: Option<String>,
     pub show_connected_device_name_msg_type: Option<MessageType>,
-    pub show_connected_device_name_port_strategy: Option<Box<dyn PortStrategy>>,
+    pub show_connected_device_name_device_strategy: Option<Box<dyn DeviceStrategy>>,
 
     pub show_message_count: u16,
     pub show_message_msg: Option<String>,
@@ -175,24 +175,24 @@ pub struct UiMethodsState {
 impl UiMethodsState {
     pub fn new() -> Self {
         UiMethodsState {
-            focus_port_count: 0,
-            focus_port_strategy: None,
+            focus_device_count: 0,
+            focus_device_strategy: None,
 
-            get_selected_port_index_count: 0,
-            get_selected_port_index_port_strategy: None,
+            get_selected_device_index_count: 0,
+            get_selected_device_index_device_strategy: None,
 
-            set_selected_port_index_count: 0,
+            set_selected_device_index_count: 0,
             selected_device_index: None,
-            set_selected_port_index_port_strategy: None,
+            set_selected_device_index_device_strategy: None,
 
             set_devices_model_count: 0,
             set_devices_model_device_names: None,
-            set_devices_model_port_strategy: None,
+            set_devices_model_device_strategy: None,
 
             show_connected_device_name_count: 0,
             show_connected_device_name_name: None,
             show_connected_device_name_msg_type: None,
-            show_connected_device_name_port_strategy: None,
+            show_connected_device_name_device_strategy: None,
 
             show_message_count: 0,
             show_message_msg: None,
@@ -220,24 +220,24 @@ impl UiMethodsState {
 impl Clone for UiMethodsState {
     fn clone(&self) -> Self {
         UiMethodsState {
-            focus_port_count: self.focus_port_count,
-            focus_port_strategy: self.focus_port_strategy.as_ref().map(|s| s.clone_box()),
+            focus_device_count: self.focus_device_count,
+            focus_device_strategy: self.focus_device_strategy.as_ref().map(|s| s.clone_box()),
 
-            get_selected_port_index_count: self.get_selected_port_index_count,
-            get_selected_port_index_port_strategy: self.get_selected_port_index_port_strategy.as_ref().map(|s| s.clone_box()),
+            get_selected_device_index_count: self.get_selected_device_index_count,
+            get_selected_device_index_device_strategy: self.get_selected_device_index_device_strategy.as_ref().map(|s| s.clone_box()),
 
-            set_selected_port_index_count: self.set_selected_port_index_count,
+            set_selected_device_index_count: self.set_selected_device_index_count,
             selected_device_index: self.selected_device_index,
-            set_selected_port_index_port_strategy: self.set_selected_port_index_port_strategy.as_ref().map(|s| s.clone_box()),
+            set_selected_device_index_device_strategy: self.set_selected_device_index_device_strategy.as_ref().map(|s| s.clone_box()),
 
             set_devices_model_count: self.set_devices_model_count,
             set_devices_model_device_names: self.set_devices_model_device_names.clone(),
-            set_devices_model_port_strategy: self.set_devices_model_port_strategy.as_ref().map(|s| s.clone_box()),
+            set_devices_model_device_strategy: self.set_devices_model_device_strategy.as_ref().map(|s| s.clone_box()),
 
             show_connected_device_name_count: self.show_connected_device_name_count,
             show_connected_device_name_name: self.show_connected_device_name_name.clone(),
             show_connected_device_name_msg_type: self.show_connected_device_name_msg_type.clone(),
-            show_connected_device_name_port_strategy: self.show_connected_device_name_port_strategy.as_ref().map(|s| s.clone_box()),
+            show_connected_device_name_device_strategy: self.show_connected_device_name_device_strategy.as_ref().map(|s| s.clone_box()),
 
             show_message_count: self.show_message_count,
             show_message_msg: self.show_message_msg.clone(),

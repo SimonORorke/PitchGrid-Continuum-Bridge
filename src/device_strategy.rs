@@ -1,31 +1,31 @@
 ﻿use slint::ModelRc;
 use crate::{MainWindow, ComboBoxItem, SlintMessageType};
-use crate::global::PortType;
+use crate::global::DeviceType;
 use crate::i_midi::IMidi;
 use crate::midi_ports::IIo;
 use crate::i_settings::ISettings;
 
-/// This trait is used to implement strategies that depend on whether a MIDI port is input or
+/// This trait is used to implement strategies that depend on whether a MIDI device is input or
 /// output.
 /// In the Model-View-Controller (MVC) pattern, it contains both view and controller methods.
 /// See Controller's doc comment for more information on how the project implements MVC.
-pub trait PortStrategy: Send + Sync {
-    fn port_type(&self) -> &PortType;
+pub trait DeviceStrategy: Send + Sync {
+    fn device_type(&self) -> &DeviceType;
     fn io<'a>(&self, midi: &'a dyn IMidi) -> &'a dyn IIo;
 
     /// Makes a clone of the current strategy that needs to be used when cross-threading.
     /// The code is the same for all strategies. But the compiler does not allow it to be
     /// implemented here as a default method.
-    fn clone_box(&self) -> Box<dyn PortStrategy>;
+    fn clone_box(&self) -> Box<dyn DeviceStrategy>;
 
-    fn focus_port(&self, main_window: &MainWindow);
-    fn port_setting<'a>(&self, settings: &'a dyn ISettings) -> &'a str;
-    fn set_port_setting(&self, settings: &mut dyn ISettings, device_name: &str);
+    fn focus_device(&self, main_window: &MainWindow);
+    fn device_setting<'a>(&self, settings: &'a dyn ISettings) -> &'a str;
+    fn set_device_setting(&self, settings: &mut dyn ISettings, device_name: &str);
     fn show_connected_device_name(
         &self, main_window: &MainWindow, device_name: &str, message_type: SlintMessageType);
     fn set_devices_model(&self, main_window: &MainWindow, model: ModelRc<ComboBoxItem>);
-    fn get_selected_port_index(&self, main_window: &MainWindow) -> i32;
-    fn set_selected_port_index(&self, main_window: &MainWindow, index: i32);
+    fn get_selected_device_index(&self, main_window: &MainWindow) -> i32;
+    fn set_selected_device_index(&self, main_window: &MainWindow, index: i32);
     fn msg_cannot_connect(&self, device_name: &str) -> &str;
     fn msg_connect(&self) -> &str;
     fn msg_connected(&self, device_name: &str) -> &str;
@@ -43,28 +43,28 @@ impl InputStrategy {
     }
 }
 
-impl PortStrategy for InputStrategy {
-    fn port_type(&self) -> &PortType {
-        &PortType::Input
+impl DeviceStrategy for InputStrategy {
+    fn device_type(&self) -> &DeviceType {
+        &DeviceType::Input
     }
 
     fn io<'a>(&self, midi: &'a dyn IMidi) -> &'a dyn IIo {
         midi.input()
     }
 
-    fn clone_box(&self) -> Box<dyn PortStrategy> {
+    fn clone_box(&self) -> Box<dyn DeviceStrategy> {
         Box::new(self.clone())
     }
 
-    fn focus_port(&self, main_window: &MainWindow) {
+    fn focus_device(&self, main_window: &MainWindow) {
         main_window.invoke_input_focus();
     }
 
-    fn port_setting<'a>(&self, settings: &'a dyn ISettings) -> &'a str {
+    fn device_setting<'a>(&self, settings: &'a dyn ISettings) -> &'a str {
         settings.midi_input_device()
     }
 
-    fn set_port_setting(&self, settings: &mut dyn ISettings, device_name: &str) {
+    fn set_device_setting(&self, settings: &mut dyn ISettings, device_name: &str) {
         settings.set_midi_input_device(device_name);
     }
 
@@ -77,19 +77,19 @@ impl PortStrategy for InputStrategy {
         main_window.set_input_devices_model(model);
     }
 
-    fn get_selected_port_index(&self, main_window: &MainWindow) -> i32 {
-        let index = main_window.get_input_selected_port_index();
-        // println!("InputStrategy.get_selected_port_index: returning selected port index {}", index);
+    fn get_selected_device_index(&self, main_window: &MainWindow) -> i32 {
+        let index = main_window.get_input_selected_device_index();
+        // println!("InputStrategy.get_selected_device_index: returning selected device index {}", index);
         index
     }
 
-    fn set_selected_port_index(&self, main_window: &MainWindow, index: i32) {
-        // println!("InputStrategy.set_selected_port_index: Setting selected port index to {}", index);
-        main_window.set_input_selected_port_index(index);
+    fn set_selected_device_index(&self, main_window: &MainWindow, index: i32) {
+        // println!("InputStrategy.set_selected_device_index: Setting selected device index to {}", index);
+        main_window.set_input_selected_device_index(index);
     }
 
     fn msg_cannot_connect(&self, device_name: &str) -> &str {
-        Box::leak(format!("Cannot connect MIDI input device {}. The port may be in use.",
+        Box::leak(format!("Cannot connect MIDI input device {}. The device may be in use.",
                           device_name).into_boxed_str())
     }
 
@@ -120,28 +120,28 @@ impl OutputStrategy {
     }
 }
 
-impl PortStrategy for OutputStrategy {
-    fn port_type(&self) -> &PortType {
-        &PortType::Output
+impl DeviceStrategy for OutputStrategy {
+    fn device_type(&self) -> &DeviceType {
+        &DeviceType::Output
     }
 
     fn io<'a>(&self, midi: &'a dyn IMidi) -> &'a dyn IIo {
         midi.output()
     }
 
-    fn clone_box(&self) -> Box<dyn PortStrategy> {
+    fn clone_box(&self) -> Box<dyn DeviceStrategy> {
         Box::new(self.clone())
     }
 
-    fn focus_port(&self, main_window: &MainWindow) {
+    fn focus_device(&self, main_window: &MainWindow) {
         main_window.invoke_output_focus();
     }
 
-    fn port_setting<'a>(&self, settings: &'a dyn ISettings) -> &'a str {
+    fn device_setting<'a>(&self, settings: &'a dyn ISettings) -> &'a str {
         settings.midi_output_device()
     }
 
-    fn set_port_setting(&self, settings: &mut dyn ISettings, device_name: &str) {
+    fn set_device_setting(&self, settings: &mut dyn ISettings, device_name: &str) {
         settings.set_midi_output_device(device_name);
     }
 
@@ -154,19 +154,19 @@ impl PortStrategy for OutputStrategy {
         main_window.set_output_devices_model(model);
     }
 
-    fn get_selected_port_index(&self, main_window: &MainWindow) -> i32 {
-        let index = main_window.get_output_selected_port_index();
-        // println!("OutputStrategy.get_selected_port_index: returning selected port index {}", index);
+    fn get_selected_device_index(&self, main_window: &MainWindow) -> i32 {
+        let index = main_window.get_output_selected_device_index();
+        // println!("OutputStrategy.get_selected_device_index: returning selected device index {}", index);
         index
     }
 
-    fn set_selected_port_index(&self, main_window: &MainWindow, index: i32) {
-        // println!("OutputStrategy.set_selected_port_index: Setting selected port index to {}", index);
-        main_window.set_output_selected_port_index(index);
+    fn set_selected_device_index(&self, main_window: &MainWindow, index: i32) {
+        // println!("OutputStrategy.set_selected_device_index: Setting selected device index to {}", index);
+        main_window.set_output_selected_device_index(index);
     }
 
     fn msg_cannot_connect(&self, device_name: &str) -> &str {
-        Box::leak(format!("Cannot connect MIDI output device {}. The port may be in use.",
+        Box::leak(format!("Cannot connect MIDI output device {}. The device may be in use.",
                           device_name).into_boxed_str())
     }
 

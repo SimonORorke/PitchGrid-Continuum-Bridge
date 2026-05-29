@@ -6,7 +6,7 @@ pub enum MessageType {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum PortType {
+pub enum DeviceType {
     Input,
     Output,
 }

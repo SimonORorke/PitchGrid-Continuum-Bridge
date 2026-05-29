@@ -18,8 +18,8 @@ export component MidiIo inherits GroupBox {
     in property <string> group_title;
 
     in property input_devices_model <=> input_devices_combo.model;
-    in-out property <int> input_selected_port_index;
-    callback input_connect_port();
+    in-out property <int> input_selected_device_index;
+    callback input_connect_device();
     callback input_refresh_devices();
     public function input_focus() {
         input_devices_combo.focus();
@@ -30,8 +30,8 @@ export component MidiIo inherits GroupBox {
     }
 
     in property output_devices_model <=> output_devices_combo.model;
-    in-out property <int> output_selected_port_index;
-    callback output_connect_port();
+    in-out property <int> output_selected_device_index;
+    callback output_connect_device();
     callback output_refresh_devices();
     public function output_focus() {
         output_devices_combo.focus();
@@ -52,9 +52,9 @@ export component MidiIo inherits GroupBox {
                 padding_left: Globals.horizontal_padding;
                 padding_right: Globals.horizontal_padding * 2;
                 input_devices_combo := ComboBox {
-                    current_index: root.input_selected_port_index;
+                    current_index: root.input_selected_device_index;
                     changed current_index => {
-                        root.input_selected_port_index = self.current_index;
+                        root.input_selected_device_index = self.current_index;
                     }
                     height: Globals.control_height;
                     width: 395px;
@@ -65,7 +65,7 @@ export component MidiIo inherits GroupBox {
                     text: "Connect";
                     action: ButtonAction.primary;
                     clicked => {
-                        root.input_connect_port()
+                        root.input_connect_device()
                     }
                     height: Globals.control_height;
                     width: Globals.button_width;
@@ -91,12 +91,12 @@ export component MidiIo inherits GroupBox {
             VerticalLayout {
                 col: 2;
                 OutlineButton {
-                    text: "Refresh Ports";
+                    text: "Refresh Devices";
                     clicked => {
                         root.input_refresh_devices()
                     }
                     height: Globals.control_height;
-                    width: Globals.button_width;
+                    width: 160px;
                 }
             }
         }
@@ -109,9 +109,9 @@ export component MidiIo inherits GroupBox {
                 padding_left: Globals.horizontal_padding;
                 padding_right: Globals.horizontal_padding * 2;
                 output_devices_combo := ComboBox {
-                    current_index: root.output_selected_port_index;
+                    current_index: root.output_selected_device_index;
                     changed current_index => {
-                        root.output_selected_port_index = self.current_index;
+                        root.output_selected_device_index = self.current_index;
                     }
                     height: Globals.control_height;
                     width: 395px;
@@ -122,7 +122,7 @@ export component MidiIo inherits GroupBox {
                     text: "Connect";
                     action: ButtonAction.primary;
                     clicked => {
-                        root.output_connect_port()
+                        root.output_connect_device()
                     }
                     height: Globals.control_height;
                     width: Globals.button_width;
@@ -148,12 +148,12 @@ export component MidiIo inherits GroupBox {
             VerticalLayout {
                 col: 2;
                 OutlineButton {
-                    text: "Refresh Ports";
+                    text: "Refresh Devices";
                     clicked => {
                         root.output_refresh_devices()
                     }
                     height: Globals.control_height;
-                    width: Globals.button_width;
+                    width: 160px;
                 }
             }
         }

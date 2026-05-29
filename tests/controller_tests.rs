@@ -15,11 +15,11 @@ use googletest::assert_that;
 use googletest::matchers::{
     displays_as, eq, err, len, ok, not, some, starts_with};
 use pitchgrid_continuum::controller::Controller;
-use pitchgrid_continuum::global::{MessageType, PortType};
+use pitchgrid_continuum::global::{MessageType, DeviceType};
 use pitchgrid_continuum::i_settings::ISettings;
-use pitchgrid_continuum::midi_static::MidiStatic;
+use pitchgrid_continuum::midi::Midi;
 use pitchgrid_continuum::osc::Osc;
-use pitchgrid_continuum::port_strategy::{InputStrategy, OutputStrategy};
+use pitchgrid_continuum::device_strategy::{InputStrategy, OutputStrategy};
 use pitchgrid_continuum::i_tuner::ITuner;
 use pitchgrid_continuum::tuner::Tuner;
 use mock_midi::{MockMidi, midi_state};
@@ -86,11 +86,11 @@ fn init_no_settings() {
     assert_that!(ui_state().main_window_position_y, some(eq(0)));
     assert_that!(ui_state().set_devices_model_count, eq(2));
     assert_that!(ui_state().set_devices_model_device_names, some(len(eq(4))));
-    let strategy = ui_state().set_devices_model_port_strategy;
-    assert_that!(strategy.as_ref().map(|s| *s.port_type()), some(eq(PortType::Output)));
+    let strategy = ui_state().set_devices_model_device_strategy;
+    assert_that!(strategy.as_ref().map(|s| *s.device_type()), some(eq(DeviceType::Output)));
     // Won't attempt to connect MIDI input device, as MIDI output device has not been
     // read from settings and so cannot be connected. So a warning message is shown for the MIDI
-    // output port.
+    // output device.
     assert_that!(ui_state().show_connected_device_name_count, eq(1));
     assert_that!(ui_state().show_connected_device_name_name, some(eq("[None]")));
     assert_that!(ui_state().show_connected_device_name_msg_type, some(eq(MessageType::Warning)));
@@ -129,16 +129,16 @@ fn connect_device() {
     controller.init();
     assert_that!(midi_state().start_instrument_connection_monitor_count, eq(1));
     MockMidi::set_is_receiving_data(true);
-    MockMidi::set_are_ports_connected(true);
+    MockMidi::set_are_devices_connected(true);
     MockMidi::simulate_download_completed();
     MockOsc::simulate_tuning_received(TestTunings::params_17_17());
     MockMidi::simulate_updating_tuning();
     MockMidi::simulate_tuning_updated();
     assert_that!(tuner().has_data(), eq(true));
     assert_that!(tuner().formatted_tuning_params().root_freq, not(eq("")));
-    let port_strategy = InputStrategy::new();
+    let device_strategy = InputStrategy::new();
     MockUiMethods::set_selected_device_index(1);
-    controller.connect_device(&port_strategy);
+    controller.connect_device(&device_strategy);
     assert_that!(midi_state().stop_instrument_connection_monitor_count, eq(1));
     assert_that!(osc_state().stop_count, eq(1));
     assert_that!(tuner().has_data(), eq(false));
@@ -160,7 +160,7 @@ fn connect_device_after_refreshing_other_device_list() {
     controller.init();
     assert_that!(midi_state().start_instrument_connection_monitor_count, eq(1));
     MockMidi::set_is_receiving_data(true);
-    MockMidi::set_are_ports_connected(true);
+    MockMidi::set_are_devices_connected(true);
     MockMidi::simulate_download_completed();
     MockOsc::simulate_tuning_received(TestTunings::params_17_17());
     MockMidi::simulate_updating_tuning();
@@ -182,7 +182,7 @@ fn refresh_devices() {
     controller.init();
     assert_that!(ui_state().set_devices_model_count, eq(2));
     MockMidi::set_is_receiving_data(true);
-    MockMidi::set_are_ports_connected(true);
+    MockMidi::set_are_devices_connected(true);
     MockMidi::simulate_download_completed();
     MockOsc::simulate_tuning_received(TestTunings::params_16_16());
     MockMidi::simulate_updating_tuning();
@@ -199,8 +199,8 @@ fn refresh_devices() {
         some(eq("Disconnected from PitchGrid because MIDI is not connected")));
     assert_that!(ui_state().show_pitchgrid_status_msg_type, some(eq(MessageType::Warning)));
     assert_that!(ui_state().set_devices_model_count, eq(3));
-    let strategy = ui_state().set_devices_model_port_strategy;
-    assert_that!(strategy.as_ref().map(|s| *s.port_type()), some(eq(PortType::Input)));
+    let strategy = ui_state().set_devices_model_device_strategy;
+    assert_that!(strategy.as_ref().map(|s| *s.device_type()), some(eq(DeviceType::Input)));
     assert_that!(ui_state().show_connected_device_name_name, some(eq("[None]")));
     assert_that!(ui_state().show_message_msg, some(starts_with("Refreshed MIDI input devices.")));
     assert_that!(ui_state().show_message_msg_type, some(eq(MessageType::Warning)));
@@ -267,7 +267,7 @@ fn on_data_download_started() {
     let _guard = test_mutex_guard();
     let mut controller = create_controller(MockSettings::new(), true);
     controller.init();
-    MockMidi::set_are_ports_connected(true);
+    MockMidi::set_are_devices_connected(true);
     MockMidi::simulate_download_started();
     assert_that!(ui_state().show_message_msg, some(starts_with("Awaiting completion")));
     assert_that!(ui_state().show_message_msg_type, some(eq(MessageType::Info)));
@@ -279,7 +279,7 @@ fn on_data_download_completed_start_osc() {
     let mut controller = create_controller(MockSettings::new(), true);
     controller.init();
     MockMidi::set_is_receiving_data(true);
-    MockMidi::set_are_ports_connected(true);
+    MockMidi::set_are_devices_connected(true);
     MockMidi::simulate_download_completed();
     assert_that!(osc_state().start_count, eq(1));
     assert_that!(ui_state().show_message_msg, some(starts_with("Opening PitchGrid connection")));
@@ -292,7 +292,7 @@ fn on_osc_tuning_received() {
     let mut controller = create_controller(MockSettings::new(), true);
     controller.init();
     MockMidi::set_is_receiving_data(true);
-    MockMidi::set_are_ports_connected(true);
+    MockMidi::set_are_devices_connected(true);
     MockMidi::simulate_download_completed();
     MockOsc::simulate_tuning_received(TestTunings::params_16_16());
     assert_that!(tuner().has_data(), eq(true));
@@ -319,7 +319,7 @@ fn on_tuning_updated() {
     controller.init();
     controller.set_root_freq_override(NOTE_INDEX);
     MockMidi::set_is_receiving_data(true);
-    MockMidi::set_are_ports_connected(true);
+    MockMidi::set_are_devices_connected(true);
     MockMidi::simulate_download_completed();
     MockOsc::simulate_tuning_received(TestTunings::params_16_16());
     MockMidi::simulate_updating_tuning();
@@ -340,7 +340,7 @@ fn on_new_preset_selected() {
     controller.init();
     controller.set_root_freq_override(NOTE_INDEX);
     MockMidi::set_is_receiving_data(true);
-    MockMidi::set_are_ports_connected(true);
+    MockMidi::set_are_devices_connected(true);
     MockMidi::simulate_download_completed();
     MockOsc::simulate_tuning_received(TestTunings::params_16_16());
     assert_that!(ui_state().show_pitchgrid_status_count, eq(1));
@@ -360,7 +360,7 @@ fn set_root_freq_override() {
     let mut controller = create_controller(MockSettings::new(), true);
     controller.init();
     MockMidi::set_is_receiving_data(true);
-    MockMidi::set_are_ports_connected(true);
+    MockMidi::set_are_devices_connected(true);
     MockMidi::simulate_download_completed();
     assert_that!(ui_state().show_pitchgrid_status_count, eq(0));
     MockOsc::simulate_pitchgrid_connected_changed(true);
@@ -377,7 +377,7 @@ fn create_controller(mut mock_settings: MockSettings, default_midi_devices: bool
         mock_settings.set_midi_input_device(&INPUT_DEVICE_NAMES[0]);
         mock_settings.set_midi_output_device(&OUTPUT_DEVICE_NAMES[0]);
     }
-    MidiStatic::set_midi(Box::new(MockMidi::new(
+    Midi::set_midi(Box::new(MockMidi::new(
         INPUT_DEVICE_NAMES.clone(), OUTPUT_DEVICE_NAMES.clone(),
         mock_settings.midi_input_device(), mock_settings.midi_output_device())));
     let new_tuner = Arc::new(Tuner::new());

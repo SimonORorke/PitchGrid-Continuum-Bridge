@@ -1,9 +1,9 @@
 ﻿use std::rc::Rc;
 use slint::{ComponentHandle, Weak};
 use crate::{MainWindow, ComboBoxItem, SlintMessageType, ComboBoxModel as MainComboBoxModel};
-use crate::global::{MessageType, PortType};
+use crate::global::{MessageType, DeviceType};
 use crate::i_ui_methods::IUiMethods;
-use crate::port_strategy::PortStrategy;
+use crate::device_strategy::DeviceStrategy;
 use crate::tuning_params::FormattedTuningParams;
 
 /// This struct contains the methods called by `Controller` to make changes to the UI.
@@ -55,70 +55,70 @@ impl UiMethods {
 }
 
 impl IUiMethods for UiMethods {
-    fn focus_port(&self, port_strategy: &dyn PortStrategy) {
-        let port_strategy = port_strategy.clone_box();
+    fn focus_device(&self, device_strategy: &dyn DeviceStrategy) {
+        let device_strategy = device_strategy.clone_box();
         self.with_main_window(move |main_window| {
-            port_strategy.focus_port(main_window);
+            device_strategy.focus_device(main_window);
         });
     }
 
-    fn get_selected_device_index(&self, port_strategy: &dyn PortStrategy) -> usize {
-        // println!("UiMethods.get_selected_port_index: {:?}", port_strategy.port_type());
-        let port_strategy = port_strategy.clone_box();
+    fn get_selected_device_index(&self, device_strategy: &dyn DeviceStrategy) -> usize {
+        // println!("UiMethods.get_selected_device_index: {:?}", device_strategy.device_type());
+        let device_strategy = device_strategy.clone_box();
         let index = self.with_main_window_result(move |main_window| {
-            port_strategy.get_selected_port_index(main_window) as usize
+            device_strategy.get_selected_device_index(main_window) as usize
         });
-        // println!("UiMethods.get_selected_port_index: returning selected port index {}", index);
+        // println!("UiMethods.get_selected_device_index: returning selected device index {}", index);
         index
     }
 
-    fn set_selected_device_index(&self, index: usize, port_strategy: &dyn PortStrategy) {
-        // println!("UiMethods.set_selected_port_index: index = {}, port_strategy = {:?}", index, port_strategy.port_type());
-        let port_strategy = port_strategy.clone_box();
+    fn set_selected_device_index(&self, index: usize, device_strategy: &dyn DeviceStrategy) {
+        // println!("UiMethods.set_selected_device_index: index = {}, device_strategy = {:?}", index, device_strategy.device_type());
+        let device_strategy = device_strategy.clone_box();
         self.with_main_window(move |main_window| {
-            // println!("UiMethods.set_selected_port_index: Setting selected port index");
-            port_strategy.set_selected_port_index(main_window, index as i32);
+            // println!("UiMethods.set_selected_device_index: Setting selected device index");
+            device_strategy.set_selected_device_index(main_window, index as i32);
         });
     }
 
-    fn set_devices_model(&self, device_names: &Vec<String>, port_strategy: &dyn PortStrategy) {
+    fn set_devices_model(&self, device_names: &Vec<String>, device_strategy: &dyn DeviceStrategy) {
         // println!("UiMethods.set_devices_model: START");
-        // println!("UiMethods.set_devices_model: Creating port items from port names");
+        // println!("UiMethods.set_devices_model: Creating device items from port names");
         let device_items: Vec<ComboBoxItem> =
             device_names
                 .iter()
                 .map(|text| ComboBoxItem { text: text.into() })
                 .collect();
-        // println!("UiMethods.set_devices_model: Getting port type");
-        let port_type = port_strategy.port_type().clone();
-        // println!("UiMethods.set_devices_model: Cloning port_strategy");
-        let port_strategy = port_strategy.clone_box();
+        // println!("UiMethods.set_devices_model: Getting device type");
+        let device_type = device_strategy.device_type().clone();
+        // println!("UiMethods.set_devices_model: Cloning device_strategy");
+        let device_strategy = device_strategy.clone_box();
         // println!("UiMethods.set_devices_model: Calling with_main_window");
         self.with_main_window(move |main_window| {
             // println!("UiMethods.set_devices_model: Inside with_main_window closure");
-            let model = match port_type {
-                PortType::Input => {
+            let model = match device_type {
+                DeviceType::Input => {
                     let input_model = Rc::new(MainComboBoxModel(device_items.clone()));
                     slint::ModelRc::from(input_model)
                 },
-                PortType::Output => {
+                DeviceType::Output => {
                     let output_model = Rc::new(MainComboBoxModel(device_items.clone()));
                     slint::ModelRc::from(output_model)
                 },
             };
-            // println!("UiMethods.set_devices_model: Calling port_strategy.set_devices_model");
-            port_strategy.set_devices_model(main_window, model);
-            // println!("UiMethods.set_devices_model: Done with port_strategy.set_devices_model");
+            // println!("UiMethods.set_devices_model: Calling device_strategy.set_devices_model");
+            device_strategy.set_devices_model(main_window, model);
+            // println!("UiMethods.set_devices_model: Done with device_strategy.set_devices_model");
         });
         // println!("UiMethods.set_devices_model: END");
     }
 
     fn show_connected_device_name(&self, name: &str, message_type: MessageType,
-                                port_strategy: &dyn PortStrategy) {
-        let port_strategy = port_strategy.clone_box();
+                                device_strategy: &dyn DeviceStrategy) {
+        let device_strategy = device_strategy.clone_box();
         let device_name = name.to_string();
         self.with_main_window(move |main_window| {
-            port_strategy.show_connected_device_name(
+            device_strategy.show_connected_device_name(
                 main_window, &device_name, slint_message_type(message_type));
         });
     }

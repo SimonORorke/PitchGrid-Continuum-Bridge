@@ -8,10 +8,10 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use slint::{CloseRequestResponse, ComponentHandle, PhysicalPosition, WindowPosition, Weak};
 use open;
 use app_info::{APP_TITLE, COPYRIGHT, DOCUMENTATION_LINK, LICENSE, PROJECT_LINK, VERSION};
-use pitchgrid_continuum::{ComboBoxModel, ComboBoxItem, MainWindow, AboutWindow, SharedController, SlintPortType};
+use pitchgrid_continuum::{ComboBoxModel, ComboBoxItem, MainWindow, AboutWindow, SharedController, SlintDeviceType};
 use pitchgrid_continuum::controller::Controller;
 use pitchgrid_continuum::osc::Osc;
-use pitchgrid_continuum::port_strategy::{InputStrategy, OutputStrategy, PortStrategy};
+use pitchgrid_continuum::device_strategy::{InputStrategy, OutputStrategy, DeviceStrategy};
 use pitchgrid_continuum::ui_methods::UiMethods;
 use pitchgrid_continuum::global;
 use pitchgrid_continuum::tuner::Tuner;
@@ -101,21 +101,21 @@ fn init_ui_handlers(main_window: &MainWindow, controller: SharedController) {
     // See the UiMethods.with_main_window_result doc comment for more information.
     {
         let controller: SharedController = Arc::clone(&controller);
-        main_window.on_connect_port(move |port_type: SlintPortType| {
+        main_window.on_connect_device(move |device_type: SlintDeviceType| {
             let controller = controller.clone();
-            let port_strategy = create_port_strategy(port_type);
+            let device_strategy = create_device_strategy(device_type);
             rayon::spawn(move || {
-                controller.lock().unwrap().connect_device(&*port_strategy);
+                controller.lock().unwrap().connect_device(&*device_strategy);
             });
         });
     }
     {
         let controller: SharedController = Arc::clone(&controller);
-        main_window.on_refresh_devices(move |port_type: SlintPortType| {
+        main_window.on_refresh_devices(move |device_type: SlintDeviceType| {
             let controller = controller.clone();
-            let port_strategy = create_port_strategy(port_type);
+            let device_strategy = create_device_strategy(device_type);
             rayon::spawn(move || {
-                controller.lock().unwrap().refresh_devices(&*port_strategy);
+                controller.lock().unwrap().refresh_devices(&*device_strategy);
             });
         });
     }
@@ -204,11 +204,11 @@ fn handle_close_request(main_window_weak: &Weak<MainWindow>, controller: &Shared
     *response.lock().unwrap()
 }
 
-fn create_port_strategy(port_type: SlintPortType)
-                        -> Box<dyn PortStrategy> {
-    match port_type {
-        SlintPortType::Input => InputStrategy::new().clone_box(),
-        SlintPortType::Output => OutputStrategy::new().clone_box(),
+fn create_device_strategy(device_type: SlintDeviceType)
+                        -> Box<dyn DeviceStrategy> {
+    match device_type {
+        SlintDeviceType::Input => InputStrategy::new().clone_box(),
+        SlintDeviceType::Output => OutputStrategy::new().clone_box(),
     }
 }
 

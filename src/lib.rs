@@ -11,10 +11,9 @@ pub mod osc;
 pub mod path_finder;
 pub mod settings;
 pub mod tuner;
-pub mod port_strategy;
+pub mod device_strategy;
 pub mod controller;
 pub mod ui_methods;
-pub mod midi_static;
 pub mod tuning_params;
 
 use std::sync::{Arc, Mutex};

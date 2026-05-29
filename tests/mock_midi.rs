@@ -5,9 +5,9 @@ use std::error::Error;
 use std::sync::Arc;
 use pitchgrid_continuum::i_midi::{IMidi, MidiCallbacks};
 use pitchgrid_continuum::midi_ports::{IIo};
-use pitchgrid_continuum::port_strategy::PortStrategy;
+use pitchgrid_continuum::device_strategy::DeviceStrategy;
 use mock_io::MockIo;
-use pitchgrid_continuum::global::PortType;
+use pitchgrid_continuum::global::DeviceType;
 
 /// Returns a clone of the current `MidiState`.
 pub fn midi_state() -> MidiState {
@@ -23,9 +23,9 @@ impl MockMidi {
     pub fn new(input_device_names: Vec<String>, output_device_names: Vec<String>,
         initial_input_device_name: &str, initial_output_device_name: &str) -> Self {
         MIDI_STATE.replace(MidiState::new());
-        let mut input = MockIo::new(PortType::Input, input_device_names);
+        let mut input = MockIo::new(DeviceType::Input, input_device_names);
         input.set_device(initial_input_device_name);
-        let mut output = MockIo::new(PortType::Output, output_device_names);
+        let mut output = MockIo::new(DeviceType::Output, output_device_names);
         output.set_device(initial_output_device_name);
         MockMidi {
             mock_input: input,
@@ -33,12 +33,16 @@ impl MockMidi {
         }
     }
 
-    pub fn set_are_ports_connected(value: bool) {
-        MIDI_STATE.with_borrow_mut(|s| s.are_ports_connected = value);
+    pub fn set_are_devices_connected(value: bool) {
+        MIDI_STATE.with_borrow_mut(|s| s.are_devices_connected = value);
     }
 
     pub fn set_is_receiving_data(value: bool) {
         MIDI_STATE.with_borrow_mut(|s| s.is_receiving_data = value);
+    }
+
+    pub fn set_simulate_devices_connected_changed(value: bool) {
+        MIDI_STATE.with_borrow_mut(|s| s.simulate_devices_connected_changed = value);
     }
 
     pub fn simulate_init_err(msg: &str) {
@@ -58,14 +62,8 @@ impl MockMidi {
         MIDI_STATE.with(|s| s.borrow().callbacks.as_ref().unwrap().on_download_started());
     }
 
-    #[allow(dead_code)]
     pub fn simulate_new_preset_selected() {
         MIDI_STATE.with(|s| s.borrow().callbacks.as_ref().unwrap().on_new_preset_selected());
-    }
-
-    #[allow(dead_code)]
-    pub fn simulate_ports_connected_changed() {
-        MIDI_STATE.with(|s| s.borrow().callbacks.as_ref().unwrap().on_ports_connected_changed());
     }
 
     pub fn simulate_receiving_data_started() {
@@ -87,8 +85,8 @@ impl MockMidi {
 }
 
 impl IMidi for MockMidi {
-    fn are_ports_connected(&self) -> bool {
-        MIDI_STATE.with(|s| s.borrow().are_ports_connected)
+    fn are_devices_connected(&self) -> bool {
+        MIDI_STATE.with(|s| s.borrow().are_devices_connected)
     }
 
     fn close(&mut self) {
@@ -97,24 +95,27 @@ impl IMidi for MockMidi {
         });
     }
 
-    fn connect_port(
+    fn connect_device(
         &mut self,
         index: usize,
-        port_strategy: &dyn PortStrategy,
+        device_strategy: &dyn DeviceStrategy,
     ) -> Result<(), Box<dyn Error>> {
         MIDI_STATE.with_borrow_mut(|s| {
-            s.connect_port_count += 1;
-            s.connect_port_index = Some(index);
-            s.connect_port_port_strategy = Some(port_strategy.clone_box());
-            match port_strategy.port_type() {
-                PortType::Input => {
-                    if s.is_output_port_connected {
-                        s.are_ports_connected = true;
+            s.connect_device_count += 1;
+            s.connect_device_index = Some(index);
+            s.connect_device_device_strategy = Some(device_strategy.clone_box());
+            match device_strategy.device_type() {
+                DeviceType::Input => {
+                    if s.is_output_device_connected {
+                        s.are_devices_connected = true;
                     }
                 }
-                PortType::Output => {
-                    s.is_output_port_connected = true;
+                DeviceType::Output => {
+                    s.is_output_device_connected = true;
                 }
+            }
+            if s.simulate_devices_connected_changed {
+                s.callbacks.as_ref().unwrap().on_devices_connected_changed();
             }
         });
         Ok(())
@@ -143,12 +144,12 @@ impl IMidi for MockMidi {
         &self.mock_input
     }
 
-    fn io(&self, port_strategy: &dyn PortStrategy) -> &dyn IIo {
+    fn io(&self, device_strategy: &dyn DeviceStrategy) -> &dyn IIo {
         MIDI_STATE.with_borrow_mut(|s| {
             s.io_count += 1;
-            s.io_port_strategy = Some(port_strategy.clone_box());
+            s.io_device_strategy = Some(device_strategy.clone_box());
         });
-        port_strategy.io(self)
+        device_strategy.io(self)
     }
 
     fn has_downloaded_init_data(&self) -> bool {
@@ -158,8 +159,8 @@ impl IMidi for MockMidi {
         MIDI_STATE.with(|s| s.borrow().has_downloaded_init_data_result)
     }
 
-    fn is_output_port_connected(&self) -> bool {
-        MIDI_STATE.with(|s| s.borrow().is_output_port_connected)
+    fn is_output_device_connected(&self) -> bool {
+        MIDI_STATE.with(|s| s.borrow().is_output_device_connected)
     }
 
     fn is_receiving_data(&self) -> bool {
@@ -173,15 +174,18 @@ impl IMidi for MockMidi {
     fn refresh_devices(
         &mut self,
         device_name: &str,
-        port_strategy: &dyn PortStrategy,
+        device_strategy: &dyn DeviceStrategy,
     ) -> Result<(), Box<dyn Error>> {
         MIDI_STATE.with_borrow_mut(|s| {
             s.refresh_devices_count += 1;
             s.refresh_devices_device_name = Some(device_name.to_string());
-            s.refresh_devices_port_strategy = Some(port_strategy.clone_box());
-            s.are_ports_connected = false;
-            if *port_strategy.port_type() == PortType::Output {
-                s.is_output_port_connected = false;
+            s.refresh_devices_device_strategy = Some(device_strategy.clone_box());
+            s.are_devices_connected = false;
+            if *device_strategy.device_type() == DeviceType::Output {
+                s.is_output_device_connected = false;
+            }
+            if s.simulate_devices_connected_changed {
+                s.callbacks.as_ref().unwrap().on_devices_connected_changed();
             }
         });
         Ok(())
@@ -203,13 +207,13 @@ impl IMidi for MockMidi {
 pub struct MidiState {
     pub callbacks: Option<Arc<dyn MidiCallbacks>>,
 
-    pub are_ports_connected: bool,
+    pub are_devices_connected: bool,
 
     pub close_count: u16,
 
-    pub connect_port_count: u16,
-    pub connect_port_index: Option<usize>,
-    pub connect_port_port_strategy: Option<Box<dyn PortStrategy>>,
+    pub connect_device_count: u16,
+    pub connect_device_index: Option<usize>,
+    pub connect_device_device_strategy: Option<Box<dyn DeviceStrategy>>,
 
     pub has_downloaded_init_data_count: u16,
     pub has_downloaded_init_data_result: bool,
@@ -219,14 +223,16 @@ pub struct MidiState {
     pub init_output_device_name: Option<String>,
 
     pub io_count: u16,
-    pub io_port_strategy: Option<Box<dyn PortStrategy>>,
+    pub io_device_strategy: Option<Box<dyn DeviceStrategy>>,
 
-    pub is_output_port_connected: bool,
+    pub is_output_device_connected: bool,
     pub is_receiving_data: bool,
 
     pub refresh_devices_count: u16,
     pub refresh_devices_device_name: Option<String>,
-    pub refresh_devices_port_strategy: Option<Box<dyn PortStrategy>>,
+    pub refresh_devices_device_strategy: Option<Box<dyn DeviceStrategy>>,
+
+    pub simulate_devices_connected_changed: bool,
 
     pub start_instrument_connection_monitor_count: u16,
     pub stop_instrument_connection_monitor_count: u16,
@@ -237,13 +243,13 @@ impl MidiState {
         MidiState {
             callbacks: None,
 
-            are_ports_connected: false,
+            are_devices_connected: false,
 
             close_count: 0,
 
-            connect_port_count: 0,
-            connect_port_index: None,
-            connect_port_port_strategy: None,
+            connect_device_count: 0,
+            connect_device_index: None,
+            connect_device_device_strategy: None,
 
             has_downloaded_init_data_count: 0,
             has_downloaded_init_data_result: false,
@@ -253,15 +259,16 @@ impl MidiState {
             init_output_device_name: None,
 
             io_count: 0,
-            io_port_strategy: None,
+            io_device_strategy: None,
 
-            is_output_port_connected: false,
+            is_output_device_connected: false,
             is_receiving_data: false,
 
             refresh_devices_count: 0,
             refresh_devices_device_name: None,
-            refresh_devices_port_strategy: None,
+            refresh_devices_device_strategy: None,
 
+            simulate_devices_connected_changed: false,
             start_instrument_connection_monitor_count: 0,
             stop_instrument_connection_monitor_count: 0,
         }
@@ -273,13 +280,13 @@ impl Clone for MidiState {
         MidiState {
             callbacks: self.callbacks.clone(),
 
-            are_ports_connected: self.are_ports_connected,
+            are_devices_connected: self.are_devices_connected,
 
             close_count: self.close_count,
 
-            connect_port_count: self.connect_port_count,
-            connect_port_index: self.connect_port_index,
-            connect_port_port_strategy: self.connect_port_port_strategy.as_ref().map(|s| s.clone_box()),
+            connect_device_count: self.connect_device_count,
+            connect_device_index: self.connect_device_index,
+            connect_device_device_strategy: self.connect_device_device_strategy.as_ref().map(|s| s.clone_box()),
 
             has_downloaded_init_data_count: self.has_downloaded_init_data_count,
             has_downloaded_init_data_result: self.has_downloaded_init_data_result,
@@ -289,14 +296,17 @@ impl Clone for MidiState {
             init_output_device_name: self.init_output_device_name.clone(),
 
             io_count: self.io_count,
-            io_port_strategy: self.io_port_strategy.as_ref().map(|s| s.clone_box()),
+            io_device_strategy: self.io_device_strategy.as_ref().map(|s| s.clone_box()),
 
-            is_output_port_connected: self.is_output_port_connected,
+            is_output_device_connected: self.is_output_device_connected,
             is_receiving_data: self.is_receiving_data,
 
             refresh_devices_count: self.refresh_devices_count,
             refresh_devices_device_name: self.refresh_devices_device_name.clone(),
-            refresh_devices_port_strategy: self.refresh_devices_port_strategy.as_ref().map(|s| s.clone_box()),
+            refresh_devices_device_strategy:
+                self.refresh_devices_device_strategy.as_ref().map(|s| s.clone_box()),
+
+            simulate_devices_connected_changed: self.simulate_devices_connected_changed,
 
             start_instrument_connection_monitor_count: self.start_instrument_connection_monitor_count,
             stop_instrument_connection_monitor_count: self.stop_instrument_connection_monitor_count,

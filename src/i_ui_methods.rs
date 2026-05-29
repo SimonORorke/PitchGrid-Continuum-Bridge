@@ -1,5 +1,5 @@
 ﻿use crate::global::MessageType;
-use crate::port_strategy::PortStrategy;
+use crate::device_strategy::DeviceStrategy;
 use crate::tuning_params::FormattedTuningParams;
 
 /// A trait that defines the interface for methods called by `Controller`
@@ -7,12 +7,12 @@ use crate::tuning_params::FormattedTuningParams;
 ///
 /// For the The `I` prefix, see `ITuner`s doc comment.
 pub trait IUiMethods: Send + Sync {
-    fn focus_port(&self, port_strategy: &dyn PortStrategy);
-    fn get_selected_device_index(&self, port_strategy: &dyn PortStrategy) -> usize;
-    fn set_selected_device_index(&self, index: usize, port_strategy: &dyn PortStrategy);
-    fn set_devices_model(&self, device_names: &Vec<String>, port_strategy: &dyn PortStrategy);
+    fn focus_device(&self, device_strategy: &dyn DeviceStrategy);
+    fn get_selected_device_index(&self, device_strategy: &dyn DeviceStrategy) -> usize;
+    fn set_selected_device_index(&self, index: usize, device_strategy: &dyn DeviceStrategy);
+    fn set_devices_model(&self, device_names: &Vec<String>, device_strategy: &dyn DeviceStrategy);
     fn show_connected_device_name(&self, name: &str, msg_type: MessageType,
-                                  port_strategy: &dyn PortStrategy);
+                                  device_strategy: &dyn DeviceStrategy);
     fn show_message(&self, msg: &str, msg_type: MessageType);
     fn show_pitchgrid_status(&self, status: &str, msg_type: MessageType);
     fn show_tuning(&self, tuning: FormattedTuningParams, is_root_freq_overridden: bool);
