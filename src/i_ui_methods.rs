@@ -8,8 +8,8 @@ use crate::tuning_params::FormattedTuningParams;
 /// For the The `I` prefix, see `ITuner`s doc comment.
 pub trait IUiMethods: Send + Sync {
     fn focus_port(&self, port_strategy: &dyn PortStrategy);
-    fn get_selected_port_index(&self, port_strategy: &dyn PortStrategy) -> usize;
-    fn set_selected_port_index(&self, index: usize, port_strategy: &dyn PortStrategy);
+    fn get_selected_device_index(&self, port_strategy: &dyn PortStrategy) -> usize;
+    fn set_selected_device_index(&self, index: usize, port_strategy: &dyn PortStrategy);
     fn set_devices_model(&self, device_names: &Vec<String>, port_strategy: &dyn PortStrategy);
     fn show_connected_device_name(&self, name: &str, msg_type: MessageType,
                                   port_strategy: &dyn PortStrategy);

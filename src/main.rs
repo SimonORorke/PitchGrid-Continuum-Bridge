@@ -105,7 +105,7 @@ fn init_ui_handlers(main_window: &MainWindow, controller: SharedController) {
             let controller = controller.clone();
             let port_strategy = create_port_strategy(port_type);
             rayon::spawn(move || {
-                controller.lock().unwrap().connect_port(&*port_strategy);
+                controller.lock().unwrap().connect_device(&*port_strategy);
             });
         });
     }

@@ -102,11 +102,11 @@ impl Controller {
         // println!("Controller.init: Setting output ports model");
         self.ui_methods.set_devices_model(&self.device_names(&output_strategy), &output_strategy);
         // println!("Controller.init: Connecting initial ports");
-        self.connect_initial_port(&output_strategy);
+        self.connect_initial_device(&output_strategy);
         // Don't start listening to MIDI until we are able to send MIDI.
         if MidiStatic::is_output_port_connected() {
             // println!("Controller.init: Connecting input port");
-            self.connect_initial_port(&input_strategy);
+            self.connect_initial_device(&input_strategy);
         }
         self.osc.set_listening_port(osc_listening_port);
         self.ui_methods.set_selected_osc_listening_port_index(Osc::listening_port_index() as i32);
@@ -146,7 +146,7 @@ impl Controller {
         Ok(())
     }
 
-    fn connect_initial_port(&mut self, port_strategy: &dyn PortStrategy) {
+    fn connect_initial_device(&mut self, port_strategy: &dyn PortStrategy) {
         // println!("Controller.connect_initial_port: {:?}", port_strategy.port_type());
         let shared_midi = MidiStatic::midi_clone();
         let maybe_index = {
@@ -156,8 +156,8 @@ impl Controller {
         };
         if let Some(index) = maybe_index {
             // println!("Controller.connect_initial_port: Setting selected port index to {}", index);
-            self.ui_methods.set_selected_port_index(index, port_strategy);
-            self.connect_selected_port(&shared_midi, port_strategy);
+            self.ui_methods.set_selected_device_index(index, port_strategy);
+            self.connect_selected_device(&shared_midi, port_strategy);
         } else {
             self.show_no_port_connected(port_strategy);
             self.show_warning(port_strategy.msg_connect());
@@ -165,18 +165,18 @@ impl Controller {
         }
     }
 
-    pub fn connect_port(&mut self, port_strategy: &dyn PortStrategy) {
+    pub fn connect_device(&mut self, port_strategy: &dyn PortStrategy) {
         // println!("Controller.connect_port");
-        let midi = MidiStatic::midi_clone();
+        let shared_midi = MidiStatic::midi_clone();
         let port_strategy = port_strategy.clone_box();
         // println!("Controller.connect_port: Stopping OSC and instrument connection monitor");
         self.stop_osc_and_instrument_connection_monitor();
         // println!("Controller.connect_port: Showing PitchGrid disconnected");
         self.show_pitchgrid_disconnected();
         // println!("Controller.connect_port: Connecting selected port");
-        self.connect_selected_port(&midi, &*port_strategy);
+        self.connect_selected_device(&shared_midi, &*port_strategy);
         // println!("Controller.connect_port: Getting port");
-        let device_name_opt: Option<String> = midi.lock().unwrap()
+        let device_name_opt: Option<String> = shared_midi.lock().unwrap()
             .io(&*port_strategy)
             .device()
             .map(|p| p.name().to_string());
@@ -197,10 +197,10 @@ impl Controller {
         // println!("Controller.connect_port: Done");
     }
 
-    fn connect_selected_port(&mut self, shared_midi: &SharedMidi,
-                             port_strategy: &dyn PortStrategy) {
+    fn connect_selected_device(&mut self, shared_midi: &SharedMidi,
+                               port_strategy: &dyn PortStrategy) {
         // println!("Controller.connect_selected_port: {:?}", port_strategy.port_type());
-        let selected = self.ui_methods.get_selected_port_index(port_strategy);
+        let selected = self.ui_methods.get_selected_device_index(port_strategy);
         let index: usize = match usize::try_from(selected) {
             Ok(i) => i,
             Err(_) => {
@@ -367,7 +367,7 @@ impl Controller {
         // println!("Controller.on_receiving_data_started_callback");
         // The input port is connected, as we are receiving data from the instrument.
         // But the output port might not be, in which case we can't send data to the instrument
-        // and should not overwrite the "Connect MIDI output port" warning message that should
+        // and should not overwrite the "Connect MIDI output device" warning message that should
         // already be displayed.
         if MidiStatic::are_ports_connected() {
             // println!("Controller.on_receiving_data_started_callback: Waiting for data download to complete.");

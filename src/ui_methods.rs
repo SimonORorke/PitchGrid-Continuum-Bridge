@@ -62,7 +62,7 @@ impl IUiMethods for UiMethods {
         });
     }
 
-    fn get_selected_port_index(&self, port_strategy: &dyn PortStrategy) -> usize {
+    fn get_selected_device_index(&self, port_strategy: &dyn PortStrategy) -> usize {
         // println!("UiMethods.get_selected_port_index: {:?}", port_strategy.port_type());
         let port_strategy = port_strategy.clone_box();
         let index = self.with_main_window_result(move |main_window| {
@@ -72,7 +72,7 @@ impl IUiMethods for UiMethods {
         index
     }
 
-    fn set_selected_port_index(&self, index: usize, port_strategy: &dyn PortStrategy) {
+    fn set_selected_device_index(&self, index: usize, port_strategy: &dyn PortStrategy) {
         // println!("UiMethods.set_selected_port_index: index = {}, port_strategy = {:?}", index, port_strategy.port_type());
         let port_strategy = port_strategy.clone_box();
         self.with_main_window(move |main_window| {

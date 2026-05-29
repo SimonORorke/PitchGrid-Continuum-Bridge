@@ -16,6 +16,12 @@ impl MockUiMethods {
         UI_STATE.replace(UiMethodsState::new());
         MockUiMethods {}
     }
+
+    pub fn set_selected_device_index(index: usize) {
+        UI_STATE.with_borrow_mut(|s| {
+            s.selected_device_index = Some(index);
+        });
+    }
 }
 
 impl IUiMethods for MockUiMethods {
@@ -26,18 +32,20 @@ impl IUiMethods for MockUiMethods {
         });
     }
 
-    fn get_selected_port_index(&self, port_strategy: &dyn PortStrategy) -> usize {
+    fn get_selected_device_index(&self, port_strategy: &dyn PortStrategy) -> usize {
+        let mut result: usize = 0;
         UI_STATE.with_borrow_mut(|s| {
             s.get_selected_port_index_count += 1;
             s.get_selected_port_index_port_strategy = Some(port_strategy.clone_box());
+            result = s.selected_device_index.unwrap_or(0);
         });
-        0
+        result
     }
 
-    fn set_selected_port_index(&self, index: usize, port_strategy: &dyn PortStrategy) {
+    fn set_selected_device_index(&self, index: usize, port_strategy: &dyn PortStrategy) {
         UI_STATE.with_borrow_mut(|s| {
             s.set_selected_port_index_count += 1;
-            s.set_selected_port_index_index = Some(index);
+            s.selected_device_index = Some(index);
             s.set_selected_port_index_port_strategy = Some(port_strategy.clone_box());
         });
     }
@@ -130,7 +138,7 @@ pub struct UiMethodsState {
     pub get_selected_port_index_port_strategy: Option<Box<dyn PortStrategy>>,
 
     pub set_selected_port_index_count: u16,
-    pub set_selected_port_index_index: Option<usize>,
+    pub selected_device_index: Option<usize>,
     pub set_selected_port_index_port_strategy: Option<Box<dyn PortStrategy>>,
 
     pub set_devices_model_count: u16,
@@ -174,7 +182,7 @@ impl UiMethodsState {
             get_selected_port_index_port_strategy: None,
 
             set_selected_port_index_count: 0,
-            set_selected_port_index_index: None,
+            selected_device_index: None,
             set_selected_port_index_port_strategy: None,
 
             set_devices_model_count: 0,
@@ -219,7 +227,7 @@ impl Clone for UiMethodsState {
             get_selected_port_index_port_strategy: self.get_selected_port_index_port_strategy.as_ref().map(|s| s.clone_box()),
 
             set_selected_port_index_count: self.set_selected_port_index_count,
-            set_selected_port_index_index: self.set_selected_port_index_index,
+            selected_device_index: self.selected_device_index,
             set_selected_port_index_port_strategy: self.set_selected_port_index_port_strategy.as_ref().map(|s| s.clone_box()),
 
             set_devices_model_count: self.set_devices_model_count,

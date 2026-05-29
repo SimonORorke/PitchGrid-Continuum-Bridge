@@ -89,24 +89,24 @@ impl PortStrategy for InputStrategy {
     }
 
     fn msg_cannot_connect(&self, device_name: &str) -> &str {
-        Box::leak(format!("Cannot connect MIDI input port {}. The port may be in use.",
+        Box::leak(format!("Cannot connect MIDI input device {}. The port may be in use.",
                           device_name).into_boxed_str())
     }
 
     fn msg_connect(&self) -> &str {
-        "Connect MIDI input port"
+        "Connect MIDI input device"
     }
 
     fn msg_connected(&self, device_name: &str) -> &str {
-        Box::leak(format!("Connected MIDI input port {}", device_name).into_boxed_str())
+        Box::leak(format!("Connected MIDI input device {}", device_name).into_boxed_str())
     }
 
     fn msg_not_selected(&self) -> &str {
-        "No MIDI input port selected."
+        "No MIDI input device selected."
     }
 
     fn msg_refreshed_reconnect(&self) -> &str {
-        "Refreshed MIDI input ports. You must (re)connect."
+        "Refreshed MIDI input devices. You must (re)connect."
     }
 }
 
@@ -166,23 +166,23 @@ impl PortStrategy for OutputStrategy {
     }
 
     fn msg_cannot_connect(&self, device_name: &str) -> &str {
-        Box::leak(format!("Cannot connect MIDI output port {}. The port may be in use.",
+        Box::leak(format!("Cannot connect MIDI output device {}. The port may be in use.",
                           device_name).into_boxed_str())
     }
 
     fn msg_connect(&self) -> &str {
-        "Connect MIDI output port"
+        "Connect MIDI output device"
     }
 
     fn msg_connected(&self, device_name: &str) -> &str {
-        Box::leak(format!("Connected MIDI output port {}", device_name).into_boxed_str())
+        Box::leak(format!("Connected MIDI output device {}", device_name).into_boxed_str())
     }
 
     fn msg_not_selected(&self) -> &str {
-        "No MIDI output port selected."
+        "No MIDI output device selected."
     }
 
     fn msg_refreshed_reconnect(&self) -> &str {
-        "Refreshed MIDI output ports. You must (re)connect."
+        "Refreshed MIDI output devices. You must (re)connect."
     }
 }

@@ -19,7 +19,7 @@ use pitchgrid_continuum::global::{MessageType, PortType};
 use pitchgrid_continuum::i_settings::ISettings;
 use pitchgrid_continuum::midi_static::MidiStatic;
 use pitchgrid_continuum::osc::Osc;
-use pitchgrid_continuum::port_strategy::InputStrategy;
+use pitchgrid_continuum::port_strategy::{InputStrategy, OutputStrategy};
 use pitchgrid_continuum::i_tuner::ITuner;
 use pitchgrid_continuum::tuner::Tuner;
 use mock_midi::{MockMidi, midi_state};
@@ -88,14 +88,14 @@ fn init_no_settings() {
     assert_that!(ui_state().set_devices_model_device_names, some(len(eq(4))));
     let strategy = ui_state().set_devices_model_port_strategy;
     assert_that!(strategy.as_ref().map(|s| *s.port_type()), some(eq(PortType::Output)));
-    // Won't attempt to connect MIDI input port, as MIDI output port has not been
+    // Won't attempt to connect MIDI input device, as MIDI output device has not been
     // read from settings and so cannot be connected. So a warning message is shown for the MIDI
     // output port.
     assert_that!(ui_state().show_connected_device_name_count, eq(1));
     assert_that!(ui_state().show_connected_device_name_name, some(eq("[None]")));
     assert_that!(ui_state().show_connected_device_name_msg_type, some(eq(MessageType::Warning)));
     assert_that!(ui_state().show_message_count, eq(1));
-    assert_that!(ui_state().show_message_msg, some(eq("Connect MIDI output port")));
+    assert_that!(ui_state().show_message_msg, some(eq("Connect MIDI output device")));
     assert_that!(ui_state().show_message_msg_type, some(eq(MessageType::Warning)));
     assert_that!(osc_state().listening_port, some(eq(Osc::default_listening_port())));
     assert_that!(ui_state().selected_osc_listening_port_index,
@@ -123,6 +123,59 @@ fn init_read_settings_err() {
 }
 
 #[googletest::gtest]
+fn connect_device() {
+    let _guard = test_mutex_guard();
+    let mut controller = create_controller(MockSettings::new(), true);
+    controller.init();
+    assert_that!(midi_state().start_instrument_connection_monitor_count, eq(1));
+    MockMidi::set_is_receiving_data(true);
+    MockMidi::set_are_ports_connected(true);
+    MockMidi::simulate_download_completed();
+    MockOsc::simulate_tuning_received(TestTunings::params_17_17());
+    MockMidi::simulate_updating_tuning();
+    MockMidi::simulate_tuning_updated();
+    assert_that!(tuner().has_data(), eq(true));
+    assert_that!(tuner().formatted_tuning_params().root_freq, not(eq("")));
+    let port_strategy = InputStrategy::new();
+    MockUiMethods::set_selected_device_index(1);
+    controller.connect_device(&port_strategy);
+    assert_that!(midi_state().stop_instrument_connection_monitor_count, eq(1));
+    assert_that!(osc_state().stop_count, eq(1));
+    assert_that!(tuner().has_data(), eq(false));
+    assert_that!(tuner().formatted_tuning_params().root_freq, eq(""));
+    assert_that!(ui_state().show_pitchgrid_status_msg,
+        some(eq("Disconnected from PitchGrid because MIDI is not connected")));
+    assert_that!(ui_state().show_pitchgrid_status_msg_type, some(eq(MessageType::Warning)));
+    assert_that!(ui_state().show_connected_device_name_name, some(eq(&INPUT_DEVICE_NAMES[1])));
+    assert_that!(ui_state().show_connected_device_name_msg_type, some(eq(MessageType::Info)));
+    assert_that!(ui_state().show_message_msg, some(eq("Checking instrument connection...")));
+    assert_that!(ui_state().show_message_msg_type, some(eq(MessageType::Info)));
+    assert_that!(midi_state().start_instrument_connection_monitor_count, eq(2));
+}
+
+#[googletest::gtest]
+fn connect_device_after_refreshing_other_device_list() {
+    let _guard = test_mutex_guard();
+    let mut controller = create_controller(MockSettings::new(), true);
+    controller.init();
+    assert_that!(midi_state().start_instrument_connection_monitor_count, eq(1));
+    MockMidi::set_is_receiving_data(true);
+    MockMidi::set_are_ports_connected(true);
+    MockMidi::simulate_download_completed();
+    MockOsc::simulate_tuning_received(TestTunings::params_17_17());
+    MockMidi::simulate_updating_tuning();
+    MockMidi::simulate_tuning_updated();
+    let output_strategy = OutputStrategy::new();
+    controller.refresh_devices(&output_strategy);
+    let input_strategy = InputStrategy::new();
+    MockUiMethods::set_selected_device_index(1);
+    controller.connect_device(&input_strategy);
+    assert_that!(ui_state().show_message_msg, some(eq("Connect MIDI output device")));
+    assert_that!(ui_state().show_message_msg_type, some(eq(MessageType::Warning)));
+    assert_that!(midi_state().start_instrument_connection_monitor_count, eq(1));
+}
+
+#[googletest::gtest]
 fn refresh_devices() {
     let _guard = test_mutex_guard();
     let mut controller = create_controller(MockSettings::new(), true);
@@ -135,8 +188,8 @@ fn refresh_devices() {
     MockMidi::simulate_updating_tuning();
     MockMidi::simulate_tuning_updated();
     assert_that!(ui_state().show_tuning_count, eq(1));
-    let port_strategy = InputStrategy::new();
-    controller.refresh_devices(&port_strategy);
+    let input_strategy = InputStrategy::new();
+    controller.refresh_devices(&input_strategy);
     assert_that!(midi_state().stop_instrument_connection_monitor_count, eq(1));
     assert_that!(osc_state().stop_count, eq(1));
     assert_that!(tuner().has_data(), eq(false));
@@ -149,7 +202,7 @@ fn refresh_devices() {
     let strategy = ui_state().set_devices_model_port_strategy;
     assert_that!(strategy.as_ref().map(|s| *s.port_type()), some(eq(PortType::Input)));
     assert_that!(ui_state().show_connected_device_name_name, some(eq("[None]")));
-    assert_that!(ui_state().show_message_msg, some(starts_with("Refreshed MIDI input ports.")));
+    assert_that!(ui_state().show_message_msg, some(starts_with("Refreshed MIDI input devices.")));
     assert_that!(ui_state().show_message_msg_type, some(eq(MessageType::Warning)));
 }
 
@@ -301,7 +354,7 @@ fn on_new_preset_selected() {
 }
 
 #[googletest::gtest]
-fn  set_root_freq_override() {
+fn set_root_freq_override() {
     let _guard = test_mutex_guard();
     const NOTE_INDEX: usize = 1;
     let mut controller = create_controller(MockSettings::new(), true);
