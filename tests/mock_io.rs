@@ -56,17 +56,14 @@ impl MockIo {
 }
 
 impl IIo for MockIo {
-    #[allow(dead_code)]
     fn device(&self) -> Option<&dyn IoDevice> {
         self.device.as_ref().map(|d| d as &dyn IoDevice)
     }
 
-    #[allow(dead_code)]
     fn device_names(&self) -> Vec<String> {
         self.state().device_names
     }
 
-    #[allow(dead_code)]
     fn populate_devices(&mut self, persisted_device_name: &str) -> Result<(), Box<dyn Error>> {
         let ok = match self.port_type {
             PortType::Input => INPUT_STATE.with_borrow_mut(|s| {
