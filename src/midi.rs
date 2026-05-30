@@ -617,14 +617,14 @@ impl IMidi for Midi {
         device_name: &str,
         device_strategy: &dyn DeviceStrategy,
     ) -> Result<(), Box<dyn Error>> {
-        let were_ports_connected = self.are_devices_connected();
+        let were_devices_connected = self.are_devices_connected();
         // self.stop_download_monitor();
         self.stop_instrument_connection_monitor();
         match device_strategy.device_type() {
             DeviceType::Input => self.refresh_input_devices(device_name)?,
             DeviceType::Output => self.refresh_output_devices(device_name)?,
         }
-        if were_ports_connected {
+        if were_devices_connected {
             // We have just disconnected one of the ports.
             // println!("Midi.refresh_devices: Calling on_ports_connected_changed because we have just disconnected one of the ports");
             if let Some(cb) = callbacks() {
