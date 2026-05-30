@@ -8,7 +8,7 @@ use crate::i_settings::ISettings;
 /// This trait is used to implement strategies that depend on whether a MIDI device is input or
 /// output.
 /// In the Model-View-Controller (MVC) pattern, it contains both view and controller methods.
-/// See Controller's doc comment for more information on how the project implements MVC.
+/// See `Controller`'s doc comment for more information on how the project implements MVC.
 pub trait DeviceStrategy: Send + Sync {
     fn device_type(&self) -> &DeviceType;
     fn io<'a>(&self, midi: &'a dyn IMidi) -> &'a dyn IIo;

@@ -17,7 +17,7 @@ use pitchgrid_continuum::global;
 use pitchgrid_continuum::tuner::Tuner;
 
 /// main.rs is part of the view in the Model-View-Controller (MVC) pattern.
-/// See Controller's doc comment for more information on how the project implements MVC.
+/// See `Controller`'s doc comment for more information on how the project implements MVC.
 fn main() {
     #[cfg(target_os = "macos")]
     set_macos_app_icon();
