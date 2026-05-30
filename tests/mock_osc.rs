@@ -17,6 +17,18 @@ impl MockOsc {
         MockOsc {}
     }
 
+    pub fn set_is_pitchgrid_connected_result(value: bool) {
+        OSC_STATE.with_borrow_mut(|s| {
+            s.is_pitchgrid_connected_result = value;
+        });
+    }
+
+    pub fn set_is_running_result(value: bool) {
+        OSC_STATE.with_borrow_mut(|s| {
+            s.is_running_result = value;
+        });
+    }
+
     pub fn simulate_pitchgrid_connected_changed(is_pitchgrid_connected: bool) {
         let callbacks = OSC_STATE.with_borrow_mut(|s| {
             s.is_pitchgrid_connected_result = is_pitchgrid_connected;

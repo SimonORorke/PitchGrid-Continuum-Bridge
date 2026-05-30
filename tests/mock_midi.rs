@@ -41,10 +41,6 @@ impl MockMidi {
         MIDI_STATE.with_borrow_mut(|s| s.is_receiving_data = value);
     }
 
-    pub fn set_simulate_devices_connected_changed(value: bool) {
-        MIDI_STATE.with_borrow_mut(|s| s.simulate_devices_connected_changed = value);
-    }
-
     pub fn simulate_init_err(msg: &str) {
         MIDI_STATE.with_borrow_mut(|s| s.init_result =
             Err(Arc::new(std::io::Error::new(std::io::ErrorKind::Other, msg))));
@@ -60,6 +56,9 @@ impl MockMidi {
 
     pub fn simulate_download_started() {
         MIDI_STATE.with(|s| s.borrow().callbacks.as_ref().unwrap().on_download_started());
+    }
+    pub fn simulate_devices_connected_changed() {
+        MIDI_STATE.with(|s| s.borrow().callbacks.as_ref().unwrap().on_devices_connected_changed());
     }
 
     pub fn simulate_new_preset_selected() {
@@ -114,9 +113,9 @@ impl IMidi for MockMidi {
                     s.is_output_device_connected = true;
                 }
             }
-            if s.simulate_devices_connected_changed {
-                s.callbacks.as_ref().unwrap().on_devices_connected_changed();
-            }
+            // if s.simulate_devices_connected_changed {
+            //     s.callbacks.as_ref().unwrap().on_devices_connected_changed();
+            // }
         });
         Ok(())
     }
@@ -184,9 +183,9 @@ impl IMidi for MockMidi {
             if *device_strategy.device_type() == DeviceType::Output {
                 s.is_output_device_connected = false;
             }
-            if s.simulate_devices_connected_changed {
-                s.callbacks.as_ref().unwrap().on_devices_connected_changed();
-            }
+            // if s.simulate_devices_connected_changed {
+            //     s.callbacks.as_ref().unwrap().on_devices_connected_changed();
+            // }
         });
         Ok(())
     }
@@ -232,7 +231,7 @@ pub struct MidiState {
     pub refresh_devices_device_name: Option<String>,
     pub refresh_devices_device_strategy: Option<Box<dyn DeviceStrategy>>,
 
-    pub simulate_devices_connected_changed: bool,
+    // pub simulate_devices_connected_changed: bool,
 
     pub start_instrument_connection_monitor_count: u16,
     pub stop_instrument_connection_monitor_count: u16,
@@ -268,7 +267,7 @@ impl MidiState {
             refresh_devices_device_name: None,
             refresh_devices_device_strategy: None,
 
-            simulate_devices_connected_changed: false,
+            // simulate_devices_connected_changed: false,
             start_instrument_connection_monitor_count: 0,
             stop_instrument_connection_monitor_count: 0,
         }
@@ -306,7 +305,7 @@ impl Clone for MidiState {
             refresh_devices_device_strategy:
                 self.refresh_devices_device_strategy.as_ref().map(|s| s.clone_box()),
 
-            simulate_devices_connected_changed: self.simulate_devices_connected_changed,
+            // simulate_devices_connected_changed: self.simulate_devices_connected_changed,
 
             start_instrument_connection_monitor_count: self.start_instrument_connection_monitor_count,
             stop_instrument_connection_monitor_count: self.stop_instrument_connection_monitor_count,

@@ -207,6 +207,33 @@ fn refresh_devices() {
 }
 
 #[googletest::gtest]
+fn on_devices_connected_changed_to_connected() {
+    let _guard = test_mutex_guard();
+    let mut controller = create_controller(MockSettings::new(), true);
+    controller.init();
+    MockMidi::set_are_devices_connected(true);
+    MockOsc::set_is_running_result(true);
+    MockMidi::simulate_devices_connected_changed();
+    assert_that!(osc_state().stop_count,eq(0));
+}
+
+#[googletest::gtest]
+fn on_devices_connected_changed_to_not_connected() {
+    let _guard = test_mutex_guard();
+    let mut controller = create_controller(MockSettings::new(), true);
+    controller.init();
+    MockMidi::set_are_devices_connected(false);
+    MockOsc::set_is_running_result(true);
+    MockMidi::simulate_devices_connected_changed();
+    assert_that!(osc_state().stop_count,eq(1));
+    assert_that!(ui_state().show_message_msg, some(starts_with("Instrument is disconnected;")));
+    assert_that!(ui_state().show_message_msg_type, some(eq(MessageType::Warning)));
+    assert_that!(ui_state().show_pitchgrid_status_msg,
+        some(eq("PitchGrid connection closed while instrument disconnected")));
+    assert_that!(ui_state().show_pitchgrid_status_msg_type, some(eq(MessageType::Warning)));
+}
+
+#[googletest::gtest]
 fn close() {
     let _guard = test_mutex_guard();
     const OLD_MAIN_WINDOW_X: i32 = 100;
