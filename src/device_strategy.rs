@@ -31,6 +31,7 @@ pub trait DeviceStrategy: Send + Sync {
     fn msg_connected(&self, device_name: &str) -> &str;
     fn msg_not_selected(&self) -> &str;
     fn msg_refreshed_reconnect(&self) -> &str;
+    fn other_device_strategy(&self) -> Box<dyn DeviceStrategy>;
 }
 
 #[derive(Clone)]
@@ -108,6 +109,10 @@ impl DeviceStrategy for InputStrategy {
     fn msg_refreshed_reconnect(&self) -> &str {
         "Refreshed MIDI input devices. You must (re)connect."
     }
+
+    fn other_device_strategy(&self) -> Box<dyn DeviceStrategy> {
+        Box::new(OutputStrategy::new())
+    }
 }
 
 #[derive(Clone)]
@@ -184,5 +189,9 @@ impl DeviceStrategy for OutputStrategy {
 
     fn msg_refreshed_reconnect(&self) -> &str {
         "Refreshed MIDI output devices. You must (re)connect."
+    }
+
+    fn other_device_strategy(&self) -> Box<dyn DeviceStrategy> {
+        Box::new(InputStrategy::new())
     }
 }

@@ -176,6 +176,21 @@ fn connect_device_after_refreshing_other_device_list() {
 }
 
 #[googletest::gtest]
+fn connect_device_err() {
+    let _guard = test_mutex_guard();
+    const ERR_MSG: &str = "Test error";
+    let mut controller = create_controller(MockSettings::new(), false);
+    controller.init();
+    assert_that!(midi_state().start_instrument_connection_monitor_count, eq(0));
+    let device_strategy = OutputStrategy::new();
+    MockUiMethods::set_selected_device_index(1);
+    MockMidi::simulate_connect_device_err(ERR_MSG);
+    controller.connect_device(&device_strategy);
+    assert_that!(ui_state().show_message_msg, some(eq(ERR_MSG)));
+    assert_that!(ui_state().show_message_msg_type, some(eq(MessageType::Error)));
+}
+
+#[googletest::gtest]
 fn refresh_devices() {
     let _guard = test_mutex_guard();
     let mut controller = create_controller(MockSettings::new(), true);

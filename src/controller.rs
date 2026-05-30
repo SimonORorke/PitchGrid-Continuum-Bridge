@@ -2,7 +2,7 @@
 use std::sync::{Arc, Mutex};
 use std::sync::mpsc;
 use std::time::Duration;
-use crate::global::{MessageType, DeviceType};
+use crate::global::{MessageType};
 use crate::i_midi::{MidiCallbacks, SharedMidi};
 use crate::i_osc::{IOsc, OscCallbacks};
 use crate::osc::Osc;
@@ -187,10 +187,8 @@ impl Controller {
                 // println!("Controller.connect_device: Starting instrument connection monitor");
                 self.start_instrument_connection_monitor();
             } else {
-                let other_device_strategy:Box<dyn DeviceStrategy> = match device_strategy.device_type() {
-                    DeviceType::Input => Box::new(OutputStrategy::new()),
-                    DeviceType::Output => Box::new(InputStrategy::new()),
-                };
+                let other_device_strategy =
+                    device_strategy.other_device_strategy();
                 self.show_warning(other_device_strategy.msg_connect());
             }
         }

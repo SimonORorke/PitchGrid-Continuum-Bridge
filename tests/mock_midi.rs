@@ -41,6 +41,10 @@ impl MockMidi {
         MIDI_STATE.with_borrow_mut(|s| s.is_receiving_data = value);
     }
 
+    pub fn simulate_connect_device_err(msg: &str) {
+        MIDI_STATE.with_borrow_mut(|s| s.connect_device_err = Some(msg.to_string()));
+    }
+
     pub fn simulate_init_err(msg: &str) {
         MIDI_STATE.with_borrow_mut(|s| s.init_result =
             Err(Arc::new(std::io::Error::new(std::io::ErrorKind::Other, msg))));
@@ -99,6 +103,7 @@ impl IMidi for MockMidi {
         index: usize,
         device_strategy: &dyn DeviceStrategy,
     ) -> Result<(), Box<dyn Error>> {
+        let mut result: Result<(), Box<dyn Error>> = Ok(());
         MIDI_STATE.with_borrow_mut(|s| {
             s.connect_device_count += 1;
             s.connect_device_index = Some(index);
@@ -113,11 +118,14 @@ impl IMidi for MockMidi {
                     s.is_output_device_connected = true;
                 }
             }
-            // if s.simulate_devices_connected_changed {
-            //     s.callbacks.as_ref().unwrap().on_devices_connected_changed();
-            // }
+            result = match &s.connect_device_err {
+                Some(msg) =>
+                    Err(Box::new(std::io::Error::new(
+                        std::io::ErrorKind::Other, msg.clone())) as Box<dyn Error>),
+                None => Ok(()),
+            }
         });
-        Ok(())
+        result
     }
 
     fn init(
@@ -210,6 +218,7 @@ pub struct MidiState {
 
     pub close_count: u16,
 
+    connect_device_err: Option<String>,
     pub connect_device_count: u16,
     pub connect_device_index: Option<usize>,
     pub connect_device_device_strategy: Option<Box<dyn DeviceStrategy>>,
@@ -246,6 +255,7 @@ impl MidiState {
 
             close_count: 0,
 
+            connect_device_err: None,
             connect_device_count: 0,
             connect_device_index: None,
             connect_device_device_strategy: None,
@@ -283,6 +293,7 @@ impl Clone for MidiState {
 
             close_count: self.close_count,
 
+            connect_device_err: self.connect_device_err.clone(),
             connect_device_count: self.connect_device_count,
             connect_device_index: self.connect_device_index,
             connect_device_device_strategy: self.connect_device_device_strategy.as_ref().map(|s| s.clone_box()),
