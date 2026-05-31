@@ -68,7 +68,6 @@ impl MockMidi {
         MIDI_STATE.with(|s| s.borrow().callbacks.as_ref().unwrap().on_receiving_data_started());
     }
 
-    #[allow(dead_code)]
     pub fn simulate_receiving_data_stopped() {
         MIDI_STATE.with(|s| s.borrow().callbacks.as_ref().unwrap().on_receiving_data_stopped());
     }

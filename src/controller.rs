@@ -353,27 +353,27 @@ impl Controller {
     }
 
     /// Started receiving data from the instrument.
-    fn on_receiving_data_started_callback(&mut self) {
-        // println!("Controller.on_receiving_data_started_callback");
+    fn on_receiving_data_started(&mut self) {
+        // println!("Controller.on_receiving_data_started");
         // The input device is connected, as we are receiving data from the instrument.
         // But the output device might not be, in which case we can't send data to the instrument
         // and should not overwrite the "Connect MIDI output device" warning message that should
         // already be displayed.
         if Midi::midi().are_devices_connected() {
-            // println!("Controller.on_receiving_data_started_callback: Waiting for data download to complete.");
+            // println!("Controller.on_receiving_data_started: Waiting for data download to complete.");
             self.show_info(WAITING_FOR_DATA_DOWNLOAD);
         }
     }
 
     /// Stopped receiving data from the instrument.
-    fn on_receiving_data_stopped_callback(&mut self) {
-        // println!("Controller.on_receiving_data_stopped_callback");
+    fn on_receiving_data_stopped(&mut self) {
+        // println!("Controller.on_receiving_data_stopped");
         if self.osc.is_running() {
-            println!("Controller.on_receiving_data_stopped_callback: Stopping OSC");
+            println!("Controller.on_receiving_data_stopped: Stopping OSC");
             self.stop_osc_and_show_pitchgrid_status();
         }
         if Midi::midi().are_devices_connected() {
-            // println!("Controller.on_receiving_data_stopped_callback: Showing instrument not connected warning");
+            // println!("Controller.on_receiving_data_stopped: Showing instrument not connected warning");
             self.show_warning(INSTRUMENT_NOT_CONNECTED);
         }
     }
@@ -587,11 +587,11 @@ impl MidiCallbacks for Mutex<Controller> {
     }
 
     fn on_receiving_data_started(&self) {
-        self.lock().unwrap().on_receiving_data_started_callback();
+        self.lock().unwrap().on_receiving_data_started();
     }
 
     fn on_receiving_data_stopped(&self) {
-        self.lock().unwrap().on_receiving_data_stopped_callback();
+        self.lock().unwrap().on_receiving_data_stopped();
     }
 
     fn on_tuning_updated(&self) {

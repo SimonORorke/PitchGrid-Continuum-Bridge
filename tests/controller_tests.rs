@@ -14,11 +14,7 @@ use std::sync::{Arc, LazyLock, Mutex, MutexGuard};
 use googletest::assert_that;
 use googletest::matchers::{
     displays_as, eq, err, len, ok, not, some, starts_with};
-use pitchgrid_continuum::controller::{
-    Controller, AWAITING_DATA_DOWNLOAD_COMPLETION, CHECKING_INSTRUMENT_CONNECTION, DEVICE_NONE,
-    DISCONNECTED_FROM_PITCHGRID, INSTRUMENT_DISCONNECTED, INSTRUMENT_TUNING_UPDATED,
-    NEW_PRESET_SELECTED, OPENING_PITCHGRID_CONNECTION, PITCHGRID_CONNECTION_CLOSED,
-    UPDATING_INSTRUMENT_TUNING, UPDATING_ROOT_FREQ_OVERRIDE, WAITING_FOR_DATA_DOWNLOAD};
+use pitchgrid_continuum::controller::{Controller, AWAITING_DATA_DOWNLOAD_COMPLETION, CANNOT_UPDATE_TUNING_LOST, CHECKING_INSTRUMENT_CONNECTION, DEVICE_NONE, DISCONNECTED_FROM_PITCHGRID, INSTRUMENT_DISCONNECTED, INSTRUMENT_NOT_CONNECTED, INSTRUMENT_TUNING_UPDATED, NEW_PRESET_SELECTED, OPENING_PITCHGRID_CONNECTION, PITCHGRID_CONNECTION_CLOSED, UPDATING_INSTRUMENT_TUNING, UPDATING_ROOT_FREQ_OVERRIDE, WAITING_FOR_DATA_DOWNLOAD};
 use pitchgrid_continuum::global::{MessageType, DeviceType};
 use pitchgrid_continuum::i_settings::ISettings;
 use pitchgrid_continuum::midi::Midi;
@@ -401,6 +397,21 @@ fn set_root_freq_override() {
     assert_that!(ui_state().show_pitchgrid_status_msg, some(eq(UPDATING_ROOT_FREQ_OVERRIDE)));
     assert_that!(ui_state().show_pitchgrid_status_msg_type, some(eq(MessageType::Info)));
     assert_that!(tuner().is_root_freq_overridden(), eq(true));
+}
+
+#[googletest::gtest]
+fn on_receiving_data_stopped() {
+    let _guard = test_mutex_guard();
+    let mut controller = create_controller(MockSettings::new(), true);
+    controller.init();
+    MockOsc::set_is_running_result(true);
+    MockMidi::simulate_receiving_data_stopped();
+    assert_that!(ui_state().show_message_msg, some(eq(INSTRUMENT_NOT_CONNECTED)));
+    assert_that!(ui_state().show_message_msg_type, some(eq(MessageType::Warning)));
+    assert_that!(osc_state().stop_count, eq(1));
+    assert_that!(tuner().has_data(), eq(false));
+    assert_that!(ui_state().show_pitchgrid_status_msg, some(eq(CANNOT_UPDATE_TUNING_LOST)));
+    assert_that!(ui_state().show_pitchgrid_status_msg_type, some(eq(MessageType::Error)));
 }
 
 fn create_controller(mut mock_settings: MockSettings, default_midi_devices: bool) -> Controller {
