@@ -14,7 +14,7 @@ use std::sync::{Arc, LazyLock, Mutex, MutexGuard};
 use googletest::assert_that;
 use googletest::matchers::{
     displays_as, eq, err, len, ok, not, some, starts_with};
-use pitchgrid_continuum::controller::{Controller, AWAITING_DATA_DOWNLOAD_COMPLETION, CANNOT_UPDATE_TUNING_LOST, CHECKING_INSTRUMENT_CONNECTION, DEVICE_NONE, DISCONNECTED_FROM_PITCHGRID, INSTRUMENT_DISCONNECTED, INSTRUMENT_NOT_CONNECTED, INSTRUMENT_TUNING_UPDATED, NEW_PRESET_SELECTED, OPENING_PITCHGRID_CONNECTION, PITCHGRID_CONNECTION_CLOSED, UPDATING_INSTRUMENT_TUNING, UPDATING_ROOT_FREQ_OVERRIDE, WAITING_FOR_DATA_DOWNLOAD};
+use pitchgrid_continuum::controller::{Controller, AWAITING_DATA_DOWNLOAD_COMPLETION, AWAITING_PITCHGRID_CONNECTION, CANNOT_UPDATE_TUNING_LOST, CHECKING_INSTRUMENT_CONNECTION, DEVICE_NONE, DISCONNECTED_FROM_PITCHGRID, INSTRUMENT_DISCONNECTED, INSTRUMENT_NOT_CONNECTED, INSTRUMENT_TUNING_UPDATED, NEW_PRESET_SELECTED, OPENING_PITCHGRID_CONNECTION, PITCHGRID_CONNECTION_CLOSED, PITCHGRID_NOT_CONNECTED, UPDATING_INSTRUMENT_TUNING, UPDATING_ROOT_FREQ_OVERRIDE, WAITING_FOR_DATA_DOWNLOAD};
 use pitchgrid_continuum::global::{MessageType, DeviceType};
 use pitchgrid_continuum::i_settings::ISettings;
 use pitchgrid_continuum::midi::Midi;
@@ -314,7 +314,7 @@ fn on_data_download_completed_start_osc() {
 }
 
 #[googletest::gtest]
-fn on_osc_tuning_received() {
+fn on_tuning_received() {
     let _guard = test_mutex_guard();
     let mut controller = create_controller(MockSettings::new(), true);
     controller.init();
@@ -326,6 +326,22 @@ fn on_osc_tuning_received() {
     assert_that!(ui_state().show_pitchgrid_status_count, eq(1));
     assert_that!(ui_state().show_pitchgrid_status_msg, some(eq(UPDATING_INSTRUMENT_TUNING)));
     assert_that!(ui_state().show_pitchgrid_status_msg_type, some(eq(MessageType::Info)));
+}
+
+#[googletest::gtest]
+fn on_tuning_received_when_instrument_disconnected() {
+    let _guard = test_mutex_guard();
+    let mut controller = create_controller(MockSettings::new(), true);
+    controller.init();
+    MockMidi::set_is_receiving_data(true);
+    MockMidi::set_are_devices_connected(true);
+    MockMidi::simulate_download_completed();
+    MockOsc::simulate_tuning_received(TestTunings::params_16_16());
+    MockMidi::set_is_receiving_data(false);
+    MockOsc::simulate_tuning_received(TestTunings::params_17_17());
+    assert_that!(tuner().has_data(), eq(false));
+    assert_that!(ui_state().show_pitchgrid_status_msg, some(eq(CANNOT_UPDATE_TUNING_LOST)));
+    assert_that!(ui_state().show_pitchgrid_status_msg_type, some(eq(MessageType::Error)));
 }
 
 #[googletest::gtest]
@@ -397,6 +413,86 @@ fn set_root_freq_override() {
     assert_that!(ui_state().show_pitchgrid_status_msg, some(eq(UPDATING_ROOT_FREQ_OVERRIDE)));
     assert_that!(ui_state().show_pitchgrid_status_msg_type, some(eq(MessageType::Info)));
     assert_that!(tuner().is_root_freq_overridden(), eq(true));
+}
+
+#[googletest::gtest]
+fn set_override_rounding_initial() {
+    let _guard = test_mutex_guard();
+    const OVERRIDE_ROUNDING_INITIAL: bool = false; // as the default is true
+    let mut controller = create_controller(MockSettings::new(), true);
+    controller.init();
+    assert_that!(settings_state().override_rounding_initial, eq(true));
+    controller.set_override_rounding_initial(OVERRIDE_ROUNDING_INITIAL);
+    assert_that!(settings_state().override_rounding_initial, eq(OVERRIDE_ROUNDING_INITIAL));
+}
+
+#[googletest::gtest]
+fn set_override_rounding_rate() {
+    let _guard = test_mutex_guard();
+    const OVERRIDE_ROUNDING_RATE: bool = false; // as the default is true
+    let mut controller = create_controller(MockSettings::new(), true);
+    controller.init();
+    assert_that!(settings_state().override_rounding_rate, eq(true));
+    controller.set_override_rounding_rate(OVERRIDE_ROUNDING_RATE);
+    assert_that!(settings_state().override_rounding_rate, eq(OVERRIDE_ROUNDING_RATE));
+}
+
+#[googletest::gtest]
+fn set_rounding_rate() {
+    let _guard = test_mutex_guard();
+    const ROUNDING_RATE: u8 = 100;
+    let mut controller = create_controller(MockSettings::new(), true);
+    controller.init();
+    assert_that!(settings_state().rounding_rate, eq(127));
+    controller.set_rounding_rate(ROUNDING_RATE);
+    assert_that!(settings_state().rounding_rate, eq(ROUNDING_RATE));
+}
+
+#[googletest::gtest]
+fn set_osc_listening_port() {
+    let _guard = test_mutex_guard();
+    const LISTENING_PORT: u16 = 34560;
+    const LISTENING_PORT_INDEX: usize = 0;
+    let mut controller = create_controller(MockSettings::new(), true);
+    controller.init();
+    assert_that!(settings_state().osc_listening_port, eq(0)); // Unspecified
+    assert_that!(osc_state().listening_port, some(eq(Osc::default_listening_port())));
+    controller.set_osc_listening_port(LISTENING_PORT_INDEX);
+    assert_that!(settings_state().osc_listening_port, eq(LISTENING_PORT));
+    assert_that!(osc_state().listening_port, some(eq(LISTENING_PORT)));
+}
+
+#[googletest::gtest]
+fn set_pitch_table() {
+    let _guard = test_mutex_guard();
+    const PITCH_TABLE: u8 = 81;
+    const PITCH_TABLE_INDEX: usize = 1;
+    let mut controller = create_controller(MockSettings::new(), true);
+    controller.init();
+    assert_that!(settings_state().pitch_table, eq(0)); // Unspecified
+    assert_that!(tuner().pitch_table_index(), eq(0));
+    controller.set_pitch_table(PITCH_TABLE_INDEX);
+    assert_that!(settings_state().pitch_table, eq(PITCH_TABLE));
+    assert_that!(tuner().pitch_table_index(), eq(PITCH_TABLE_INDEX));
+}
+
+#[googletest::gtest]
+fn on_pitchgrid_disconnected() {
+    let _guard = test_mutex_guard();
+    let mut controller = create_controller(MockSettings::new(), true);
+    controller.init();
+    MockMidi::set_is_receiving_data(true);
+    MockMidi::set_are_devices_connected(true);
+    MockMidi::simulate_download_completed();
+    MockOsc::simulate_tuning_received(TestTunings::params_16_16());
+    MockMidi::simulate_tuning_updated();
+    assert_that!(tuner().has_data(), eq(true));
+    MockOsc::simulate_pitchgrid_connected_changed(false);
+    assert_that!(tuner().has_data(), eq(false));
+    assert_that!(ui_state().show_pitchgrid_status_msg, some(eq(PITCHGRID_NOT_CONNECTED)));
+    assert_that!(ui_state().show_pitchgrid_status_msg_type, some(eq(MessageType::Error)));
+    assert_that!(ui_state().show_message_msg, some(eq(AWAITING_PITCHGRID_CONNECTION)));
+    assert_that!(ui_state().show_message_msg_type, some(eq(MessageType::Warning)));
 }
 
 #[googletest::gtest]

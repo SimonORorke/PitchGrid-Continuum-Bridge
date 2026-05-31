@@ -604,47 +604,47 @@ impl MidiCallbacks for Mutex<Controller> {
 }
 
 impl OscCallbacks for Mutex<Controller> {
-    fn on_osc_pitchgrid_connected_changed(&self) {
-        // println!("OscCallbacks for Mutex<Controller>.on_osc_pitchgrid_connected_changed");
+    fn on_pitchgrid_connected_changed(&self) {
+        // println!("OscCallbacks for Mutex<Controller>.on_pitchgrid_connected_changed");
         let controller = self.lock().unwrap();
-        controller.on_osc_pitchgrid_connected_changed();
+        controller.on_pitchgrid_connected_changed();
     }
 
-    fn on_osc_tuning_received(&self, tuning_params: TuningParams) {
-        // println!("OscCallbacks for Mutex<Controller>.on_osc_tuning_received");
+    fn on_tuning_received(&self, tuning_params: TuningParams) {
+        // println!("OscCallbacks for Mutex<Controller>.on_tuning_received");
         let controller = self.lock().unwrap();
-        controller.on_osc_tuning_received(tuning_params);
+        controller.on_tuning_received(tuning_params);
     }
 }
 
 impl OscCallbacks for Controller {
-    fn on_osc_pitchgrid_connected_changed(&self) {
-        // println!("Controller.on_osc_pitchgrid_connected_changed");
+    fn on_pitchgrid_connected_changed(&self) {
+        // println!("Controller.on_pitchgrid_connected_changed");
         if self.osc.is_pitchgrid_connected() {
-            println!("Controller.on_osc_pitchgrid_connected_changed: Showing tuning");
+            println!("Controller.on_pitchgrid_connected_changed: Showing tuning");
             self.ui_methods.show_tuning(self.tuner.formatted_tuning_params(), self.tuner.is_root_freq_overridden());
-            // println!("Controller.on_osc_pitchgrid_connected_changed: Showing PitchGrid is connected");
+            // println!("Controller.on_pitchgrid_connected_changed: Showing PitchGrid is connected");
             self.show_pitchgrid_connected();
-            // println!("Controller.on_osc_pitchgrid_connected_changed: PitchGrid and instrument are connected");
+            // println!("Controller.on_pitchgrid_connected_changed: PitchGrid and instrument are connected");
             self.show_info(PITCHGRID_AND_INSTRUMENT_CONNECTED);
         } else {
-            println!("Controller.on_osc_pitchgrid_connected_changed: PitchGrid is not connected");
+            println!("Controller.on_pitchgrid_connected_changed: PitchGrid is not connected");
             self.remove_data();
             self.show_pitchgrid_not_connected();
             self.show_warning(AWAITING_PITCHGRID_CONNECTION);
         }
     }
 
-    fn on_osc_tuning_received(&self, tuning_params: TuningParams) {
-        // println!("Controller.on_osc_tuning_received");
+    fn on_tuning_received(&self, tuning_params: TuningParams) {
+        // println!("Controller.on_tuning_received");
         // println!(
-        //     "Controller.on_osc_tuning_received: depth = {}; mode = {}; root_freq = {}; stretch = {}; \
+        //     "Controller.on_tuning_received: depth = {}; mode = {}; root_freq = {}; stretch = {}; \
         //     skew = {}; mode_offset = {}; steps = {}",
         //     depth, mode, root_freq, stretch, skew, mode_offset, steps);
         if Midi::midi().are_devices_connected() && Midi::midi().is_receiving_data() {
-            println!("Controller.on_osc_tuning_received: Showing Updating instrument tuning");
+            println!("Controller.on_tuning_received: Showing Updating instrument tuning");
             self.ui_methods.show_pitchgrid_status(UPDATING_INSTRUMENT_TUNING, MessageType::Info);
-            println!("Controller.on_osc_tuning_received: Updating instrument tuning");
+            println!("Controller.on_tuning_received: Updating instrument tuning");
             self.tuner.on_tuning_received(tuning_params);
         } else {
             self.stop_osc_and_show_pitchgrid_status();

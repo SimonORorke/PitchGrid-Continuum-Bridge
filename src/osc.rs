@@ -70,9 +70,9 @@ impl Osc {
                 if !IS_PITCHGRID_CONNECTED.load(Ordering::SeqCst) {
                     println!("Osc.handle_tuning: PitchGrid connected");
                     IS_PITCHGRID_CONNECTED.store(true, Ordering::SeqCst);
-                    callbacks.on_osc_pitchgrid_connected_changed();
+                    callbacks.on_pitchgrid_connected_changed();
                 }
-                callbacks.on_osc_tuning_received(TuningParams::new(
+                callbacks.on_tuning_received(TuningParams::new(
                     mode, root_freq, stretch, skew, mode_offset, steps, mos_a, mos_b));
             });
         } else {
@@ -174,7 +174,7 @@ impl Osc {
             if maybe_last_ack_time.is_none() {
                 if !has_initially_not_connected_callback_been_called {
                     has_initially_not_connected_callback_been_called = true;
-                    callbacks.on_osc_pitchgrid_connected_changed();
+                    callbacks.on_pitchgrid_connected_changed();
                 }
                 if let Ok(_) = stopper_receiver.recv_timeout(Duration::from_millis(500)) {
                     // Sleep was interrupted
@@ -192,7 +192,7 @@ impl Osc {
                 // println!("Osc.monitor_connection: not connected");
                 IS_PITCHGRID_CONNECTED.store(false, Ordering::SeqCst);
                 if was_connected {
-                    callbacks.on_osc_pitchgrid_connected_changed();
+                    callbacks.on_pitchgrid_connected_changed();
                 }
             }
             // We don't want to notify connected here, as that will hav been done in real time

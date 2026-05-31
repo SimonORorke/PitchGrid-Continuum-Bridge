@@ -17,12 +17,6 @@ impl MockOsc {
         MockOsc {}
     }
 
-    pub fn set_is_pitchgrid_connected_result(value: bool) {
-        OSC_STATE.with_borrow_mut(|s| {
-            s.is_pitchgrid_connected_result = value;
-        });
-    }
-
     pub fn set_is_running_result(value: bool) {
         OSC_STATE.with_borrow_mut(|s| {
             s.is_running_result = value;
@@ -34,7 +28,7 @@ impl MockOsc {
             s.is_pitchgrid_connected_result = is_pitchgrid_connected;
             s.callbacks.clone().unwrap()
         });
-        callbacks.on_osc_pitchgrid_connected_changed();
+        callbacks.on_pitchgrid_connected_changed();
     }
 
     pub fn simulate_tuning_received(tuning_params: TuningParams) {
@@ -42,7 +36,7 @@ impl MockOsc {
             s.tuning_params = Some(tuning_params.clone());
             s.callbacks.clone().unwrap()
         });
-        callbacks.on_osc_tuning_received(tuning_params);
+        callbacks.on_tuning_received(tuning_params);
     }
 }
 
