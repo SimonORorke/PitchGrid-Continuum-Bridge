@@ -1,5 +1,4 @@
 use std::cell::RefCell;
-use std::error::Error;
 use pitchgrid_continuum::global::DeviceType;
 use pitchgrid_continuum::midi_ports::{IIo, IoDevice};
 
@@ -64,18 +63,15 @@ impl IIo for MockIo {
         self.state().device_names
     }
 
-    fn populate_devices(&mut self, persisted_device_name: &str) -> Result<(), Box<dyn Error>> {
-        let ok = match self.device_type {
+    fn populate_devices(&mut self, persisted_device_name: &str) {
+        match self.device_type {
             DeviceType::Input => INPUT_STATE.with_borrow_mut(|s| {
                 s.populate_devices_persisted_device_name = Some(persisted_device_name.to_string());
-                s.populate_devices_ok
             }),
             DeviceType::Output => OUTPUT_STATE.with_borrow_mut(|s| {
                 s.populate_devices_persisted_device_name = Some(persisted_device_name.to_string());
-                s.populate_devices_ok
             }),
         };
-        if ok { Ok(()) } else { Err("mock error".into()) }
     }
 }
 
@@ -94,7 +90,6 @@ pub struct IoState {
     pub device: Option<MockDevice>,
     pub device_names: Vec<String>,
     pub populate_devices_persisted_device_name: Option<String>,
-    pub populate_devices_ok: bool,
 }
 
 impl IoState {
@@ -111,7 +106,6 @@ impl IoState {
             device: None,
             device_names: vec![],
             populate_devices_persisted_device_name: None,
-            populate_devices_ok: true,
         }
     }
 }
@@ -122,7 +116,6 @@ impl Clone for IoState {
             device: self.device.clone(),
             device_names: self.device_names.clone(),
             populate_devices_persisted_device_name: self.populate_devices_persisted_device_name.clone(),
-            populate_devices_ok: self.populate_devices_ok,
         }
     }
 }

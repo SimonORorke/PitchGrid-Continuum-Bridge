@@ -14,7 +14,11 @@ use std::sync::{Arc, LazyLock, Mutex, MutexGuard};
 use googletest::assert_that;
 use googletest::matchers::{
     displays_as, eq, err, len, ok, not, some, starts_with};
-use pitchgrid_continuum::controller::Controller;
+use pitchgrid_continuum::controller::{
+    Controller, AWAITING_DATA_DOWNLOAD_COMPLETION, CHECKING_INSTRUMENT_CONNECTION, DEVICE_NONE,
+    DISCONNECTED_FROM_PITCHGRID, INSTRUMENT_DISCONNECTED, INSTRUMENT_TUNING_UPDATED,
+    NEW_PRESET_SELECTED, OPENING_PITCHGRID_CONNECTION, PITCHGRID_CONNECTION_CLOSED,
+    UPDATING_INSTRUMENT_TUNING, UPDATING_ROOT_FREQ_OVERRIDE, WAITING_FOR_DATA_DOWNLOAD};
 use pitchgrid_continuum::global::{MessageType, DeviceType};
 use pitchgrid_continuum::i_settings::ISettings;
 use pitchgrid_continuum::midi::Midi;
@@ -56,25 +60,12 @@ fn init_from_settings() {
     assert_that!(ui_state().show_connected_device_name_name, some(eq(&INPUT_DEVICE_NAMES[0])));
     assert_that!(ui_state().show_connected_device_name_msg_type, some(eq(MessageType::Info)));
     assert_that!(ui_state().show_message_count, eq(1));
-    assert_that!(ui_state().show_message_msg, some(eq("Checking instrument connection...")));
+    assert_that!(ui_state().show_message_msg, some(eq(CHECKING_INSTRUMENT_CONNECTION)));
     assert_that!(ui_state().show_message_msg_type, some(eq(MessageType::Info)));
     assert_that!(midi_state().start_instrument_connection_monitor_count, eq(1));
     assert_that!(osc_state().listening_port, some(eq(LISTENING_PORT)));
     assert_that!(Tuner::pitch_table(), eq(PITCH_TABLE));
     assert_that!(midi_state().start_instrument_connection_monitor_count, eq(1));
-}
-
-#[googletest::gtest]
-fn init_midi_err() {
-    let _guard = test_mutex_guard();
-    const ERR_MSG: &str = "Test error";
-    let mut controller = create_controller(MockSettings::new(), true);
-    MockMidi::simulate_init_err(ERR_MSG);
-    controller.init();
-    assert_that!(ui_state().show_message_count, eq(1));
-    assert_that!(ui_state().show_message_msg, some(eq(ERR_MSG)));
-    assert_that!(ui_state().show_message_msg_type, some(eq(MessageType::Error)));
-    assert_that!(midi_state().start_instrument_connection_monitor_count, eq(0));
 }
 
 #[googletest::gtest]
@@ -92,7 +83,7 @@ fn init_no_settings() {
     // read from settings and so cannot be connected. So a warning message is shown for the MIDI
     // output device.
     assert_that!(ui_state().show_connected_device_name_count, eq(1));
-    assert_that!(ui_state().show_connected_device_name_name, some(eq("[None]")));
+    assert_that!(ui_state().show_connected_device_name_name, some(eq(DEVICE_NONE)));
     assert_that!(ui_state().show_connected_device_name_msg_type, some(eq(MessageType::Warning)));
     assert_that!(ui_state().show_message_count, eq(1));
     assert_that!(ui_state().show_message_msg, some(eq("Connect MIDI output device")));
@@ -144,7 +135,7 @@ fn connect_device() {
     assert_that!(tuner().has_data(), eq(false));
     assert_that!(tuner().formatted_tuning_params().root_freq, eq(""));
     assert_that!(ui_state().show_pitchgrid_status_msg,
-        some(eq("Disconnected from PitchGrid because MIDI is not connected")));
+        some(eq(DISCONNECTED_FROM_PITCHGRID)));
     assert_that!(ui_state().show_pitchgrid_status_msg_type, some(eq(MessageType::Warning)));
     assert_that!(ui_state().show_connected_device_name_name, some(eq(&INPUT_DEVICE_NAMES[1])));
     assert_that!(ui_state().show_connected_device_name_msg_type, some(eq(MessageType::Info)));
@@ -210,13 +201,12 @@ fn refresh_devices() {
     assert_that!(tuner().has_data(), eq(false));
     assert_that!(tuner().formatted_tuning_params().root_freq, eq(""));
     assert_that!(ui_state().show_tuning_count, eq(2));
-    assert_that!(ui_state().show_pitchgrid_status_msg,
-        some(eq("Disconnected from PitchGrid because MIDI is not connected")));
+    assert_that!(ui_state().show_pitchgrid_status_msg, some(eq(DISCONNECTED_FROM_PITCHGRID)));
     assert_that!(ui_state().show_pitchgrid_status_msg_type, some(eq(MessageType::Warning)));
     assert_that!(ui_state().set_devices_model_count, eq(3));
     let strategy = ui_state().set_devices_model_device_strategy;
     assert_that!(strategy.as_ref().map(|s| *s.device_type()), some(eq(DeviceType::Input)));
-    assert_that!(ui_state().show_connected_device_name_name, some(eq("[None]")));
+    assert_that!(ui_state().show_connected_device_name_name, some(eq(DEVICE_NONE)));
     assert_that!(ui_state().show_message_msg, some(starts_with("Refreshed MIDI input devices.")));
     assert_that!(ui_state().show_message_msg_type, some(eq(MessageType::Warning)));
 }
@@ -241,10 +231,9 @@ fn on_devices_connected_changed_to_not_connected() {
     MockOsc::set_is_running_result(true);
     MockMidi::simulate_devices_connected_changed();
     assert_that!(osc_state().stop_count,eq(1));
-    assert_that!(ui_state().show_message_msg, some(starts_with("Instrument is disconnected;")));
+    assert_that!(ui_state().show_message_msg, some(eq(INSTRUMENT_DISCONNECTED)));
     assert_that!(ui_state().show_message_msg_type, some(eq(MessageType::Warning)));
-    assert_that!(ui_state().show_pitchgrid_status_msg,
-        some(eq("PitchGrid connection closed while instrument disconnected")));
+    assert_that!(ui_state().show_pitchgrid_status_msg, some(eq(PITCHGRID_CONNECTION_CLOSED)));
     assert_that!(ui_state().show_pitchgrid_status_msg_type, some(eq(MessageType::Warning)));
 }
 
@@ -300,7 +289,7 @@ fn on_receiving_data_started_show_waiting_for_download() {
     let mut controller = create_controller(MockSettings::new(), true);
     controller.init();
     MockMidi::simulate_receiving_data_started();
-    assert_that!(ui_state().show_message_msg, some(starts_with("Waiting (maximum 6 seconds)")));
+    assert_that!(ui_state().show_message_msg, some(eq(WAITING_FOR_DATA_DOWNLOAD)));
     assert_that!(ui_state().show_message_msg_type, some(eq(MessageType::Info)));
 }
 
@@ -311,7 +300,7 @@ fn on_data_download_started() {
     controller.init();
     MockMidi::set_are_devices_connected(true);
     MockMidi::simulate_download_started();
-    assert_that!(ui_state().show_message_msg, some(starts_with("Awaiting completion")));
+    assert_that!(ui_state().show_message_msg, some(eq(AWAITING_DATA_DOWNLOAD_COMPLETION)));
     assert_that!(ui_state().show_message_msg_type, some(eq(MessageType::Info)));
 }
 
@@ -324,7 +313,7 @@ fn on_data_download_completed_start_osc() {
     MockMidi::set_are_devices_connected(true);
     MockMidi::simulate_download_completed();
     assert_that!(osc_state().start_count, eq(1));
-    assert_that!(ui_state().show_message_msg, some(starts_with("Opening PitchGrid connection")));
+    assert_that!(ui_state().show_message_msg, some(eq(OPENING_PITCHGRID_CONNECTION)));
     assert_that!(ui_state().show_message_msg_type, some(eq(MessageType::Info)));
 }
 
@@ -339,8 +328,7 @@ fn on_osc_tuning_received() {
     MockOsc::simulate_tuning_received(TestTunings::params_16_16());
     assert_that!(tuner().has_data(), eq(true));
     assert_that!(ui_state().show_pitchgrid_status_count, eq(1));
-    assert_that!(ui_state().show_pitchgrid_status_msg,
-        some(eq("Updating instrument tuning")));
+    assert_that!(ui_state().show_pitchgrid_status_msg, some(eq(UPDATING_INSTRUMENT_TUNING)));
     assert_that!(ui_state().show_pitchgrid_status_msg_type, some(eq(MessageType::Info)));
 }
 
@@ -372,6 +360,8 @@ fn on_tuning_updated() {
     assert_that!(ui_state().show_tuning_is_root_freq_overridden, some(eq(true)));
     assert_that!(ui_state().show_tuning_formatted_tuning,
         some(eq(&tuner().formatted_tuning_params())));
+    assert_that!(ui_state().show_pitchgrid_status_msg, some(eq(INSTRUMENT_TUNING_UPDATED)));
+    assert_that!(ui_state().show_pitchgrid_status_msg_type, some(eq(MessageType::Info)));
 }
 
 #[googletest::gtest]
@@ -390,8 +380,7 @@ fn on_new_preset_selected() {
     MockMidi::simulate_tuning_updated();
     MockMidi::simulate_new_preset_selected();
     assert_that!(tuner().has_data(), eq(true));
-    assert_that!(ui_state().show_pitchgrid_status_msg,
-        some(starts_with("New instrument preset selected")));
+    assert_that!(ui_state().show_pitchgrid_status_msg, some(eq(NEW_PRESET_SELECTED)));
     assert_that!(ui_state().show_pitchgrid_status_msg_type, some(eq(MessageType::Info)));
 }
 
@@ -409,7 +398,7 @@ fn set_root_freq_override() {
     assert_that!(ui_state().show_pitchgrid_status_count, eq(1));
     controller.set_root_freq_override(NOTE_INDEX);
     assert_that!(ui_state().show_pitchgrid_status_count, eq(2));
-    assert_that!(ui_state().show_pitchgrid_status_msg, some(starts_with("Updating root")));
+    assert_that!(ui_state().show_pitchgrid_status_msg, some(eq(UPDATING_ROOT_FREQ_OVERRIDE)));
     assert_that!(ui_state().show_pitchgrid_status_msg_type, some(eq(MessageType::Info)));
     assert_that!(tuner().is_root_freq_overridden(), eq(true));
 }

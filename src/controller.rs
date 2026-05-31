@@ -85,11 +85,7 @@ impl Controller {
         // println!("Controller.init: Getting midi");
         self.ui_methods.set_main_window_position(main_window_x, main_window_y);
         let mut midi = Midi::midi();
-        if let Err(err) = midi.init(
-            &input_device_name, &output_device_name, Self::clone_controller()) {
-            self.show_error(&err.to_string());
-            return;
-        }
+        midi.init(&input_device_name, &output_device_name, Self::clone_controller());
         drop(midi); // Release MIDI lock before calling device_names which needs to acquire it
         let input_strategy = InputStrategy::new();
         let output_strategy = OutputStrategy::new();
@@ -241,11 +237,7 @@ impl Controller {
         let device_strategy = device_strategy.clone_box();
         self.stop_osc_and_instrument_connection_monitor();
         let device_name = device_strategy.device_setting(&*self.settings).to_string();
-        if let Err(err) = Midi::midi().refresh_devices(
-            &device_name, &*device_strategy) {
-            self.show_error(&err.to_string());
-            return;
-        }
+        Midi::midi().refresh_devices(&device_name, &*device_strategy);
         self.show_pitchgrid_disconnected();
         self.ui_methods.set_devices_model(&self.device_names(&*device_strategy), &*device_strategy);
         self.show_no_port_connected(&*device_strategy);
@@ -484,7 +476,7 @@ impl Controller {
 
     fn show_connected_device_name(
         &mut self, device_name: &str, device_strategy: &dyn DeviceStrategy) {
-        let message_type = if device_name == PORT_NONE {
+        let message_type = if device_name == DEVICE_NONE {
             MessageType::Warning
         } else {
             MessageType::Info
@@ -497,7 +489,7 @@ impl Controller {
         // So the player needs to be able to close the application and reopen it later when the
         // device is available again and still have the same device automatically selected and
         // connected on startup.
-        if device_name != PORT_NONE {
+        if device_name != DEVICE_NONE {
             device_strategy.set_device_setting(&mut *self.settings, device_name);
         }
     }
@@ -512,7 +504,7 @@ impl Controller {
 
     fn show_no_port_connected(
         &mut self, device_strategy: &dyn DeviceStrategy) {
-        self.show_connected_device_name(PORT_NONE, device_strategy);
+        self.show_connected_device_name(DEVICE_NONE, device_strategy);
     }
     
     fn show_pitchgrid_connected(&self) {
@@ -660,28 +652,28 @@ impl OscCallbacks for Controller {
     }
 }
 
-const AWAITING_DATA_DOWNLOAD_COMPLETION: &str = "Awaiting completion of data download from instrument...";
-const AWAITING_PITCHGRID_CONNECTION: &str = "Awaiting PitchGrid connection...";
-const CANNOT_UPDATE_TUNING_CONNECT: &str = "Cannot updating tuning. Connect instrument input/output.";
-const CANNOT_UPDATE_TUNING_LOST: &str = "Cannot update tuning. Instrument connection lost.";
-const CHECKING_INSTRUMENT_CONNECTION: &str = "Checking instrument connection...";
-const DISCONNECTED_FROM_PITCHGRID: &str = "Disconnected from PitchGrid because MIDI is not connected";
-const INSTRUMENT_DISCONNECTED: &str = "Instrument is disconnected; closed PitchGrid connection.";
-const INSTRUMENT_NOT_CONNECTED: &str = "The instrument is not connected. Waiting for the editor to be \
+pub const AWAITING_DATA_DOWNLOAD_COMPLETION: &str = "Awaiting completion of data download from instrument...";
+pub const AWAITING_PITCHGRID_CONNECTION: &str = "Awaiting PitchGrid connection...";
+pub const CANNOT_UPDATE_TUNING_CONNECT: &str = "Cannot update tuning. Connect instrument input/output.";
+pub const CANNOT_UPDATE_TUNING_LOST: &str = "Cannot update tuning. Instrument connection lost.";
+pub const CHECKING_INSTRUMENT_CONNECTION: &str = "Checking instrument connection...";
+pub const DEVICE_NONE: &str = "[None]";
+pub const DISCONNECTED_FROM_PITCHGRID: &str = "Disconnected from PitchGrid because MIDI is not connected";
+pub const INSTRUMENT_DISCONNECTED: &str = "Instrument is disconnected; closed PitchGrid connection.";
+pub const INSTRUMENT_NOT_CONNECTED: &str = "The instrument is not connected. Waiting for the editor to be \
         opened with this application and the instrument connected to it...";
-const INSTRUMENT_TUNING_UPDATE_NOT_CONFIRMED: &str = "Instrument tuning update has not been \
+pub const INSTRUMENT_TUNING_UPDATE_NOT_CONFIRMED: &str = "Instrument tuning update has not been \
     confirmed. Ensure that MIDI output is connected to the editor.";
-const INSTRUMENT_TUNING_UPDATED: &str = "Instrument tuning updated";
-const NEW_PRESET_SELECTED: &str = "New instrument preset selected. Resent tuning...";
-const OPENING_PITCHGRID_CONNECTION: &str = "Opening PitchGrid connection...";
-const PITCHGRID_AND_INSTRUMENT_CONNECTED: &str = "PitchGrid and instrument are connected";
-const PITCHGRID_CONNECTION_CLOSED: &str = "PitchGrid connection closed while instrument disconnected";
-const PITCHGRID_NOT_CONNECTED: &str = "PitchGrid is not connected. OSC must be enabled in PitchGrid.";
-const PITCHGRID_OSC_CONNECTED: &str = "PitchGrid OSC is connected";
-const PORT_NONE: &str = "[None]";
-const UPDATING_INSTRUMENT_TUNING: &str = "Updating instrument tuning";
-const UPDATING_ROOT_FREQ_OVERRIDE: &str = "Updating root frequency override...";
-const WAITING_FOR_DATA_DOWNLOAD: &str =
+pub const INSTRUMENT_TUNING_UPDATED: &str = "Instrument tuning updated";
+pub const NEW_PRESET_SELECTED: &str = "New instrument preset selected. Resent tuning...";
+pub const OPENING_PITCHGRID_CONNECTION: &str = "Opening PitchGrid connection...";
+pub const PITCHGRID_AND_INSTRUMENT_CONNECTED: &str = "PitchGrid and instrument are connected";
+pub const PITCHGRID_CONNECTION_CLOSED: &str = "PitchGrid connection closed while instrument disconnected";
+pub const PITCHGRID_NOT_CONNECTED: &str = "PitchGrid is not connected. OSC must be enabled in PitchGrid.";
+pub const PITCHGRID_OSC_CONNECTED: &str = "PitchGrid OSC is connected";
+pub const UPDATING_INSTRUMENT_TUNING: &str = "Updating instrument tuning";
+pub const UPDATING_ROOT_FREQ_OVERRIDE: &str = "Updating root frequency override...";
+pub const WAITING_FOR_DATA_DOWNLOAD: &str =
     "Waiting (maximum 6 seconds) for possible initial data download from instrument...";
 
 type SharedController = Arc<Mutex<Controller>>;

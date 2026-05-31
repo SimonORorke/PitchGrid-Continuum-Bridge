@@ -1,4 +1,3 @@
-use std::error::Error;
 use midir::MidiIO;
 
 #[derive(Clone)]
@@ -52,7 +51,7 @@ impl<T: Clone + Send + 'static> Io<T> {
 pub trait IIo: Send {
     fn device(&self) -> Option<&dyn IoDevice>;
     fn device_names(&self) -> Vec<String>;
-    fn populate_devices(&mut self, persisted_device_name: &str) -> Result<(), Box<dyn Error>>;
+    fn populate_devices(&mut self, persisted_device_name: &str);
 }
 
 impl<T: Clone + Send + 'static> IIo for Io<T> {
@@ -70,7 +69,7 @@ impl<T: Clone + Send + 'static> IIo for Io<T> {
             .collect()
     }
 
-    fn populate_devices(&mut self, persisted_device_name: &str) -> Result<(), Box<dyn Error>> {
+    fn populate_devices(&mut self, persisted_device_name: &str) {
         self.ports.clear();
         self.ports.extend(
             self.midi_io.ports().iter()
@@ -90,6 +89,5 @@ impl<T: Clone + Send + 'static> IIo for Io<T> {
                 .find(|port| port.device_name == persisted_device_name)
                 .cloned()
         );
-        Ok(())
     }
 }

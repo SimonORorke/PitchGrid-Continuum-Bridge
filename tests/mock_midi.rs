@@ -45,11 +45,6 @@ impl MockMidi {
         MIDI_STATE.with_borrow_mut(|s| s.connect_device_err = Some(msg.to_string()));
     }
 
-    pub fn simulate_init_err(msg: &str) {
-        MIDI_STATE.with_borrow_mut(|s| s.init_result =
-            Err(Arc::new(std::io::Error::new(std::io::ErrorKind::Other, msg))));
-    }
-
     pub fn simulate_download_completed() {
         let callbacks = MIDI_STATE.with_borrow_mut(|s| {
             s.has_downloaded_init_data_result = true;
@@ -133,18 +128,12 @@ impl IMidi for MockMidi {
         input_device_name: &str,
         output_device_name: &str,
         callbacks: Arc<dyn MidiCallbacks>,
-    ) -> Result<(), Box<dyn Error>> {
-        match MIDI_STATE.with(|s| s.borrow().init_result.clone()) {
-            Ok(()) => {
-                MIDI_STATE.with_borrow_mut(|s| {
-                    s.callbacks = Some(callbacks);
-                    s.init_input_device_name = Some(input_device_name.to_string());
-                    s.init_output_device_name = Some(output_device_name.to_string());
-                });
-                Ok(())
-            }
-            Err(e) => Err(e.to_string().into()),
-        }
+    ) {
+        MIDI_STATE.with_borrow_mut(|s| {
+            s.callbacks = Some(callbacks);
+            s.init_input_device_name = Some(input_device_name.to_string());
+            s.init_output_device_name = Some(output_device_name.to_string());
+        });
     }
 
     fn input(&self) -> &dyn IIo {
@@ -182,7 +171,7 @@ impl IMidi for MockMidi {
         &mut self,
         device_name: &str,
         device_strategy: &dyn DeviceStrategy,
-    ) -> Result<(), Box<dyn Error>> {
+    ) {
         MIDI_STATE.with_borrow_mut(|s| {
             s.refresh_devices_count += 1;
             s.refresh_devices_device_name = Some(device_name.to_string());
@@ -195,7 +184,6 @@ impl IMidi for MockMidi {
             //     s.callbacks.as_ref().unwrap().on_devices_connected_changed();
             // }
         });
-        Ok(())
     }
 
     fn start_instrument_connection_monitor(&mut self) {
@@ -226,7 +214,6 @@ pub struct MidiState {
     pub has_downloaded_init_data_count: u16,
     pub has_downloaded_init_data_result: bool,
 
-    init_result: Result<(), Arc<dyn Error>>,
     pub init_input_device_name: Option<String>,
     pub init_output_device_name: Option<String>,
 
@@ -263,7 +250,6 @@ impl MidiState {
             has_downloaded_init_data_count: 0,
             has_downloaded_init_data_result: false,
 
-            init_result: Ok(()),
             init_input_device_name: None,
             init_output_device_name: None,
 
@@ -301,7 +287,6 @@ impl Clone for MidiState {
             has_downloaded_init_data_count: self.has_downloaded_init_data_count,
             has_downloaded_init_data_result: self.has_downloaded_init_data_result,
 
-            init_result: self.init_result.clone(),
             init_input_device_name: self.init_input_device_name.clone(),
             init_output_device_name: self.init_output_device_name.clone(),
 

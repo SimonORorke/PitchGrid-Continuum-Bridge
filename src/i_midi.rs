@@ -33,7 +33,7 @@ pub trait IMidi {
         input_device_name: &str,
         output_device_name: &str,
         callbacks: Arc<dyn MidiCallbacks>,
-    ) -> Result<(), Box<dyn Error>>;
+    );
 
     fn input(&self) -> &dyn IIo;
 
@@ -51,7 +51,7 @@ pub trait IMidi {
         &mut self,
         device_name: &str,
         device_strategy: &dyn DeviceStrategy,
-    ) -> Result<(), Box<dyn Error>>;
+    );
 
     fn start_instrument_connection_monitor(&mut self);
 

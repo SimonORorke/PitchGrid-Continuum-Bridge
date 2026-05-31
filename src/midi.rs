@@ -490,18 +490,16 @@ impl Midi {
         }
     }
 
-    fn refresh_input_devices(&mut self, input_device_name: &str) -> Result<(), Box<dyn Error>> {
+    fn refresh_input_devices(&mut self, input_device_name: &str) {
         // println!("Midi.refresh_input_devices: start");
         self.disconnect_input_device();
-        self.input.populate_devices(input_device_name)?;
-        Ok(())
+        self.input.populate_devices(input_device_name);
     }
 
-    fn refresh_output_devices(&mut self, output_device_name: &str) -> Result<(), Box<dyn Error>> {
+    fn refresh_output_devices(&mut self, output_device_name: &str) {
         // println!("Midi.refresh_output_devices: start");
         self.disconnect_output_device();
-        self.output.populate_devices(output_device_name)?;
-        Ok(())
+        self.output.populate_devices(output_device_name);
     }
 
     /// Send a MIDI channel message.
@@ -578,11 +576,10 @@ impl IMidi for Midi {
         input_device_name: &str,
         output_device_name: &str,
         callbacks: Arc<dyn MidiCallbacks>,
-    ) -> Result<(), Box<dyn Error>> {
+    ) {
         set_callbacks(callbacks);
-        self.input.populate_devices(input_device_name)?;
-        self.output.populate_devices(output_device_name)?;
-        Ok(())
+        self.input.populate_devices(input_device_name);
+        self.output.populate_devices(output_device_name);
     }
 
     fn input(&self) -> &dyn IIo {
@@ -616,13 +613,13 @@ impl IMidi for Midi {
         &mut self,
         device_name: &str,
         device_strategy: &dyn DeviceStrategy,
-    ) -> Result<(), Box<dyn Error>> {
+    ) {
         let were_devices_connected = self.are_devices_connected();
         // self.stop_download_monitor();
         self.stop_instrument_connection_monitor();
         match device_strategy.device_type() {
-            DeviceType::Input => self.refresh_input_devices(device_name)?,
-            DeviceType::Output => self.refresh_output_devices(device_name)?,
+            DeviceType::Input => self.refresh_input_devices(device_name),
+            DeviceType::Output => self.refresh_output_devices(device_name),
         }
         if were_devices_connected {
             // We have just disconnected one of the ports.
@@ -631,7 +628,6 @@ impl IMidi for Midi {
                 rayon::spawn(move || cb.on_devices_connected_changed());
             }
         }
-        Ok(())
     }
 
     fn start_instrument_connection_monitor(&mut self) {
