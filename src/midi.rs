@@ -438,11 +438,22 @@ impl Midi {
                         if value == 49 {
                             // println!("midi.on_message_received: BeginSysNames");
                             *download_status().lock().unwrap() = DownloadStatus::BeginSysNames;
+                            if let Some(cb) = callbacks() {
+                                rayon::spawn(move || cb.on_download_started());
+                            }
                             return;
                         }
                         if value == 54 {
                             // println!("midi.on_message_received: BeginUserNames");
                             *download_status().lock().unwrap() = DownloadStatus::BeginUserNames;
+                            // If system presets names have been downloaded,
+                            // which should only have happened on firmware upgrade,
+                            // `on_download_started` will have been called already.
+                            // However, doing it again will do no harm,
+                            // as it will only result in the same status message being redisplayed.
+                            if let Some(cb) = callbacks() {
+                                rayon::spawn(move || cb.on_download_started());
+                            }
                             return;
                         }
                         if value == 55 {
