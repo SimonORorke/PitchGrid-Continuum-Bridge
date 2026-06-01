@@ -446,7 +446,7 @@ impl Midi {
                         if value == 54 {
                             // println!("midi.on_message_received: BeginUserNames");
                             *download_status().lock().unwrap() = DownloadStatus::BeginUserNames;
-                            // If system presets names have been downloaded,
+                            // If system preset names have been downloaded,
                             // which should only have happened on firmware upgrade,
                             // `on_download_started` will have been called already.
                             // However, doing it again will do no harm,
