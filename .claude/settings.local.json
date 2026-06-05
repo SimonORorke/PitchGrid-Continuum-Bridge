@@ -31,7 +31,12 @@
       "Bash(/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe -Command \":*)",
       "Bash(echo \"$PATH\")",
       "Bash(/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe -Command \"[Environment]::GetEnvironmentVariable\\(''PATH'', ''User''\\)\")",
-      "Bash(/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe -Command \"[Environment]::GetEnvironmentVariable\\(''PATH'', ''Machine''\\)\")"
+      "Bash(/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe -Command \"[Environment]::GetEnvironmentVariable\\(''PATH'', ''Machine''\\)\")",
+      "Bash(cargo build:*)",
+      "Bash(cmd /c \"cd /d \\\\\"D:\\\\Simon\\\\OneDrive\\\\Documents\\\\Rust Projects\\\\pitchgrid_continuum\\\\\" && cargo build --tests 2>&1\")",
+      "Bash(powershell.exe -Command \"Set-Location 'D:\\\\Simon\\\\OneDrive\\\\Documents\\\\Rust Projects\\\\pitchgrid_continuum'; cargo build --tests 2>&1\")",
+      "Read(//c/Users/Simon/.cargo/bin/**)",
+      "Bash(/c/Users/Simon/.cargo/bin/cargo build:*)"
     ]
   }
 }

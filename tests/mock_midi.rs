@@ -1,204 +1,21 @@
 #[path = "mock_io.rs"] pub mod mock_io;
 
-use std::cell::RefCell;
 use std::error::Error;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock, Mutex, MutexGuard};
 use pitchgrid_continuum::i_midi::{IMidi, MidiCallbacks};
-use pitchgrid_continuum::midi_ports::{IIo};
+use pitchgrid_continuum::midi_ports::IIo;
 use pitchgrid_continuum::device_strategy::DeviceStrategy;
 use mock_io::MockIo;
 use pitchgrid_continuum::global::DeviceType;
 
-/// Returns a clone of the current `MidiState`.
-pub fn midi_state() -> MidiState {
-    MIDI_STATE.with(|s| s.borrow().clone())
+pub fn mock_midi() -> MutexGuard<'static, MockMidi> {
+    MOCK_MIDI.lock().unwrap_or_else(|e| e.into_inner())
 }
+
+pub static MOCK_MIDI: LazyLock<Mutex<MockMidi>> =
+    LazyLock::new(|| Mutex::new(MockMidi::new_state()));
 
 pub struct MockMidi {
-    mock_input: MockIo,
-    mock_output: MockIo,
-}
-
-impl MockMidi {
-    pub fn new(input_device_names: Vec<String>, output_device_names: Vec<String>,
-        initial_input_device_name: &str, initial_output_device_name: &str) -> Self {
-        MIDI_STATE.replace(MidiState::new());
-        let mut input = MockIo::new(DeviceType::Input, input_device_names);
-        input.set_device(initial_input_device_name);
-        let mut output = MockIo::new(DeviceType::Output, output_device_names);
-        output.set_device(initial_output_device_name);
-        MockMidi {
-            mock_input: input,
-            mock_output: output,
-        }
-    }
-
-    pub fn set_are_devices_connected(value: bool) {
-        MIDI_STATE.with_borrow_mut(|s| s.are_devices_connected = value);
-    }
-
-    pub fn set_is_receiving_data(value: bool) {
-        MIDI_STATE.with_borrow_mut(|s| s.is_receiving_data = value);
-    }
-
-    pub fn simulate_connect_device_err(msg: &str) {
-        MIDI_STATE.with_borrow_mut(|s| s.connect_device_err = Some(msg.to_string()));
-    }
-
-    pub fn simulate_download_completed() {
-        let callbacks = MIDI_STATE.with_borrow_mut(|s| {
-            s.has_downloaded_init_data_result = true;
-            s.callbacks.clone().unwrap()
-        });
-        callbacks.on_download_completed();
-    }
-
-    pub fn simulate_download_started() {
-        MIDI_STATE.with(|s| s.borrow().callbacks.as_ref().unwrap().on_download_started());
-    }
-    pub fn simulate_devices_connected_changed() {
-        MIDI_STATE.with(|s| s.borrow().callbacks.as_ref().unwrap().on_devices_connected_changed());
-    }
-
-    pub fn simulate_new_preset_selected() {
-        MIDI_STATE.with(|s| s.borrow().callbacks.as_ref().unwrap().on_new_preset_selected());
-    }
-
-    pub fn simulate_receiving_data_started() {
-        MIDI_STATE.with(|s| s.borrow().callbacks.as_ref().unwrap().on_receiving_data_started());
-    }
-
-    pub fn simulate_receiving_data_stopped() {
-        MIDI_STATE.with(|s| s.borrow().callbacks.as_ref().unwrap().on_receiving_data_stopped());
-    }
-
-    pub fn simulate_tuning_updated() {
-        MIDI_STATE.with(|s| s.borrow().callbacks.as_ref().unwrap().on_tuning_updated());
-    }
-
-    pub fn simulate_updating_tuning() {
-        MIDI_STATE.with(|s| s.borrow().callbacks.as_ref().unwrap().on_updating_tuning());
-    }
-}
-
-impl IMidi for MockMidi {
-    fn are_devices_connected(&self) -> bool {
-        MIDI_STATE.with(|s| s.borrow().are_devices_connected)
-    }
-
-    fn close(&mut self) {
-        MIDI_STATE.with_borrow_mut(|s| {
-            s.close_count += 1;
-        });
-    }
-
-    fn connect_device(
-        &mut self,
-        index: usize,
-        device_strategy: &dyn DeviceStrategy,
-    ) -> Result<(), Box<dyn Error>> {
-        let mut result: Result<(), Box<dyn Error>> = Ok(());
-        MIDI_STATE.with_borrow_mut(|s| {
-            s.connect_device_count += 1;
-            s.connect_device_index = Some(index);
-            s.connect_device_device_strategy = Some(device_strategy.clone_box());
-            match device_strategy.device_type() {
-                DeviceType::Input => {
-                    if s.is_output_device_connected {
-                        s.are_devices_connected = true;
-                    }
-                }
-                DeviceType::Output => {
-                    s.is_output_device_connected = true;
-                }
-            }
-            result = match &s.connect_device_err {
-                Some(msg) =>
-                    Err(Box::new(std::io::Error::new(
-                        std::io::ErrorKind::Other, msg.clone())) as Box<dyn Error>),
-                None => Ok(()),
-            }
-        });
-        result
-    }
-
-    fn init(
-        &mut self,
-        input_device_name: &str,
-        output_device_name: &str,
-        callbacks: Arc<dyn MidiCallbacks>,
-    ) {
-        MIDI_STATE.with_borrow_mut(|s| {
-            s.callbacks = Some(callbacks);
-            s.init_input_device_name = Some(input_device_name.to_string());
-            s.init_output_device_name = Some(output_device_name.to_string());
-        });
-    }
-
-    fn input(&self) -> &dyn IIo {
-        &self.mock_input
-    }
-
-    fn io(&self, device_strategy: &dyn DeviceStrategy) -> &dyn IIo {
-        MIDI_STATE.with_borrow_mut(|s| {
-            s.io_count += 1;
-            s.io_device_strategy = Some(device_strategy.clone_box());
-        });
-        device_strategy.io(self)
-    }
-
-    fn has_downloaded_init_data(&self) -> bool {
-        MIDI_STATE.with_borrow_mut(|s| {
-            s.has_downloaded_init_data_count += 1;
-        });
-        MIDI_STATE.with(|s| s.borrow().has_downloaded_init_data_result)
-    }
-
-    fn is_output_device_connected(&self) -> bool {
-        MIDI_STATE.with(|s| s.borrow().is_output_device_connected)
-    }
-
-    fn is_receiving_data(&self) -> bool {
-        MIDI_STATE.with(|s| s.borrow().is_receiving_data)
-    }
-
-    fn output(&self) -> &dyn IIo {
-        &self.mock_output
-    }
-
-    fn refresh_devices(
-        &mut self,
-        device_name: &str,
-        device_strategy: &dyn DeviceStrategy,
-    ) {
-        MIDI_STATE.with_borrow_mut(|s| {
-            s.refresh_devices_count += 1;
-            s.refresh_devices_device_name = Some(device_name.to_string());
-            s.refresh_devices_device_strategy = Some(device_strategy.clone_box());
-            s.are_devices_connected = false;
-            if *device_strategy.device_type() == DeviceType::Output {
-                s.is_output_device_connected = false;
-            }
-            // if s.simulate_devices_connected_changed {
-            //     s.callbacks.as_ref().unwrap().on_devices_connected_changed();
-            // }
-        });
-    }
-
-    fn start_instrument_connection_monitor(&mut self) {
-        MIDI_STATE.with_borrow_mut(|s| {
-            s.start_instrument_connection_monitor_count += 1;
-        });
-    }
-
-    fn stop_instrument_connection_monitor(&mut self) {
-        MIDI_STATE.with_borrow_mut(|s| {
-            s.stop_instrument_connection_monitor_count += 1;
-        });
-    }
-}
-
-pub struct MidiState {
     pub callbacks: Option<Arc<dyn MidiCallbacks>>,
 
     pub are_devices_connected: bool,
@@ -226,15 +43,13 @@ pub struct MidiState {
     pub refresh_devices_device_name: Option<String>,
     pub refresh_devices_device_strategy: Option<Box<dyn DeviceStrategy>>,
 
-    // pub simulate_devices_connected_changed: bool,
-
     pub start_instrument_connection_monitor_count: u16,
     pub stop_instrument_connection_monitor_count: u16,
 }
 
-impl MidiState {
-    pub fn new() -> Self {
-        MidiState {
+impl MockMidi {
+    fn new_state() -> Self {
+        MockMidi {
             callbacks: None,
 
             are_devices_connected: false,
@@ -262,52 +77,196 @@ impl MidiState {
             refresh_devices_device_name: None,
             refresh_devices_device_strategy: None,
 
-            // simulate_devices_connected_changed: false,
             start_instrument_connection_monitor_count: 0,
             stop_instrument_connection_monitor_count: 0,
         }
     }
-}
 
-impl Clone for MidiState {
-    fn clone(&self) -> Self {
-        MidiState {
-            callbacks: self.callbacks.clone(),
+    pub fn new(
+        input_device_names: Vec<String>,
+        output_device_names: Vec<String>,
+        initial_input_device_name: &str,
+        initial_output_device_name: &str,
+    ) -> Box<dyn IMidi + Send> {
+        *MOCK_MIDI.lock().unwrap_or_else(|e| e.into_inner()) = MockMidi::new_state();
+        let mut input = MockIo::new(DeviceType::Input, input_device_names);
+        input.set_device(initial_input_device_name);
+        let mut output = MockIo::new(DeviceType::Output, output_device_names);
+        output.set_device(initial_output_device_name);
+        Box::new(MockMidiImpl { mock_input: input, mock_output: output })
+    }
 
-            are_devices_connected: self.are_devices_connected,
+    pub fn set_are_devices_connected(value: bool) {
+        MOCK_MIDI.lock().unwrap_or_else(|e| e.into_inner()).are_devices_connected = value;
+    }
 
-            close_count: self.close_count,
+    pub fn set_is_receiving_data(value: bool) {
+        MOCK_MIDI.lock().unwrap_or_else(|e| e.into_inner()).is_receiving_data = value;
+    }
 
-            connect_device_err: self.connect_device_err.clone(),
-            connect_device_count: self.connect_device_count,
-            connect_device_index: self.connect_device_index,
-            connect_device_device_strategy: self.connect_device_device_strategy.as_ref().map(|s| s.clone_box()),
+    pub fn simulate_connect_device_err(msg: &str) {
+        MOCK_MIDI.lock().unwrap_or_else(|e| e.into_inner()).connect_device_err =
+            Some(msg.to_string());
+    }
 
-            has_downloaded_init_data_count: self.has_downloaded_init_data_count,
-            has_downloaded_init_data_result: self.has_downloaded_init_data_result,
+    pub fn simulate_download_completed() {
+        let callbacks = {
+            let mut state = MOCK_MIDI.lock().unwrap_or_else(|e| e.into_inner());
+            state.has_downloaded_init_data_result = true;
+            state.callbacks.clone().unwrap()
+        };
+        callbacks.on_download_completed();
+    }
 
-            init_input_device_name: self.init_input_device_name.clone(),
-            init_output_device_name: self.init_output_device_name.clone(),
+    pub fn simulate_download_started() {
+        let callbacks = MOCK_MIDI.lock().unwrap_or_else(|e| e.into_inner())
+            .callbacks.clone().unwrap();
+        callbacks.on_download_started();
+    }
 
-            io_count: self.io_count,
-            io_device_strategy: self.io_device_strategy.as_ref().map(|s| s.clone_box()),
+    pub fn simulate_devices_connected_changed() {
+        let callbacks = MOCK_MIDI.lock().unwrap_or_else(|e| e.into_inner())
+            .callbacks.clone().unwrap();
+        callbacks.on_devices_connected_changed();
+    }
 
-            is_output_device_connected: self.is_output_device_connected,
-            is_receiving_data: self.is_receiving_data,
+    pub fn simulate_new_preset_selected() {
+        let callbacks = MOCK_MIDI.lock().unwrap_or_else(|e| e.into_inner())
+            .callbacks.clone().unwrap();
+        callbacks.on_new_preset_selected();
+    }
 
-            refresh_devices_count: self.refresh_devices_count,
-            refresh_devices_device_name: self.refresh_devices_device_name.clone(),
-            refresh_devices_device_strategy:
-                self.refresh_devices_device_strategy.as_ref().map(|s| s.clone_box()),
+    pub fn simulate_receiving_data_started() {
+        let callbacks = MOCK_MIDI.lock().unwrap_or_else(|e| e.into_inner())
+            .callbacks.clone().unwrap();
+        callbacks.on_receiving_data_started();
+    }
 
-            // simulate_devices_connected_changed: self.simulate_devices_connected_changed,
+    pub fn simulate_receiving_data_stopped() {
+        let callbacks = MOCK_MIDI.lock().unwrap_or_else(|e| e.into_inner())
+            .callbacks.clone().unwrap();
+        callbacks.on_receiving_data_stopped();
+    }
 
-            start_instrument_connection_monitor_count: self.start_instrument_connection_monitor_count,
-            stop_instrument_connection_monitor_count: self.stop_instrument_connection_monitor_count,
-        }
+    pub fn simulate_tuning_updated() {
+        let callbacks = MOCK_MIDI.lock().unwrap_or_else(|e| e.into_inner())
+            .callbacks.clone().unwrap();
+        callbacks.on_tuning_updated();
+    }
+
+    pub fn simulate_updating_tuning() {
+        let callbacks = MOCK_MIDI.lock().unwrap_or_else(|e| e.into_inner())
+            .callbacks.clone().unwrap();
+        callbacks.on_updating_tuning();
     }
 }
 
-thread_local! {
-    static MIDI_STATE: RefCell<MidiState> = RefCell::new(MidiState::new());
+struct MockMidiImpl {
+    mock_input: MockIo,
+    mock_output: MockIo,
+}
+
+impl IMidi for MockMidiImpl {
+    fn are_devices_connected(&self) -> bool {
+        MOCK_MIDI.lock().unwrap_or_else(|e| e.into_inner()).are_devices_connected
+    }
+
+    fn close(&mut self) {
+        MOCK_MIDI.lock().unwrap_or_else(|e| e.into_inner()).close_count += 1;
+    }
+
+    fn connect_device(
+        &mut self,
+        index: usize,
+        device_strategy: &dyn DeviceStrategy,
+    ) -> Result<(), Box<dyn Error>> {
+        let mut state = MOCK_MIDI.lock().unwrap_or_else(|e| e.into_inner());
+        state.connect_device_count += 1;
+        state.connect_device_index = Some(index);
+        state.connect_device_device_strategy = Some(device_strategy.clone_box());
+        match device_strategy.device_type() {
+            DeviceType::Input => {
+                if state.is_output_device_connected {
+                    state.are_devices_connected = true;
+                }
+            }
+            DeviceType::Output => {
+                state.is_output_device_connected = true;
+            }
+        }
+        match &state.connect_device_err {
+            Some(msg) =>
+                Err(Box::new(std::io::Error::new(
+                    std::io::ErrorKind::Other, msg.clone())) as Box<dyn Error>),
+            None => Ok(()),
+        }
+    }
+
+    fn init(
+        &mut self,
+        input_device_name: &str,
+        output_device_name: &str,
+        callbacks: Arc<dyn MidiCallbacks>,
+    ) {
+        let mut state = MOCK_MIDI.lock().unwrap_or_else(|e| e.into_inner());
+        state.callbacks = Some(callbacks);
+        state.init_input_device_name = Some(input_device_name.to_string());
+        state.init_output_device_name = Some(output_device_name.to_string());
+    }
+
+    fn input(&self) -> &dyn IIo {
+        &self.mock_input
+    }
+
+    fn io(&self, device_strategy: &dyn DeviceStrategy) -> &dyn IIo {
+        {
+            let mut state = MOCK_MIDI.lock().unwrap_or_else(|e| e.into_inner());
+            state.io_count += 1;
+            state.io_device_strategy = Some(device_strategy.clone_box());
+        }
+        device_strategy.io(self)
+    }
+
+    fn has_downloaded_init_data(&self) -> bool {
+        let mut state = MOCK_MIDI.lock().unwrap_or_else(|e| e.into_inner());
+        state.has_downloaded_init_data_count += 1;
+        state.has_downloaded_init_data_result
+    }
+
+    fn is_output_device_connected(&self) -> bool {
+        MOCK_MIDI.lock().unwrap_or_else(|e| e.into_inner()).is_output_device_connected
+    }
+
+    fn is_receiving_data(&self) -> bool {
+        MOCK_MIDI.lock().unwrap_or_else(|e| e.into_inner()).is_receiving_data
+    }
+
+    fn output(&self) -> &dyn IIo {
+        &self.mock_output
+    }
+
+    fn refresh_devices(
+        &mut self,
+        device_name: &str,
+        device_strategy: &dyn DeviceStrategy,
+    ) {
+        let mut state = MOCK_MIDI.lock().unwrap_or_else(|e| e.into_inner());
+        state.refresh_devices_count += 1;
+        state.refresh_devices_device_name = Some(device_name.to_string());
+        state.refresh_devices_device_strategy = Some(device_strategy.clone_box());
+        state.are_devices_connected = false;
+        if *device_strategy.device_type() == DeviceType::Output {
+            state.is_output_device_connected = false;
+        }
+    }
+
+    fn start_instrument_connection_monitor(&mut self) {
+        MOCK_MIDI.lock().unwrap_or_else(|e| e.into_inner())
+            .start_instrument_connection_monitor_count += 1;
+    }
+
+    fn stop_instrument_connection_monitor(&mut self) {
+        MOCK_MIDI.lock().unwrap_or_else(|e| e.into_inner())
+            .stop_instrument_connection_monitor_count += 1;
+    }
 }

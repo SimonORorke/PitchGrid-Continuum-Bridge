@@ -1,136 +1,17 @@
-use std::cell::RefCell;
+use std::sync::{LazyLock, Mutex, MutexGuard};
 use pitchgrid_continuum::global::MessageType;
 use pitchgrid_continuum::i_ui_methods::IUiMethods;
 use pitchgrid_continuum::device_strategy::DeviceStrategy;
 use pitchgrid_continuum::tuning_params::FormattedTuningParams;
 
-/// Returns a clone of the current `UiMethodsState`.
-pub fn ui_state() -> UiMethodsState {
-    UI_STATE.with(|s| s.borrow().clone())
+pub fn mock_ui_methods() -> MutexGuard<'static, MockUiMethods> {
+    MOCK_UI_METHODS.lock().unwrap_or_else(|e| e.into_inner())
 }
 
-pub struct MockUiMethods {}
+pub static MOCK_UI_METHODS: LazyLock<Mutex<MockUiMethods>> =
+    LazyLock::new(|| Mutex::new(MockUiMethods::new_state()));
 
-impl MockUiMethods {
-    pub fn new() -> Self {
-        UI_STATE.replace(UiMethodsState::new());
-        MockUiMethods {}
-    }
-
-    pub fn set_selected_device_index(index: usize) {
-        UI_STATE.with_borrow_mut(|s| {
-            s.selected_device_index = Some(index);
-        });
-    }
-}
-
-impl IUiMethods for MockUiMethods {
-    fn focus_device(&self, device_strategy: &dyn DeviceStrategy) {
-        UI_STATE.with_borrow_mut(|s| {
-            s.focus_device_count += 1;
-            s.focus_device_strategy = Some(device_strategy.clone_box());
-        });
-    }
-
-    fn get_selected_device_index(&self, device_strategy: &dyn DeviceStrategy) -> usize {
-        let mut result: usize = 0;
-        UI_STATE.with_borrow_mut(|s| {
-            s.get_selected_device_index_count += 1;
-            s.get_selected_device_index_device_strategy = Some(device_strategy.clone_box());
-            result = s.selected_device_index.unwrap_or(0);
-        });
-        result
-    }
-
-    fn set_selected_device_index(&self, index: usize, device_strategy: &dyn DeviceStrategy) {
-        UI_STATE.with_borrow_mut(|s| {
-            s.set_selected_device_index_count += 1;
-            s.selected_device_index = Some(index);
-            s.set_selected_device_index_device_strategy = Some(device_strategy.clone_box());
-        });
-    }
-
-    fn set_devices_model(&self, device_names: &Vec<String>, device_strategy: &dyn DeviceStrategy) {
-        UI_STATE.with_borrow_mut(|s| {
-            s.set_devices_model_count += 1;
-            s.set_devices_model_device_names = Some(device_names.clone());
-            s.set_devices_model_device_strategy = Some(device_strategy.clone_box());
-        });
-    }
-
-    fn show_connected_device_name(&self, name: &str, msg_type: MessageType,
-                                  device_strategy: &dyn DeviceStrategy) {
-        UI_STATE.with_borrow_mut(|s| {
-            s.show_connected_device_name_count += 1;
-            s.show_connected_device_name_name = Some(name.to_string());
-            s.show_connected_device_name_msg_type = Some(msg_type);
-            s.show_connected_device_name_device_strategy = Some(device_strategy.clone_box());
-        });
-    }
-
-    fn show_message(&self, msg: &str, msg_type: MessageType) {
-        UI_STATE.with_borrow_mut(|s| {
-            s.show_message_count += 1;
-            s.show_message_msg = Some(msg.to_string());
-            s.show_message_msg_type = Some(msg_type);
-        });
-    }
-
-    fn show_pitchgrid_status(&self, status: &str, msg_type: MessageType) {
-        UI_STATE.with_borrow_mut(|s| {
-            s.show_pitchgrid_status_count += 1;
-            s.show_pitchgrid_status_msg = Some(status.to_string());
-            s.show_pitchgrid_status_msg_type = Some(msg_type);
-        });
-    }
-
-    fn show_tuning(&self, tuning: FormattedTuningParams, is_root_freq_overridden: bool) {
-        UI_STATE.with_borrow_mut(|s| {
-            s.show_tuning_count += 1;
-            s.show_tuning_formatted_tuning = Some(tuning);
-            s.show_tuning_is_root_freq_overridden = Some(is_root_freq_overridden);
-        });
-    }
-
-    fn set_main_window_position(&self, x: i32, y: i32) {
-        UI_STATE.with_borrow_mut(|s| {
-            s.main_window_position_x = Some(x);
-            s.main_window_position_y = Some(y);
-        });
-    }
-
-    fn set_override_rounding_initial(&self, value: bool) {
-        UI_STATE.with_borrow_mut(|s| {
-            s.override_rounding_initial = Some(value);
-        });
-    }
-
-    fn set_override_rounding_rate(&self, value: bool) {
-        UI_STATE.with_borrow_mut(|s| {
-            s.override_rounding_rate = Some(value);
-        });
-    }
-
-    fn set_rounding_rate(&self, rate: u8) {
-        UI_STATE.with_borrow_mut(|s| {
-            s.rounding_rate = Some(rate);
-        });
-    }
-
-    fn set_selected_osc_listening_port_index(&self, index: i32) {
-        UI_STATE.with_borrow_mut(|s| {
-            s.selected_osc_listening_port_index = Some(index);
-        });
-    }
-
-    fn set_selected_pitch_table_index(&self, index: i32) {
-        UI_STATE.with_borrow_mut(|s| {
-            s.selected_pitch_table_index = Some(index);
-        });
-    }
-}
-
-pub struct UiMethodsState {
+pub struct MockUiMethods {
     pub focus_device_count: u16,
     pub focus_device_strategy: Option<Box<dyn DeviceStrategy>>,
 
@@ -172,9 +53,9 @@ pub struct UiMethodsState {
     pub selected_pitch_table_index: Option<i32>,
 }
 
-impl UiMethodsState {
-    pub fn new() -> Self {
-        UiMethodsState {
+impl MockUiMethods {
+    fn new_state() -> Self {
+        MockUiMethods {
             focus_device_count: 0,
             focus_device_strategy: None,
 
@@ -215,53 +96,103 @@ impl UiMethodsState {
             selected_pitch_table_index: None,
         }
     }
-}
 
-impl Clone for UiMethodsState {
-    fn clone(&self) -> Self {
-        UiMethodsState {
-            focus_device_count: self.focus_device_count,
-            focus_device_strategy: self.focus_device_strategy.as_ref().map(|s| s.clone_box()),
+    pub fn new() -> Self {
+        *MOCK_UI_METHODS.lock().unwrap_or_else(|e| e.into_inner()) = MockUiMethods::new_state();
+        MockUiMethods::new_state()
+    }
 
-            get_selected_device_index_count: self.get_selected_device_index_count,
-            get_selected_device_index_device_strategy: self.get_selected_device_index_device_strategy.as_ref().map(|s| s.clone_box()),
-
-            set_selected_device_index_count: self.set_selected_device_index_count,
-            selected_device_index: self.selected_device_index,
-            set_selected_device_index_device_strategy: self.set_selected_device_index_device_strategy.as_ref().map(|s| s.clone_box()),
-
-            set_devices_model_count: self.set_devices_model_count,
-            set_devices_model_device_names: self.set_devices_model_device_names.clone(),
-            set_devices_model_device_strategy: self.set_devices_model_device_strategy.as_ref().map(|s| s.clone_box()),
-
-            show_connected_device_name_count: self.show_connected_device_name_count,
-            show_connected_device_name_name: self.show_connected_device_name_name.clone(),
-            show_connected_device_name_msg_type: self.show_connected_device_name_msg_type.clone(),
-            show_connected_device_name_device_strategy: self.show_connected_device_name_device_strategy.as_ref().map(|s| s.clone_box()),
-
-            show_message_count: self.show_message_count,
-            show_message_msg: self.show_message_msg.clone(),
-            show_message_msg_type: self.show_message_msg_type.clone(),
-
-            show_pitchgrid_status_count: self.show_pitchgrid_status_count,
-            show_pitchgrid_status_msg: self.show_pitchgrid_status_msg.clone(),
-            show_pitchgrid_status_msg_type: self.show_pitchgrid_status_msg_type.clone(),
-
-            show_tuning_count: self.show_tuning_count,
-            show_tuning_formatted_tuning: self.show_tuning_formatted_tuning.clone(),
-            show_tuning_is_root_freq_overridden: self.show_tuning_is_root_freq_overridden,
-
-            main_window_position_x: self.main_window_position_x,
-            main_window_position_y: self.main_window_position_y,
-            override_rounding_initial: self.override_rounding_initial,
-            override_rounding_rate: self.override_rounding_rate,
-            rounding_rate: self.rounding_rate,
-            selected_osc_listening_port_index: self.selected_osc_listening_port_index,
-            selected_pitch_table_index: self.selected_pitch_table_index,
-        }
+    pub fn set_selected_device_index(index: usize) {
+        MOCK_UI_METHODS.lock().unwrap_or_else(|e| e.into_inner()).selected_device_index =
+            Some(index);
     }
 }
 
-thread_local! {
-    static UI_STATE: RefCell<UiMethodsState> = RefCell::new(UiMethodsState::new());
+impl IUiMethods for MockUiMethods {
+    fn focus_device(&self, device_strategy: &dyn DeviceStrategy) {
+        let mut state = MOCK_UI_METHODS.lock().unwrap_or_else(|e| e.into_inner());
+        state.focus_device_count += 1;
+        state.focus_device_strategy = Some(device_strategy.clone_box());
+    }
+
+    fn get_selected_device_index(&self, device_strategy: &dyn DeviceStrategy) -> usize {
+        let mut state = MOCK_UI_METHODS.lock().unwrap_or_else(|e| e.into_inner());
+        state.get_selected_device_index_count += 1;
+        state.get_selected_device_index_device_strategy = Some(device_strategy.clone_box());
+        state.selected_device_index.unwrap_or(0)
+    }
+
+    fn set_selected_device_index(&self, index: usize, device_strategy: &dyn DeviceStrategy) {
+        let mut state = MOCK_UI_METHODS.lock().unwrap_or_else(|e| e.into_inner());
+        state.set_selected_device_index_count += 1;
+        state.selected_device_index = Some(index);
+        state.set_selected_device_index_device_strategy = Some(device_strategy.clone_box());
+    }
+
+    fn set_devices_model(&self, device_names: &Vec<String>, device_strategy: &dyn DeviceStrategy) {
+        let mut state = MOCK_UI_METHODS.lock().unwrap_or_else(|e| e.into_inner());
+        state.set_devices_model_count += 1;
+        state.set_devices_model_device_names = Some(device_names.clone());
+        state.set_devices_model_device_strategy = Some(device_strategy.clone_box());
+    }
+
+    fn show_connected_device_name(&self, name: &str, msg_type: MessageType,
+                                  device_strategy: &dyn DeviceStrategy) {
+        let mut state = MOCK_UI_METHODS.lock().unwrap_or_else(|e| e.into_inner());
+        state.show_connected_device_name_count += 1;
+        state.show_connected_device_name_name = Some(name.to_string());
+        state.show_connected_device_name_msg_type = Some(msg_type);
+        state.show_connected_device_name_device_strategy = Some(device_strategy.clone_box());
+    }
+
+    fn show_message(&self, msg: &str, msg_type: MessageType) {
+        let mut state = MOCK_UI_METHODS.lock().unwrap_or_else(|e| e.into_inner());
+        state.show_message_count += 1;
+        state.show_message_msg = Some(msg.to_string());
+        state.show_message_msg_type = Some(msg_type);
+    }
+
+    fn show_pitchgrid_status(&self, status: &str, msg_type: MessageType) {
+        let mut state = MOCK_UI_METHODS.lock().unwrap_or_else(|e| e.into_inner());
+        state.show_pitchgrid_status_count += 1;
+        state.show_pitchgrid_status_msg = Some(status.to_string());
+        state.show_pitchgrid_status_msg_type = Some(msg_type);
+    }
+
+    fn show_tuning(&self, tuning: FormattedTuningParams, is_root_freq_overridden: bool) {
+        let mut state = MOCK_UI_METHODS.lock().unwrap_or_else(|e| e.into_inner());
+        state.show_tuning_count += 1;
+        state.show_tuning_formatted_tuning = Some(tuning);
+        state.show_tuning_is_root_freq_overridden = Some(is_root_freq_overridden);
+    }
+
+    fn set_main_window_position(&self, x: i32, y: i32) {
+        let mut state = MOCK_UI_METHODS.lock().unwrap_or_else(|e| e.into_inner());
+        state.main_window_position_x = Some(x);
+        state.main_window_position_y = Some(y);
+    }
+
+    fn set_override_rounding_initial(&self, value: bool) {
+        MOCK_UI_METHODS.lock().unwrap_or_else(|e| e.into_inner()).override_rounding_initial =
+            Some(value);
+    }
+
+    fn set_override_rounding_rate(&self, value: bool) {
+        MOCK_UI_METHODS.lock().unwrap_or_else(|e| e.into_inner()).override_rounding_rate =
+            Some(value);
+    }
+
+    fn set_rounding_rate(&self, rate: u8) {
+        MOCK_UI_METHODS.lock().unwrap_or_else(|e| e.into_inner()).rounding_rate = Some(rate);
+    }
+
+    fn set_selected_osc_listening_port_index(&self, index: i32) {
+        MOCK_UI_METHODS.lock().unwrap_or_else(|e| e.into_inner())
+            .selected_osc_listening_port_index = Some(index);
+    }
+
+    fn set_selected_pitch_table_index(&self, index: i32) {
+        MOCK_UI_METHODS.lock().unwrap_or_else(|e| e.into_inner()).selected_pitch_table_index =
+            Some(index);
+    }
 }

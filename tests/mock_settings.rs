@@ -1,129 +1,16 @@
-use std::cell::RefCell;
 use std::error::Error;
-use std::sync::Arc;
+use std::sync::{LazyLock, Mutex, MutexGuard};
 use pitchgrid_continuum::i_settings::ISettings;
 use pitchgrid_continuum::path_finder::PathFinder;
 
-/// Returns a clone of the current `SettingsState`.
-pub fn settings_state() -> SettingsState {
-    SETTINGS_STATE.with(|s| s.borrow().clone())
+pub fn mock_settings() -> MutexGuard<'static, MockSettings> {
+    MOCK_SETTINGS.lock().unwrap_or_else(|e| e.into_inner())
 }
 
-pub struct MockSettings {}
+pub static MOCK_SETTINGS: LazyLock<Mutex<MockSettings>> =
+    LazyLock::new(|| Mutex::new(MockSettings::new_state()));
 
-impl MockSettings {
-    pub fn new() -> Self {
-        SETTINGS_STATE.replace(SettingsState::new());
-        MockSettings {}
-    }
-
-    /// As `new()` resets state, this method takes `&mut self`, making it clear that is operates
-    /// on the instance and must be called after construction.
-    pub fn simulate_read_from_file_err(&mut self, msg: &str) {
-        SETTINGS_STATE.with_borrow_mut(|s| s.read_from_file_result =
-            Err(Arc::new(std::io::Error::new(std::io::ErrorKind::Other, msg))));
-    }
-
-    /// As `new()` resets state, this method takes `&mut self`, making it clear that is operates
-    /// on the instance and must be called after construction.
-    pub fn simulate_write_to_file_err(&mut self, msg: &str) {
-        SETTINGS_STATE.with_borrow_mut(|s| s.write_to_file_result =
-            Err(Arc::new(std::io::Error::new(std::io::ErrorKind::Other, msg))));
-    }
-}
-
-impl ISettings for MockSettings {
-    fn main_window_x(&self) -> i32 {
-        SETTINGS_STATE.with(|s| s.borrow().main_window_x)
-    }
-
-    fn set_main_window_x(&mut self, value: i32) {
-        SETTINGS_STATE.with_borrow_mut(|s| s.main_window_x = value);
-    }
-
-    fn main_window_y(&self) -> i32 {
-        SETTINGS_STATE.with(|s| s.borrow().main_window_y)
-    }
-
-    fn set_main_window_y(&mut self, value: i32) {
-        SETTINGS_STATE.with_borrow_mut(|s| s.main_window_y = value);
-    }
-
-    fn midi_input_device(&self) -> &str {
-        Box::leak(SETTINGS_STATE.with(|s| s.borrow().midi_input_device.clone()).into_boxed_str())
-    }
-
-    fn set_midi_input_device(&mut self, value: &str) {
-        SETTINGS_STATE.with_borrow_mut(|s| s.midi_input_device = value.to_string());
-    }
-
-    fn midi_output_device(&self) -> &str {
-        Box::leak(SETTINGS_STATE.with(|s| s.borrow().midi_output_device.clone()).into_boxed_str())
-    }
-
-    fn set_midi_output_device(&mut self, value: &str) {
-        SETTINGS_STATE.with_borrow_mut(|s| s.midi_output_device = value.to_string());
-    }
-
-    fn osc_listening_port(&self) -> u16 {
-        SETTINGS_STATE.with(|s| s.borrow().osc_listening_port)
-    }
-
-    fn set_osc_listening_port(&mut self, value: u16) {
-        SETTINGS_STATE.with_borrow_mut(|s| s.osc_listening_port = value);
-    }
-
-    fn pitch_table(&self) -> u8 {
-        SETTINGS_STATE.with(|s| s.borrow().pitch_table)
-    }
-
-    fn set_pitch_table(&mut self, value: u8) {
-        SETTINGS_STATE.with_borrow_mut(|s| s.pitch_table = value);
-    }
-
-    fn override_rounding_initial(&self) -> bool {
-        SETTINGS_STATE.with(|s| s.borrow().override_rounding_initial)
-    }
-
-    fn set_override_rounding_initial(&mut self, value: bool) {
-        SETTINGS_STATE.with_borrow_mut(|s| s.override_rounding_initial = value);
-    }
-
-    fn override_rounding_rate(&self) -> bool {
-        SETTINGS_STATE.with(|s| s.borrow().override_rounding_rate)
-    }
-
-    fn set_override_rounding_rate(&mut self, value: bool) {
-        SETTINGS_STATE.with_borrow_mut(|s| s.override_rounding_rate = value);
-    }
-
-    fn rounding_rate(&self) -> u8 {
-        SETTINGS_STATE.with(|s| s.borrow().rounding_rate)
-    }
-
-    fn set_rounding_rate(&mut self, value: u8) {
-        SETTINGS_STATE.with_borrow_mut(|s| s.rounding_rate = value);
-    }
-
-    fn read_from_file(&mut self) -> Result<(), Box<dyn Error>> {
-        match SETTINGS_STATE.with(|s| s.borrow().read_from_file_result.clone()) {
-            Ok(()) => Ok(()),
-            Err(e) => Err(e.to_string().into()),
-        }
-    }
-
-    fn write_to_file(&mut self) -> Result<(), Box<dyn Error>> {
-        match SETTINGS_STATE.with(|s| s.borrow().write_to_file_result.clone()) {
-            Ok(()) => Ok(()),
-            Err(e) => Err(e.to_string().into()),
-        }
-    }
-
-    fn set_system_path_finder(&mut self, _path_finder: Box<dyn PathFinder>) {}
-}
-
-#[derive(Clone)]
-pub struct SettingsState {
+pub struct MockSettings {
     pub main_window_x: i32,
     pub main_window_y: i32,
     pub midi_input_device: String,
@@ -134,13 +21,13 @@ pub struct SettingsState {
     pub override_rounding_rate: bool,
     pub rounding_rate: u8,
 
-    read_from_file_result: Result<(), Arc<dyn Error>>,
-    write_to_file_result: Result<(), Arc<dyn Error>>,
+    read_from_file_err: Option<String>,
+    write_to_file_err: Option<String>,
 }
 
-impl SettingsState {
-    pub fn new() -> Self {
-        SettingsState {
+impl MockSettings {
+    fn new_state() -> Self {
+        MockSettings {
             main_window_x: 0,
             main_window_y: 0,
             midi_input_device: String::new(),
@@ -150,13 +37,117 @@ impl SettingsState {
             override_rounding_initial: true,
             override_rounding_rate: true,
             rounding_rate: 127,
-
-            read_from_file_result: Ok(()),
-            write_to_file_result: Ok(()),
+            read_from_file_err: None,
+            write_to_file_err: None,
         }
+    }
+
+    pub fn new() -> Self {
+        *MOCK_SETTINGS.lock().unwrap_or_else(|e| e.into_inner()) = MockSettings::new_state();
+        MockSettings::new_state()
+    }
+
+    pub fn simulate_read_from_file_err(msg: &str) {
+        MOCK_SETTINGS.lock().unwrap_or_else(|e| e.into_inner()).read_from_file_err =
+            Some(msg.to_string());
+    }
+
+    pub fn simulate_write_to_file_err(msg: &str) {
+        MOCK_SETTINGS.lock().unwrap_or_else(|e| e.into_inner()).write_to_file_err =
+            Some(msg.to_string());
     }
 }
 
-thread_local! {
-    static SETTINGS_STATE: RefCell<SettingsState> = RefCell::new(SettingsState::new());
+impl ISettings for MockSettings {
+    fn main_window_x(&self) -> i32 {
+        MOCK_SETTINGS.lock().unwrap_or_else(|e| e.into_inner()).main_window_x
+    }
+
+    fn set_main_window_x(&mut self, value: i32) {
+        MOCK_SETTINGS.lock().unwrap_or_else(|e| e.into_inner()).main_window_x = value;
+    }
+
+    fn main_window_y(&self) -> i32 {
+        MOCK_SETTINGS.lock().unwrap_or_else(|e| e.into_inner()).main_window_y
+    }
+
+    fn set_main_window_y(&mut self, value: i32) {
+        MOCK_SETTINGS.lock().unwrap_or_else(|e| e.into_inner()).main_window_y = value;
+    }
+
+    fn midi_input_device(&self) -> &str {
+        Box::leak(MOCK_SETTINGS.lock().unwrap_or_else(|e| e.into_inner())
+            .midi_input_device.clone().into_boxed_str())
+    }
+
+    fn set_midi_input_device(&mut self, value: &str) {
+        MOCK_SETTINGS.lock().unwrap_or_else(|e| e.into_inner()).midi_input_device =
+            value.to_string();
+    }
+
+    fn midi_output_device(&self) -> &str {
+        Box::leak(MOCK_SETTINGS.lock().unwrap_or_else(|e| e.into_inner())
+            .midi_output_device.clone().into_boxed_str())
+    }
+
+    fn set_midi_output_device(&mut self, value: &str) {
+        MOCK_SETTINGS.lock().unwrap_or_else(|e| e.into_inner()).midi_output_device =
+            value.to_string();
+    }
+
+    fn osc_listening_port(&self) -> u16 {
+        MOCK_SETTINGS.lock().unwrap_or_else(|e| e.into_inner()).osc_listening_port
+    }
+
+    fn set_osc_listening_port(&mut self, value: u16) {
+        MOCK_SETTINGS.lock().unwrap_or_else(|e| e.into_inner()).osc_listening_port = value;
+    }
+
+    fn pitch_table(&self) -> u8 {
+        MOCK_SETTINGS.lock().unwrap_or_else(|e| e.into_inner()).pitch_table
+    }
+
+    fn set_pitch_table(&mut self, value: u8) {
+        MOCK_SETTINGS.lock().unwrap_or_else(|e| e.into_inner()).pitch_table = value;
+    }
+
+    fn override_rounding_initial(&self) -> bool {
+        MOCK_SETTINGS.lock().unwrap_or_else(|e| e.into_inner()).override_rounding_initial
+    }
+
+    fn set_override_rounding_initial(&mut self, value: bool) {
+        MOCK_SETTINGS.lock().unwrap_or_else(|e| e.into_inner()).override_rounding_initial = value;
+    }
+
+    fn override_rounding_rate(&self) -> bool {
+        MOCK_SETTINGS.lock().unwrap_or_else(|e| e.into_inner()).override_rounding_rate
+    }
+
+    fn set_override_rounding_rate(&mut self, value: bool) {
+        MOCK_SETTINGS.lock().unwrap_or_else(|e| e.into_inner()).override_rounding_rate = value;
+    }
+
+    fn rounding_rate(&self) -> u8 {
+        MOCK_SETTINGS.lock().unwrap_or_else(|e| e.into_inner()).rounding_rate
+    }
+
+    fn set_rounding_rate(&mut self, value: u8) {
+        MOCK_SETTINGS.lock().unwrap_or_else(|e| e.into_inner()).rounding_rate = value;
+    }
+
+    fn read_from_file(&mut self) -> Result<(), Box<dyn Error>> {
+        match MOCK_SETTINGS.lock().unwrap_or_else(|e| e.into_inner()).read_from_file_err.clone() {
+            None => Ok(()),
+            Some(msg) => Err(msg.into()),
+        }
+    }
+
+    fn write_to_file(&mut self) -> Result<(), Box<dyn Error>> {
+        match MOCK_SETTINGS.lock().unwrap_or_else(|e| e.into_inner()).write_to_file_err.clone() {
+            None => Ok(()),
+            Some(msg) => Err(msg.into()),
+        }
+    }
+
+    fn set_system_path_finder(&mut self, _path_finder: Box<dyn PathFinder>) {}
 }
