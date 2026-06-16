@@ -57,40 +57,64 @@ node make_junction.js
 Node.js is available from the JetBrains runtime bundled with RustRover, or can be installed
 separately from [nodejs.org](https://nodejs.org).
 
-The script reads the `vivi_ui` version from the Cargo registry path automatically via
-`os.homedir()`, so no manual path editing is needed unless the registry index directory name
-changes (which it does not in practice).
+The script discovers everything it needs automatically, so there is **no manual path or version
+editing**:
+
+- The `vivi_ui` **version** is read from `Cargo.lock` (the resolved dependency).
+- The **registry path** is built from `os.homedir()` and globbed across whatever registry index
+  directory exists, so it works regardless of the Windows user profile or the registry index hash
+  (sparse vs. git protocol).
+
+If the script can't find the crate it prints a clear message; the usual cause is that `cargo build`
+has not been run yet, so Cargo hasn't extracted the `vivi_ui` sources into the registry cache.
 
 After running the script, **restart** RustRover (or reload the Slint LSP) so the plugin picks up
 the new directory structure.
 
 ## What the Script Does
 
+The script does three things; see `make_junction.js` for the full source. In outline:
+
 ```javascript
-// make_junction.js (project root)
-const fs   = require('fs');
-const os   = require('os');
-const path = require('path');
+// 1. Read the resolved vivi_ui version from Cargo.lock.
+const version = /* parse the [[package]] block for name = "vivi_ui" */;
 
-const viviTarget = path.join(
-    os.homedir(), '.cargo', 'registry', 'src',
-    'index.crates.io-1949cf8c6b5b557f', 'vivi_ui-0.2.0', 'ui'
-);
-const projectUi = path.join(__dirname, 'ui');  // always relative to the script's location
-const links = [
-    path.join(projectUi, '@vivi'),
-    path.join(projectUi, 'components', '@vivi'),
-];
+// 2. Glob the Cargo cache for the matching extracted sources, under whatever
+//    registry index dir exists (handles any hash / Windows profile).
+const srcRoot = path.join(os.homedir(), '.cargo', 'registry', 'src');
+const viviTarget = /* first <index>/vivi_ui-<version>/ui that exists, else error */;
 
+// 3. (Re)create the two junctions, robustly removing any existing ones first.
+const links = [path.join(__dirname, 'ui', '@vivi'),
+               path.join(__dirname, 'ui', 'components', '@vivi')];
 for (const link of links) {
-    if (fs.existsSync(link)) fs.rmSync(link, { recursive: true });
+    try {
+        fs.lstatSync(link);                              // lstat: detects a *dangling* junction too
+        try { fs.chmodSync(link, 0o666); } catch (e) {}  // clear READONLY so removal can't be denied
+        fs.rmSync(link, { recursive: true, force: true });
+    } catch (e) { if (e.code !== 'ENOENT') throw e; }
     fs.symlinkSync(viviTarget, link, 'junction');
-    console.log('Junction created:', link);
 }
 ```
 
-> The script uses `__dirname` to locate the `ui/` directory, so it works correctly regardless of
-> where the repository is checked out.
+> The script uses `__dirname` to locate `Cargo.lock` and the `ui/` directory, so it works regardless
+> of where the repository is checked out, and matching the version against `Cargo.lock` means an
+> upgrade needs no edit to this script.
+
+> **Two non-obvious failure modes the removal logic guards against** (both hit in practice after the
+> machine's C: drive / Windows profile was replaced):
+>
+> 1. **Dangling junction.** If a junction's target no longer exists (e.g. the profile changed from
+>    `C:\Users\Simon O'Rorke` to `C:\Users\User`), `fs.existsSync(link)` *follows* the junction and
+>    returns `false`, so the stale junction is never removed and `symlinkSync` then throws `EEXIST`.
+>    Re-running the script appears to do nothing. Use `fs.lstatSync` (does not follow) instead.
+> 2. **READONLY junction.** A junction carrying the READONLY attribute cannot be removed — `rmdir` /
+>    `fs.rmSync` fail with "Access is denied", which mimics a process lock (killing the LSP / file
+>    watcher does not help). Clear the readonly bit (`fs.chmodSync(link, 0o666)`) before removing.
+>    Note: ordinary directories ignore the readonly bit for deletion; only reparse points are blocked
+>    by it. The origin of the flag on one of the junctions here is unknown (it was *not* confirmed to
+>    be OneDrive — directory-readonly is a normal Windows flag), but clearing it before removal is a
+>    safe, cheap guard regardless.
 
 ## Git
 
@@ -105,12 +129,12 @@ The script `make_junction.js` **is** committed to the repository so collaborator
 
 ## Upgrading vivi_ui
 
-If `vivi_ui` is upgraded to a new version, update the version number in `make_junction.js`
-and re-run it:
+If `vivi_ui` is upgraded to a new version, no edit to `make_junction.js` is needed — it reads the
+version from `Cargo.lock`. After the dependency is bumped and the project is built:
 
-1. Open `make_junction.js`.
-2. Change `vivi_ui-0.2.0` to the new version, e.g. `vivi_ui-0.3.0`.
-3. Run `node make_junction.js`.
+1. Run `cargo build` (so Cargo extracts the new `vivi_ui` sources into the registry cache).
+2. Run `node make_junction.js` (it picks up the new version automatically and re-points the junctions).
+3. Restart RustRover or reload the Slint LSP.
 
 ## Slint Live-Preview: Additional Requirement
 
