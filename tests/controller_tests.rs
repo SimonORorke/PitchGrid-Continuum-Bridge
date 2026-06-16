@@ -73,9 +73,12 @@ fn init_no_settings() {
     assert_that!(mock_ui_methods().main_window_position_y, some(eq(0)));
     assert_that!(mock_ui_methods().set_devices_model_count, eq(2));
     assert_that!(mock_ui_methods().set_devices_model_device_names, some(len(eq(4))));
-    let guard = mock_ui_methods();
-    let strategy = &guard.set_devices_model_device_strategy;
-    assert_that!(strategy.as_ref().map(|s| *s.device_type()), some(eq(DeviceType::Output)));
+    // Extract the value rather than holding the `mock_ui_methods()` guard: it locks a
+    // non-reentrant Mutex, so keeping it alive across the later `mock_ui_methods()` calls
+    // would deadlock.
+    let device_type = mock_ui_methods().set_devices_model_device_strategy
+        .as_ref().map(|s| *s.device_type());
+    assert_that!(device_type, some(eq(DeviceType::Output)));
     // Won't attempt to connect MIDI input device, as MIDI output device has not been
     // read from settings and so cannot be connected. So a warning message is shown for the MIDI
     // output device.
@@ -201,9 +204,12 @@ fn refresh_devices() {
     assert_that!(mock_ui_methods().show_pitchgrid_status_msg, some(eq(DISCONNECTED_FROM_PITCHGRID)));
     assert_that!(mock_ui_methods().show_pitchgrid_status_msg_type, some(eq(MessageType::Warning)));
     assert_that!(mock_ui_methods().set_devices_model_count, eq(3));
-    let guard = mock_ui_methods();
-    let strategy = &guard.set_devices_model_device_strategy;
-    assert_that!(strategy.as_ref().map(|s| *s.device_type()), some(eq(DeviceType::Input)));
+    // Extract the value rather than holding the `mock_ui_methods()` guard: it locks a
+    // non-reentrant Mutex, so keeping it alive across the later `mock_ui_methods()` calls
+    // would deadlock.
+    let device_type = mock_ui_methods().set_devices_model_device_strategy
+        .as_ref().map(|s| *s.device_type());
+    assert_that!(device_type, some(eq(DeviceType::Input)));
     assert_that!(mock_ui_methods().show_connected_device_name_name, some(eq(DEVICE_NONE)));
     assert_that!(mock_ui_methods().show_message_msg, some(starts_with("Refreshed MIDI input devices.")));
     assert_that!(mock_ui_methods().show_message_msg_type, some(eq(MessageType::Warning)));

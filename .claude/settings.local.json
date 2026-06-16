@@ -36,7 +36,11 @@
       "Bash(cmd /c \"cd /d \\\\\"D:\\\\Simon\\\\OneDrive\\\\Documents\\\\Rust Projects\\\\pitchgrid_continuum\\\\\" && cargo build --tests 2>&1\")",
       "Bash(powershell.exe -Command \"Set-Location 'D:\\\\Simon\\\\OneDrive\\\\Documents\\\\Rust Projects\\\\pitchgrid_continuum'; cargo build --tests 2>&1\")",
       "Read(//c/Users/Simon/.cargo/bin/**)",
-      "Bash(/c/Users/Simon/.cargo/bin/cargo build:*)"
+      "Bash(/c/Users/Simon/.cargo/bin/cargo build:*)",
+      "PowerShell(git config --global --add safe.directory 'D:/Simon/OneDrive/Documents/Rust Projects/pitchgrid_continuum')",
+      "PowerShell(cargo --version)",
+      "PowerShell(rustc --version)",
+      "PowerShell(cargo test --test controller_tests --no-run 2>&1)"
     ]
   }
 }
