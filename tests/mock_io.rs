@@ -63,15 +63,7 @@ impl IIo for MockIo {
         self.state().device_names
     }
 
-    fn populate_devices(&mut self, persisted_device_name: &str) {
-        match self.device_type {
-            DeviceType::Input => INPUT_STATE.with_borrow_mut(|s| {
-                s.populate_devices_persisted_device_name = Some(persisted_device_name.to_string());
-            }),
-            DeviceType::Output => OUTPUT_STATE.with_borrow_mut(|s| {
-                s.populate_devices_persisted_device_name = Some(persisted_device_name.to_string());
-            }),
-        };
+    fn populate_devices(&mut self, _persisted_device_name: &str) {
     }
 }
 
@@ -89,7 +81,6 @@ impl IoDevice for MockDevice {
 pub struct IoState {
     pub device: Option<MockDevice>,
     pub device_names: Vec<String>,
-    pub populate_devices_persisted_device_name: Option<String>,
 }
 
 impl IoState {
@@ -105,7 +96,6 @@ impl IoState {
         IoState {
             device: None,
             device_names: vec![],
-            populate_devices_persisted_device_name: None,
         }
     }
 }
@@ -115,7 +105,6 @@ impl Clone for IoState {
         IoState {
             device: self.device.clone(),
             device_names: self.device_names.clone(),
-            populate_devices_persisted_device_name: self.populate_devices_persisted_device_name.clone(),
         }
     }
 }
