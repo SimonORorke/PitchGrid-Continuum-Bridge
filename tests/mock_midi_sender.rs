@@ -32,7 +32,7 @@ impl MockMidiSender {
 
     /// Creates a new `MockMidiSender`, resetting the state accessed via `mock_midi_sender()`.
     pub fn new() -> Box<dyn IMidiSender> {
-        MOCK_MIDI_SENDER.with(|s| s.replace(MockMidiSender::new_state()));
+        MOCK_MIDI_SENDER.replace(MockMidiSender::new_state());
         Box::new(MockMidiSenderImpl {})
     }
 }
