@@ -1,5 +1,7 @@
 ﻿mod mock_midi;
-mod mock_midi_sender;
+// `mock_midi_sender()` (the sent-stats reader) is used only by `tuner_tests`, which shares this
+// mock. This crate uses `MockMidiSender::new()` but not the reader, so allow the dead function.
+#[allow(dead_code)] mod mock_midi_sender;
 mod mock_osc;
 mod mock_settings;
 mod mock_ui_methods;
@@ -528,7 +530,7 @@ fn create_controller(mut settings: MockSettings, default_midi_devices: bool) -> 
         settings.midi_input_device(), settings.midi_output_device()));
     let new_tuner = Arc::new(Tuner::new());
     new_tuner.init(Tuner::default_pitch_table());
-    new_tuner.set_midi_sender(Box::new(MockMidiSender::new()));
+    new_tuner.set_midi_sender(MockMidiSender::new());
     *TUNER.lock().unwrap_or_else(|e| e.into_inner()) = new_tuner.clone();
     // Controller::init calls clone_controller(), which requires the CONTROLLER singleton to be set.
     // In main, the same shared instance is used for both set_controller and init. Here we use

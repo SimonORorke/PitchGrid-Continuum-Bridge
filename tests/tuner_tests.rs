@@ -6,7 +6,7 @@ use googletest::assert_that;
 use googletest::matchers::{eq, gt};
 use pitchgrid_continuum::i_tuner::ITuner;
 use pitchgrid_continuum::tuner::Tuner;
-use mock_midi_sender::{MockMidiSender, sent_midi};
+use mock_midi_sender::{MockMidiSender, mock_midi_sender};
 use test_tunings::TestTunings;
 
 /// PITCH_TABLE is a shared static written by tuner.init() and tuner.set_pitch_table().
@@ -27,15 +27,15 @@ fn on_tuning_received() {
     assert_that!(tuner.is_root_freq_overridden(), eq(false));
     // tuning start, key params 128 * 6, tuning end,
     // Rounding Initial, Rounding Rate, active pitch table
-    assert_that!(sent_midi().control_change_count, eq(773));
+    assert_that!(mock_midi_sender().control_change_count, eq(773));
     // Active pitch table
-    assert_that!(sent_midi().control_change_channel, eq(16));
-    assert_that!(sent_midi().control_change_cc_no, eq(51));
-    assert_that!(sent_midi().control_change_value, eq(PITCH_TABLE));
+    assert_that!(mock_midi_sender().control_change_channel, eq(16));
+    assert_that!(mock_midi_sender().control_change_cc_no, eq(51));
+    assert_that!(mock_midi_sender().control_change_value, eq(PITCH_TABLE));
     // Rounding Mode Normal, because Rounding Rate is on
-    assert_that!(sent_midi().matrix_poke_count, eq(1));
-    assert_that!(sent_midi().matrix_poke_id, eq(10));
-    assert_that!(sent_midi().matrix_poke_value, eq(0));
+    assert_that!(mock_midi_sender().matrix_poke_count, eq(1));
+    assert_that!(mock_midi_sender().matrix_poke_id, eq(10));
+    assert_that!(mock_midi_sender().matrix_poke_value, eq(0));
     let formatted = tuner.formatted_tuning_params();
     assert_that!(formatted.root_freq, eq("261.626 Hz"));
     assert_that!(formatted.stretch, eq("1200 ct"));
@@ -54,34 +54,34 @@ fn on_tuning_updated() {
     let _guard = test_mutex_guard();
     let tuner = create_tuner();
     assert_that!(tuner.has_data(), eq(false));
-    assert_that!(sent_midi().control_change_count, eq(0));
+    assert_that!(mock_midi_sender().control_change_count, eq(0));
     // In case there's an on_tuning_updated notification when no tuning data has been received,
     // which should not happen, there should still have been no MIDI messages sent.
     tuner.on_tuning_updated();
-    assert_that!(sent_midi().control_change_count, eq(0));
+    assert_that!(mock_midi_sender().control_change_count, eq(0));
     // First tuning received.
     // No tuning updates are pending, so the tuning should be sent immediately.
     tuner.on_tuning_received(TestTunings::params_31_19());
-    let single_tuning_control_change_count = sent_midi().control_change_count;
+    let single_tuning_control_change_count = mock_midi_sender().control_change_count;
     println!("First tuning should have been sent: cumulative control_change_count = {}",
-             sent_midi().control_change_count);
+             mock_midi_sender().control_change_count);
     // Check that the tuning has been sent.
-    assert_that!(sent_midi().control_change_count, gt(0),
+    assert_that!(mock_midi_sender().control_change_count, gt(0),
         "First tuning should have been sent immediately after receiving");
     tuner.on_tuning_updated(); // Confirm that the first tuning has been updated on the instrument.
     // There was no pending tuning waiting to be sent when update was confirmed
     // for the first tuning sent. So no more MIDI messages should have been sent.
     println!("First tuning update confirmed: cumulative control_change_count = {}",
-             sent_midi().control_change_count);
-    assert_that!(sent_midi().control_change_count, eq(single_tuning_control_change_count),
+             mock_midi_sender().control_change_count);
+    assert_that!(mock_midi_sender().control_change_count, eq(single_tuning_control_change_count),
         "First tuning update confirmed.");
     // Second tuning received.
     // No tuning updates are pending, so the tuning should be sent immediately.
     tuner.on_tuning_received(TestTunings::params_16_16());
     // Check that the tuning has been sent.
     println!("Second tuning should have been sent: cumulative control_change_count = {}",
-             sent_midi().control_change_count);
-    assert_that!(sent_midi().control_change_count, eq(single_tuning_control_change_count * 2),
+             mock_midi_sender().control_change_count);
+    assert_that!(mock_midi_sender().control_change_count, eq(single_tuning_control_change_count * 2),
         "Second tuning should have been sent immediately after receiving");
     // Send the third tuning before update confirmation has been received for the second tuning.
     // Because update of a previously sent tuning is pending, the third tuning should not be sent
@@ -89,15 +89,15 @@ fn on_tuning_updated() {
     tuner.on_tuning_received(TestTunings::params_17_17());
     // Check that the tuning has not yet been sent.
     println!("Third tuning has been received but should not have been sent yet: \
-        cumulative control_change_count = {}", sent_midi().control_change_count);
-    assert_that!(sent_midi().control_change_count, eq(single_tuning_control_change_count * 2),
+        cumulative control_change_count = {}", mock_midi_sender().control_change_count);
+    assert_that!(mock_midi_sender().control_change_count, eq(single_tuning_control_change_count * 2),
         "Third tuning has been received but should not have been sent yet");
     tuner.on_tuning_updated(); // Confirm that the second tuning was updated on the instrument.
     // The third tuning was waiting to be sent when update was confirmed
     // for the second tuning sent. So the third tuning should have been sent now.
     println!("Second tuning update confirmed, so the third tuning should have been sent now: \
-        cumulative control_change_count = {}", sent_midi().control_change_count);
-    assert_that!(sent_midi().control_change_count, eq(single_tuning_control_change_count * 3),
+        cumulative control_change_count = {}", mock_midi_sender().control_change_count);
+    assert_that!(mock_midi_sender().control_change_count, eq(single_tuning_control_change_count * 3),
         "Second tuning update confirmed, so the third tuning should have been sent now.");
 }
 
@@ -130,16 +130,16 @@ fn send_current_preset_update() {
     tuner.set_override_rounding_rate(true);
     tuner.set_rounding_rate(MAX_ROUNDING_RATE);
     tuner.on_tuning_received(TestTunings::params_31_19());
-    let first_time_sent_control_change_count = sent_midi().control_change_count;
+    let first_time_sent_control_change_count = mock_midi_sender().control_change_count;
     assert_that!(tuner.send_current_preset_update(), eq(true));
-    let cumulative_sent_control_change_count = sent_midi().control_change_count;
+    let cumulative_sent_control_change_count = mock_midi_sender().control_change_count;
     // send_current_preset_update should have sent only the rounding parameters and the
     // active pitch table CC (tuning data is not re-sent as it is assumed to already be on the
     // instrument).
     assert_that!(
         cumulative_sent_control_change_count, eq(first_time_sent_control_change_count + 3));
     // Rounding Mode Normal, because Rounding Rate is on
-    assert_that!(sent_midi().matrix_poke_count, eq(2));
+    assert_that!(mock_midi_sender().matrix_poke_count, eq(2));
     println!("*****************************************");
     println!("send_current_preset_update test completed");
     println!("*****************************************");
@@ -175,7 +175,7 @@ fn set_root_freq_override_note_no() {
 fn create_tuner() -> Tuner {
     let tuner = Tuner::new();
     tuner.init(PITCH_TABLE);
-    tuner.set_midi_sender(Box::new(MockMidiSender::new()));
+    tuner.set_midi_sender(MockMidiSender::new());
     tuner
 }
 

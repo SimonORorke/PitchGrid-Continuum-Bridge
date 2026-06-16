@@ -1,28 +1,48 @@
-﻿use std::cell::RefCell;
-use pitchgrid_continuum::midi_sender::{IMidiSender};
+use std::cell::RefCell;
+use pitchgrid_continuum::midi_sender::IMidiSender;
 
-/// MIDI send stats since `MockMidiSender` was instantiated.
-pub fn sent_midi() -> SentMidi {
-    SENT_MIDI.with(|s| s.borrow().clone())
+/// Returns a snapshot of the MIDI send stats since the last `MockMidiSender::new()`.
+pub fn mock_midi_sender() -> MockMidiSender {
+    MOCK_MIDI_SENDER.with(|s| s.borrow().clone())
 }
 
 #[derive(Clone, Debug)]
-pub struct MockMidiSender {}
+pub struct MockMidiSender {
+    pub control_change_count: u16,
+    pub control_change_channel: u8,
+    pub control_change_cc_no: u8,
+    pub control_change_value: u8,
+    pub matrix_poke_count: u16,
+    pub matrix_poke_id: u8,
+    pub matrix_poke_value: u8,
+}
 
 impl MockMidiSender {
+    fn new_state() -> Self {
+        MockMidiSender {
+            control_change_count: 0,
+            control_change_channel: 0,
+            control_change_cc_no: 0,
+            control_change_value: 0,
+            matrix_poke_count: 0,
+            matrix_poke_id: 0,
+            matrix_poke_value: 0,
+        }
+    }
 
-    /// Creates a new `MockMidiSender` instance, resetting the MIDI send stats that are accessed
-    /// via `sent_midi()`.
-    pub fn new() -> Self {
-        // println!("MockMidiSender:new: resetting MIDI sent stats.");
-        SENT_MIDI.replace(SentMidi::new());
-        MockMidiSender {}
+    /// Creates a new `MockMidiSender`, resetting the state accessed via `mock_midi_sender()`.
+    pub fn new() -> Box<dyn IMidiSender> {
+        MOCK_MIDI_SENDER.with(|s| s.replace(MockMidiSender::new_state()));
+        Box::new(MockMidiSenderImpl {})
     }
 }
 
-impl IMidiSender for MockMidiSender {
+#[derive(Debug)]
+struct MockMidiSenderImpl {}
+
+impl IMidiSender for MockMidiSenderImpl {
     fn send_control_change(&self, channel: u8, cc_no: u8, value: u8) {
-        SENT_MIDI.with_borrow_mut(|s| {
+        MOCK_MIDI_SENDER.with_borrow_mut(|s| {
             s.control_change_count += 1;
             s.control_change_channel = channel;
             s.control_change_cc_no = cc_no;
@@ -31,41 +51,14 @@ impl IMidiSender for MockMidiSender {
     }
 
     fn send_matrix_poke(&self, poke_id: u8, poke_value: u8) {
-        SENT_MIDI.with_borrow_mut(|s| {
-            println!("MockMidiSender:send_matrix_poke: s.matrix_poke_count = {}", s.matrix_poke_count);
+        MOCK_MIDI_SENDER.with_borrow_mut(|s| {
             s.matrix_poke_count += 1;
-            println!("MockMidiSender:send_matrix_poke: added 1 to s.matrix_poke_count, which now = {}", s.matrix_poke_count);
             s.matrix_poke_id = poke_id;
             s.matrix_poke_value = poke_value;
         });
     }
 }
 
-#[derive(Clone, Debug)]
-pub struct SentMidi {
-    pub control_change_count: u16,
-    pub control_change_channel: u8,
-    pub control_change_cc_no: u8,
-    pub control_change_value: u8,
-    pub matrix_poke_id: u8,
-    pub matrix_poke_value: u8,
-    pub matrix_poke_count: u16,
-}
-
-impl SentMidi {
-    pub fn new() -> Self {
-        SentMidi {
-            control_change_count: 0,
-            control_change_channel: 0,
-            control_change_cc_no: 0,
-            control_change_value: 0,
-            matrix_poke_id: 0,
-            matrix_poke_value: 0,
-            matrix_poke_count: 0,
-        }
-    }
-}
-
 thread_local! {
-    static SENT_MIDI: RefCell<SentMidi> = RefCell::new(SentMidi::new());
+    static MOCK_MIDI_SENDER: RefCell<MockMidiSender> = RefCell::new(MockMidiSender::new_state());
 }

@@ -40,7 +40,9 @@
       "PowerShell(git config --global --add safe.directory 'D:/Simon/OneDrive/Documents/Rust Projects/pitchgrid_continuum')",
       "PowerShell(cargo --version)",
       "PowerShell(rustc --version)",
-      "PowerShell(cargo test --test controller_tests --no-run 2>&1)"
+      "PowerShell(cargo test --test controller_tests --no-run 2>&1)",
+      "Bash(git --no-pager diff --cached tests/mock_midi_sender.rs)",
+      "Bash(cargo test *)"
     ]
   }
 }
