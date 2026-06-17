@@ -432,11 +432,11 @@ impl Controller {
         // In this scenario, this application's MIDI input is correct, but the incorrect output is
         // the same as the editor's output.
         // Expected behaviour:
-        //     As our output is incorrect, the instrument tuning and the tuning shown on the
+        //     As our output is incorrect, the instrument tuning and the tuning shown in the
         //     editor should not be updated.
         //     We should not receive confirmation that the tuning has been updated.
         // Actual behavour:
-        //     As with the expected behaviour, the instrument tuning and the tuning shown on the
+        //     As with the expected behaviour, the instrument tuning and the tuning shown in the
         //     editor are not updated.
         //     However, we receive Grid message ch16 cc51 g, where g is our seleted pitch table
         //     number. We interpret this as confirmation that the tuning has been updated.
@@ -446,13 +446,13 @@ impl Controller {
         // Something like the following must be happening.
         // As Windows MIDI devices are currently shared with no way to make them exclusive,
         // there's nothing to stop us sending MIDI direct to the instrument, bypassing the editor.
-        // But from the instrument's perspective, our tuniung data looks like invalid data from
+        // But from the instrument's perspective, our tuning data looks like invalid data from
         // the editor, rather than a valid request from an external software component.
         // So the firmware does not implement the request.
         // As we request the current preset to be updated with the tuning with the same cc51 Grid
         // message, what we currently interpret as update confirmation is just our
         // request echoed back, which is expected. There is currently a firmware bug where,
-        // for some presets, the confirmation message is not send when the preset's tuning has been
+        // for some presets, the confirmation message is not sent when the preset's tuning has been
         // updated. Our temporary workaround is to treat the echoed back request as confirmation.
         //
         // Pending fix
