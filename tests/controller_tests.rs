@@ -537,11 +537,11 @@ fn create_controller(mut settings: MockSettings, default_midi_devices: bool) -> 
     // separate instances: the local controller is used to call init() directly without locking a
     // shared controller, while the singleton is used only for MIDI callbacks. Both are configured
     // with MockOsc so that callback-triggered OSC calls are recorded in mock_osc().
-    let mut singleton = Controller::new(Box::new(MockUiMethods::new()));
+    let mut singleton = Controller::new(Arc::new(MockUiMethods::new()));
     singleton.set_osc(Box::new(MockOsc::new()));
     singleton.set_tuner(new_tuner.clone() as Arc<dyn ITuner>);
     Controller::set_controller(Arc::new(Mutex::new(singleton)));
-    let mut controller = Controller::new(Box::new(MockUiMethods::new()));
+    let mut controller = Controller::new(Arc::new(MockUiMethods::new()));
     controller.set_osc(Box::new(MockOsc::new()));
     controller.set_settings(Box::new(settings));
     controller.set_tuner(new_tuner as Arc<dyn ITuner>);

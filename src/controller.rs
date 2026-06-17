@@ -22,7 +22,7 @@ use crate::tuning_params::TuningParams;
 /// Everything else is the model.
 pub struct Controller {
     await_tuning_updated_stopper_sender: Option<mpsc::Sender<()>>,
-    ui_methods: Box<dyn IUiMethods>,
+    ui_methods: Arc<dyn IUiMethods>,
     is_awaiting_tuning_updated: bool,
     osc: Box<dyn IOsc>,
     settings: Box<dyn ISettings>,
@@ -30,7 +30,7 @@ pub struct Controller {
 }
 
 impl Controller {
-    pub fn new(callbacks: Box<dyn IUiMethods>) -> Self {
+    pub fn new(callbacks: Arc<dyn IUiMethods>) -> Self {
         Self {
             await_tuning_updated_stopper_sender: None,
             ui_methods: callbacks,
@@ -382,13 +382,10 @@ impl Controller {
         println!("Controller.on_tuning_updated");
         // Stop waiting for tuning update to be confirmed.
         if self.is_awaiting_tuning_updated {
-            let stopper_sender =
-                self.await_tuning_updated_stopper_sender.take();
-            if stopper_sender.is_some() {
-                stopper_sender.unwrap().send(()).unwrap_or_else(|_| {
-                    panic!("Controller.on_tuning_updated: Failed to send stop signal to \
-                    await_tuning_updated");
-                });
+            if let Some(stopper_sender) = self.await_tuning_updated_stopper_sender.take() {
+                // Ignore a send error: the watchdog may have already timed out and returned,
+                // dropping the receiver. That is a normal outcome, not a failure.
+                let _ = stopper_sender.send(());
             }
             self.is_awaiting_tuning_updated = false;
         }
@@ -409,15 +406,19 @@ impl Controller {
         let (stopper_sender, stopper_receiver) = mpsc::channel();
         self.await_tuning_updated_stopper_sender = Some(stopper_sender);
         self.is_awaiting_tuning_updated = true;
+        // The watchdog runs on a background thread, so it cannot borrow `self`. Hand it an owned
+        // `Arc` clone of the view (the only thing it needs on timeout) rather than reaching for
+        // the global `CONTROLLER` singleton.
+        let ui_methods = Arc::clone(&self.ui_methods);
         rayon::spawn(move || {
-            Self::await_tuning_updated(stopper_receiver);
+            Self::await_tuning_updated(stopper_receiver, ui_methods);
         });
     }
 
     /// Shows an error message if tuning update is not confirmed within 2 seconds.
     /// The probable cause of the error is that MIDI output does not connect to one the editor's
     /// Ext All Data MIDI inputs.
-    fn await_tuning_updated(stopper_receiver: mpsc::Receiver<()>) {
+    fn await_tuning_updated(stopper_receiver: mpsc::Receiver<()>, ui_methods: Arc<dyn IUiMethods>) {
         // There's one scenario where this check is known not to behave as expected.
         // Editor MIDI:
         //     Input  LB1 (A)
@@ -462,16 +463,20 @@ impl Controller {
         // the second as confirmation.
         // That should make the problem go away. I've tested it with a preset that still sends
         // the confirmation message even with the firmware bug.
+        // To test that INSTRUMENT_TUNING_UPDATE_NOT_CONFIRMED is shown on timeout,
+        // uncomment the following line and comment out the next one.
+        // if let Ok(_) = stopper_receiver.recv_timeout(Duration::from_millis(50)) {
         if let Ok(_) = stopper_receiver.recv_timeout(Duration::from_secs(2)) {
             // Sleep was interrupted: tuning has been updated.
             println!("Controller.await_tuning_updated: Tuning updated");
             return;
         }
         println!("Controller.await_tuning_updated: Tuning update not confirmed");
-        let shared_controller = Self::clone_controller();
-        let mut controller = shared_controller.lock().unwrap();
-        controller.show_error(INSTRUMENT_TUNING_UPDATE_NOT_CONFIRMED);
-        controller.is_awaiting_tuning_updated = false;
+        // Report straight to the view via the captured handle. We deliberately do NOT clear
+        // `is_awaiting_tuning_updated` from here (we no longer hold the controller): it is cleared
+        // by `on_tuning_updated`, whose stop-signal send now tolerates this thread having already
+        // exited and dropped the receiver.
+        ui_methods.show_message(INSTRUMENT_TUNING_UPDATE_NOT_CONFIRMED, MessageType::Error);
     }
 
     fn show_connected_device_name(

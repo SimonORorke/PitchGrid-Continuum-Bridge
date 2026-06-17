@@ -1,4 +1,4 @@
-// Prevent console window in addition to Slint window in Windows release builds when, e.g., starting the app via file manager. Ignored on other platforms.
+// Prevent console window in addition to Slint window in Windows release builds when, e.g. starting the app via file manager. Ignored on other platforms.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::cell::RefCell;
@@ -25,7 +25,7 @@ fn main() {
     main_window.set_window_title(APP_TITLE.into());
     let ui_methods = UiMethods::new(main_window.as_weak());
     let controller: SharedController = Arc::new(Mutex::new(Controller::new(
-        Box::new(ui_methods)
+        Arc::new(ui_methods)
     )));
     Controller::set_controller(controller.clone());
     init_ui_handlers(&main_window, controller.clone());
@@ -33,7 +33,7 @@ fn main() {
     set_osc_listening_ports_model(&main_window);
     set_pitch_tables_model(&main_window);
 
-    // Initialize controller on a background thread so that UI callbacks within
+    // Initialise controller on a background thread so that UI callbacks within
     // init() can use invoke_from_event_loop without deadlocking.
     let controller_clone = controller.clone();
     rayon::spawn(move || {
