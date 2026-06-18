@@ -1,5 +1,6 @@
 ﻿use std::error::Error;
 use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::time::Duration;
 use crate::global::{MessageType};
@@ -24,6 +25,10 @@ pub struct Controller {
     await_tuning_updated_stopper_sender: Option<mpsc::Sender<()>>,
     ui_methods: Arc<dyn IUiMethods>,
     is_awaiting_tuning_updated: bool,
+    /// True while the in-flight tuning send was triggered by a new instrument preset being
+    /// selected (rather than a fresh tuning), so on_tuning_updated can show a tailored
+    /// confirmation. An AtomicBool because it is set from the `&self` callback methods.
+    is_preset_reselect: AtomicBool,
     osc: Box<dyn IOsc>,
     settings: Box<dyn ISettings>,
     tuner: SharedTuner,
@@ -35,6 +40,7 @@ impl Controller {
             await_tuning_updated_stopper_sender: None,
             ui_methods: callbacks,
             is_awaiting_tuning_updated: false,
+            is_preset_reselect: AtomicBool::new(false),
             osc: Box::new(Osc::new()),
             settings: Box::new(Settings::new()),
             tuner: Arc::new(Tuner::new()),
@@ -344,12 +350,20 @@ impl Controller {
 
     fn on_new_preset_selected(&self) {
         println!("Controller.on_new_preset_selected");
-        if self.tuner.send_current_preset_update() {
-            println!("Controller.on_new_preset_selected: Updated");
-            self.ui_methods.show_pitchgrid_status(
-                NEW_PRESET_SELECTED,
-                MessageType::Info);
+        // Nothing to resend until a tuning has been generated and sent at least once;
+        // in that case `send_current_preset_update` is a no-op.
+        if !self.tuner.has_data() {
+            return;
         }
+        // No progress message is shown here, deliberately. Unlike a fresh tuning
+        // (on_tuning_received), this resend uses send_tuning_update(false): it does NOT upload the
+        // 128-key table, so it completes almost instantly. A progress message would be overwritten
+        // by the confirmation before the UI could paint it, so it would never be seen. Instead we
+        // flag the resend so that its confirmation (on_tuning_updated) shows PRESET_TUNING_LOADED
+        // rather than the generic INSTRUMENT_TUNING_UPDATED.
+        self.is_preset_reselect.store(true, Ordering::Relaxed);
+        self.tuner.send_current_preset_update();
+        println!("Controller.on_new_preset_selected: Updated");
     }
 
     /// Started receiving data from the instrument.
@@ -397,8 +411,15 @@ impl Controller {
             // while PitchGrid is not connected.
             return;
         }
-        println!("Controller.on_tuning_updated: Showing Instrument tuning updated");
-        self.ui_methods.show_pitchgrid_status(INSTRUMENT_TUNING_UPDATED, MessageType::Info);
+        // A resend triggered by a new preset selection gets its own confirmation; a fresh tuning
+        // gets the generic one. swap() reads and clears the flag in one step.
+        let status = if self.is_preset_reselect.swap(false, Ordering::Relaxed) {
+            PRESET_TUNING_LOADED
+        } else {
+            INSTRUMENT_TUNING_UPDATED
+        };
+        println!("Controller.on_tuning_updated: Showing {}", status);
+        self.ui_methods.show_pitchgrid_status(status, MessageType::Info);
     }
 
     fn on_updating_tuning(&mut self) {
@@ -642,6 +663,9 @@ impl OscCallbacks for Controller {
 
     fn on_tuning_received(&self, tuning_params: TuningParams) {
         // println!("Controller.on_tuning_received");
+        // A fresh tuning is not a preset reselect. Clear any flag left set by a preset reselect
+        // whose confirmation never arrived, so this tuning's confirmation isn't mislabelled.
+        self.is_preset_reselect.store(false, Ordering::Relaxed);
         // println!(
         //     "Controller.on_tuning_received: depth = {}; mode = {}; root_freq = {}; stretch = {}; \
         //     skew = {}; mode_offset = {}; steps = {}",
@@ -670,13 +694,13 @@ pub const INSTRUMENT_NOT_CONNECTED: &str = "The instrument is not connected. Wai
 pub const INSTRUMENT_TUNING_UPDATE_NOT_CONFIRMED: &str = "Instrument tuning update has not been \
     confirmed. Ensure that MIDI output is connected to the editor.";
 pub const INSTRUMENT_TUNING_UPDATED: &str = "Instrument tuning updated";
-pub const NEW_PRESET_SELECTED: &str = "New instrument preset selected. Resent tuning...";
 pub const OPENING_PITCHGRID_CONNECTION: &str = "Opening PitchGrid connection...";
 pub const PITCHGRID_AND_INSTRUMENT_CONNECTED: &str = "PitchGrid and instrument are connected";
 pub const PITCHGRID_CONNECTION_CLOSED: &str = "PitchGrid connection closed while instrument disconnected";
 pub const PITCHGRID_NOT_CONNECTED: &str = "PitchGrid is not connected. OSC must be enabled in PitchGrid.";
 pub const PITCHGRID_OSC_CONNECTED: &str = "PitchGrid OSC is connected";
-pub const UPDATING_INSTRUMENT_TUNING: &str = "Updating instrument tuning";
+pub const PRESET_TUNING_LOADED: &str = "Tuning loaded to new instrument preset";
+pub const UPDATING_INSTRUMENT_TUNING: &str = "Updating instrument tuning...";
 pub const UPDATING_ROOT_FREQ_OVERRIDE: &str = "Updating root frequency override...";
 pub const WAITING_FOR_DATA_DOWNLOAD: &str =
     "Waiting (maximum 6 seconds) for possible initial data download from instrument...";

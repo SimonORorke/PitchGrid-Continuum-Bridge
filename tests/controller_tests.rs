@@ -16,7 +16,7 @@ use std::sync::{Arc, LazyLock, Mutex, MutexGuard};
 use googletest::assert_that;
 use googletest::matchers::{
     displays_as, eq, err, len, ok, not, some, starts_with};
-use pitchgrid_continuum::controller::{Controller, AWAITING_DATA_DOWNLOAD_COMPLETION, AWAITING_PITCHGRID_CONNECTION, CANNOT_UPDATE_TUNING_LOST, CHECKING_INSTRUMENT_CONNECTION, DEVICE_NONE, DISCONNECTED_FROM_PITCHGRID, INSTRUMENT_DISCONNECTED, INSTRUMENT_NOT_CONNECTED, INSTRUMENT_TUNING_UPDATED, NEW_PRESET_SELECTED, OPENING_PITCHGRID_CONNECTION, PITCHGRID_CONNECTION_CLOSED, PITCHGRID_NOT_CONNECTED, UPDATING_INSTRUMENT_TUNING, UPDATING_ROOT_FREQ_OVERRIDE, WAITING_FOR_DATA_DOWNLOAD};
+use pitchgrid_continuum::controller::{Controller, AWAITING_DATA_DOWNLOAD_COMPLETION, AWAITING_PITCHGRID_CONNECTION, CANNOT_UPDATE_TUNING_LOST, CHECKING_INSTRUMENT_CONNECTION, DEVICE_NONE, DISCONNECTED_FROM_PITCHGRID, INSTRUMENT_DISCONNECTED, INSTRUMENT_NOT_CONNECTED, INSTRUMENT_TUNING_UPDATED, OPENING_PITCHGRID_CONNECTION, PITCHGRID_CONNECTION_CLOSED, PITCHGRID_NOT_CONNECTED, PRESET_TUNING_LOADED, UPDATING_INSTRUMENT_TUNING, UPDATING_ROOT_FREQ_OVERRIDE, WAITING_FOR_DATA_DOWNLOAD};
 use pitchgrid_continuum::global::{MessageType, DeviceType};
 use pitchgrid_continuum::i_settings::ISettings;
 use pitchgrid_continuum::midi::Midi;
@@ -401,8 +401,11 @@ fn on_new_preset_selected() {
     MockMidi::simulate_updating_tuning();
     MockMidi::simulate_tuning_updated();
     MockMidi::simulate_new_preset_selected();
+    // The instrument's confirmation echo for the resend. With the preset-reselect flag set,
+    // on_tuning_updated shows the preset-specific confirmation rather than the generic one.
+    MockMidi::simulate_tuning_updated();
     assert_that!(tuner().has_data(), eq(true));
-    assert_that!(mock_ui_methods().show_pitchgrid_status_msg, some(eq(NEW_PRESET_SELECTED)));
+    assert_that!(mock_ui_methods().show_pitchgrid_status_msg, some(eq(PRESET_TUNING_LOADED)));
     assert_that!(mock_ui_methods().show_pitchgrid_status_msg_type, some(eq(MessageType::Info)));
 }
 
