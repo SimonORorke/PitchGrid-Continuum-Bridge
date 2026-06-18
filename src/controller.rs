@@ -1,5 +1,5 @@
 ﻿use std::error::Error;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, Weak};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::time::Duration;
@@ -32,6 +32,9 @@ pub struct Controller {
     osc: Box<dyn IOsc>,
     settings: Box<dyn ISettings>,
     tuner: SharedTuner,
+    /// Weak self-reference used to hand an `Arc<Mutex<Controller>>` to the MIDI/OSC layers as
+    /// their callback target. Weak, not Arc, to avoid a reference cycle. Set by `init`.
+    controller_weak: Weak<Mutex<Controller>>,
 }
 
 impl Controller {
@@ -44,11 +47,15 @@ impl Controller {
             osc: Box::new(Osc::new()),
             settings: Box::new(Settings::new()),
             tuner: Arc::new(Tuner::new()),
+            controller_weak: Weak::new(),
         }
     }
 
-    pub fn init(&mut self) {
+    pub fn init(&mut self, self_arc: &SharedController) {
         // println!("Controller.init");
+        // Record a weak self-reference so the MIDI/OSC layers can be given an
+        // `Arc<Mutex<Controller>>` callback target without a global singleton.
+        self.controller_weak = Arc::downgrade(self_arc);
         let main_window_x: i32;
         let main_window_y: i32;
         let osc_listening_port: u16;
@@ -91,7 +98,7 @@ impl Controller {
         // println!("Controller.init: Getting midi");
         self.ui_methods.set_main_window_position(main_window_x, main_window_y);
         let mut midi = Midi::midi();
-        midi.init(&input_device_name, &output_device_name, Self::clone_controller());
+        midi.init(&input_device_name, &output_device_name, self.clone_controller());
         drop(midi); // Release MIDI lock before calling device_names which needs to acquire it
         let input_strategy = InputStrategy::new();
         let output_strategy = OutputStrategy::new();
@@ -261,14 +268,11 @@ impl Controller {
         self.tuner = tuner;
     }
 
-    /// Sets a thread-safe singleton Controller instance.
-    pub fn set_controller(controller: SharedController) {
-        *CONTROLLER.lock().unwrap() = Some(controller);
-    }
-
-    /// Returns a clone of the thread-safe singleton Controller instance.
-    fn clone_controller() -> SharedController {
-        Arc::clone(CONTROLLER.lock().unwrap().as_ref().unwrap())
+    /// Returns an `Arc` to this Controller for use as a MIDI/OSC callback target.
+    /// Relies on `init` having recorded the weak self-reference.
+    fn clone_controller(&self) -> SharedController {
+        self.controller_weak.upgrade()
+            .expect("controller_weak not set; init() must run before clone_controller()")
     }
 
     /// Sets the root frequency override and sends it to the instrument,
@@ -558,7 +562,8 @@ impl Controller {
     }
 
     fn start_osc(&mut self) {
-        self.osc.start(Self::clone_controller());
+        let callbacks = self.clone_controller();
+        self.osc.start(callbacks);
     }
 
     fn stop_osc_and_instrument_connection_monitor(&mut self) {
@@ -706,5 +711,3 @@ pub const WAITING_FOR_DATA_DOWNLOAD: &str =
     "Waiting (maximum 6 seconds) for possible initial data download from instrument...";
 
 type SharedController = Arc<Mutex<Controller>>;
-
-static CONTROLLER: Mutex<Option<SharedController>> = Mutex::new(None);

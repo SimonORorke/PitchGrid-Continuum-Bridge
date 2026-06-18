@@ -27,7 +27,6 @@ fn main() {
     let controller: SharedController = Arc::new(Mutex::new(Controller::new(
         Arc::new(ui_methods)
     )));
-    Controller::set_controller(controller.clone());
     init_ui_handlers(&main_window, controller.clone());
     set_root_notes_model(&main_window);
     set_osc_listening_ports_model(&main_window);
@@ -37,7 +36,8 @@ fn main() {
     // init() can use invoke_from_event_loop without deadlocking.
     let controller_clone = controller.clone();
     rayon::spawn(move || {
-        controller_clone.lock().unwrap().init();
+        let self_arc = controller_clone.clone();
+        controller_clone.lock().unwrap().init(&self_arc);
     });
 
     main_window.run().unwrap();
