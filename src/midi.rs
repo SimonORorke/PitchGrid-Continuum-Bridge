@@ -1,5 +1,5 @@
 mod midi_refs;
-use crate::i_midi::{IMidi, MidiCallbacks, SharedMidi};
+use crate::i_midi::{IMidi, MidiCallbacks};
 use midi_refs::{DownloadStatus, TuningStatus};
 use midi_refs::{
     download_status,
@@ -13,7 +13,7 @@ use midir::{
 };
 use midly::{MidiMessage, live::LiveEvent};
 use std::error::Error;
-use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
+use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
@@ -42,25 +42,6 @@ impl Midi {
             is_connection_monitor_running: false,
             output: Io::<MidiOutputPort>::new(Box::new(Self::create_midi_output())),
         }
-    }
-
-    /// Locks and returns the singleton Midi instance.
-    pub fn midi() -> MutexGuard<'static, Box<dyn IMidi + Send>> {
-        Self::shared().lock().unwrap()
-    }
-
-    /// Returns a clone of the thread-safe singleton Midi instance.
-    pub fn midi_clone() -> SharedMidi {
-        Arc::clone(Self::shared())
-    }
-
-    /// Replaces the default Midi instance for testing.
-    pub fn set_midi(midi: Box<dyn IMidi + Send>) {
-        *Self::midi() = midi;
-    }
-
-    fn shared() -> &'static SharedMidi {
-        MIDI.get_or_init(|| Arc::new(Mutex::new(Box::new(Midi::new()) as Box<dyn IMidi + Send>)))
     }
 
     /// Send a MIDI control change message.
@@ -678,4 +659,3 @@ const OUTPUT_CLIENT_NAME: &str = "My MIDI Output";
 static IS_DOWNLOADING_INIT_DATA: AtomicBool = AtomicBool::new(false);
 static IS_MONITORING_DOWNLOAD: AtomicBool = AtomicBool::new(false);
 static IS_RECEIVING_DATA: AtomicBool = AtomicBool::new(false);
-static MIDI: OnceLock<SharedMidi> = OnceLock::new();

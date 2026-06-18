@@ -19,7 +19,6 @@ use googletest::matchers::{
 use pitchgrid_continuum::controller::{Controller, AWAITING_DATA_DOWNLOAD_COMPLETION, AWAITING_PITCHGRID_CONNECTION, CANNOT_UPDATE_TUNING_LOST, CHECKING_INSTRUMENT_CONNECTION, DEVICE_NONE, DISCONNECTED_FROM_PITCHGRID, INSTRUMENT_DISCONNECTED, INSTRUMENT_NOT_CONNECTED, INSTRUMENT_TUNING_UPDATED, OPENING_PITCHGRID_CONNECTION, PITCHGRID_CONNECTION_CLOSED, PITCHGRID_NOT_CONNECTED, PRESET_TUNING_LOADED, UPDATING_INSTRUMENT_TUNING, UPDATING_ROOT_FREQ_OVERRIDE, WAITING_FOR_DATA_DOWNLOAD};
 use pitchgrid_continuum::global::{MessageType, DeviceType};
 use pitchgrid_continuum::i_settings::ISettings;
-use pitchgrid_continuum::midi::Midi;
 use pitchgrid_continuum::osc::Osc;
 use pitchgrid_continuum::device_strategy::{InputStrategy, OutputStrategy};
 use pitchgrid_continuum::i_tuner::ITuner;
@@ -529,21 +528,22 @@ fn create_controller(mut settings: MockSettings, default_midi_devices: bool)
         settings.set_midi_input_device(&INPUT_DEVICE_NAMES[0]);
         settings.set_midi_output_device(&OUTPUT_DEVICE_NAMES[0]);
     }
-    Midi::set_midi(MockMidi::new(
+    let mock_midi = MockMidi::new(
         INPUT_DEVICE_NAMES.clone(), OUTPUT_DEVICE_NAMES.clone(),
-        settings.midi_input_device(), settings.midi_output_device()));
+        settings.midi_input_device(), settings.midi_output_device());
     let new_tuner = Arc::new(Tuner::new());
     new_tuner.init(Tuner::default_pitch_table());
     new_tuner.set_midi_sender(MockMidiSender::new());
     *TUNER.lock().unwrap_or_else(|e| e.into_inner()) = new_tuner.clone();
     // A single shared controller serves as both the test subject and its own MIDI/OSC callback
     // target: init() (called by the test, passing &controller) records a weak self-reference, so
-    // there is no CONTROLLER singleton to set up. Tests lock the returned Arc to drive it;
-    // simulate_* callbacks lock it too, which is deadlock-free because they release the mock lock
-    // before invoking the callback.
+    // there is no CONTROLLER singleton to set up. The mock MIDI/OSC/Tuner are injected directly.
+    // Tests lock the returned Arc to drive it; simulate_* callbacks lock it too, which is
+    // deadlock-free because they release the mock lock before invoking the callback.
     let controller = Arc::new(Mutex::new(Controller::new(Arc::new(MockUiMethods::new()))));
     {
         let mut guard = controller.lock().unwrap();
+        guard.set_midi(mock_midi);
         guard.set_osc(Box::new(MockOsc::new()));
         guard.set_settings(Box::new(settings));
         guard.set_tuner(new_tuner as Arc<dyn ITuner>);
