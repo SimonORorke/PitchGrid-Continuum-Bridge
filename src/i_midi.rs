@@ -59,3 +59,8 @@ pub trait IMidi {
 }
 
 pub type SharedMidi = Arc<Mutex<Box<dyn IMidi + Send>>>;
+
+/// The instrument's MIDI output connection, shared between the `Midi` manager (which connects and
+/// disconnects it) and the `MidiSender` (which writes to it). Replaces the former
+/// `OUTPUT_CONNECTION` global.
+pub type SharedOutput = Arc<Mutex<Option<midir::MidiOutputConnection>>>;

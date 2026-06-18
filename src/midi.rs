@@ -1,11 +1,11 @@
 mod midi_refs;
-use crate::i_midi::{IMidi, MidiCallbacks};
+use crate::i_midi::{IMidi, MidiCallbacks, SharedOutput};
 use midi_refs::{DownloadStatus, TuningStatus};
 use midi_refs::{
     download_status,
     download_wait_start_time,
     callbacks,
-    last_message_received_time, output_connection,
+    last_message_received_time,
     set_callbacks,
     tuning_status};
 use midir::{
@@ -30,60 +30,22 @@ pub struct Midi {
     input_connection: Option<MidiInputConnection<()>>,
     is_connection_monitor_running: bool,
     output: Io<MidiOutputPort>,
+    /// The output connection, shared with the `MidiSender` that writes to it. `Midi` connects and
+    /// disconnects it; the sender reads it. Replaces the former `OUTPUT_CONNECTION` global.
+    output_connection: SharedOutput,
 }
 
 /// For public self methods, see `impl IMidi for Midi`.
 impl Midi {
-    pub fn new() -> Self {
+    pub fn new(output_connection: SharedOutput) -> Self {
         Self {
             connection_monitor_stopper_sender: None,
             input: Io::<MidiInputPort>::new(Box::new(Self::create_midi_input())),
             input_connection: None,
             is_connection_monitor_running: false,
             output: Io::<MidiOutputPort>::new(Box::new(Self::create_midi_output())),
+            output_connection,
         }
-    }
-
-    /// Send a MIDI control change message.
-    /// Parameter `channel` is 1-based.
-    pub fn send_control_change(channel: u8, cc_no: u8, value: u8) {
-        Self::send_channel_message(
-            channel,
-            MidiMessage::Controller {
-                controller: cc_no.into(),
-                value: value.into(),
-            },
-        );
-    }
-
-    pub fn send_matrix_poke(poke_id: u8, poke_value: u8) {
-        Self::send_control_change(16, 56, 20); // Matrix Poke command
-        Self::send_note_aftertouch(16, poke_id, poke_value); // Perform the Poke
-    }
-
-    /// Send a MIDI note aftertouch (pressure) message.
-    /// Parameter `channel` is 1-based.
-    fn send_note_aftertouch(channel: u8, key: u8, pressure: u8) {
-        Self::send_channel_message(
-            channel,
-            MidiMessage::Aftertouch {
-                key: key.into(),
-                vel: pressure.into(),
-            },
-        );
-    }
-
-    /// Send a MIDI program change message.
-    /// Parameter `channel` is 1-based.
-    /// Parameter `program` is 0-based.
-    #[allow(dead_code)]
-    pub fn send_program_change(channel: u8, program: u8) {
-        Self::send_channel_message(
-            channel,
-            MidiMessage::ProgramChange {
-                program: program.into(),
-            },
-        );
     }
 
     pub fn on_updating_tuning() {
@@ -154,7 +116,7 @@ impl Midi {
             let midi_output = Self::create_midi_output();
             match midi_output.connect(midi_port, &device_name) {
                 Ok(connection) => {
-                    *output_connection().lock()? = Option::from(connection);
+                    *self.output_connection.lock().unwrap_or_else(|e| e.into_inner()) = Option::from(connection);
                     output.set_port(port.clone());
                 }
                 Err(_) =>
@@ -201,7 +163,7 @@ impl Midi {
 
     fn disconnect_output_device(&mut self) {
         // println!("Midi.disconnect_output_device start");
-        let connection_opt = output_connection().lock().unwrap().take();
+        let connection_opt = self.output_connection.lock().unwrap().take();
         if let Some(connection) = connection_opt {
             connection.close();
             let output = &mut self.output;
@@ -494,31 +456,6 @@ impl Midi {
         self.output.populate_devices(output_device_name);
     }
 
-    /// Send a MIDI channel message.
-    /// Parameter `channel` is 1-based.
-    fn send_channel_message(channel: u8, message: MidiMessage) {
-        let live_event = LiveEvent::Midi {
-            channel: (channel - 1).into(), // 0-based channel number.
-            message,
-        };
-        let mut buf = Vec::new();
-        live_event.write(&mut buf).unwrap();
-        Self::send_message(&buf[..]);
-    }
-
-    fn send_message(message: &[u8]) {
-        // println!("Midi.send_message: message={:?}", message);
-        let mut connection_option =
-            output_connection().lock().unwrap();
-        // println!("Midi.send_message: Got connection");
-        if let Some(connection) = connection_option.as_mut() {
-            connection.send(message).unwrap_or_else(|_| {
-                println!("Error when sending MIDI message: {:?}", message);
-                // Panic for stack trace diagnostics.
-                // panic!("Error when sending MIDI message: {:?}", message);
-            });
-        }
-    }
 }
 
 impl IMidi for Midi {
@@ -587,7 +524,7 @@ impl IMidi for Midi {
     }
 
     fn is_output_device_connected(&self) -> bool {
-        output_connection().lock().unwrap().is_some()
+        self.output_connection.lock().unwrap().is_some()
     }
 
     /// We should receive data from the instrument at least once per second, as it sends heartbeat

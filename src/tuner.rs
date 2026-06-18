@@ -2,7 +2,7 @@ use std::sync::atomic::{AtomicBool, AtomicU8, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use crate::i_tuner::ITuner;
 use crate::midi::Midi;
-use crate::midi_sender::{IMidiSender, MidiSender};
+use crate::midi_sender::{IMidiSender, NullMidiSender};
 use crate::tuning_params::{FormattedTuningParams, TuningParams};
 
 /// A facility for tuning a Continuum from PitchGrid parameters.
@@ -41,7 +41,7 @@ impl Tuner {
             rounding_rate: AtomicU8::new(127),
             root_freq_override_note_no: AtomicUsize::new(0),
             keys: Mutex::new(vec![]),
-            midi_sender: Mutex::new(Box::new(MidiSender::new())),
+            midi_sender: Mutex::new(Box::new(NullMidiSender)),
             params: Arc::new(Mutex::new(TuningParams::default())),
         }
     }
@@ -312,7 +312,7 @@ impl ITuner for Tuner {
         }
     }
 
-    /// Replaces the MIDI sender for testing.
+    /// Sets the MIDI sender: the real one (wired by `Controller::new`) in production, a mock in tests.
     fn set_midi_sender(&self, sender: Box<dyn IMidiSender>) {
         *self.midi_sender.lock().unwrap() = sender;
     }

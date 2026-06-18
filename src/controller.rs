@@ -4,7 +4,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::time::Duration;
 use crate::global::{MessageType};
-use crate::i_midi::{IMidi, MidiCallbacks, SharedMidi};
+use crate::i_midi::{IMidi, MidiCallbacks, SharedMidi, SharedOutput};
 use crate::i_osc::{IOsc, OscCallbacks};
 use crate::osc::Osc;
 use crate::i_settings::ISettings;
@@ -12,6 +12,7 @@ use crate::device_strategy::{
     InputStrategy, OutputStrategy, DeviceStrategy};
 use crate::settings::Settings;
 use crate::midi::Midi;
+use crate::midi_sender::MidiSender;
 use crate::i_ui_methods::IUiMethods;
 use crate::i_tuner::SharedTuner;
 use crate::tuner::Tuner;
@@ -42,6 +43,12 @@ pub struct Controller {
 
 impl Controller {
     pub fn new(callbacks: Arc<dyn IUiMethods>) -> Self {
+        // The output MIDI connection is shared between the Midi manager (which connects and
+        // disconnects it) and the MidiSender (which writes to it). Create it here and inject it
+        // into both, replacing the former OUTPUT_CONNECTION global.
+        let output: SharedOutput = Arc::new(Mutex::new(None));
+        let tuner: SharedTuner = Arc::new(Tuner::new());
+        tuner.set_midi_sender(Box::new(MidiSender::new(output.clone())));
         Self {
             await_tuning_updated_stopper_sender: None,
             ui_methods: callbacks,
@@ -49,8 +56,8 @@ impl Controller {
             is_preset_reselect: AtomicBool::new(false),
             osc: Box::new(Osc::new()),
             settings: Box::new(Settings::new()),
-            tuner: Arc::new(Tuner::new()),
-            midi: Arc::new(Mutex::new(Box::new(Midi::new()) as Box<dyn IMidi + Send>)),
+            tuner,
+            midi: Arc::new(Mutex::new(Box::new(Midi::new(output)) as Box<dyn IMidi + Send>)),
             controller_weak: Weak::new(),
         }
     }
