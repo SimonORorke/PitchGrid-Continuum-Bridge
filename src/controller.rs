@@ -4,14 +4,16 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::time::Duration;
 use crate::global::{MessageType};
-use crate::i_midi_manager::{IMidiManager, MidiCallbacks, SharedMidiManager, SharedOutput};
+use crate::i_midi_manager::{IMidiManager, SharedMidiManager, SharedOutput};
 use crate::i_osc::{IOsc, OscCallbacks};
 use crate::osc::Osc;
 use crate::i_settings::ISettings;
 use crate::device_strategy::{
     InputStrategy, OutputStrategy, DeviceStrategy};
 use crate::settings::Settings;
-use crate::midi_manager::{MidiManager, MidiState};
+use crate::midi_manager::MidiManager;
+use crate::continuum_protocol::ContinuumProtocol;
+use crate::i_continuum_protocol::{ContinuumProtocolListener, IContinuumProtocol};
 use crate::midi_sender::MidiSender;
 use crate::i_ui_methods::IUiMethods;
 use crate::i_tuner::SharedTuner;
@@ -36,8 +38,13 @@ pub struct Controller {
     /// The MIDI manager, injected (like osc/settings/tuner) rather than reached through a global
     /// singleton. Shared because callback methods clone the `Arc` to pass it around.
     midi_manager: SharedMidiManager,
-    /// Weak self-reference used to hand an `Arc<Mutex<Controller>>` to the MIDI/OSC layers as
-    /// their callback target. Weak, not Arc, to avoid a reference cycle. Set by `init`.
+    /// The Continuum-protocol interpreter, injected. The Controller queries it for download state;
+    /// the same instance is the MidiManager's `MidiInputListener` and the Tuner's
+    /// `TuningUpdateSignaller` (all wired in `new`).
+    continuum_protocol: Arc<dyn IContinuumProtocol>,
+    /// Weak self-reference used to hand an `Arc<Mutex<Controller>>` to the OSC layer and the
+    /// protocol listener as their callback target. Weak, not Arc, to avoid a reference cycle. Set
+    /// by `init`.
     controller_weak: Weak<Mutex<Controller>>,
 }
 
@@ -47,14 +54,14 @@ impl Controller {
         // disconnects it) and the MidiSender (which writes to it). Create it here and inject it
         // into both, replacing the former OUTPUT_CONNECTION global.
         let output: SharedOutput = Arc::new(Mutex::new(None));
-        // The MIDI state (formerly the midi_refs statics) is likewise created here and injected into
-        // both the MidiManager (which reads/writes it from the input callback and monitor threads)
-        // and the Tuner (which signals tuning-update starts through it). One shared Arc keeps the
-        // Tuner's tuning_status writes visible to the MidiManager's confirmation logic.
-        let midi_state = Arc::new(MidiState::new());
+        // The ContinuumProtocol is created here and injected three ways: into the MidiManager (as
+        // its raw MidiInputListener), into the Tuner (as its TuningUpdateSignaller), and kept on the
+        // Controller (as its IContinuumProtocol). One shared Arc keeps the Tuner's tuning_status
+        // write visible to the protocol's confirmation logic. Replaces the former midi_refs globals.
+        let continuum_protocol = Arc::new(ContinuumProtocol::new());
         let tuner: SharedTuner = Arc::new(Tuner::new());
         tuner.set_midi_sender(Box::new(MidiSender::new(output.clone())));
-        tuner.set_tuning_signaller(midi_state.clone());
+        tuner.set_tuning_signaller(continuum_protocol.clone());
         Self {
             await_tuning_updated_stopper_sender: None,
             ui_methods: callbacks,
@@ -63,7 +70,8 @@ impl Controller {
             osc: Box::new(Osc::new()),
             settings: Box::new(Settings::new()),
             tuner,
-            midi_manager: Arc::new(Mutex::new(Box::new(MidiManager::new(output, midi_state)) as Box<dyn IMidiManager + Send>)),
+            midi_manager: Arc::new(Mutex::new(Box::new(MidiManager::new(output, continuum_protocol.clone())) as Box<dyn IMidiManager + Send>)),
+            continuum_protocol,
             controller_weak: Weak::new(),
         }
     }
@@ -73,6 +81,9 @@ impl Controller {
         // Record a weak self-reference so the MIDI/OSC layers can be given an
         // `Arc<Mutex<Controller>>` callback target without a global singleton.
         self.controller_weak = Arc::downgrade(self_arc);
+        // Register this Controller as the protocol's semantic listener (Weak, to avoid a cycle).
+        let listener: Arc<dyn ContinuumProtocolListener> = self_arc.clone();
+        self.continuum_protocol.set_listener(Arc::downgrade(&listener));
         let main_window_x: i32;
         let main_window_y: i32;
         let osc_listening_port: u16;
@@ -115,7 +126,7 @@ impl Controller {
         // println!("Controller.init: Getting midi");
         self.ui_methods.set_main_window_position(main_window_x, main_window_y);
         let mut midi = self.midi_manager.lock().unwrap();
-        midi.init(&input_device_name, &output_device_name, self.clone_controller());
+        midi.init(&input_device_name, &output_device_name);
         drop(midi); // Release MIDI lock before calling device_names which needs to acquire it
         let input_strategy = InputStrategy::new();
         let output_strategy = OutputStrategy::new();
@@ -289,6 +300,11 @@ impl Controller {
         self.midi_manager = Arc::new(Mutex::new(midi));
     }
 
+    /// Replaces the default ContinuumProtocol instance for testing.
+    pub fn set_continuum_protocol(&mut self, protocol: Arc<dyn IContinuumProtocol>) {
+        self.continuum_protocol = protocol;
+    }
+
     /// Returns an `Arc` to this Controller for use as a MIDI/OSC callback target.
     /// Relies on `init` having recorded the weak self-reference.
     fn clone_controller(&self) -> SharedController {
@@ -303,7 +319,7 @@ impl Controller {
     pub fn set_root_freq_override(&mut self, index: usize) {
         let send_tuning = self.midi_manager.lock().unwrap().is_receiving_data()
             && self.midi_manager.lock().unwrap().are_devices_connected()
-            && self.midi_manager.lock().unwrap().has_downloaded_init_data()
+            && self.continuum_protocol.has_downloaded_init_data()
             && self.osc.is_pitchgrid_connected();
         if send_tuning {
             self.ui_methods.show_pitchgrid_status(
@@ -621,7 +637,7 @@ impl Controller {
     }
 }
 
-impl MidiCallbacks for Mutex<Controller> {
+impl ContinuumProtocolListener for Mutex<Controller> {
     fn on_download_completed(&self) {
         self.lock().unwrap().on_data_download_completed();
     }

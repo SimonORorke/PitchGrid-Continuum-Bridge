@@ -1,8 +1,7 @@
-use crate::i_midi_manager::{IMidiManager, MidiCallbacks, SharedOutput, TuningUpdateSignaller};
+use crate::i_midi_manager::{IMidiManager, MidiInputListener, SharedOutput};
 use midir::{
     MidiInput, MidiInputConnection, MidiInputPort, MidiOutput, MidiOutputPort,
 };
-use midly::{MidiMessage, live::LiveEvent};
 use std::error::Error;
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -12,368 +11,60 @@ use std::thread::sleep;
 use crate::global::{DeviceType};
 use crate::midi_ports::{Io, IIo};
 use crate::device_strategy::DeviceStrategy;
-use crate::tuner::Tuner;
 
-#[derive(Clone, Copy, Debug, PartialEq)]
-enum DownloadStatus {
-    NotChecked,
-    Waiting,
-    BeginUserNames,
-    EndUserNames,
-    BeginSysNames,
-    EndSysNames,
-    Complete,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-enum TuningStatus {
-    None,
-    Tuning,
-    // RequestedPresetUpdate,
-}
-
-/// The shared MIDI state formerly held in the `midi_refs` statics. Each field keeps its own lock:
-/// that fine granularity is what stops the MIDI input callback from deadlocking against a single
-/// coarse lock. Held behind an `Arc` so the input callback and the spawned monitor / watchdog
-/// threads can each own a clone — a `'static + Send` closure cannot borrow `&self`.
-///
-/// 3c will split this into a generic `MidiInputState` (the reception fields) and a
-/// `ContinuumProtocol` (the download/tuning fields), so the comments mark which is which.
-pub struct MidiState {
-    callbacks: Mutex<Option<Arc<dyn MidiCallbacks>>>,
-    // Generic reception state.
+/// The generic MIDI reception state: whether data is arriving and when the last message arrived.
+/// Held behind an `Arc` so the input callback and the monitor / watchdog threads can each own a
+/// clone — a `'static + Send` closure cannot borrow `&self`. The Continuum-specific state now lives
+/// in `ContinuumProtocol`.
+struct MidiInputState {
     is_receiving_data: AtomicBool,
     last_message_received_time: Mutex<Option<Instant>>,
-    // Continuum-protocol interpretation state.
-    download_status: Mutex<DownloadStatus>,
-    download_wait_start_time: Mutex<Option<Instant>>,
-    is_monitoring_download: AtomicBool,
-    tuning_status: Mutex<TuningStatus>,
 }
 
-impl MidiState {
-    pub fn new() -> Self {
+impl MidiInputState {
+    fn new() -> Self {
         Self {
-            callbacks: Mutex::new(None),
             is_receiving_data: AtomicBool::new(false),
             last_message_received_time: Mutex::new(None),
-            download_status: Mutex::new(DownloadStatus::NotChecked),
-            download_wait_start_time: Mutex::new(None),
-            is_monitoring_download: AtomicBool::new(false),
-            tuning_status: Mutex::new(TuningStatus::None),
         }
     }
 
-    fn callbacks(&self) -> Option<Arc<dyn MidiCallbacks>> {
-        self.callbacks.lock().unwrap().clone()
-    }
-
-    fn set_callbacks(&self, callbacks: Arc<dyn MidiCallbacks>) {
-        *self.callbacks.lock().unwrap() = Some(callbacks);
-    }
-
-    fn log_message_received_time(&self) {
-        let now = Instant::now();
-        // println!("Midi.log_message_received_time: Start");
+    /// Records that a message has just arrived. Returns whether it is the first message since
+    /// monitoring started, so the caller can raise `on_receiving_data_started`.
+    fn record_message(&self) -> bool {
+        // println!("MidiManager.record_message");
         self.is_receiving_data.store(true, Ordering::Relaxed);
-        let mut last_time =
-            self.last_message_received_time.lock().unwrap();
-        let prev_message_received_time =
-            last_time.take();
-        *last_time = Some(now);
-        if prev_message_received_time.is_none() {
-            // This is the first message we have received since monitoring for messages started.
-            // We need to wait for the initial data download to the editor to complete, if
-            // it did not already happen before we started listening.
-            // However, we will be judging the download to be complete either when we receive
-            // the last download message or if there's been no data received for 0.2 seconds.
-            // And, on my Continuum at least, the initial data download to the editor starts
-            // 3 to 4 seconds after turning the instrument on. So, to be safe, we will wait 6
-            // seconds to give the download a chance to start, if it is going to,
-            // before we start monitoring for download completion.
-            *self.download_status.lock().unwrap() = DownloadStatus::Waiting;
-            // println!("Midi.log_message_received_time: Setting download wait start time");
-            *self.download_wait_start_time.lock().unwrap() = Some(now);
-            // println!("Midi.log_message_received_time: on_receiving_data_started");
-            if let Some(cb) = self.callbacks() {
-                rayon::spawn(move || cb.on_receiving_data_started());
-            }
-            return;
-        }
-        if self.is_monitoring_download.load(Ordering::Relaxed) {
-            let millis_since_prev =
-                now.duration_since(prev_message_received_time.unwrap()).as_millis();
-            if millis_since_prev >= 200 {
-                // The initial data download consists of many messages in quick succession.
-                // Or this could be some other burst of messages, such as the heartbeat cluster.
-                // Either way, as we have not received any more messages for 200 ms,
-                // the burst of messages must have stopped.
-                self.on_init_data_download_completed();
-            }
-            return;
-        }
-        // Check whether it is time to start monitoring the initial data download.
-        // If we have not started monitoring and the download has not completed in the meantime,
-        // the download status will either be Checking or, if the download has already started,
-        // something else other than Complete.
-        if *self.download_status.lock().unwrap() != DownloadStatus::Complete {
-            let wait_duration = now.duration_since(
-                *self.download_wait_start_time.lock().unwrap().as_ref().unwrap());
-            let wait_secs = wait_duration.as_secs();
-            if wait_secs < 6 {
-                // println!("Midi.log_message_received_time: Waited {} seconds so far to start download monitor", wait_secs);
-                return;
-            }
-            // println!("Midi.log_message_received_time: Six seconds is up");
-            // We have waited 6 seconds, and the download has either not started or is in progress.
-            // So, we can start monitoring the download.
-            // println!("Midi.log_message_received_time: Starting download monitor");
-            self.is_monitoring_download.store(true, Ordering::Relaxed);
-            return;
-        }
-    }
-
-    fn on_init_data_download_completed(&self) {
-        // println!("Midi.on_init_data_download_completed: Stopping download monitor");
-        self.is_monitoring_download.store(false, Ordering::Relaxed);
-        *self.download_status.lock().unwrap() = DownloadStatus::Complete;
-        if let Some(cb) = self.callbacks() {
-            rayon::spawn(move || cb.on_download_completed());
-        }
-    }
-
-    /// Monitor the connection status of the instrument.
-    /// When the instrument has nothing else to send, it will send a sequence of heartbeat messages
-    /// once a second and the editor will send back a sequence of heartbeat messages less than half
-    /// a second later. This application will receive both sets of heartbeat messages. To be safe,
-    /// if we have not had any data for 2 seconds, we assume
-    /// the editor or instrument has disconnected.
-    fn monitor_instrument_connection(&self, stopper_receiver: mpsc::Receiver<()>) {
-        let start_time = Instant::now();
-        let mut has_initially_not_connected_callback_been_called = false;
-        loop {
-            if self.is_receiving_data.load(Ordering::Relaxed) {
-                let now = Instant::now();
-                let last_time =
-                    *self.last_message_received_time.lock().unwrap();
-                if let Some(last_time) = last_time {
-                    let duration = now.duration_since(last_time);
-                    let seconds = duration.as_secs();
-                    if seconds > MIDI_WAIT_SECS {
-                        // println!("midi.monitor_instrument_connection: Instrument disconnected.");
-                        *self.last_message_received_time.lock().unwrap() = None;
-                        self.is_receiving_data.store(false, Ordering::Relaxed);
-                        if let Some(cb) = self.callbacks() {
-                            cb.on_receiving_data_stopped();
-                        }
-                    }
-                }
-            } else if !has_initially_not_connected_callback_been_called {
-                let now = Instant::now();
-                let duration = now.duration_since(start_time);
-                let seconds = duration.as_secs();
-                // Give a chance for the instrument heartbeat messages to arrive.
-                if seconds > MIDI_WAIT_SECS {
-                    // println!("midi.monitor_instrument_connection: Instrument not connected for 2 seconds on startup.");
-                    // Not connected for 2 seconds after application start.
-                    // So we can assume that the instrument is not yet connected.
-                    // Provide an opportunity for a helpful message to be displayed.
-                    if let Some(cb) = self.callbacks() {
-                        cb.on_receiving_data_stopped();
-                    }
-                    has_initially_not_connected_callback_been_called = true;
-                }
-            }
-            if let Ok(_) = stopper_receiver.recv_timeout(Duration::from_millis(500)) {
-                // Sleep was interrupted
-                return;
-            }
-            // Slept for 500ms, proceeding
-        }
-    }
-
-    fn on_message_received(&self, message: &[u8]) {
-        // println!("Midi.on_message_received: message={:?}", message);
-        self.log_message_received_time();
-        let event = LiveEvent::parse(message).unwrap();
-        match event {
-            LiveEvent::Midi { channel, message } => match message {
-                MidiMessage::Controller { controller, value } => {
-                    let channel1 = u8::from(channel) + 1; // 1-based channel number.
-                    if channel1 != 16 {
-                        return;
-                    }
-                    // Channel 16: the instrument's control channel for most parameters.
-                    // if controller != 82 && controller != 111 && controller != 114
-                    //     && controller != 118 {  // Heartbeats ignored
-                    //     println!("Midi.on_message_received: ch{} cc{} value {}",
-                    //              channel1, controller, value);
-                    // }
-                    if controller == 51 { // Grid
-                        let pitch_table = u8::from(value);
-                        // println!("midi.on_message_received: Pitch table {}", pitch_table);
-                        // A pitch table has been loaded to the instrument's current preset.
-                        // This message is received as part of instrument config,
-                        // and when a pitch table update sent to the instrument has been
-                        // completed and loaded.
-                        let status = *self.tuning_status.lock().unwrap();
-                        // Workaround for firmware 10.73 Beta not sending update confirmation
-                        // for some presets.
-                        if status == TuningStatus::Tuning {
-                            // Check that the value is the correct pitch table index
-                            // for the tuning this application sent to the instrument:
-                            // when a preset is loaded, there will be a Grid message
-                            // for the preset's initial tuning table, which will be zero.
-                            if pitch_table == Tuner::pitch_table() {
-                                println!("midi.on_message_received: Preset's pitch table \
-                                            update requested, pitch table no: {}", pitch_table);
-                                *self.tuning_status.lock().unwrap() = TuningStatus::None;
-                                if let Some(cb) = self.callbacks() {
-                                    rayon::spawn(move || cb.on_tuning_updated());
-                                }
-                            }
-                        }
-                        // When the firmware bug is fixed, remove the above workaround
-                        // and restore the tuning update confirmation check below.
-                        // This will fix the problem described in a comment in
-                        // Controller.await_tuning_updated.
-                        // match status {
-                        //     TuningStatus::None => {}
-                        //     TuningStatus::Tuning => {
-                        //         // Check that the value is the correct pitch table index
-                        //         // for the tuning this application sent to the instrument.
-                        //         // When there have been problems at the instrument end,
-                        //         // it has sent back a ch16 cc51 message, but with value 0.
-                        //         if pitch_table == Tuner::pitch_table() {
-                        //             // The editor sends us back what we send to the instrument,
-                        //             // as well as what the instrument sends back to us.
-                        //             // So we have just requested that the current preset be updated
-                        //             // with the new pitch table.
-                        //             println!("midi.on_message_received: Preset's pitch table \
-                        //                 update requested, pitch table no: {}", pitch_table);
-                        //             *tuning_status().lock().unwrap() =
-                        //                 TuningStatus::RequestedPresetUpdate;
-                        //         }
-                        //     }
-                        //     TuningStatus::RequestedPresetUpdate => {
-                        //         // The instrument has confirmed that the current preset has been
-                        //         // updated with the new pitch table.
-                        //         // As at firmware 10.73, there is a firmware bug where, for
-                        //         // specific presets, the instrument will send back a cc51 message
-                        //         // with value 0 instead of the pitch table no we requested.
-                        //         // Haken Audio Incident 2335
-                        //         // https://github.com/SimonORorke/PitchGrid-Continuum-Bridge/issues/5
-                        //         // So we can omit checking the pitch table no here.
-                        //         println!("midi.on_message_received: Preset's pitch table \
-                        //                 update confirmed, pitch table no: {}", pitch_table);
-                        //         *tuning_status().lock().unwrap() = TuningStatus::None;
-                        //         Self::call_back(tuning_updated_callbacks().clone());
-                        //     }
-                        // }
-                        return;
-                    }
-                    if controller == 109 {
-                        if value == 40 {
-                            // println!("midi.on_message_received: EndSysNames");
-                            *self.download_status.lock().unwrap() = DownloadStatus::EndSysNames;
-                            return;
-                        }
-                        if value == 49 {
-                            // println!("midi.on_message_received: BeginSysNames");
-                            *self.download_status.lock().unwrap() = DownloadStatus::BeginSysNames;
-                            if let Some(cb) = self.callbacks() {
-                                rayon::spawn(move || cb.on_download_started());
-                            }
-                            return;
-                        }
-                        if value == 54 {
-                            // println!("midi.on_message_received: BeginUserNames");
-                            *self.download_status.lock().unwrap() = DownloadStatus::BeginUserNames;
-                            // If system preset names have been downloaded,
-                            // which should only have happened on firmware upgrade,
-                            // `on_download_started` will have been called already.
-                            // However, doing it again will do no harm,
-                            // as it will only result in the same status message being redisplayed.
-                            if let Some(cb) = self.callbacks() {
-                                rayon::spawn(move || cb.on_download_started());
-                            }
-                            return;
-                        }
-                        if value == 55 {
-                            // println!("midi.on_message_received: EndUserNames");
-                            *self.download_status.lock().unwrap() = DownloadStatus::EndUserNames;
-                            return;
-                        }
-                    }
-                }
-                #[allow(unused_variables)]
-                MidiMessage::ProgramChange { program } => {
-                    let channel1 = u8::from(channel) + 1; // 1-based channel number.
-                    if channel1 == 16 {
-                        // When the editor requests a preset load, which can be seen in the
-                        // editor's console log but not here, the program number is zero-based.
-                        // When the instrument confirms that the preset has been loaded,
-                        // which we see here, the program number is one-based.
-                        // println!("midi.on_message_received: ProgramChange ch16 program {}", program);
-                        let download_status = *self.download_status.lock().unwrap();
-                        // I don't think this will work if system presets are downloaded.
-                        // But it's a rare occurrence; and the user will be able to work around it.
-                        if download_status == DownloadStatus::EndUserNames
-                            || download_status == DownloadStatus::EndSysNames {
-                            // println!("Midi.on_message_received: End of download");
-                            self.on_init_data_download_completed();
-                            return;
-                        }
-                        if download_status == DownloadStatus::Complete {
-                            // The user is selecting a preset. The editor sends the preset's
-                            // zero-based program number after the bank.
-                            // For unknown reason, this happens twice when a preset is loaded
-                            // from disc.
-                            // println!("midi.on_message_received: Program, preset selected");
-                            // *preset_select_status().lock().unwrap() = PresetSelectStatus::None;
-                            if let Some(cb) = self.callbacks() {
-                                rayon::spawn(move || cb.on_new_preset_selected());
-                            }
-                            return;
-                        }
-                    }
-                }
-                _ => {}
-            },
-            _ => {}
-        }
+        let mut last_time = self.last_message_received_time.lock().unwrap();
+        let is_first_message = last_time.is_none();
+        *last_time = Some(Instant::now());
+        is_first_message
     }
 }
 
-impl TuningUpdateSignaller for MidiState {
-    fn on_updating_tuning(&self) {
-        println!("MidiManager.on_updating_tuning");
-        *self.tuning_status.lock().unwrap() = TuningStatus::Tuning;
-        if let Some(cb) = self.callbacks() {
-            rayon::spawn(move || cb.on_updating_tuning());
-        }
-    }
-}
-
-/// A manager for MIDI devices and messages.
+/// A manager for MIDI devices and messages. It owns the device connections and the generic
+/// reception state, and raises raw messages and connection-lifecycle events to its
+/// `MidiInputListener` (the `ContinuumProtocol`). It knows nothing of the Continuum protocol itself.
 pub struct MidiManager {
     connection_monitor_stopper_sender: Option<mpsc::Sender<()>>,
     input: Io<MidiInputPort>,
     input_connection: Option<MidiInputConnection<()>>,
     is_connection_monitor_running: bool,
     output: Io<MidiOutputPort>,
-    /// The output connection, shared with the `MidiSender` that writes to it. `MidiManager` connects and
-    /// disconnects it; the sender reads it. Replaces the former `OUTPUT_CONNECTION` global.
+    /// The output connection, shared with the `MidiSender` that writes to it. `MidiManager` connects
+    /// and disconnects it; the sender reads it. Replaces the former `OUTPUT_CONNECTION` global.
     output_connection: SharedOutput,
-    /// The de-globalised MIDI state, shared with the input callback and the spawned monitor /
-    /// watchdog threads (and, via the `TuningUpdateSignaller`, with the `Tuner`). Injected by
-    /// `Controller::new`, replacing the former `midi_refs` statics.
-    state: Arc<MidiState>,
+    /// The generic reception state, shared with the input callback and the spawned monitor /
+    /// watchdog threads. Replaces the reception fields of the former `midi_refs` statics.
+    input_state: Arc<MidiInputState>,
+    /// The interpreter of inbound MIDI (the `ContinuumProtocol`), injected by `Controller::new`.
+    /// `MidiManager` raises raw events to it synchronously; it does any thread hand-off before
+    /// re-entering the `Controller`.
+    listener: Arc<dyn MidiInputListener>,
 }
 
 /// For public self methods, see `impl IMidiManager for MidiManager`.
 impl MidiManager {
-    pub fn new(output_connection: SharedOutput, state: Arc<MidiState>) -> Self {
+    pub fn new(output_connection: SharedOutput, listener: Arc<dyn MidiInputListener>) -> Self {
         Self {
             connection_monitor_stopper_sender: None,
             input: Io::<MidiInputPort>::new(Box::new(Self::create_midi_input())),
@@ -381,7 +72,8 @@ impl MidiManager {
             is_connection_monitor_running: false,
             output: Io::<MidiOutputPort>::new(Box::new(Self::create_midi_output())),
             output_connection,
-            state,
+            input_state: Arc::new(MidiInputState::new()),
+            listener,
         }
     }
 
@@ -392,9 +84,10 @@ impl MidiManager {
     ) -> Result<(), Box<dyn Error>> {
         // println!("Midi.connect_input_device: start");
         self.disconnect_input_device();
-        // The input callback runs on midir's own thread and must be `'static + Send`, so it owns a
-        // clone of the shared state rather than borrowing `&self`.
-        let input_state = Arc::clone(&self.state);
+        // The input callback runs on midir's own thread and must be `'static + Send`, so it owns
+        // clones of the shared reception state and the listener rather than borrowing `&self`.
+        let input_state = Arc::clone(&self.input_state);
+        let listener = Arc::clone(&self.listener);
         let input = &mut self.input;
         if let Some(port) = input.ports().get(index) {
             // println!("Midi.connect_input_device: found port");
@@ -404,7 +97,12 @@ impl MidiManager {
             match midi_input.connect(
                 midi_port,
                 &device_name,
-                move |_, message, _| input_state.on_message_received(message),
+                move |_, message, _| {
+                    if input_state.record_message() {
+                        listener.on_receiving_data_started();
+                    }
+                    listener.on_message(message);
+                },
                 (),
             ) {
                 Ok(connection) => {
@@ -423,14 +121,13 @@ impl MidiManager {
         // If we have not yet received any messages from the instrument after 2 seconds,
         // show a message to the user.
         // Is this redundant?
-        let watchdog_state = Arc::clone(&self.state);
+        let watchdog_state = Arc::clone(&self.input_state);
+        let watchdog_listener = Arc::clone(&self.listener);
         rayon::spawn(move || {
             sleep(Duration::from_secs(MIDI_WAIT_SECS));
             if !watchdog_state.is_receiving_data.load(Ordering::Relaxed) {
                 // println!("Midi.connect_input_device: Stopped receiving data");
-                if let Some(cb) = watchdog_state.callbacks() {
-                    cb.on_receiving_data_stopped();
-                }
+                watchdog_listener.on_receiving_data_stopped();
             }
         });
         Ok(())
@@ -504,6 +201,56 @@ impl MidiManager {
         }
     }
 
+    /// Monitor the connection status of the instrument.
+    /// When the instrument has nothing else to send, it will send a sequence of heartbeat messages
+    /// once a second and the editor will send back a sequence of heartbeat messages less than half
+    /// a second later. This application will receive both sets of heartbeat messages. To be safe,
+    /// if we have not had any data for 2 seconds, we assume
+    /// the editor or instrument has disconnected.
+    fn monitor_instrument_connection(
+        input_state: Arc<MidiInputState>,
+        listener: Arc<dyn MidiInputListener>,
+        stopper_receiver: mpsc::Receiver<()>,
+    ) {
+        let start_time = Instant::now();
+        let mut has_initially_not_connected_callback_been_called = false;
+        loop {
+            if input_state.is_receiving_data.load(Ordering::Relaxed) {
+                let now = Instant::now();
+                let last_time =
+                    *input_state.last_message_received_time.lock().unwrap();
+                if let Some(last_time) = last_time {
+                    let duration = now.duration_since(last_time);
+                    let seconds = duration.as_secs();
+                    if seconds > MIDI_WAIT_SECS {
+                        // println!("midi.monitor_instrument_connection: Instrument disconnected.");
+                        *input_state.last_message_received_time.lock().unwrap() = None;
+                        input_state.is_receiving_data.store(false, Ordering::Relaxed);
+                        listener.on_receiving_data_stopped();
+                    }
+                }
+            } else if !has_initially_not_connected_callback_been_called {
+                let now = Instant::now();
+                let duration = now.duration_since(start_time);
+                let seconds = duration.as_secs();
+                // Give a chance for the instrument heartbeat messages to arrive.
+                if seconds > MIDI_WAIT_SECS {
+                    // println!("midi.monitor_instrument_connection: Instrument not connected for 2 seconds on startup.");
+                    // Not connected for 2 seconds after application start.
+                    // So we can assume that the instrument is not yet connected.
+                    // Provide an opportunity for a helpful message to be displayed.
+                    listener.on_receiving_data_stopped();
+                    has_initially_not_connected_callback_been_called = true;
+                }
+            }
+            if let Ok(_) = stopper_receiver.recv_timeout(Duration::from_millis(500)) {
+                // Sleep was interrupted
+                return;
+            }
+            // Slept for 500ms, proceeding
+        }
+    }
+
     fn refresh_input_devices(&mut self, input_device_name: &str) {
         // println!("Midi.refresh_input_devices: start");
         self.disconnect_input_device();
@@ -550,11 +297,10 @@ impl IMidiManager for MidiManager {
         if !were_ports_connected {
             // The other port was already connected, so now they both are.
             if self.are_devices_connected() {
-                // println!("Midi.connect_device {:?}: Calling on_ports_connected_changed \
+                // println!("Midi.connect_device {:?}: Calling on_devices_connected_changed \
                 // because both ports are now connected", device_strategy.device_type());
-                if let Some(cb) = self.state.callbacks() {
-                    rayon::spawn(move || cb.on_devices_connected_changed());
-                }
+                // Raised synchronously; the listener hands off to the Controller itself.
+                self.listener.on_devices_connected_changed();
             }
         }
         Ok(())
@@ -564,9 +310,7 @@ impl IMidiManager for MidiManager {
         &mut self,
         input_device_name: &str,
         output_device_name: &str,
-        callbacks: Arc<dyn MidiCallbacks>,
     ) {
-        self.state.set_callbacks(callbacks);
         self.input.populate_devices(input_device_name);
         self.output.populate_devices(output_device_name);
     }
@@ -579,10 +323,6 @@ impl IMidiManager for MidiManager {
         device_strategy.io(self)
     }
 
-    fn has_downloaded_init_data(&self) -> bool {
-        *self.state.download_status.lock().unwrap() == DownloadStatus::Complete
-    }
-
     fn is_output_device_connected(&self) -> bool {
         self.output_connection.lock().unwrap().is_some()
     }
@@ -591,7 +331,7 @@ impl IMidiManager for MidiManager {
     /// messages at 1-second intervals when not otherwise busy.
     /// So, we can use this method to check if the instrument is still connected.
     fn is_receiving_data(&self) -> bool {
-        self.state.is_receiving_data.load(Ordering::Relaxed)
+        self.input_state.is_receiving_data.load(Ordering::Relaxed)
     }
 
     fn output(&self) -> &dyn IIo {
@@ -612,21 +352,20 @@ impl IMidiManager for MidiManager {
         }
         if were_devices_connected {
             // We have just disconnected one of the ports.
-            // println!("Midi.refresh_devices: Calling on_ports_connected_changed because we have just disconnected one of the ports");
-            if let Some(cb) = self.state.callbacks() {
-                rayon::spawn(move || cb.on_devices_connected_changed());
-            }
+            // println!("Midi.refresh_devices: Calling on_devices_connected_changed because we have just disconnected one of the ports");
+            self.listener.on_devices_connected_changed();
         }
     }
 
     fn start_instrument_connection_monitor(&mut self) {
         // println!("Midi.start_instrument_connection_monitor");
-        *self.state.last_message_received_time.lock().unwrap() = None;
+        *self.input_state.last_message_received_time.lock().unwrap() = None;
         let (stopper_sender, stopper_receiver) = mpsc::channel();
         self.connection_monitor_stopper_sender = Some(stopper_sender);
-        let monitor_state = Arc::clone(&self.state);
+        let input_state = Arc::clone(&self.input_state);
+        let listener = Arc::clone(&self.listener);
         rayon::spawn(move || {
-            monitor_state.monitor_instrument_connection(stopper_receiver);
+            Self::monitor_instrument_connection(input_state, listener, stopper_receiver);
         });
         self.is_connection_monitor_running = true;
     }
@@ -645,7 +384,7 @@ impl IMidiManager for MidiManager {
         });
         // println!("Midi.stop_instrument_connection_monitor: Stopped monitor thread.");
         self.is_connection_monitor_running = false;
-        self.state.is_receiving_data.store(false, Ordering::Relaxed);
+        self.input_state.is_receiving_data.store(false, Ordering::Relaxed);
         // println!("Midi.stop_instrument_connection_monitor: Done.");
     }
 }

@@ -1,8 +1,8 @@
 #[path = "mock_io.rs"] pub mod mock_io;
 
 use std::error::Error;
-use std::sync::{Arc, LazyLock, Mutex, MutexGuard};
-use pitchgrid_continuum::i_midi_manager::{IMidiManager, MidiCallbacks};
+use std::sync::{LazyLock, Mutex, MutexGuard};
+use pitchgrid_continuum::i_midi_manager::IMidiManager;
 use pitchgrid_continuum::midi_ports::IIo;
 use pitchgrid_continuum::device_strategy::DeviceStrategy;
 use mock_io::MockIo;
@@ -16,8 +16,6 @@ pub static MOCK_MIDI: LazyLock<Mutex<MockMidiManager>> =
     LazyLock::new(|| Mutex::new(MockMidiManager::new_state()));
 
 pub struct MockMidiManager {
-    pub callbacks: Option<Arc<dyn MidiCallbacks>>,
-
     pub are_devices_connected: bool,
 
     pub close_count: u16,
@@ -26,9 +24,6 @@ pub struct MockMidiManager {
     pub connect_device_count: u16,
     pub connect_device_index: Option<usize>,
     pub connect_device_device_strategy: Option<Box<dyn DeviceStrategy>>,
-
-    pub has_downloaded_init_data_count: u16,
-    pub has_downloaded_init_data_result: bool,
 
     pub init_input_device_name: Option<String>,
     pub init_output_device_name: Option<String>,
@@ -50,8 +45,6 @@ pub struct MockMidiManager {
 impl MockMidiManager {
     fn new_state() -> Self {
         MockMidiManager {
-            callbacks: None,
-
             are_devices_connected: false,
 
             close_count: 0,
@@ -60,9 +53,6 @@ impl MockMidiManager {
             connect_device_count: 0,
             connect_device_index: None,
             connect_device_device_strategy: None,
-
-            has_downloaded_init_data_count: 0,
-            has_downloaded_init_data_result: false,
 
             init_input_device_name: None,
             init_output_device_name: None,
@@ -107,57 +97,6 @@ impl MockMidiManager {
     pub fn simulate_connect_device_err(msg: &str) {
         MOCK_MIDI.lock().unwrap_or_else(|e| e.into_inner()).connect_device_err =
             Some(msg.to_string());
-    }
-
-    pub fn simulate_download_completed() {
-        let callbacks = {
-            let mut state = MOCK_MIDI.lock().unwrap_or_else(|e| e.into_inner());
-            state.has_downloaded_init_data_result = true;
-            state.callbacks.clone().unwrap()
-        };
-        callbacks.on_download_completed();
-    }
-
-    pub fn simulate_download_started() {
-        let callbacks = MOCK_MIDI.lock().unwrap_or_else(|e| e.into_inner())
-            .callbacks.clone().unwrap();
-        callbacks.on_download_started();
-    }
-
-    pub fn simulate_devices_connected_changed() {
-        let callbacks = MOCK_MIDI.lock().unwrap_or_else(|e| e.into_inner())
-            .callbacks.clone().unwrap();
-        callbacks.on_devices_connected_changed();
-    }
-
-    pub fn simulate_new_preset_selected() {
-        let callbacks = MOCK_MIDI.lock().unwrap_or_else(|e| e.into_inner())
-            .callbacks.clone().unwrap();
-        callbacks.on_new_preset_selected();
-    }
-
-    pub fn simulate_receiving_data_started() {
-        let callbacks = MOCK_MIDI.lock().unwrap_or_else(|e| e.into_inner())
-            .callbacks.clone().unwrap();
-        callbacks.on_receiving_data_started();
-    }
-
-    pub fn simulate_receiving_data_stopped() {
-        let callbacks = MOCK_MIDI.lock().unwrap_or_else(|e| e.into_inner())
-            .callbacks.clone().unwrap();
-        callbacks.on_receiving_data_stopped();
-    }
-
-    pub fn simulate_tuning_updated() {
-        let callbacks = MOCK_MIDI.lock().unwrap_or_else(|e| e.into_inner())
-            .callbacks.clone().unwrap();
-        callbacks.on_tuning_updated();
-    }
-
-    pub fn simulate_updating_tuning() {
-        let callbacks = MOCK_MIDI.lock().unwrap_or_else(|e| e.into_inner())
-            .callbacks.clone().unwrap();
-        callbacks.on_updating_tuning();
     }
 }
 
@@ -206,10 +145,8 @@ impl IMidiManager for MockMidiManagerImpl {
         &mut self,
         input_device_name: &str,
         output_device_name: &str,
-        callbacks: Arc<dyn MidiCallbacks>,
     ) {
         let mut state = MOCK_MIDI.lock().unwrap_or_else(|e| e.into_inner());
-        state.callbacks = Some(callbacks);
         state.init_input_device_name = Some(input_device_name.to_string());
         state.init_output_device_name = Some(output_device_name.to_string());
     }
@@ -225,12 +162,6 @@ impl IMidiManager for MockMidiManagerImpl {
             state.io_device_strategy = Some(device_strategy.clone_box());
         }
         device_strategy.io(self)
-    }
-
-    fn has_downloaded_init_data(&self) -> bool {
-        let mut state = MOCK_MIDI.lock().unwrap_or_else(|e| e.into_inner());
-        state.has_downloaded_init_data_count += 1;
-        state.has_downloaded_init_data_result
     }
 
     fn is_output_device_connected(&self) -> bool {

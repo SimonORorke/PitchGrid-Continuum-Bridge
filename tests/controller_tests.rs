@@ -1,4 +1,5 @@
 ﻿mod mock_midi_manager;
+mod mock_continuum_protocol;
 // `mock_midi_sender()` (the sent-stats reader) is used only by `tuner_tests`, which shares this
 // mock. This crate uses `MockMidiSender::new()` but not the reader, so allow the dead function.
 #[allow(dead_code)] mod mock_midi_sender;
@@ -25,6 +26,7 @@ use pitchgrid_continuum::i_tuner::ITuner;
 use pitchgrid_continuum::tuner::Tuner;
 use mock_midi_manager::{MockMidiManager, mock_midi};
 use mock_midi_manager::mock_io::{input_state, output_state};
+use mock_continuum_protocol::MockContinuumProtocol;
 use mock_osc::{MockOsc, mock_osc};
 use mock_settings::{MockSettings, mock_settings};
 use mock_midi_sender::MockMidiSender;
@@ -122,10 +124,10 @@ fn connect_device() {
     assert_that!(mock_midi().start_instrument_connection_monitor_count, eq(1));
     MockMidiManager::set_is_receiving_data(true);
     MockMidiManager::set_are_devices_connected(true);
-    MockMidiManager::simulate_download_completed();
+    MockContinuumProtocol::simulate_download_completed();
     MockOsc::simulate_tuning_received(TestTunings::params_17_17());
-    MockMidiManager::simulate_updating_tuning();
-    MockMidiManager::simulate_tuning_updated();
+    MockContinuumProtocol::simulate_updating_tuning();
+    MockContinuumProtocol::simulate_tuning_updated();
     assert_that!(tuner().has_data(), eq(true));
     assert_that!(tuner().formatted_tuning_params().root_freq, not(eq("")));
     let device_strategy = InputStrategy::new();
@@ -153,10 +155,10 @@ fn connect_device_after_refreshing_other_device_list() {
     assert_that!(mock_midi().start_instrument_connection_monitor_count, eq(1));
     MockMidiManager::set_is_receiving_data(true);
     MockMidiManager::set_are_devices_connected(true);
-    MockMidiManager::simulate_download_completed();
+    MockContinuumProtocol::simulate_download_completed();
     MockOsc::simulate_tuning_received(TestTunings::params_17_17());
-    MockMidiManager::simulate_updating_tuning();
-    MockMidiManager::simulate_tuning_updated();
+    MockContinuumProtocol::simulate_updating_tuning();
+    MockContinuumProtocol::simulate_tuning_updated();
     let output_strategy = OutputStrategy::new();
     controller.lock().unwrap().refresh_devices(&output_strategy);
     let input_strategy = InputStrategy::new();
@@ -190,10 +192,10 @@ fn refresh_devices() {
     assert_that!(mock_ui_methods().set_devices_model_count, eq(2));
     MockMidiManager::set_is_receiving_data(true);
     MockMidiManager::set_are_devices_connected(true);
-    MockMidiManager::simulate_download_completed();
+    MockContinuumProtocol::simulate_download_completed();
     MockOsc::simulate_tuning_received(TestTunings::params_16_16());
-    MockMidiManager::simulate_updating_tuning();
-    MockMidiManager::simulate_tuning_updated();
+    MockContinuumProtocol::simulate_updating_tuning();
+    MockContinuumProtocol::simulate_tuning_updated();
     assert_that!(mock_ui_methods().show_tuning_count, eq(1));
     let input_strategy = InputStrategy::new();
     controller.lock().unwrap().refresh_devices(&input_strategy);
@@ -223,7 +225,7 @@ fn on_devices_connected_changed_to_connected() {
     controller.lock().unwrap().init(&controller);
     MockMidiManager::set_are_devices_connected(true);
     MockOsc::set_is_running_result(true);
-    MockMidiManager::simulate_devices_connected_changed();
+    MockContinuumProtocol::simulate_devices_connected_changed();
     assert_that!(mock_osc().stop_count,eq(0));
 }
 
@@ -234,7 +236,7 @@ fn on_devices_connected_changed_to_not_connected() {
     controller.lock().unwrap().init(&controller);
     MockMidiManager::set_are_devices_connected(false);
     MockOsc::set_is_running_result(true);
-    MockMidiManager::simulate_devices_connected_changed();
+    MockContinuumProtocol::simulate_devices_connected_changed();
     assert_that!(mock_osc().stop_count,eq(1));
     assert_that!(mock_ui_methods().show_message_msg, some(eq(INSTRUMENT_DISCONNECTED)));
     assert_that!(mock_ui_methods().show_message_msg_type, some(eq(MessageType::Warning)));
@@ -293,7 +295,7 @@ fn on_receiving_data_started_show_waiting_for_download() {
     let _guard = test_mutex_guard();
     let controller = create_controller(MockSettings::new(), true);
     controller.lock().unwrap().init(&controller);
-    MockMidiManager::simulate_receiving_data_started();
+    MockContinuumProtocol::simulate_receiving_data_started();
     assert_that!(mock_ui_methods().show_message_msg, some(eq(WAITING_FOR_DATA_DOWNLOAD)));
     assert_that!(mock_ui_methods().show_message_msg_type, some(eq(MessageType::Info)));
 }
@@ -304,7 +306,7 @@ fn on_data_download_started() {
     let controller = create_controller(MockSettings::new(), true);
     controller.lock().unwrap().init(&controller);
     MockMidiManager::set_are_devices_connected(true);
-    MockMidiManager::simulate_download_started();
+    MockContinuumProtocol::simulate_download_started();
     assert_that!(mock_ui_methods().show_message_msg, some(eq(AWAITING_DATA_DOWNLOAD_COMPLETION)));
     assert_that!(mock_ui_methods().show_message_msg_type, some(eq(MessageType::Info)));
 }
@@ -316,7 +318,7 @@ fn on_data_download_completed_start_osc() {
     controller.lock().unwrap().init(&controller);
     MockMidiManager::set_is_receiving_data(true);
     MockMidiManager::set_are_devices_connected(true);
-    MockMidiManager::simulate_download_completed();
+    MockContinuumProtocol::simulate_download_completed();
     assert_that!(mock_osc().start_count, eq(1));
     assert_that!(mock_ui_methods().show_message_msg, some(eq(OPENING_PITCHGRID_CONNECTION)));
     assert_that!(mock_ui_methods().show_message_msg_type, some(eq(MessageType::Info)));
@@ -329,7 +331,7 @@ fn on_tuning_received() {
     controller.lock().unwrap().init(&controller);
     MockMidiManager::set_is_receiving_data(true);
     MockMidiManager::set_are_devices_connected(true);
-    MockMidiManager::simulate_download_completed();
+    MockContinuumProtocol::simulate_download_completed();
     MockOsc::simulate_tuning_received(TestTunings::params_16_16());
     assert_that!(tuner().has_data(), eq(true));
     assert_that!(mock_ui_methods().show_pitchgrid_status_count, eq(1));
@@ -344,7 +346,7 @@ fn on_tuning_received_when_instrument_disconnected() {
     controller.lock().unwrap().init(&controller);
     MockMidiManager::set_is_receiving_data(true);
     MockMidiManager::set_are_devices_connected(true);
-    MockMidiManager::simulate_download_completed();
+    MockContinuumProtocol::simulate_download_completed();
     MockOsc::simulate_tuning_received(TestTunings::params_16_16());
     MockMidiManager::set_is_receiving_data(false);
     MockOsc::simulate_tuning_received(TestTunings::params_17_17());
@@ -358,7 +360,7 @@ fn on_updating_tuning() {
     let _guard = test_mutex_guard();
     let controller = create_controller(MockSettings::new(), true);
     controller.lock().unwrap().init(&controller);
-    MockMidiManager::simulate_updating_tuning();
+    MockContinuumProtocol::simulate_updating_tuning();
     assert_that!(mock_ui_methods().show_message_msg_type, some(not(eq(MessageType::Error))));
 }
 
@@ -371,10 +373,10 @@ fn on_tuning_updated() {
     controller.lock().unwrap().set_root_freq_override(NOTE_INDEX);
     MockMidiManager::set_is_receiving_data(true);
     MockMidiManager::set_are_devices_connected(true);
-    MockMidiManager::simulate_download_completed();
+    MockContinuumProtocol::simulate_download_completed();
     MockOsc::simulate_tuning_received(TestTunings::params_16_16());
-    MockMidiManager::simulate_updating_tuning();
-    MockMidiManager::simulate_tuning_updated();
+    MockContinuumProtocol::simulate_updating_tuning();
+    MockContinuumProtocol::simulate_tuning_updated();
     assert_that!(tuner().has_data(), eq(true));
     assert_that!(tuner().is_root_freq_overridden(), eq(true));
     assert_that!(mock_ui_methods().show_tuning_count, eq(1));
@@ -394,15 +396,15 @@ fn on_new_preset_selected() {
     controller.lock().unwrap().set_root_freq_override(NOTE_INDEX);
     MockMidiManager::set_is_receiving_data(true);
     MockMidiManager::set_are_devices_connected(true);
-    MockMidiManager::simulate_download_completed();
+    MockContinuumProtocol::simulate_download_completed();
     MockOsc::simulate_tuning_received(TestTunings::params_16_16());
     assert_that!(mock_ui_methods().show_pitchgrid_status_count, eq(1));
-    MockMidiManager::simulate_updating_tuning();
-    MockMidiManager::simulate_tuning_updated();
-    MockMidiManager::simulate_new_preset_selected();
+    MockContinuumProtocol::simulate_updating_tuning();
+    MockContinuumProtocol::simulate_tuning_updated();
+    MockContinuumProtocol::simulate_new_preset_selected();
     // The instrument's confirmation echo for the resend. With the preset-reselect flag set,
     // on_tuning_updated shows the preset-specific confirmation rather than the generic one.
-    MockMidiManager::simulate_tuning_updated();
+    MockContinuumProtocol::simulate_tuning_updated();
     assert_that!(tuner().has_data(), eq(true));
     assert_that!(mock_ui_methods().show_pitchgrid_status_msg, some(eq(PRESET_TUNING_LOADED)));
     assert_that!(mock_ui_methods().show_pitchgrid_status_msg_type, some(eq(MessageType::Info)));
@@ -416,7 +418,7 @@ fn set_root_freq_override() {
     controller.lock().unwrap().init(&controller);
     MockMidiManager::set_is_receiving_data(true);
     MockMidiManager::set_are_devices_connected(true);
-    MockMidiManager::simulate_download_completed();
+    MockContinuumProtocol::simulate_download_completed();
     assert_that!(mock_ui_methods().show_pitchgrid_status_count, eq(0));
     MockOsc::simulate_pitchgrid_connected_changed(true);
     assert_that!(mock_ui_methods().show_pitchgrid_status_count, eq(1));
@@ -495,9 +497,9 @@ fn on_pitchgrid_disconnected() {
     controller.lock().unwrap().init(&controller);
     MockMidiManager::set_is_receiving_data(true);
     MockMidiManager::set_are_devices_connected(true);
-    MockMidiManager::simulate_download_completed();
+    MockContinuumProtocol::simulate_download_completed();
     MockOsc::simulate_tuning_received(TestTunings::params_16_16());
-    MockMidiManager::simulate_tuning_updated();
+    MockContinuumProtocol::simulate_tuning_updated();
     assert_that!(tuner().has_data(), eq(true));
     MockOsc::simulate_pitchgrid_connected_changed(false);
     assert_that!(tuner().has_data(), eq(false));
@@ -513,7 +515,7 @@ fn on_receiving_data_stopped() {
     let controller = create_controller(MockSettings::new(), true);
     controller.lock().unwrap().init(&controller);
     MockOsc::set_is_running_result(true);
-    MockMidiManager::simulate_receiving_data_stopped();
+    MockContinuumProtocol::simulate_receiving_data_stopped();
     assert_that!(mock_ui_methods().show_message_msg, some(eq(INSTRUMENT_NOT_CONNECTED)));
     assert_that!(mock_ui_methods().show_message_msg_type, some(eq(MessageType::Warning)));
     assert_that!(mock_osc().stop_count, eq(1));
@@ -544,6 +546,7 @@ fn create_controller(mut settings: MockSettings, default_midi_devices: bool)
     {
         let mut guard = controller.lock().unwrap();
         guard.set_midi_manager(mock_midi);
+        guard.set_continuum_protocol(MockContinuumProtocol::new());
         guard.set_osc(Box::new(MockOsc::new()));
         guard.set_settings(Box::new(settings));
         guard.set_tuner(new_tuner as Arc<dyn ITuner>);
