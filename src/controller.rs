@@ -4,14 +4,14 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::time::Duration;
 use crate::global::{MessageType};
-use crate::i_midi::{IMidiManager, MidiCallbacks, SharedMidiManager, SharedOutput};
+use crate::i_midi_manager::{IMidiManager, MidiCallbacks, SharedMidiManager, SharedOutput};
 use crate::i_osc::{IOsc, OscCallbacks};
 use crate::osc::Osc;
 use crate::i_settings::ISettings;
 use crate::device_strategy::{
     InputStrategy, OutputStrategy, DeviceStrategy};
 use crate::settings::Settings;
-use crate::midi::MidiManager;
+use crate::midi_manager::MidiManager;
 use crate::midi_sender::MidiSender;
 use crate::i_ui_methods::IUiMethods;
 use crate::i_tuner::SharedTuner;

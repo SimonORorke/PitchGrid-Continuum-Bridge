@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
-use crate::i_midi::MidiCallbacks;
+use crate::i_midi_manager::MidiCallbacks;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(super) enum DownloadStatus {

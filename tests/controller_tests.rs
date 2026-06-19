@@ -1,4 +1,4 @@
-﻿mod mock_midi;
+﻿mod mock_midi_manager;
 // `mock_midi_sender()` (the sent-stats reader) is used only by `tuner_tests`, which shares this
 // mock. This crate uses `MockMidiSender::new()` but not the reader, so allow the dead function.
 #[allow(dead_code)] mod mock_midi_sender;
@@ -23,8 +23,8 @@ use pitchgrid_continuum::osc::Osc;
 use pitchgrid_continuum::device_strategy::{InputStrategy, OutputStrategy};
 use pitchgrid_continuum::i_tuner::ITuner;
 use pitchgrid_continuum::tuner::Tuner;
-use mock_midi::{MockMidiManager, mock_midi};
-use mock_midi::mock_io::{input_state, output_state};
+use mock_midi_manager::{MockMidiManager, mock_midi};
+use mock_midi_manager::mock_io::{input_state, output_state};
 use mock_osc::{MockOsc, mock_osc};
 use mock_settings::{MockSettings, mock_settings};
 use mock_midi_sender::MockMidiSender;

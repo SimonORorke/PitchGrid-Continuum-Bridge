@@ -2,7 +2,7 @@
 
 use std::error::Error;
 use std::sync::{Arc, LazyLock, Mutex, MutexGuard};
-use pitchgrid_continuum::i_midi::{IMidiManager, MidiCallbacks};
+use pitchgrid_continuum::i_midi_manager::{IMidiManager, MidiCallbacks};
 use pitchgrid_continuum::midi_ports::IIo;
 use pitchgrid_continuum::device_strategy::DeviceStrategy;
 use mock_io::MockIo;

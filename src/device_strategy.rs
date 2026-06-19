@@ -1,7 +1,7 @@
 ﻿use slint::ModelRc;
 use crate::{MainWindow, ComboBoxItem, SlintMessageType};
 use crate::global::DeviceType;
-use crate::i_midi::IMidiManager;
+use crate::i_midi_manager::IMidiManager;
 use crate::midi_ports::IIo;
 use crate::i_settings::ISettings;
 

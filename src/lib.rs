@@ -1,10 +1,10 @@
 pub mod global;
-pub mod i_midi;
+pub mod i_midi_manager;
 pub mod i_osc;
 pub mod i_settings;
 pub mod i_tuner;
 pub mod i_ui_methods;
-pub mod midi;
+pub mod midi_manager;
 pub mod midi_ports;
 pub mod midi_sender;
 pub mod osc;

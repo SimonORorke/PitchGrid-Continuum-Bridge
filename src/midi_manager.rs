@@ -1,5 +1,5 @@
 mod midi_refs;
-use crate::i_midi::{IMidiManager, MidiCallbacks, SharedOutput};
+use crate::i_midi_manager::{IMidiManager, MidiCallbacks, SharedOutput};
 use midi_refs::{DownloadStatus, TuningStatus};
 use midi_refs::{
     download_status,

@@ -1,7 +1,7 @@
 use std::sync::atomic::{AtomicBool, AtomicU8, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use crate::i_tuner::ITuner;
-use crate::midi::MidiManager;
+use crate::midi_manager::MidiManager;
 use crate::midi_sender::{IMidiSender, NullMidiSender};
 use crate::tuning_params::{FormattedTuningParams, TuningParams};
 
