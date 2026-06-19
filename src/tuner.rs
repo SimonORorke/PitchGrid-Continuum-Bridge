@@ -1,7 +1,7 @@
 use std::sync::atomic::{AtomicBool, AtomicU8, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use crate::i_tuner::ITuner;
-use crate::midi_manager::MidiManager;
+use crate::i_midi_manager::{TuningUpdateSignaller, NullTuningSignaller};
 use crate::midi_sender::{IMidiSender, NullMidiSender};
 use crate::tuning_params::{FormattedTuningParams, TuningParams};
 
@@ -15,6 +15,11 @@ pub struct Tuner {
     root_freq_override_note_no: AtomicUsize,
     keys: Mutex<Vec<Key>>,
     midi_sender: Mutex<Box<dyn IMidiSender>>,
+    /// The seam to the protocol layer, told when a tuning send begins (see `send_tuning_update`).
+    /// Defaults to a no-op so a standalone `Tuner` (e.g. in `tuner_tests`) needs no wiring; the real
+    /// one is injected by `Controller::new`. Replaces the former `MidiManager::on_updating_tuning`
+    /// static call.
+    tuning_signaller: Mutex<Arc<dyn TuningUpdateSignaller>>,
     params: Arc<Mutex<TuningParams>>,
 }
 
@@ -42,6 +47,7 @@ impl Tuner {
             root_freq_override_note_no: AtomicUsize::new(0),
             keys: Mutex::new(vec![]),
             midi_sender: Mutex::new(Box::new(NullMidiSender)),
+            tuning_signaller: Mutex::new(Arc::new(NullTuningSignaller)),
             params: Arc::new(Mutex::new(TuningParams::default())),
         }
     }
@@ -98,7 +104,7 @@ impl Tuner {
     /// updated with any rounding parameters that have been specified.
     fn send_tuning_update(&self, generate: bool) {
         println!("tuner.send_tuning_update: generate = {}", generate);
-        MidiManager::on_updating_tuning();
+        self.tuning_signaller.lock().unwrap().on_updating_tuning();
         if generate {
             let mut keys = self.keys.lock().unwrap().clone();
             self.set_to_key_numbers(&mut keys);
@@ -315,6 +321,11 @@ impl ITuner for Tuner {
     /// Sets the MIDI sender: the real one (wired by `Controller::new`) in production, a mock in tests.
     fn set_midi_sender(&self, sender: Box<dyn IMidiSender>) {
         *self.midi_sender.lock().unwrap() = sender;
+    }
+
+    /// Sets the tuning-update signaller, wired by `Controller::new` to the shared MIDI state.
+    fn set_tuning_signaller(&self, signaller: Arc<dyn TuningUpdateSignaller>) {
+        *self.tuning_signaller.lock().unwrap() = signaller;
     }
 
     fn pitch_table_index(&self) -> usize {

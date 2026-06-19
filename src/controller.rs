@@ -11,7 +11,7 @@ use crate::i_settings::ISettings;
 use crate::device_strategy::{
     InputStrategy, OutputStrategy, DeviceStrategy};
 use crate::settings::Settings;
-use crate::midi_manager::MidiManager;
+use crate::midi_manager::{MidiManager, MidiState};
 use crate::midi_sender::MidiSender;
 use crate::i_ui_methods::IUiMethods;
 use crate::i_tuner::SharedTuner;
@@ -47,8 +47,14 @@ impl Controller {
         // disconnects it) and the MidiSender (which writes to it). Create it here and inject it
         // into both, replacing the former OUTPUT_CONNECTION global.
         let output: SharedOutput = Arc::new(Mutex::new(None));
+        // The MIDI state (formerly the midi_refs statics) is likewise created here and injected into
+        // both the MidiManager (which reads/writes it from the input callback and monitor threads)
+        // and the Tuner (which signals tuning-update starts through it). One shared Arc keeps the
+        // Tuner's tuning_status writes visible to the MidiManager's confirmation logic.
+        let midi_state = Arc::new(MidiState::new());
         let tuner: SharedTuner = Arc::new(Tuner::new());
         tuner.set_midi_sender(Box::new(MidiSender::new(output.clone())));
+        tuner.set_tuning_signaller(midi_state.clone());
         Self {
             await_tuning_updated_stopper_sender: None,
             ui_methods: callbacks,
@@ -57,7 +63,7 @@ impl Controller {
             osc: Box::new(Osc::new()),
             settings: Box::new(Settings::new()),
             tuner,
-            midi_manager: Arc::new(Mutex::new(Box::new(MidiManager::new(output)) as Box<dyn IMidiManager + Send>)),
+            midi_manager: Arc::new(Mutex::new(Box::new(MidiManager::new(output, midi_state)) as Box<dyn IMidiManager + Send>)),
             controller_weak: Weak::new(),
         }
     }

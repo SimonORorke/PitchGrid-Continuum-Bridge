@@ -16,7 +16,7 @@ pub trait MidiCallbacks: Send + Sync {
 
 /// A trait that defines the interface for managing MIDI devices and messages.
 ///
-/// For the The `I` prefix, see `ITuner`s doc comment.
+/// For the `I` prefix, see `ITuner`s doc comment.
 pub trait IMidiManager {
     fn are_devices_connected(&self) -> bool;
 
@@ -64,3 +64,19 @@ pub type SharedMidiManager = Arc<Mutex<Box<dyn IMidiManager + Send>>>;
 /// disconnects it) and the `MidiSender` (which writes to it). Replaces the former
 /// `OUTPUT_CONNECTION` global.
 pub type SharedOutput = Arc<Mutex<Option<midir::MidiOutputConnection>>>;
+
+/// The seam by which the `Tuner` tells the protocol layer that it is about to send a tuning update,
+/// so that layer can mark a tuning as in-flight (and notify the UI). Implemented in 3b by
+/// `MidiState`; 3c will move the implementation to the `ContinuumProtocol`.
+pub trait TuningUpdateSignaller: Send + Sync {
+    fn on_updating_tuning(&self);
+}
+
+/// A no-op `TuningUpdateSignaller`, the `Tuner`'s default until the real one is wired in (see
+/// `Controller::new`). Mirrors `NullMidiSender`; keeps the standalone `Tuner` tests free of any
+/// MIDI/protocol wiring.
+pub struct NullTuningSignaller;
+
+impl TuningUpdateSignaller for NullTuningSignaller {
+    fn on_updating_tuning(&self) {}
+}

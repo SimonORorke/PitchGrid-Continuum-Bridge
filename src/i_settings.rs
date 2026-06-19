@@ -3,7 +3,7 @@ use crate::path_finder::PathFinder;
 
 /// A trait that defines the interface for application settings.
 ///
-/// For the The `I` prefix, see `ITuner`s doc comment.
+/// For the `I` prefix, see `ITuner`s doc comment.
 pub trait ISettings: Send + Sync {
     fn main_window_x(&self) -> i32;
     fn set_main_window_x(&mut self, value: i32);

@@ -5,7 +5,7 @@ use crate::tuning_params::FormattedTuningParams;
 /// A trait that defines the interface for methods called by `Controller`
 /// to make changes to the UI.
 ///
-/// For the The `I` prefix, see `ITuner`s doc comment.
+/// For the `I` prefix, see `ITuner`s doc comment.
 pub trait IUiMethods: Send + Sync {
     fn focus_device(&self, device_strategy: &dyn DeviceStrategy);
     fn get_selected_device_index(&self, device_strategy: &dyn DeviceStrategy) -> usize;
