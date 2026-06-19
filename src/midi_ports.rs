@@ -26,24 +26,24 @@ impl<T: ?Sized> IoDevice for Port<T> {
 pub struct Io<T> {
     midi_io: Box<dyn MidiIO<Port=T> + Send>,
     port: Box<Option<Port<T>>>,
-    ports: Box<Vec<Port<T>>>,
+    ports: Vec<Port<T>>,
 }
 
 impl<T: Clone + Send + 'static> Io<T> {
     pub fn new(midi_io: Box<dyn MidiIO<Port=T> + Send>) -> Self {
-        Self { midi_io, port: Box::new(None), ports: Box::new(Vec::new()) }
+        Self { midi_io, port: Box::new(None), ports: Vec::new() }
     }
 
     pub fn ports(&self) -> Vec<Port<T>> {
-        self.ports.as_ref().clone()
+        self.ports.clone()
     }
     
     pub fn set_port(&mut self, port: Port<T>) {
-        self.port = Box::new(self.ports.get(port.index()).cloned());
+        *self.port = self.ports.get(port.index()).cloned();
     }
 
     pub fn set_port_to_none(&mut self) {
-        self.port = Box::new(None);
+        *self.port = None;
     }
 }
 
@@ -83,11 +83,9 @@ impl<T: Clone + Send + 'static> IIo for Io<T> {
                     }
                 })
         );
-        self.port = Box::new(
-            self.ports
-                .iter()
-                .find(|port| port.device_name == persisted_device_name)
-                .cloned()
-        );
+        *self.port = self.ports
+            .iter()
+            .find(|port| port.device_name == persisted_device_name)
+            .cloned();
     }
 }

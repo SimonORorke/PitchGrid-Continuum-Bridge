@@ -6,7 +6,6 @@ use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
 use slint::{CloseRequestResponse, ComponentHandle, PhysicalPosition, WindowPosition, Weak};
-use open;
 use app_info::{APP_TITLE, COPYRIGHT, DOCUMENTATION_LINK, LICENSE, PROJECT_LINK, VERSION};
 use pitchgrid_continuum::{ComboBoxModel, ComboBoxItem, MainWindow, AboutWindow, SharedController, SlintDeviceType};
 use pitchgrid_continuum::controller::Controller;
@@ -177,10 +176,10 @@ fn init_ui_handlers(main_window: &MainWindow, controller: SharedController) {
 
 fn handle_close_request(main_window_weak: &Weak<MainWindow>, controller: &SharedController, about_window: &Rc<RefCell<Option<AboutWindow>>>) -> CloseRequestResponse {
     // println!("main.handle_close_request");
-    if let Some(dialog) = about_window.borrow().as_ref() {
-        if dialog.window().is_visible() {
-            dialog.hide().unwrap();
-        }
+    if let Some(dialog) = about_window.borrow().as_ref()
+        && dialog.window().is_visible()
+    {
+        dialog.hide().unwrap();
     }
     let response =
         Arc::new(Mutex::new(CloseRequestResponse::HideWindow));
@@ -197,7 +196,7 @@ fn handle_close_request(main_window_weak: &Weak<MainWindow>, controller: &Shared
         (0, 0)
     };
     let response_clone = Arc::clone(&response);
-    if let Err(_) = controller.lock().unwrap().close(x, y) {
+    if controller.lock().unwrap().close(x, y).is_err() {
         *response_clone.lock().unwrap() = CloseRequestResponse::KeepWindowShown;
         IS_CLOSE_ERROR_SHOWN.store(true, Ordering::Relaxed);
     };

@@ -47,7 +47,8 @@
       "Bash(git rm *)",
       "PowerShell(node \"D:\\\\Simon\\\\OneDrive\\\\Documents\\\\Rust Projects\\\\pitchgrid_continuum\\\\make_junction.js\")",
       "PowerShell(cargo test --no-run 2>&1)",
-      "PowerShell(cargo test 2>$null)"
+      "PowerShell(cargo test 2>$null)",
+      "Bash(cargo clippy *)"
     ]
   }
 }

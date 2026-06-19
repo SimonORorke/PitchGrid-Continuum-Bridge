@@ -107,29 +107,29 @@ impl MidiInputListener for ContinuumProtocol {
             prev
         };
         if self.is_monitoring_download.load(Ordering::Relaxed) {
-            if let Some(prev) = prev_message_time {
-                if now.duration_since(prev).as_millis() >= 200 {
-                    // The initial data download consists of many messages in quick succession.
-                    // Or this could be some other burst of messages, such as the heartbeat cluster.
-                    // Either way, as we have not received any more messages for 200 ms,
-                    // the burst of messages must have stopped.
-                    self.on_init_data_download_completed();
-                }
+            if let Some(prev) = prev_message_time
+                && now.duration_since(prev).as_millis() >= 200
+            {
+                // The initial data download consists of many messages in quick succession.
+                // Or this could be some other burst of messages, such as the heartbeat cluster.
+                // Either way, as we have not received any more messages for 200 ms,
+                // the burst of messages must have stopped.
+                self.on_init_data_download_completed();
             }
         } else if *self.download_status.lock().unwrap() != DownloadStatus::Complete {
             // Check whether it is time to start monitoring the initial data download.
             // We waited 6 seconds (from the first message) to give the download a chance to start.
-            if let Some(start) = *self.download_wait_start_time.lock().unwrap() {
-                if now.duration_since(start).as_secs() >= 6 {
-                    // println!("ContinuumProtocol.on_message: Starting download monitor");
-                    self.is_monitoring_download.store(true, Ordering::Relaxed);
-                }
+            if let Some(start) = *self.download_wait_start_time.lock().unwrap()
+                && now.duration_since(start).as_secs() >= 6
+            {
+                // println!("ContinuumProtocol.on_message: Starting download monitor");
+                self.is_monitoring_download.store(true, Ordering::Relaxed);
             }
         }
         // Parse + interpret (formerly the body of `MidiState::on_message_received`).
         let event = LiveEvent::parse(message).unwrap();
-        match event {
-            LiveEvent::Midi { channel, message } => match message {
+        if let LiveEvent::Midi { channel, message } = event {
+            match message {
                 MidiMessage::Controller { controller, value } => {
                     let channel1 = u8::from(channel) + 1; // 1-based channel number.
                     if channel1 != 16 {
@@ -234,7 +234,6 @@ impl MidiInputListener for ContinuumProtocol {
                         if value == 55 {
                             // println!("midi.on_message_received: EndUserNames");
                             *self.download_status.lock().unwrap() = DownloadStatus::EndUserNames;
-                            return;
                         }
                     }
                 }
@@ -265,13 +264,11 @@ impl MidiInputListener for ContinuumProtocol {
                             if let Some(listener) = self.listener() {
                                 rayon::spawn(move || listener.on_new_preset_selected());
                             }
-                            return;
                         }
                     }
                 }
                 _ => {}
-            },
-            _ => {}
+            }
         }
     }
 

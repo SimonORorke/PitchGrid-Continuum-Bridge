@@ -243,7 +243,7 @@ impl MidiManager {
                     has_initially_not_connected_callback_been_called = true;
                 }
             }
-            if let Ok(_) = stopper_receiver.recv_timeout(Duration::from_millis(500)) {
+            if stopper_receiver.recv_timeout(Duration::from_millis(500)).is_ok() {
                 // Sleep was interrupted
                 return;
             }

@@ -129,10 +129,10 @@ impl IUiMethods for MockUiMethods {
         state.set_selected_device_index_device_strategy = Some(device_strategy.clone_box());
     }
 
-    fn set_devices_model(&self, device_names: &Vec<String>, device_strategy: &dyn DeviceStrategy) {
+    fn set_devices_model(&self, device_names: &[String], device_strategy: &dyn DeviceStrategy) {
         let mut state = MOCK_UI_METHODS.lock().unwrap_or_else(|e| e.into_inner());
         state.set_devices_model_count += 1;
-        state.set_devices_model_device_names = Some(device_names.clone());
+        state.set_devices_model_device_names = Some(device_names.to_vec());
         state.set_devices_model_device_strategy = Some(device_strategy.clone_box());
     }
 

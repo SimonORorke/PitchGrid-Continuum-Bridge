@@ -81,7 +81,7 @@ impl IUiMethods for UiMethods {
         });
     }
 
-    fn set_devices_model(&self, device_names: &Vec<String>, device_strategy: &dyn DeviceStrategy) {
+    fn set_devices_model(&self, device_names: &[String], device_strategy: &dyn DeviceStrategy) {
         // println!("UiMethods.set_devices_model: START");
         // println!("UiMethods.set_devices_model: Creating device items from port names");
         let device_items: Vec<ComboBoxItem> =
@@ -90,7 +90,7 @@ impl IUiMethods for UiMethods {
                 .map(|text| ComboBoxItem { text: text.into() })
                 .collect();
         // println!("UiMethods.set_devices_model: Getting device type");
-        let device_type = device_strategy.device_type().clone();
+        let device_type = *device_strategy.device_type();
         // println!("UiMethods.set_devices_model: Cloning device_strategy");
         let device_strategy = device_strategy.clone_box();
         // println!("UiMethods.set_devices_model: Calling with_main_window");

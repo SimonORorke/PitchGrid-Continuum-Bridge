@@ -42,7 +42,7 @@ impl TuningParams {
     pub fn root_freq_override(&self) -> Option<f32> { self.root_freq_override }
 
     pub fn default_pitch_keys<'a>() -> &'a Vec<f32> {
-        DEFAULT_KEY_PITCHES.get_or_init(|| create_default_key_pitches())
+        DEFAULT_KEY_PITCHES.get_or_init(create_default_key_pitches)
     }
 
     /// Calculates and returns the pitch required for each key in the MIDI range,
@@ -80,7 +80,7 @@ impl TuningParams {
         scale_nodes.iter().map(|node|
             // root_freq is received as f32 rounded to 5 decimal places,
             // so let's store the pitch with the same precision.
-            round(ffi::get_node_pitch(&node), 5) as f32)
+            round(ffi::get_node_pitch(node), 5) as f32)
             .collect()
     }
 
@@ -140,21 +140,11 @@ fn mos_from_tuning_params(tuning_params: &TuningParams) -> UniquePtr<ffi::MOS> {
 }
 
 /// The tuning parameters formatted for display.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct FormattedTuningParams {
     pub root_freq: String, pub stretch: String,
     pub skew: String, pub mode_offset: String, pub steps: String,
     pub mos_large_step_count: String, pub mos_small_step_count: String,
-}
-
-impl Default for FormattedTuningParams {
-    fn default() -> Self {
-        Self {
-            root_freq: String::new(), stretch: String::new(),
-            skew: String::new(), mode_offset: String::new(), steps: String::new(),
-            mos_large_step_count: String::new(), mos_small_step_count: String::new(),
-        }
-    }
 }
 
 /// Interface to Peter Jung's scalatrix https://github.com/pitchgrid-io/scalatrix

@@ -528,7 +528,7 @@ impl Controller {
         // To test that INSTRUMENT_TUNING_UPDATE_NOT_CONFIRMED is shown on timeout,
         // uncomment the following line and comment out the next one.
         // if let Ok(_) = stopper_receiver.recv_timeout(Duration::from_millis(50)) {
-        if let Ok(_) = stopper_receiver.recv_timeout(Duration::from_secs(2)) {
+        if stopper_receiver.recv_timeout(Duration::from_secs(2)).is_ok() {
             // Sleep was interrupted: tuning has been updated.
             println!("Controller.await_tuning_updated: Tuning updated");
             return;

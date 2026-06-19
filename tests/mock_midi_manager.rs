@@ -135,8 +135,7 @@ impl IMidiManager for MockMidiManagerImpl {
         }
         match &state.connect_device_err {
             Some(msg) =>
-                Err(Box::new(std::io::Error::new(
-                    std::io::ErrorKind::Other, msg.clone())) as Box<dyn Error>),
+                Err(Box::new(std::io::Error::other(msg.clone())) as Box<dyn Error>),
             None => Ok(()),
         }
     }

@@ -90,7 +90,7 @@ impl Osc {
         let mut buf = [0u8; decoder::MTU];
         loop {
             // Check for stop signal
-            if let Ok(_) = stopper_receiver.try_recv() {
+            if stopper_receiver.try_recv().is_ok() {
                 // Interrupted
                 return;
             }
@@ -176,7 +176,7 @@ impl Osc {
                     has_initially_not_connected_callback_been_called = true;
                     callbacks.on_pitchgrid_connected_changed();
                 }
-                if let Ok(_) = stopper_receiver.recv_timeout(Duration::from_millis(500)) {
+                if stopper_receiver.recv_timeout(Duration::from_millis(500)).is_ok() {
                     // Sleep was interrupted
                     return;
                 }
@@ -197,7 +197,7 @@ impl Osc {
             }
             // We don't want to notify connected here, as that will hav been done in real time
             // in handle_tuning.
-            if let Ok(_) = stopper_receiver.recv_timeout(Duration::from_millis(500)) {
+            if stopper_receiver.recv_timeout(Duration::from_millis(500)).is_ok() {
                 // Sleep was interrupted
                 return;
             }
@@ -225,7 +225,7 @@ impl Osc {
                     // println!("Osc.send_heartbeats: ERROR sending: {}", e);
                 }
             }
-            if let Ok(_) = stopper_receiver.recv_timeout(Duration::from_secs(1)) {
+            if stopper_receiver.recv_timeout(Duration::from_secs(1)).is_ok() {
                 // Sleep was interrupted
                 return;
             }

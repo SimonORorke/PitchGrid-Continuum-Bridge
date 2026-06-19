@@ -120,7 +120,7 @@ impl Tuner {
 
     /// Sets the to_number field of each Key to the index of the pitch in DEFAULT_KEY_PITCHES
     /// that matches the Key's pitch.
-    fn set_to_key_numbers(&self, keys: &mut Vec<Key>) {
+    fn set_to_key_numbers(&self, keys: &mut [Key]) {
         for key_being_matched in keys.iter_mut() {
             key_being_matched.to_number = TuningParams::default_pitch_keys()
                 .binary_search_by(|&x| x.partial_cmp(&key_being_matched.required_pitch).unwrap())
@@ -131,20 +131,15 @@ impl Tuner {
     }
 
     /// Calculates the offset ratio and 14-bit offset values for each note.
-    fn calculate_offsets(&self, keys: &mut Vec<Key>) {
-        for i in 0..keys.len() {
-            let note_pitch = keys[i].required_pitch;
-            let to_note_pitch = TuningParams::default_pitch_keys()[keys[i].to_number as usize];
-            let mut offset_ratio = 12.0 * (note_pitch / to_note_pitch).log2();
-            if offset_ratio > 1.0 {
-                offset_ratio = 1.0;
-            } else if offset_ratio < 0.0 {
-                offset_ratio = 0.0;
-            }
-            keys[i].offset_ratio = offset_ratio;
+    fn calculate_offsets(&self, keys: &mut [Key]) {
+        for key in keys.iter_mut() {
+            let note_pitch = key.required_pitch;
+            let to_note_pitch = TuningParams::default_pitch_keys()[key.to_number as usize];
+            let offset_ratio = (12.0 * (note_pitch / to_note_pitch).log2()).clamp(0.0, 1.0);
+            key.offset_ratio = offset_ratio;
             let offset_14bit = (offset_ratio * 16383.0).round() as u16;
-            keys[i].offset_msb = ((offset_14bit >> 7) & 0x7F) as u8;
-            keys[i].offset_lsb = (offset_14bit & 0x7F) as u8;
+            key.offset_msb = ((offset_14bit >> 7) & 0x7F) as u8;
+            key.offset_lsb = (offset_14bit & 0x7F) as u8;
         }
     }
 
@@ -220,7 +215,7 @@ impl ITuner for Tuner {
     }
 
     fn has_data(&self) -> bool {
-        self.keys.lock().unwrap().len() > 0
+        !self.keys.lock().unwrap().is_empty()
     }
 
     fn remove_data(&self) {
