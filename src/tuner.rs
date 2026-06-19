@@ -1,7 +1,7 @@
 use std::sync::atomic::{AtomicBool, AtomicU8, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use crate::i_tuner::ITuner;
-use crate::midi::Midi;
+use crate::midi::MidiManager;
 use crate::midi_sender::{IMidiSender, NullMidiSender};
 use crate::tuning_params::{FormattedTuningParams, TuningParams};
 
@@ -98,7 +98,7 @@ impl Tuner {
     /// updated with any rounding parameters that have been specified.
     fn send_tuning_update(&self, generate: bool) {
         println!("tuner.send_tuning_update: generate = {}", generate);
-        Midi::on_updating_tuning();
+        MidiManager::on_updating_tuning();
         if generate {
             let mut keys = self.keys.lock().unwrap().clone();
             self.set_to_key_numbers(&mut keys);

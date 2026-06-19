@@ -1,5 +1,5 @@
 mod midi_refs;
-use crate::i_midi::{IMidi, MidiCallbacks, SharedOutput};
+use crate::i_midi::{IMidiManager, MidiCallbacks, SharedOutput};
 use midi_refs::{DownloadStatus, TuningStatus};
 use midi_refs::{
     download_status,
@@ -24,19 +24,19 @@ use crate::device_strategy::DeviceStrategy;
 use crate::tuner::Tuner;
 
 /// A manager for MIDI devices and messages.
-pub struct Midi {
+pub struct MidiManager {
     connection_monitor_stopper_sender: Option<mpsc::Sender<()>>,
     input: Io<MidiInputPort>,
     input_connection: Option<MidiInputConnection<()>>,
     is_connection_monitor_running: bool,
     output: Io<MidiOutputPort>,
-    /// The output connection, shared with the `MidiSender` that writes to it. `Midi` connects and
+    /// The output connection, shared with the `MidiSender` that writes to it. `MidiManager` connects and
     /// disconnects it; the sender reads it. Replaces the former `OUTPUT_CONNECTION` global.
     output_connection: SharedOutput,
 }
 
-/// For public self methods, see `impl IMidi for Midi`.
-impl Midi {
+/// For public self methods, see `impl IMidiManager for MidiManager`.
+impl MidiManager {
     pub fn new(output_connection: SharedOutput) -> Self {
         Self {
             connection_monitor_stopper_sender: None,
@@ -49,7 +49,7 @@ impl Midi {
     }
 
     pub fn on_updating_tuning() {
-        println!("Midi.on_updating_tuning");
+        println!("MidiManager.on_updating_tuning");
         *tuning_status().lock().unwrap() = TuningStatus::Tuning;
         if let Some(cb) = callbacks() {
             rayon::spawn(move || cb.on_updating_tuning());
@@ -235,7 +235,6 @@ impl Midi {
     fn on_init_data_download_completed() {
         // println!("Midi.on_init_data_download_completed: Stopping download monitor");
         IS_MONITORING_DOWNLOAD.store(false, Ordering::Relaxed);
-        IS_DOWNLOADING_INIT_DATA.store(false, Ordering::Relaxed);
         *download_status().lock().unwrap() = DownloadStatus::Complete;
         if let Some(cb) = callbacks() {
             rayon::spawn(move || cb.on_download_completed());
@@ -343,7 +342,7 @@ impl Midi {
                         //         // Check that the value is the correct pitch table index
                         //         // for the tuning this application sent to the instrument.
                         //         // When there have been problems at the instrument end,
-                        //         // it has sent back a ch16 cc51 messages, but with value 0.
+                        //         // it has sent back a ch16 cc51 message, but with value 0.
                         //         if pitch_table == Tuner::pitch_table() {
                         //             // The editor sends us back what we send to the instrument,
                         //             // as well as what the instrument sends back to us.
@@ -458,7 +457,7 @@ impl Midi {
 
 }
 
-impl IMidi for Midi {
+impl IMidiManager for MidiManager {
     /// Return whether both input and output devices are connected.
     fn are_devices_connected(&self) -> bool {
         if self.input_connection.is_none() {
@@ -580,7 +579,7 @@ impl IMidi for Midi {
             self.connection_monitor_stopper_sender.take();
         if stopper_sender.is_none() { return; }
         stopper_sender.unwrap().send(()).unwrap_or_else(|_| {
-            panic!("Midi.stop_instrument_connection_monitor: Failed to send stop signal to connection monitor");
+            panic!("MidiManager.stop_instrument_connection_monitor: Failed to send stop signal to connection monitor");
         });
         // println!("Midi.stop_instrument_connection_monitor: Stopped monitor thread.");
         self.is_connection_monitor_running = false;
@@ -593,6 +592,5 @@ const INPUT_CLIENT_NAME: &str = "My MIDI Input";
 const MIDI_WAIT_SECS: u64 = 2;
 const OUTPUT_CLIENT_NAME: &str = "My MIDI Output";
 
-static IS_DOWNLOADING_INIT_DATA: AtomicBool = AtomicBool::new(false);
 static IS_MONITORING_DOWNLOAD: AtomicBool = AtomicBool::new(false);
 static IS_RECEIVING_DATA: AtomicBool = AtomicBool::new(false);

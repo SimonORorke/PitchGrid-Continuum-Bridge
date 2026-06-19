@@ -2,20 +2,20 @@
 
 use std::error::Error;
 use std::sync::{Arc, LazyLock, Mutex, MutexGuard};
-use pitchgrid_continuum::i_midi::{IMidi, MidiCallbacks};
+use pitchgrid_continuum::i_midi::{IMidiManager, MidiCallbacks};
 use pitchgrid_continuum::midi_ports::IIo;
 use pitchgrid_continuum::device_strategy::DeviceStrategy;
 use mock_io::MockIo;
 use pitchgrid_continuum::global::DeviceType;
 
-pub fn mock_midi() -> MutexGuard<'static, MockMidi> {
+pub fn mock_midi() -> MutexGuard<'static, MockMidiManager> {
     MOCK_MIDI.lock().unwrap_or_else(|e| e.into_inner())
 }
 
-pub static MOCK_MIDI: LazyLock<Mutex<MockMidi>> =
-    LazyLock::new(|| Mutex::new(MockMidi::new_state()));
+pub static MOCK_MIDI: LazyLock<Mutex<MockMidiManager>> =
+    LazyLock::new(|| Mutex::new(MockMidiManager::new_state()));
 
-pub struct MockMidi {
+pub struct MockMidiManager {
     pub callbacks: Option<Arc<dyn MidiCallbacks>>,
 
     pub are_devices_connected: bool,
@@ -47,9 +47,9 @@ pub struct MockMidi {
     pub stop_instrument_connection_monitor_count: u16,
 }
 
-impl MockMidi {
+impl MockMidiManager {
     fn new_state() -> Self {
-        MockMidi {
+        MockMidiManager {
             callbacks: None,
 
             are_devices_connected: false,
@@ -87,13 +87,13 @@ impl MockMidi {
         output_device_names: Vec<String>,
         initial_input_device_name: &str,
         initial_output_device_name: &str,
-    ) -> Box<dyn IMidi + Send> {
-        *MOCK_MIDI.lock().unwrap_or_else(|e| e.into_inner()) = MockMidi::new_state();
+    ) -> Box<dyn IMidiManager + Send> {
+        *MOCK_MIDI.lock().unwrap_or_else(|e| e.into_inner()) = MockMidiManager::new_state();
         let mut input = MockIo::new(DeviceType::Input, input_device_names);
         input.set_device(initial_input_device_name);
         let mut output = MockIo::new(DeviceType::Output, output_device_names);
         output.set_device(initial_output_device_name);
-        Box::new(MockMidiImpl { mock_input: input, mock_output: output })
+        Box::new(MockMidiManagerImpl { mock_input: input, mock_output: output })
     }
 
     pub fn set_are_devices_connected(value: bool) {
@@ -161,12 +161,12 @@ impl MockMidi {
     }
 }
 
-struct MockMidiImpl {
+struct MockMidiManagerImpl {
     mock_input: MockIo,
     mock_output: MockIo,
 }
 
-impl IMidi for MockMidiImpl {
+impl IMidiManager for MockMidiManagerImpl {
     fn are_devices_connected(&self) -> bool {
         MOCK_MIDI.lock().unwrap_or_else(|e| e.into_inner()).are_devices_connected
     }

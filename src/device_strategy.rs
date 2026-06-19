@@ -1,7 +1,7 @@
 ﻿use slint::ModelRc;
 use crate::{MainWindow, ComboBoxItem, SlintMessageType};
 use crate::global::DeviceType;
-use crate::i_midi::IMidi;
+use crate::i_midi::IMidiManager;
 use crate::midi_ports::IIo;
 use crate::i_settings::ISettings;
 
@@ -11,7 +11,7 @@ use crate::i_settings::ISettings;
 /// See `Controller`'s doc comment for more information on how the project implements MVC.
 pub trait DeviceStrategy: Send + Sync {
     fn device_type(&self) -> &DeviceType;
-    fn io<'a>(&self, midi: &'a dyn IMidi) -> &'a dyn IIo;
+    fn io<'a>(&self, midi: &'a dyn IMidiManager) -> &'a dyn IIo;
 
     /// Makes a clone of the current strategy that needs to be used when cross-threading.
     /// The code is the same for all strategies. But the compiler does not allow it to be
@@ -49,7 +49,7 @@ impl DeviceStrategy for InputStrategy {
         &DeviceType::Input
     }
 
-    fn io<'a>(&self, midi: &'a dyn IMidi) -> &'a dyn IIo {
+    fn io<'a>(&self, midi: &'a dyn IMidiManager) -> &'a dyn IIo {
         midi.input()
     }
 
@@ -130,7 +130,7 @@ impl DeviceStrategy for OutputStrategy {
         &DeviceType::Output
     }
 
-    fn io<'a>(&self, midi: &'a dyn IMidi) -> &'a dyn IIo {
+    fn io<'a>(&self, midi: &'a dyn IMidiManager) -> &'a dyn IIo {
         midi.output()
     }
 

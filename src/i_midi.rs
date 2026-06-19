@@ -17,7 +17,7 @@ pub trait MidiCallbacks: Send + Sync {
 /// A trait that defines the interface for managing MIDI devices and messages.
 ///
 /// For the The `I` prefix, see `ITuner`s doc comment.
-pub trait IMidi {
+pub trait IMidiManager {
     fn are_devices_connected(&self) -> bool;
 
     fn close(&mut self);
@@ -58,9 +58,9 @@ pub trait IMidi {
     fn stop_instrument_connection_monitor(&mut self);
 }
 
-pub type SharedMidi = Arc<Mutex<Box<dyn IMidi + Send>>>;
+pub type SharedMidiManager = Arc<Mutex<Box<dyn IMidiManager + Send>>>;
 
-/// The instrument's MIDI output connection, shared between the `Midi` manager (which connects and
+/// The instrument's MIDI output connection, shared between the `MidiManager` (which connects and
 /// disconnects it) and the `MidiSender` (which writes to it). Replaces the former
 /// `OUTPUT_CONNECTION` global.
 pub type SharedOutput = Arc<Mutex<Option<midir::MidiOutputConnection>>>;

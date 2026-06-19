@@ -23,7 +23,7 @@ use pitchgrid_continuum::osc::Osc;
 use pitchgrid_continuum::device_strategy::{InputStrategy, OutputStrategy};
 use pitchgrid_continuum::i_tuner::ITuner;
 use pitchgrid_continuum::tuner::Tuner;
-use mock_midi::{MockMidi, mock_midi};
+use mock_midi::{MockMidiManager, mock_midi};
 use mock_midi::mock_io::{input_state, output_state};
 use mock_osc::{MockOsc, mock_osc};
 use mock_settings::{MockSettings, mock_settings};
@@ -120,12 +120,12 @@ fn connect_device() {
     let controller = create_controller(MockSettings::new(), true);
     controller.lock().unwrap().init(&controller);
     assert_that!(mock_midi().start_instrument_connection_monitor_count, eq(1));
-    MockMidi::set_is_receiving_data(true);
-    MockMidi::set_are_devices_connected(true);
-    MockMidi::simulate_download_completed();
+    MockMidiManager::set_is_receiving_data(true);
+    MockMidiManager::set_are_devices_connected(true);
+    MockMidiManager::simulate_download_completed();
     MockOsc::simulate_tuning_received(TestTunings::params_17_17());
-    MockMidi::simulate_updating_tuning();
-    MockMidi::simulate_tuning_updated();
+    MockMidiManager::simulate_updating_tuning();
+    MockMidiManager::simulate_tuning_updated();
     assert_that!(tuner().has_data(), eq(true));
     assert_that!(tuner().formatted_tuning_params().root_freq, not(eq("")));
     let device_strategy = InputStrategy::new();
@@ -151,12 +151,12 @@ fn connect_device_after_refreshing_other_device_list() {
     let controller = create_controller(MockSettings::new(), true);
     controller.lock().unwrap().init(&controller);
     assert_that!(mock_midi().start_instrument_connection_monitor_count, eq(1));
-    MockMidi::set_is_receiving_data(true);
-    MockMidi::set_are_devices_connected(true);
-    MockMidi::simulate_download_completed();
+    MockMidiManager::set_is_receiving_data(true);
+    MockMidiManager::set_are_devices_connected(true);
+    MockMidiManager::simulate_download_completed();
     MockOsc::simulate_tuning_received(TestTunings::params_17_17());
-    MockMidi::simulate_updating_tuning();
-    MockMidi::simulate_tuning_updated();
+    MockMidiManager::simulate_updating_tuning();
+    MockMidiManager::simulate_tuning_updated();
     let output_strategy = OutputStrategy::new();
     controller.lock().unwrap().refresh_devices(&output_strategy);
     let input_strategy = InputStrategy::new();
@@ -176,7 +176,7 @@ fn connect_device_err() {
     assert_that!(mock_midi().start_instrument_connection_monitor_count, eq(0));
     let device_strategy = OutputStrategy::new();
     MockUiMethods::set_selected_device_index(1);
-    MockMidi::simulate_connect_device_err(ERR_MSG);
+    MockMidiManager::simulate_connect_device_err(ERR_MSG);
     controller.lock().unwrap().connect_device(&device_strategy);
     assert_that!(mock_ui_methods().show_message_msg, some(eq(ERR_MSG)));
     assert_that!(mock_ui_methods().show_message_msg_type, some(eq(MessageType::Error)));
@@ -188,12 +188,12 @@ fn refresh_devices() {
     let controller = create_controller(MockSettings::new(), true);
     controller.lock().unwrap().init(&controller);
     assert_that!(mock_ui_methods().set_devices_model_count, eq(2));
-    MockMidi::set_is_receiving_data(true);
-    MockMidi::set_are_devices_connected(true);
-    MockMidi::simulate_download_completed();
+    MockMidiManager::set_is_receiving_data(true);
+    MockMidiManager::set_are_devices_connected(true);
+    MockMidiManager::simulate_download_completed();
     MockOsc::simulate_tuning_received(TestTunings::params_16_16());
-    MockMidi::simulate_updating_tuning();
-    MockMidi::simulate_tuning_updated();
+    MockMidiManager::simulate_updating_tuning();
+    MockMidiManager::simulate_tuning_updated();
     assert_that!(mock_ui_methods().show_tuning_count, eq(1));
     let input_strategy = InputStrategy::new();
     controller.lock().unwrap().refresh_devices(&input_strategy);
@@ -221,9 +221,9 @@ fn on_devices_connected_changed_to_connected() {
     let _guard = test_mutex_guard();
     let controller = create_controller(MockSettings::new(), true);
     controller.lock().unwrap().init(&controller);
-    MockMidi::set_are_devices_connected(true);
+    MockMidiManager::set_are_devices_connected(true);
     MockOsc::set_is_running_result(true);
-    MockMidi::simulate_devices_connected_changed();
+    MockMidiManager::simulate_devices_connected_changed();
     assert_that!(mock_osc().stop_count,eq(0));
 }
 
@@ -232,9 +232,9 @@ fn on_devices_connected_changed_to_not_connected() {
     let _guard = test_mutex_guard();
     let controller = create_controller(MockSettings::new(), true);
     controller.lock().unwrap().init(&controller);
-    MockMidi::set_are_devices_connected(false);
+    MockMidiManager::set_are_devices_connected(false);
     MockOsc::set_is_running_result(true);
-    MockMidi::simulate_devices_connected_changed();
+    MockMidiManager::simulate_devices_connected_changed();
     assert_that!(mock_osc().stop_count,eq(1));
     assert_that!(mock_ui_methods().show_message_msg, some(eq(INSTRUMENT_DISCONNECTED)));
     assert_that!(mock_ui_methods().show_message_msg_type, some(eq(MessageType::Warning)));
@@ -293,7 +293,7 @@ fn on_receiving_data_started_show_waiting_for_download() {
     let _guard = test_mutex_guard();
     let controller = create_controller(MockSettings::new(), true);
     controller.lock().unwrap().init(&controller);
-    MockMidi::simulate_receiving_data_started();
+    MockMidiManager::simulate_receiving_data_started();
     assert_that!(mock_ui_methods().show_message_msg, some(eq(WAITING_FOR_DATA_DOWNLOAD)));
     assert_that!(mock_ui_methods().show_message_msg_type, some(eq(MessageType::Info)));
 }
@@ -303,8 +303,8 @@ fn on_data_download_started() {
     let _guard = test_mutex_guard();
     let controller = create_controller(MockSettings::new(), true);
     controller.lock().unwrap().init(&controller);
-    MockMidi::set_are_devices_connected(true);
-    MockMidi::simulate_download_started();
+    MockMidiManager::set_are_devices_connected(true);
+    MockMidiManager::simulate_download_started();
     assert_that!(mock_ui_methods().show_message_msg, some(eq(AWAITING_DATA_DOWNLOAD_COMPLETION)));
     assert_that!(mock_ui_methods().show_message_msg_type, some(eq(MessageType::Info)));
 }
@@ -314,9 +314,9 @@ fn on_data_download_completed_start_osc() {
     let _guard = test_mutex_guard();
     let controller = create_controller(MockSettings::new(), true);
     controller.lock().unwrap().init(&controller);
-    MockMidi::set_is_receiving_data(true);
-    MockMidi::set_are_devices_connected(true);
-    MockMidi::simulate_download_completed();
+    MockMidiManager::set_is_receiving_data(true);
+    MockMidiManager::set_are_devices_connected(true);
+    MockMidiManager::simulate_download_completed();
     assert_that!(mock_osc().start_count, eq(1));
     assert_that!(mock_ui_methods().show_message_msg, some(eq(OPENING_PITCHGRID_CONNECTION)));
     assert_that!(mock_ui_methods().show_message_msg_type, some(eq(MessageType::Info)));
@@ -327,9 +327,9 @@ fn on_tuning_received() {
     let _guard = test_mutex_guard();
     let controller = create_controller(MockSettings::new(), true);
     controller.lock().unwrap().init(&controller);
-    MockMidi::set_is_receiving_data(true);
-    MockMidi::set_are_devices_connected(true);
-    MockMidi::simulate_download_completed();
+    MockMidiManager::set_is_receiving_data(true);
+    MockMidiManager::set_are_devices_connected(true);
+    MockMidiManager::simulate_download_completed();
     MockOsc::simulate_tuning_received(TestTunings::params_16_16());
     assert_that!(tuner().has_data(), eq(true));
     assert_that!(mock_ui_methods().show_pitchgrid_status_count, eq(1));
@@ -342,11 +342,11 @@ fn on_tuning_received_when_instrument_disconnected() {
     let _guard = test_mutex_guard();
     let controller = create_controller(MockSettings::new(), true);
     controller.lock().unwrap().init(&controller);
-    MockMidi::set_is_receiving_data(true);
-    MockMidi::set_are_devices_connected(true);
-    MockMidi::simulate_download_completed();
+    MockMidiManager::set_is_receiving_data(true);
+    MockMidiManager::set_are_devices_connected(true);
+    MockMidiManager::simulate_download_completed();
     MockOsc::simulate_tuning_received(TestTunings::params_16_16());
-    MockMidi::set_is_receiving_data(false);
+    MockMidiManager::set_is_receiving_data(false);
     MockOsc::simulate_tuning_received(TestTunings::params_17_17());
     assert_that!(tuner().has_data(), eq(false));
     assert_that!(mock_ui_methods().show_pitchgrid_status_msg, some(eq(CANNOT_UPDATE_TUNING_LOST)));
@@ -358,7 +358,7 @@ fn on_updating_tuning() {
     let _guard = test_mutex_guard();
     let controller = create_controller(MockSettings::new(), true);
     controller.lock().unwrap().init(&controller);
-    MockMidi::simulate_updating_tuning();
+    MockMidiManager::simulate_updating_tuning();
     assert_that!(mock_ui_methods().show_message_msg_type, some(not(eq(MessageType::Error))));
 }
 
@@ -369,12 +369,12 @@ fn on_tuning_updated() {
     let controller = create_controller(MockSettings::new(), true);
     controller.lock().unwrap().init(&controller);
     controller.lock().unwrap().set_root_freq_override(NOTE_INDEX);
-    MockMidi::set_is_receiving_data(true);
-    MockMidi::set_are_devices_connected(true);
-    MockMidi::simulate_download_completed();
+    MockMidiManager::set_is_receiving_data(true);
+    MockMidiManager::set_are_devices_connected(true);
+    MockMidiManager::simulate_download_completed();
     MockOsc::simulate_tuning_received(TestTunings::params_16_16());
-    MockMidi::simulate_updating_tuning();
-    MockMidi::simulate_tuning_updated();
+    MockMidiManager::simulate_updating_tuning();
+    MockMidiManager::simulate_tuning_updated();
     assert_that!(tuner().has_data(), eq(true));
     assert_that!(tuner().is_root_freq_overridden(), eq(true));
     assert_that!(mock_ui_methods().show_tuning_count, eq(1));
@@ -392,17 +392,17 @@ fn on_new_preset_selected() {
     let controller = create_controller(MockSettings::new(), true);
     controller.lock().unwrap().init(&controller);
     controller.lock().unwrap().set_root_freq_override(NOTE_INDEX);
-    MockMidi::set_is_receiving_data(true);
-    MockMidi::set_are_devices_connected(true);
-    MockMidi::simulate_download_completed();
+    MockMidiManager::set_is_receiving_data(true);
+    MockMidiManager::set_are_devices_connected(true);
+    MockMidiManager::simulate_download_completed();
     MockOsc::simulate_tuning_received(TestTunings::params_16_16());
     assert_that!(mock_ui_methods().show_pitchgrid_status_count, eq(1));
-    MockMidi::simulate_updating_tuning();
-    MockMidi::simulate_tuning_updated();
-    MockMidi::simulate_new_preset_selected();
+    MockMidiManager::simulate_updating_tuning();
+    MockMidiManager::simulate_tuning_updated();
+    MockMidiManager::simulate_new_preset_selected();
     // The instrument's confirmation echo for the resend. With the preset-reselect flag set,
     // on_tuning_updated shows the preset-specific confirmation rather than the generic one.
-    MockMidi::simulate_tuning_updated();
+    MockMidiManager::simulate_tuning_updated();
     assert_that!(tuner().has_data(), eq(true));
     assert_that!(mock_ui_methods().show_pitchgrid_status_msg, some(eq(PRESET_TUNING_LOADED)));
     assert_that!(mock_ui_methods().show_pitchgrid_status_msg_type, some(eq(MessageType::Info)));
@@ -414,9 +414,9 @@ fn set_root_freq_override() {
     const NOTE_INDEX: usize = 1;
     let controller = create_controller(MockSettings::new(), true);
     controller.lock().unwrap().init(&controller);
-    MockMidi::set_is_receiving_data(true);
-    MockMidi::set_are_devices_connected(true);
-    MockMidi::simulate_download_completed();
+    MockMidiManager::set_is_receiving_data(true);
+    MockMidiManager::set_are_devices_connected(true);
+    MockMidiManager::simulate_download_completed();
     assert_that!(mock_ui_methods().show_pitchgrid_status_count, eq(0));
     MockOsc::simulate_pitchgrid_connected_changed(true);
     assert_that!(mock_ui_methods().show_pitchgrid_status_count, eq(1));
@@ -493,11 +493,11 @@ fn on_pitchgrid_disconnected() {
     let _guard = test_mutex_guard();
     let controller = create_controller(MockSettings::new(), true);
     controller.lock().unwrap().init(&controller);
-    MockMidi::set_is_receiving_data(true);
-    MockMidi::set_are_devices_connected(true);
-    MockMidi::simulate_download_completed();
+    MockMidiManager::set_is_receiving_data(true);
+    MockMidiManager::set_are_devices_connected(true);
+    MockMidiManager::simulate_download_completed();
     MockOsc::simulate_tuning_received(TestTunings::params_16_16());
-    MockMidi::simulate_tuning_updated();
+    MockMidiManager::simulate_tuning_updated();
     assert_that!(tuner().has_data(), eq(true));
     MockOsc::simulate_pitchgrid_connected_changed(false);
     assert_that!(tuner().has_data(), eq(false));
@@ -513,7 +513,7 @@ fn on_receiving_data_stopped() {
     let controller = create_controller(MockSettings::new(), true);
     controller.lock().unwrap().init(&controller);
     MockOsc::set_is_running_result(true);
-    MockMidi::simulate_receiving_data_stopped();
+    MockMidiManager::simulate_receiving_data_stopped();
     assert_that!(mock_ui_methods().show_message_msg, some(eq(INSTRUMENT_NOT_CONNECTED)));
     assert_that!(mock_ui_methods().show_message_msg_type, some(eq(MessageType::Warning)));
     assert_that!(mock_osc().stop_count, eq(1));
@@ -528,7 +528,7 @@ fn create_controller(mut settings: MockSettings, default_midi_devices: bool)
         settings.set_midi_input_device(&INPUT_DEVICE_NAMES[0]);
         settings.set_midi_output_device(&OUTPUT_DEVICE_NAMES[0]);
     }
-    let mock_midi = MockMidi::new(
+    let mock_midi = MockMidiManager::new(
         INPUT_DEVICE_NAMES.clone(), OUTPUT_DEVICE_NAMES.clone(),
         settings.midi_input_device(), settings.midi_output_device());
     let new_tuner = Arc::new(Tuner::new());
@@ -543,7 +543,7 @@ fn create_controller(mut settings: MockSettings, default_midi_devices: bool)
     let controller = Arc::new(Mutex::new(Controller::new(Arc::new(MockUiMethods::new()))));
     {
         let mut guard = controller.lock().unwrap();
-        guard.set_midi(mock_midi);
+        guard.set_midi_manager(mock_midi);
         guard.set_osc(Box::new(MockOsc::new()));
         guard.set_settings(Box::new(settings));
         guard.set_tuner(new_tuner as Arc<dyn ITuner>);
