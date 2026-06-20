@@ -51,7 +51,8 @@
       "Bash(cargo clippy *)",
       "Bash(grep -vE \"^\\\\s*\\\\d+ \\\\|.*//\")",
       "WebSearch",
-      "WebFetch(domain:microsoft.github.io)"
+      "WebFetch(domain:microsoft.github.io)",
+      "WebFetch(domain:docs.rs)"
     ]
   }
 }

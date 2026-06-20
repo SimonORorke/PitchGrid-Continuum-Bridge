@@ -575,7 +575,18 @@ fn create_controller(mut settings: MockSettings, default_midi_devices: bool)
 /// To avoid races on static data, hold the returned guard in each test to ensure sequential
 /// execution of tests.
 fn test_mutex_guard() -> MutexGuard<'static, ()> {
+    // init_test_logging();
     TEST_MUTEX.lock().unwrap_or_else(|e| e.into_inner())
+}
+
+/// Initialises `env_logger` for the test binary. Uses `try_init` (not `init`) so the repeated calls
+/// from every test are silent no-ops after the first rather than panicking on a second global-logger
+/// install. `is_test(true)` routes output through libtest's capture, so log lines surface only for
+/// FAILING tests (or with `--nocapture`). The level is still chosen at run time via `RUST_LOG`,
+/// e.g. `RUST_LOG=debug cargo test connect_device -- --nocapture`.
+#[allow(dead_code)]
+fn init_test_logging() {
+    let _ = env_logger::builder().is_test(true).try_init();
 }
 
 fn tuner() -> MutexGuard<'static, Arc<Tuner>> {
