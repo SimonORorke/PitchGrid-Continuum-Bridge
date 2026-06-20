@@ -49,7 +49,9 @@
       "PowerShell(cargo test --no-run 2>&1)",
       "PowerShell(cargo test 2>$null)",
       "Bash(cargo clippy *)",
-      "Bash(grep -vE \"^\\\\s*\\\\d+ \\\\|.*//\")"
+      "Bash(grep -vE \"^\\\\s*\\\\d+ \\\\|.*//\")",
+      "WebSearch",
+      "WebFetch(domain:microsoft.github.io)"
     ]
   }
 }

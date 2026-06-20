@@ -185,6 +185,24 @@ fn connect_device_err() {
 }
 
 #[googletest::gtest]
+fn connect_device_with_no_selection_is_silent_no_op() {
+    // An empty device list leaves the combobox unselected (-1), which `UiMethods` converts to
+    // `usize::MAX`. The `device_names().get(index)` guard in `connect_selected_device` must reject
+    // that silently: no MIDI connection attempt and no "connected" feedback (and no panic).
+    let _guard = test_mutex_guard();
+    let controller = create_controller(MockSettings::new(), false);
+    controller.lock().unwrap().init(&controller);
+    let device_strategy = InputStrategy::new();
+    MockUiMethods::set_selected_device_index(usize::MAX);
+    let connect_before = mock_midi().connect_device_count;
+    let show_connected_before = mock_ui_methods().show_connected_device_name_count;
+    controller.lock().unwrap().connect_device(&device_strategy);
+    // The MIDI layer was never asked to connect, and no device-connected name was shown.
+    assert_that!(mock_midi().connect_device_count, eq(connect_before));
+    assert_that!(mock_ui_methods().show_connected_device_name_count, eq(show_connected_before));
+}
+
+#[googletest::gtest]
 fn refresh_devices() {
     let _guard = test_mutex_guard();
     let controller = create_controller(MockSettings::new(), true);

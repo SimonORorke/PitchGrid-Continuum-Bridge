@@ -234,16 +234,10 @@ impl Controller {
     fn connect_selected_device(&mut self, shared_midi: &SharedMidiManager,
                                device_strategy: &dyn DeviceStrategy) {
         // println!("Controller.connect_selected_device: {:?}", device_strategy.device_type());
-        let selected = self.ui_methods.get_selected_device_index(device_strategy);
-        let index: usize = match usize::try_from(selected) {
-            Ok(i) => i,
-            Err(_) => {
-                // A port has not been selected. That's impossible with the UI as it is.
-                self.show_no_port_connected(device_strategy);
-                self.show_error(device_strategy.msg_not_selected());
-                return;
-            }
-        };
+        let index = self.ui_methods.get_selected_device_index(device_strategy);
+        // No selection (e.g. an empty device list) leaves the combobox at -1, which `UiMethods`
+        // converts to `usize::MAX`. That is handled silently by the `device_names().get(index)`
+        // guard below: clicking Connect with nothing to connect to simply does nothing.
         // println!("Controller.connect_selected_device: Selected port index = {}", index);
         let ui_action: Result<String, String> = {
             // println!("Controller.connect_selected_device: Getting midi.");

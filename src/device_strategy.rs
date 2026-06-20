@@ -29,7 +29,6 @@ pub trait DeviceStrategy: Send + Sync {
     fn msg_cannot_connect(&self, device_name: &str) -> &str;
     fn msg_connect(&self) -> &str;
     fn msg_connected(&self, device_name: &str) -> &str;
-    fn msg_not_selected(&self) -> &str;
     fn msg_refreshed_reconnect(&self) -> &str;
     fn other_device_strategy(&self) -> Box<dyn DeviceStrategy>;
 }
@@ -100,10 +99,6 @@ impl DeviceStrategy for InputStrategy {
 
     fn msg_connected(&self, device_name: &str) -> &str {
         Box::leak(format!("Connected MIDI input device {}", device_name).into_boxed_str())
-    }
-
-    fn msg_not_selected(&self) -> &str {
-        "No MIDI input device selected."
     }
 
     fn msg_refreshed_reconnect(&self) -> &str {
@@ -181,10 +176,6 @@ impl DeviceStrategy for OutputStrategy {
 
     fn msg_connected(&self, device_name: &str) -> &str {
         Box::leak(format!("Connected MIDI output device {}", device_name).into_boxed_str())
-    }
-
-    fn msg_not_selected(&self) -> &str {
-        "No MIDI output device selected."
     }
 
     fn msg_refreshed_reconnect(&self) -> &str {
