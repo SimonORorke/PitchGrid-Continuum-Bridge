@@ -42,11 +42,8 @@ fn main() {
 
     // Initialise controller on a background thread so that UI callbacks within
     // init() can use invoke_from_event_loop without deadlocking.
-    let controller_clone = controller.clone();
-    rayon::spawn(move || {
-        let self_arc = controller_clone.clone();
-        controller_clone.lock().unwrap().init(&self_arc);
-    });
+    let self_arc = Arc::clone(&controller);
+    spawn_controller_action(&controller, move |c| c.init(&self_arc));
 
     main_window.run().unwrap();
 }
@@ -110,75 +107,51 @@ fn init_ui_handlers(main_window: &MainWindow, controller: SharedController) {
     {
         let controller: SharedController = Arc::clone(&controller);
         main_window.on_connect_device(move |device_type: SlintDeviceType| {
-            let controller = controller.clone();
             let device_strategy = create_device_strategy(device_type);
-            rayon::spawn(move || {
-                controller.lock().unwrap().connect_device(&*device_strategy);
-            });
+            spawn_controller_action(&controller, move |c| c.connect_device(&*device_strategy));
         });
     }
     {
         let controller: SharedController = Arc::clone(&controller);
         main_window.on_refresh_devices(move |device_type: SlintDeviceType| {
-            let controller = controller.clone();
             let device_strategy = create_device_strategy(device_type);
-            rayon::spawn(move || {
-                controller.lock().unwrap().refresh_devices(&*device_strategy);
-            });
+            spawn_controller_action(&controller, move |c| c.refresh_devices(&*device_strategy));
         });
     }
     {
         let controller: SharedController = Arc::clone(&controller);
         main_window.on_selected_root_note_changed(move |index| {
-            let controller = controller.clone();
-            rayon::spawn(move || {
-                controller.lock().unwrap().set_root_freq_override(index as usize);
-            });
+            spawn_controller_action(&controller, move |c| c.set_root_freq_override(index as usize));
         });
     }
     {
         let controller: SharedController = Arc::clone(&controller);
         main_window.on_override_rounding_initial_changed(move |override_rounding_initial| {
-            let controller = controller.clone();
-            rayon::spawn(move || {
-                controller.lock().unwrap().set_override_rounding_initial(override_rounding_initial);
-            });
+            spawn_controller_action(&controller, move |c| c.set_override_rounding_initial(override_rounding_initial));
         });
     }
     {
         let controller: SharedController = Arc::clone(&controller);
         main_window.on_override_rounding_rate_changed(move |override_rounding_rate| {
-            let controller = controller.clone();
-            rayon::spawn(move || {
-                controller.lock().unwrap().set_override_rounding_rate(override_rounding_rate);
-            });
+            spawn_controller_action(&controller, move |c| c.set_override_rounding_rate(override_rounding_rate));
         });
     }
     {
         let controller: SharedController = Arc::clone(&controller);
         main_window.on_rounding_rate_changed(move |rounding_rate| {
-            let controller = controller.clone();
-            rayon::spawn(move || {
-                controller.lock().unwrap().set_rounding_rate(rounding_rate as u8);
-            });
+            spawn_controller_action(&controller, move |c| c.set_rounding_rate(rounding_rate as u8));
         });
     }
     {
         let controller: SharedController = Arc::clone(&controller);
         main_window.on_selected_osc_listening_port_changed(move |index| {
-            let controller = controller.clone();
-            rayon::spawn(move || {
-                controller.lock().unwrap().set_osc_listening_port(index as usize);
-            });
+            spawn_controller_action(&controller, move |c| c.set_osc_listening_port(index as usize));
         });
     }
     {
         let controller: SharedController = Arc::clone(&controller);
         main_window.on_selected_pitch_table_changed(move |index| {
-            let controller = controller.clone();
-            rayon::spawn(move || {
-                controller.lock().unwrap().set_pitch_table(index as usize);
-            });
+            spawn_controller_action(&controller, move |c| c.set_pitch_table(index as usize));
         });
     }
 }
@@ -210,6 +183,23 @@ fn handle_close_request(main_window_weak: &Weak<MainWindow>, controller: &Shared
         IS_CLOSE_ERROR_SHOWN.store(true, Ordering::Relaxed);
     };
     *response.lock().unwrap()
+}
+
+/// Runs `action` against the `Controller` on a rayon worker thread.
+///
+/// Every UI-event handler funnels through here: `Controller` methods must run off the Slint
+/// UI thread (they re-enter the UI via `invoke_from_event_loop`, which deadlocks if called from
+/// the UI thread — see `UiMethods::with_main_window_result`). Centralising clone → spawn → lock
+/// also keeps the lock policy in one place.
+fn spawn_controller_action(
+    controller: &SharedController,
+    action: impl FnOnce(&mut Controller) + Send + 'static,
+) {
+    let controller = Arc::clone(controller);
+    rayon::spawn(move || {
+        let mut guard = controller.lock().unwrap();
+        action(&mut guard);
+    });
 }
 
 fn create_device_strategy(device_type: SlintDeviceType)
