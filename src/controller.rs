@@ -78,7 +78,7 @@ impl Controller {
     }
 
     pub fn init(&mut self, self_arc: &SharedController) {
-        trace!("Controller.init");
+        trace!("init");
         // Record a weak self-reference so the MIDI/OSC layers can be given an
         // `Arc<Mutex<Controller>>` callback target without a global singleton.
         self.controller_weak = Arc::downgrade(self_arc);
@@ -94,7 +94,7 @@ impl Controller {
         let override_rounding_initial: bool;
         let override_rounding_rate: bool;
         let rounding_rate: u8;
-        trace!("Controller.init: Reading settings");
+        trace!("init: Reading settings");
         match self.settings.read_from_file() {
             Ok(_) => {
                 main_window_x = self.settings.main_window_x();
@@ -124,31 +124,31 @@ impl Controller {
                 return;
             }
         }
-        trace!("Controller.init: Getting midi");
+        trace!("init: Getting midi");
         self.ui_methods.set_main_window_position(main_window_x, main_window_y);
         let mut midi = self.midi_manager.lock().unwrap();
         midi.init(&input_device_name, &output_device_name);
         drop(midi); // Release MIDI lock before calling device_names which needs to acquire it
         let input_strategy = InputStrategy::new();
         let output_strategy = OutputStrategy::new();
-        trace!("Controller.init: Getting input device names");
+        trace!("init: Getting input device names");
         let input_device_names = self.device_names(&input_strategy);
-        trace!("Controller.init: Got {} input device names", input_device_names.len());
-        trace!("Controller.init: About to call callbacks.set_devices_model");
+        trace!("init: Got {} input device names", input_device_names.len());
+        trace!("init: About to call callbacks.set_devices_model");
         self.ui_methods.set_devices_model(&input_device_names, &input_strategy);
-        trace!("Controller.init: Called callbacks.set_devices_model");
-        trace!("Controller.init: Setting output devices model");
+        trace!("init: Called callbacks.set_devices_model");
+        trace!("init: Setting output devices model");
         self.ui_methods.set_devices_model(&self.device_names(&output_strategy), &output_strategy);
-        trace!("Controller.init: Connecting initial MIDI devices");
+        trace!("init: Connecting initial MIDI devices");
         self.connect_initial_device(&output_strategy);
         // Don't start listening to MIDI until we are able to send MIDI.
         if self.midi_manager.lock().unwrap().is_output_device_connected() {
-            trace!("Controller.init: Connecting input device");
+            trace!("init: Connecting input device");
             self.connect_initial_device(&input_strategy);
         }
         self.osc.set_listening_port(osc_listening_port);
         self.ui_methods.set_selected_osc_listening_port_index(Osc::listening_port_index() as i32);
-        trace!("Controller.init: Configuring tuner");
+        trace!("init: Configuring tuner");
         self.tuner.init(pitch_table);
         self.ui_methods.set_selected_pitch_table_index(self.tuner.pitch_table_index() as i32);
         self.tuner.set_override_rounding_initial(override_rounding_initial);
@@ -158,17 +158,17 @@ impl Controller {
         self.ui_methods.set_override_rounding_rate(override_rounding_rate);
         self.ui_methods.set_rounding_rate(rounding_rate);
         if self.midi_manager.lock().unwrap().are_devices_connected() {
-            trace!("Controller.init: Starting instrument connection monitor");
+            trace!("init: Starting instrument connection monitor");
             self.start_instrument_connection_monitor();
         }
-        trace!("Controller.init: Done");
+        trace!("init: Done");
     }
 
     fn start_instrument_connection_monitor(&mut self) {
-        trace!("Controller.start_instrument_connection_monitor");
+        trace!("start_instrument_connection_monitor");
         self.show_info(CHECKING_INSTRUMENT_CONNECTION);
         self.midi_manager.lock().unwrap().start_instrument_connection_monitor();
-        trace!("Controller.start_instrument_connection_monitor: Instrument connection monitor started");
+        trace!("start_instrument_connection_monitor: Instrument connection monitor started");
     }
 
     pub fn close(&mut self, main_window_x: i32, main_window_y: i32) -> Result<(), Box<dyn Error>> {
@@ -184,7 +184,7 @@ impl Controller {
     }
 
     fn connect_initial_device(&mut self, device_strategy: &dyn DeviceStrategy) {
-        trace!("Controller.connect_initial_port: {:?}", device_strategy.device_type());
+        trace!("connect_initial_port: {:?}", device_strategy.device_type());
         let shared_midi = self.midi_manager.clone();
         let maybe_index = {
             let midi = shared_midi.lock().unwrap();
@@ -192,7 +192,7 @@ impl Controller {
                 .map(|device| device.index())
         };
         if let Some(index) = maybe_index {
-            trace!("Controller.connect_initial_port: Setting selected port index to {}", index);
+            trace!("connect_initial_port: Setting selected port index to {}", index);
             self.ui_methods.set_selected_device_index(index, device_strategy);
             self.connect_selected_device(&shared_midi, device_strategy);
         } else {
@@ -203,25 +203,25 @@ impl Controller {
     }
 
     pub fn connect_device(&mut self, device_strategy: &dyn DeviceStrategy) {
-        trace!("Controller.connect_device");
+        trace!("connect_device");
         let shared_midi = self.midi_manager.clone();
         let device_strategy = device_strategy.clone_box();
-        trace!("Controller.connect_device: Stopping OSC and instrument connection monitor");
+        trace!("connect_device: Stopping OSC and instrument connection monitor");
         self.stop_osc_and_instrument_connection_monitor();
-        trace!("Controller.connect_device: Showing PitchGrid disconnected");
+        trace!("connect_device: Showing PitchGrid disconnected");
         self.show_pitchgrid_disconnected();
-        trace!("Controller.connect_device: Connecting selected port");
+        trace!("connect_device: Connecting selected port");
         self.connect_selected_device(&shared_midi, &*device_strategy);
-        trace!("Controller.connect_device: Getting port");
+        trace!("connect_device: Getting port");
         let device_name_opt: Option<String> = shared_midi.lock().unwrap()
             .io(&*device_strategy)
             .device()
             .map(|p| p.name().to_string());
-        trace!("Controller.connect_device: Got port");
+        trace!("connect_device: Got port");
         if let Some(device_name) = device_name_opt {
             self.show_info(device_strategy.msg_connected(&device_name));
             if self.midi_manager.lock().unwrap().are_devices_connected() {
-                trace!("Controller.connect_device: Starting instrument connection monitor");
+                trace!("connect_device: Starting instrument connection monitor");
                 self.start_instrument_connection_monitor();
             } else {
                 let other_device_strategy =
@@ -229,21 +229,21 @@ impl Controller {
                 self.show_warning(other_device_strategy.msg_connect());
             }
         }
-        trace!("Controller.connect_device: Done");
+        trace!("connect_device: Done");
     }
 
     fn connect_selected_device(&mut self, shared_midi: &SharedMidiManager,
                                device_strategy: &dyn DeviceStrategy) {
-        trace!("Controller.connect_selected_device: {:?}", device_strategy.device_type());
+        trace!("connect_selected_device: {:?}", device_strategy.device_type());
         let index = self.ui_methods.get_selected_device_index(device_strategy);
         // No selection (e.g. an empty device list) leaves the combobox at -1, which `UiMethods`
         // converts to `usize::MAX`. That is handled silently by the `device_names().get(index)`
         // guard below: clicking Connect with nothing to connect to simply does nothing.
-        trace!("Controller.connect_selected_device: Selected port index = {}", index);
+        trace!("connect_selected_device: Selected port index = {}", index);
         let ui_action: Result<String, String> = {
-            trace!("Controller.connect_selected_device: Getting midi.");
+            trace!("connect_selected_device: Getting midi.");
             let mut midi = shared_midi.lock().unwrap();
-            trace!("Controller.connect_selected_device: Got midi.");
+            trace!("connect_selected_device: Got midi.");
             let Some(name) = midi.io(device_strategy).device_names().get(index).cloned()
             else {
                 return;
@@ -352,30 +352,30 @@ impl Controller {
     }
 
     fn on_data_download_completed(&mut self) {
-        debug!("Controller.on_data_download_completed");
+        debug!("on_data_download_completed");
         if self.midi_manager.lock().unwrap().is_receiving_data()
                 && self.midi_manager.lock().unwrap().are_devices_connected()
                 && !self.osc.is_running() {
-            debug!("Controller.on_data_download_completed: Starting OSC");
+            debug!("on_data_download_completed: Starting OSC");
             self.start_osc();
             self.show_info(OPENING_PITCHGRID_CONNECTION);
         }
     }
 
     fn on_data_download_started(&mut self) {
-        trace!("Controller.on_data_download_started");
+        trace!("on_data_download_started");
         self.show_info(AWAITING_DATA_DOWNLOAD_COMPLETION);
     }
 
     fn on_devices_connected_changed(&mut self) {
-        trace!("Controller.on_ports_connected_changed");
+        trace!("on_ports_connected_changed");
         if self.midi_manager.lock().unwrap().are_devices_connected() {
             return;
         }
         // At least one MIDI port is not connected. Stop OSC if running.
-        trace!("Controller.on_ports_connected_changed: Ports are not connected.");
+        trace!("on_ports_connected_changed: Ports are not connected.");
         if self.osc.is_running() {
-            trace!("Controller.on_ports_connected_changed: Stopping OSC");
+            trace!("on_ports_connected_changed: Stopping OSC");
             self.stop_osc_and_show_pitchgrid_status();
             self.show_warning(INSTRUMENT_DISCONNECTED);
         }
@@ -385,7 +385,7 @@ impl Controller {
     }
 
     fn on_new_preset_selected(&self) {
-        debug!("Controller.on_new_preset_selected");
+        debug!("on_new_preset_selected");
         // Nothing to resend until a tuning has been generated and sent at least once;
         // in that case `send_current_preset_update` is a no-op.
         if !self.tuner.has_data() {
@@ -399,37 +399,37 @@ impl Controller {
         // rather than the generic INSTRUMENT_TUNING_UPDATED.
         self.is_preset_reselect.store(true, Ordering::Relaxed);
         self.tuner.send_current_preset_update();
-        debug!("Controller.on_new_preset_selected: Updated");
+        debug!("on_new_preset_selected: Updated");
     }
 
     /// Started receiving data from the instrument.
     fn on_receiving_data_started(&mut self) {
-        trace!("Controller.on_receiving_data_started");
+        trace!("on_receiving_data_started");
         // The input device is connected, as we are receiving data from the instrument.
         // But the output device might not be, in which case we can't send data to the instrument
         // and should not overwrite the "Connect MIDI output device" warning message that should
         // already be displayed.
         if self.midi_manager.lock().unwrap().are_devices_connected() {
-            trace!("Controller.on_receiving_data_started: Waiting for data download to complete.");
+            trace!("on_receiving_data_started: Waiting for data download to complete.");
             self.show_info(WAITING_FOR_DATA_DOWNLOAD);
         }
     }
 
     /// Stopped receiving data from the instrument.
     fn on_receiving_data_stopped(&mut self) {
-        trace!("Controller.on_receiving_data_stopped");
+        trace!("on_receiving_data_stopped");
         if self.osc.is_running() {
-            debug!("Controller.on_receiving_data_stopped: Stopping OSC");
+            debug!("on_receiving_data_stopped: Stopping OSC");
             self.stop_osc_and_show_pitchgrid_status();
         }
         if self.midi_manager.lock().unwrap().are_devices_connected() {
-            trace!("Controller.on_receiving_data_stopped: Showing instrument not connected warning");
+            trace!("on_receiving_data_stopped: Showing instrument not connected warning");
             self.show_warning(INSTRUMENT_NOT_CONNECTED);
         }
     }
 
     fn on_tuning_updated(&mut self) {
-        debug!("Controller.on_tuning_updated");
+        debug!("on_tuning_updated");
         // Stop waiting for tuning update to be confirmed.
         if self.is_awaiting_tuning_updated {
             if let Some(stopper_sender) = self.await_tuning_updated_stopper_sender.take() {
@@ -454,12 +454,12 @@ impl Controller {
         } else {
             INSTRUMENT_TUNING_UPDATED
         };
-        debug!("Controller.on_tuning_updated: Showing {}", status);
+        debug!("on_tuning_updated: Showing {}", status);
         self.ui_methods.show_pitchgrid_status(status, MessageType::Info);
     }
 
     fn on_updating_tuning(&mut self) {
-        debug!("Controller.on_updating_tuning");
+        debug!("on_updating_tuning");
         let (stopper_sender, stopper_receiver) = mpsc::channel();
         self.await_tuning_updated_stopper_sender = Some(stopper_sender);
         self.is_awaiting_tuning_updated = true;
@@ -525,10 +525,10 @@ impl Controller {
         // if let Ok(_) = stopper_receiver.recv_timeout(Duration::from_millis(50)) {
         if stopper_receiver.recv_timeout(Duration::from_secs(2)).is_ok() {
             // Sleep was interrupted: tuning has been updated.
-            debug!("Controller.await_tuning_updated: Tuning updated");
+            debug!("await_tuning_updated: Tuning updated");
             return;
         }
-        warn!("Controller.await_tuning_updated: Tuning update not confirmed");
+        warn!("await_tuning_updated: Tuning update not confirmed");
         // Report straight to the view via the captured handle. We deliberately do NOT clear
         // `is_awaiting_tuning_updated` from here (we no longer hold the controller): it is cleared
         // by `on_tuning_updated`, whose stop-signal send now tolerates this thread having already
@@ -570,7 +570,7 @@ impl Controller {
     }
     
     fn show_pitchgrid_connected(&self) {
-        trace!("Controller.show_pitchgrid_connected: Showing PitchGrid OSC is connected");
+        trace!("show_pitchgrid_connected: Showing PitchGrid OSC is connected");
         self.ui_methods.show_pitchgrid_status(
             PITCHGRID_OSC_CONNECTED,
             MessageType::Info);
@@ -589,7 +589,7 @@ impl Controller {
     }
 
     fn show_warning(&self, message: &str) {
-        trace!("Controller.show_warning: {}", message);
+        trace!("show_warning: {}", message);
         self.ui_methods.show_message(message, MessageType::Warning);
     }
 
@@ -599,17 +599,17 @@ impl Controller {
     }
 
     fn stop_osc_and_instrument_connection_monitor(&mut self) {
-        trace!("Controller.stop_osc_and_instrument_connection_monitor");
+        trace!("stop_osc_and_instrument_connection_monitor");
         self.midi_manager.lock().unwrap().stop_instrument_connection_monitor();
         self.stop_osc_and_show_pitchgrid_status();
-        trace!("Controller.stop_osc_and_instrument_connection_monitor: Done");
+        trace!("stop_osc_and_instrument_connection_monitor: Done");
     }
 
     /// Stops PitchGrid OSC, blanks the displayed tuning and shows a PitchGrid status message.
     /// When the application is reconnected to the instrument, OSC will be restarted, which will
     /// force PitchGrid to send the latest tuning.
     fn stop_osc_and_show_pitchgrid_status(&self) {
-        debug!("Controller.stop_osc_and_show_pitchgrid_status");
+        debug!("stop_osc_and_show_pitchgrid_status");
         self.osc.stop();
         self.remove_data();
         if !self.midi_manager.lock().unwrap().are_devices_connected() {
@@ -625,7 +625,7 @@ impl Controller {
 
     /// Blanks the displayed tuning and removes tuning data from the tuner.
     fn remove_data(&self) {
-        debug!("Controller.remove_data");
+        debug!("remove_data");
         self.tuner.remove_data();
         // As we've removed tuning data, the displayed tuning data will be blanked.
         self.ui_methods.show_tuning(self.tuner.formatted_tuning_params(), self.tuner.is_root_freq_overridden());
@@ -682,16 +682,16 @@ impl OscCallbacks for Mutex<Controller> {
 
 impl OscCallbacks for Controller {
     fn on_pitchgrid_connected_changed(&self) {
-        trace!("Controller.on_pitchgrid_connected_changed");
+        trace!("on_pitchgrid_connected_changed");
         if self.osc.is_pitchgrid_connected() {
-            debug!("Controller.on_pitchgrid_connected_changed: Showing tuning");
+            debug!("on_pitchgrid_connected_changed: Showing tuning");
             self.ui_methods.show_tuning(self.tuner.formatted_tuning_params(), self.tuner.is_root_freq_overridden());
-            trace!("Controller.on_pitchgrid_connected_changed: Showing PitchGrid is connected");
+            trace!("on_pitchgrid_connected_changed: Showing PitchGrid is connected");
             self.show_pitchgrid_connected();
-            trace!("Controller.on_pitchgrid_connected_changed: PitchGrid and instrument are connected");
+            trace!("on_pitchgrid_connected_changed: PitchGrid and instrument are connected");
             self.show_info(PITCHGRID_AND_INSTRUMENT_CONNECTED);
         } else {
-            debug!("Controller.on_pitchgrid_connected_changed: PitchGrid is not connected");
+            debug!("on_pitchgrid_connected_changed: PitchGrid is not connected");
             self.remove_data();
             self.show_pitchgrid_not_connected();
             self.show_warning(AWAITING_PITCHGRID_CONNECTION);
@@ -699,15 +699,15 @@ impl OscCallbacks for Controller {
     }
 
     fn on_tuning_received(&self, tuning_params: TuningParams) {
-        trace!("Controller.on_tuning_received");
+        trace!("on_tuning_received");
         // A fresh tuning is not a preset reselect. Clear any flag left set by a preset reselect
         // whose confirmation never arrived, so this tuning's confirmation isn't mislabelled.
         self.is_preset_reselect.store(false, Ordering::Relaxed);
-        trace!("Controller.on_tuning_received: {tuning_params:?}");
+        trace!("on_tuning_received: {tuning_params:?}");
         if self.midi_manager.lock().unwrap().are_devices_connected() && self.midi_manager.lock().unwrap().is_receiving_data() {
-            debug!("Controller.on_tuning_received: Showing Updating instrument tuning");
+            debug!("on_tuning_received: Showing Updating instrument tuning");
             self.ui_methods.show_pitchgrid_status(UPDATING_INSTRUMENT_TUNING, MessageType::Info);
-            debug!("Controller.on_tuning_received: Updating instrument tuning");
+            debug!("on_tuning_received: Updating instrument tuning");
             self.tuner.on_tuning_received(tuning_params);
         } else {
             self.stop_osc_and_show_pitchgrid_status();

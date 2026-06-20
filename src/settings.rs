@@ -149,7 +149,7 @@ impl ISettings for Settings {
         self.override_rounding_initial = settings.override_rounding_initial;
         self.override_rounding_rate = settings.override_rounding_rate;
         self.rounding_rate = settings.rounding_rate;
-        trace!("Settings.read_from_file: self.midi_input_device = {}; self.midi_output_device = {}; \
+        trace!("read_from_file: self.midi_input_device = {}; self.midi_output_device = {}; \
             self.pitch_table = {:?};", self.midi_input_device, self.midi_output_device, self.pitch_table);
         Ok(())
     }
@@ -169,7 +169,7 @@ impl ISettings for Settings {
                 Box::new(std::io::Error::new(e.kind(),
                 format!("Error writing settings file '{:?}': {e}", path))));
         }
-        trace!("Settings.write_to_file: self.midi_input_device = {}; self.midi_output_device = {}; \
+        trace!("write_to_file: self.midi_input_device = {}; self.midi_output_device = {}; \
             self.pitch_table = {:?};", self.midi_input_device, self.midi_output_device, self.pitch_table);
         Ok(())
     }
@@ -184,4 +184,4 @@ fn default_path_finder() -> Box<dyn PathFinder> {
     Box::new(SystemPathFinder::new())
 }
 
-const SETTINGS_FILE_NAME: &str = "Settings.toml";
+const SETTINGS_FILE_NAME: &str = "toml";

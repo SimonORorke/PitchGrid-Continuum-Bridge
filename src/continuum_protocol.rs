@@ -66,7 +66,7 @@ impl ContinuumProtocol {
     }
 
     fn on_init_data_download_completed(&self) {
-        trace!("ContinuumProtocol.on_init_data_download_completed: Stopping download monitor");
+        trace!("on_init_data_download_completed: Stopping download monitor");
         self.is_monitoring_download.store(false, Ordering::Relaxed);
         *self.download_status.lock().unwrap() = DownloadStatus::Complete;
         if let Some(listener) = self.listener() {
@@ -87,7 +87,7 @@ impl IContinuumProtocol for ContinuumProtocol {
 
 impl TuningUpdateSignaller for ContinuumProtocol {
     fn on_updating_tuning(&self) {
-        debug!("ContinuumProtocol.on_updating_tuning");
+        debug!("on_updating_tuning");
         *self.tuning_status.lock().unwrap() = TuningStatus::Tuning;
         if let Some(listener) = self.listener() {
             rayon::spawn(move || listener.on_updating_tuning());
@@ -123,7 +123,7 @@ impl MidiInputListener for ContinuumProtocol {
             if let Some(start) = *self.download_wait_start_time.lock().unwrap()
                 && now.duration_since(start).as_secs() >= 6
             {
-                trace!("ContinuumProtocol.on_message: Starting download monitor");
+                trace!("on_message: Starting download monitor");
                 self.is_monitoring_download.store(true, Ordering::Relaxed);
             }
         }
@@ -139,12 +139,12 @@ impl MidiInputListener for ContinuumProtocol {
                     // Channel 16: the instrument's control channel for most parameters.
                     if controller != 82 && controller != 111 && controller != 114
                         && controller != 118 {  // Heartbeats ignored
-                        trace!("Midi.on_message_received: ch{} cc{} value {}",
+                        trace!("on_message_received: ch{} cc{} value {}",
                                channel1, u8::from(controller), u8::from(value));
                     }
                     if controller == 51 { // Grid
                         let pitch_table = u8::from(value);
-                        trace!("midi.on_message_received: Pitch table {}", pitch_table);
+                        trace!("on_message_received: Pitch table {}", pitch_table);
                         // A pitch table has been loaded to the instrument's current preset.
                         // This message is received as part of instrument config,
                         // and when a pitch table update sent to the instrument has been
@@ -158,7 +158,7 @@ impl MidiInputListener for ContinuumProtocol {
                             // when a preset is loaded, there will be a Grid message
                             // for the preset's initial tuning table, which will be zero.
                             if pitch_table == Tuner::pitch_table() {
-                                debug!("ContinuumProtocol.on_message: Preset's pitch table \
+                                debug!("on_message: Preset's pitch table \
                                             update requested, pitch table no: {}", pitch_table);
                                 *self.tuning_status.lock().unwrap() = TuningStatus::None;
                                 if let Some(listener) = self.listener() {
@@ -207,12 +207,12 @@ impl MidiInputListener for ContinuumProtocol {
                     }
                     if controller == 109 {
                         if value == 40 {
-                            trace!("midi.on_message_received: EndSysNames");
+                            trace!("on_message_received: EndSysNames");
                             *self.download_status.lock().unwrap() = DownloadStatus::EndSysNames;
                             return;
                         }
                         if value == 49 {
-                            trace!("midi.on_message_received: BeginSysNames");
+                            trace!("on_message_received: BeginSysNames");
                             *self.download_status.lock().unwrap() = DownloadStatus::BeginSysNames;
                             if let Some(listener) = self.listener() {
                                 rayon::spawn(move || listener.on_download_started());
@@ -220,7 +220,7 @@ impl MidiInputListener for ContinuumProtocol {
                             return;
                         }
                         if value == 54 {
-                            trace!("midi.on_message_received: BeginUserNames");
+                            trace!("on_message_received: BeginUserNames");
                             *self.download_status.lock().unwrap() = DownloadStatus::BeginUserNames;
                             // If system preset names have been downloaded,
                             // which should only have happened on firmware upgrade,
@@ -233,7 +233,7 @@ impl MidiInputListener for ContinuumProtocol {
                             return;
                         }
                         if value == 55 {
-                            trace!("midi.on_message_received: EndUserNames");
+                            trace!("on_message_received: EndUserNames");
                             *self.download_status.lock().unwrap() = DownloadStatus::EndUserNames;
                         }
                     }
@@ -245,13 +245,13 @@ impl MidiInputListener for ContinuumProtocol {
                         // editor's console log but not here, the program number is zero-based.
                         // When the instrument confirms that the preset has been loaded,
                         // which we see here, the program number is one-based.
-                        trace!("midi.on_message_received: ProgramChange ch16 program {}", u8::from(program));
+                        trace!("on_message_received: ProgramChange ch16 program {}", u8::from(program));
                         let download_status = *self.download_status.lock().unwrap();
                         // I don't think this will work if system presets are downloaded.
                         // But it's a rare occurrence; and the user will be able to work around it.
                         if download_status == DownloadStatus::EndUserNames
                             || download_status == DownloadStatus::EndSysNames {
-                            trace!("Midi.on_message_received: End of download");
+                            trace!("on_message_received: End of download");
                             self.on_init_data_download_completed();
                             return;
                         }
@@ -260,7 +260,7 @@ impl MidiInputListener for ContinuumProtocol {
                             // zero-based program number after the bank.
                             // For unknown reason, this happens twice when a preset is loaded
                             // from disc.
-                            trace!("midi.on_message_received: Program, preset selected");
+                            trace!("on_message_received: Program, preset selected");
                             if let Some(listener) = self.listener() {
                                 rayon::spawn(move || listener.on_new_preset_selected());
                             }
