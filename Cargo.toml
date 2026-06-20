@@ -16,6 +16,11 @@ authors = ["Simon O'Rorke"]
 edition = "2024"
 build = "build.rs"
 
+[lints.clippy]
+# These types (singletons, strategies, test mocks) are never default-constructed; a `Default`
+# delegating to `new()` would be ceremony. Reviewed in the phase-2 code-review cleanup.
+new_without_default = "allow"
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]

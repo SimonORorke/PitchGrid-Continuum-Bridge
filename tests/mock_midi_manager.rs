@@ -72,6 +72,8 @@ impl MockMidiManager {
         }
     }
 
+    // Factory: returns the trait object the SUT holds (and resets shared mock state), not Self.
+    #[allow(clippy::new_ret_no_self)]
     pub fn new(
         input_device_names: Vec<String>,
         output_device_names: Vec<String>,

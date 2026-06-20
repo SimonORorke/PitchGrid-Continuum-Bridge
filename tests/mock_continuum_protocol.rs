@@ -21,6 +21,8 @@ impl MockContinuumProtocol {
         }
     }
 
+    // Factory: returns the trait object the SUT holds (and resets shared mock state), not Self.
+    #[allow(clippy::new_ret_no_self)]
     pub fn new() -> Arc<dyn IContinuumProtocol> {
         *MOCK_CONTINUUM_PROTOCOL.lock().unwrap_or_else(|e| e.into_inner()) =
             MockContinuumProtocol::new_state();

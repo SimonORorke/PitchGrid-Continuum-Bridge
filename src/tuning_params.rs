@@ -4,7 +4,10 @@ use cxx::UniquePtr;
 use round::round;
 
 /// Tuning parameters received from PitchGrid.
-#[derive(Clone, Debug, PartialEq)]
+/// The derived `Default` is the empty "no tuning loaded" state (all-zero; `root_freq == 0.0`
+/// is the sentinel checked in `format_tuning_params` and `Tuner`), so we don't have to wrap
+/// `TuningParams` instances in `Option`.
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct TuningParams {
     mode: i32,
     root_freq: f32,
@@ -18,17 +21,12 @@ pub struct TuningParams {
 }
 
 impl TuningParams {
+    // The 8 tuning parameters are irreducible (a "params struct" would just be `TuningParams`).
+    #[allow(clippy::too_many_arguments)]
     pub fn new(mode: i32, root_freq: f32, stretch: f32, skew: f32,
                mode_offset: f32, steps: i32, mos_a: i32, mos_b: i32) -> Self {
         Self { mode, root_freq, stretch, skew, mode_offset, steps, mos_a, mos_b,
                root_freq_override: None }
-    }
-
-    /// This is not a meaningful default. It's just here so we don't have to encapsulate
-    /// TuningParams instances in Options.
-    pub fn default() -> Self {
-        Self { mode: 0, root_freq: 0.0, stretch: 0.0, skew: 0.0,
-            mode_offset: 0.0, steps: 0, mos_a: 0, mos_b: 0, root_freq_override: None }
     }
 
     pub fn mode(&self) -> i32 { self.mode }

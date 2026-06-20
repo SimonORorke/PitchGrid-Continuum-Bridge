@@ -31,6 +31,8 @@ impl MockMidiSender {
     }
 
     /// Creates a new `MockMidiSender`, resetting the state accessed via `mock_midi_sender()`.
+    // Factory: returns the trait object the SUT holds, not Self.
+    #[allow(clippy::new_ret_no_self)]
     pub fn new() -> Box<dyn IMidiSender> {
         MOCK_MIDI_SENDER.replace(MockMidiSender::new_state());
         Box::new(MockMidiSenderImpl {})
