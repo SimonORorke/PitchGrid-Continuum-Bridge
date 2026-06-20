@@ -3,6 +3,7 @@ use std::sync::{Arc, Mutex, Weak};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::time::Duration;
+use log::{debug, warn};
 use crate::global::{MessageType};
 use crate::i_midi_manager::{IMidiManager, SharedMidiManager, SharedOutput};
 use crate::i_osc::{IOsc, OscCallbacks};
@@ -351,11 +352,11 @@ impl Controller {
     }
 
     fn on_data_download_completed(&mut self) {
-        println!("Controller.on_data_download_completed");
+        debug!("Controller.on_data_download_completed");
         if self.midi_manager.lock().unwrap().is_receiving_data()
                 && self.midi_manager.lock().unwrap().are_devices_connected()
                 && !self.osc.is_running() {
-            println!("Controller.on_data_download_completed: Starting OSC");
+            debug!("Controller.on_data_download_completed: Starting OSC");
             self.start_osc();
             self.show_info(OPENING_PITCHGRID_CONNECTION);
         }
@@ -384,7 +385,7 @@ impl Controller {
     }
 
     fn on_new_preset_selected(&self) {
-        println!("Controller.on_new_preset_selected");
+        debug!("Controller.on_new_preset_selected");
         // Nothing to resend until a tuning has been generated and sent at least once;
         // in that case `send_current_preset_update` is a no-op.
         if !self.tuner.has_data() {
@@ -398,7 +399,7 @@ impl Controller {
         // rather than the generic INSTRUMENT_TUNING_UPDATED.
         self.is_preset_reselect.store(true, Ordering::Relaxed);
         self.tuner.send_current_preset_update();
-        println!("Controller.on_new_preset_selected: Updated");
+        debug!("Controller.on_new_preset_selected: Updated");
     }
 
     /// Started receiving data from the instrument.
@@ -418,7 +419,7 @@ impl Controller {
     fn on_receiving_data_stopped(&mut self) {
         // println!("Controller.on_receiving_data_stopped");
         if self.osc.is_running() {
-            println!("Controller.on_receiving_data_stopped: Stopping OSC");
+            debug!("Controller.on_receiving_data_stopped: Stopping OSC");
             self.stop_osc_and_show_pitchgrid_status();
         }
         if self.midi_manager.lock().unwrap().are_devices_connected() {
@@ -428,7 +429,7 @@ impl Controller {
     }
 
     fn on_tuning_updated(&mut self) {
-        println!("Controller.on_tuning_updated");
+        debug!("Controller.on_tuning_updated");
         // Stop waiting for tuning update to be confirmed.
         if self.is_awaiting_tuning_updated {
             if let Some(stopper_sender) = self.await_tuning_updated_stopper_sender.take() {
@@ -453,12 +454,12 @@ impl Controller {
         } else {
             INSTRUMENT_TUNING_UPDATED
         };
-        println!("Controller.on_tuning_updated: Showing {}", status);
+        debug!("Controller.on_tuning_updated: Showing {}", status);
         self.ui_methods.show_pitchgrid_status(status, MessageType::Info);
     }
 
     fn on_updating_tuning(&mut self) {
-        println!("Controller.on_updating_tuning");
+        debug!("Controller.on_updating_tuning");
         let (stopper_sender, stopper_receiver) = mpsc::channel();
         self.await_tuning_updated_stopper_sender = Some(stopper_sender);
         self.is_awaiting_tuning_updated = true;
@@ -524,10 +525,10 @@ impl Controller {
         // if let Ok(_) = stopper_receiver.recv_timeout(Duration::from_millis(50)) {
         if stopper_receiver.recv_timeout(Duration::from_secs(2)).is_ok() {
             // Sleep was interrupted: tuning has been updated.
-            println!("Controller.await_tuning_updated: Tuning updated");
+            debug!("Controller.await_tuning_updated: Tuning updated");
             return;
         }
-        println!("Controller.await_tuning_updated: Tuning update not confirmed");
+        warn!("Controller.await_tuning_updated: Tuning update not confirmed");
         // Report straight to the view via the captured handle. We deliberately do NOT clear
         // `is_awaiting_tuning_updated` from here (we no longer hold the controller): it is cleared
         // by `on_tuning_updated`, whose stop-signal send now tolerates this thread having already
@@ -608,7 +609,7 @@ impl Controller {
     /// When the application is reconnected to the instrument, OSC will be restarted, which will
     /// force PitchGrid to send the latest tuning.
     fn stop_osc_and_show_pitchgrid_status(&self) {
-        println!("Controller.stop_osc_and_show_pitchgrid_status");
+        debug!("Controller.stop_osc_and_show_pitchgrid_status");
         self.osc.stop();
         self.remove_data();
         if !self.midi_manager.lock().unwrap().are_devices_connected() {
@@ -624,7 +625,7 @@ impl Controller {
 
     /// Blanks the displayed tuning and removes tuning data from the tuner.
     fn remove_data(&self) {
-        println!("Controller.remove_data");
+        debug!("Controller.remove_data");
         self.tuner.remove_data();
         // As we've removed tuning data, the displayed tuning data will be blanked.
         self.ui_methods.show_tuning(self.tuner.formatted_tuning_params(), self.tuner.is_root_freq_overridden());
@@ -683,14 +684,14 @@ impl OscCallbacks for Controller {
     fn on_pitchgrid_connected_changed(&self) {
         // println!("Controller.on_pitchgrid_connected_changed");
         if self.osc.is_pitchgrid_connected() {
-            println!("Controller.on_pitchgrid_connected_changed: Showing tuning");
+            debug!("Controller.on_pitchgrid_connected_changed: Showing tuning");
             self.ui_methods.show_tuning(self.tuner.formatted_tuning_params(), self.tuner.is_root_freq_overridden());
             // println!("Controller.on_pitchgrid_connected_changed: Showing PitchGrid is connected");
             self.show_pitchgrid_connected();
             // println!("Controller.on_pitchgrid_connected_changed: PitchGrid and instrument are connected");
             self.show_info(PITCHGRID_AND_INSTRUMENT_CONNECTED);
         } else {
-            println!("Controller.on_pitchgrid_connected_changed: PitchGrid is not connected");
+            debug!("Controller.on_pitchgrid_connected_changed: PitchGrid is not connected");
             self.remove_data();
             self.show_pitchgrid_not_connected();
             self.show_warning(AWAITING_PITCHGRID_CONNECTION);
@@ -707,9 +708,9 @@ impl OscCallbacks for Controller {
         //     skew = {}; mode_offset = {}; steps = {}",
         //     depth, mode, root_freq, stretch, skew, mode_offset, steps);
         if self.midi_manager.lock().unwrap().are_devices_connected() && self.midi_manager.lock().unwrap().is_receiving_data() {
-            println!("Controller.on_tuning_received: Showing Updating instrument tuning");
+            debug!("Controller.on_tuning_received: Showing Updating instrument tuning");
             self.ui_methods.show_pitchgrid_status(UPDATING_INSTRUMENT_TUNING, MessageType::Info);
-            println!("Controller.on_tuning_received: Updating instrument tuning");
+            debug!("Controller.on_tuning_received: Updating instrument tuning");
             self.tuner.on_tuning_received(tuning_params);
         } else {
             self.stop_osc_and_show_pitchgrid_status();

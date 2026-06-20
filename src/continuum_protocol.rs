@@ -2,6 +2,7 @@ use crate::i_continuum_protocol::{
     ContinuumProtocolListener, IContinuumProtocol, TuningUpdateSignaller};
 use crate::i_midi_manager::MidiInputListener;
 use crate::tuner::Tuner;
+use log::debug;
 use midly::{MidiMessage, live::LiveEvent};
 use std::sync::{Arc, Mutex, Weak};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -86,7 +87,7 @@ impl IContinuumProtocol for ContinuumProtocol {
 
 impl TuningUpdateSignaller for ContinuumProtocol {
     fn on_updating_tuning(&self) {
-        println!("ContinuumProtocol.on_updating_tuning");
+        debug!("ContinuumProtocol.on_updating_tuning");
         *self.tuning_status.lock().unwrap() = TuningStatus::Tuning;
         if let Some(listener) = self.listener() {
             rayon::spawn(move || listener.on_updating_tuning());
@@ -157,7 +158,7 @@ impl MidiInputListener for ContinuumProtocol {
                             // when a preset is loaded, there will be a Grid message
                             // for the preset's initial tuning table, which will be zero.
                             if pitch_table == Tuner::pitch_table() {
-                                println!("ContinuumProtocol.on_message: Preset's pitch table \
+                                debug!("ContinuumProtocol.on_message: Preset's pitch table \
                                             update requested, pitch table no: {}", pitch_table);
                                 *self.tuning_status.lock().unwrap() = TuningStatus::None;
                                 if let Some(listener) = self.listener() {

@@ -1,4 +1,5 @@
 use std::fmt;
+use log::error;
 use midly::{MidiMessage, live::LiveEvent};
 use crate::i_midi_manager::SharedOutput;
 
@@ -49,7 +50,7 @@ impl MidiSender {
         let mut connection_option = self.output.lock().unwrap();
         if let Some(connection) = connection_option.as_mut() {
             connection.send(message).unwrap_or_else(|_| {
-                println!("Error when sending MIDI message: {:?}", message);
+                error!("Error when sending MIDI message: {:?}", message);
                 // Panic for stack trace diagnostics.
                 // panic!("Error when sending MIDI message: {:?}", message);
             });

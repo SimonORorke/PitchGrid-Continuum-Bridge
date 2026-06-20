@@ -1,5 +1,6 @@
 use std::sync::atomic::{AtomicBool, AtomicU8, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
+use log::{debug, trace};
 use crate::i_tuner::ITuner;
 use crate::i_continuum_protocol::{TuningUpdateSignaller, NullTuningSignaller};
 use crate::midi_sender::{IMidiSender, NullMidiSender};
@@ -55,7 +56,7 @@ impl Tuner {
     /// Calculates the tuning and either sends it to the instrument, provided another tuning update
     /// is not already in progress, or stores it for sending once the current update completes.
     fn tune(&self) {
-        println!("tuner.tune");
+        debug!("tuner.tune");
         let send_now: bool;
         {
             let mut params = self.params.lock().unwrap();
@@ -79,12 +80,12 @@ impl Tuner {
             // in progress and, once the update is complete, send the most recently received
             // following tuning if there is one.
             let is_already_updating = self.is_already_updating.load(Ordering::Relaxed);
-            println!("tuner.tune: is_already_updating = {is_already_updating}");
+            trace!("tuner.tune: is_already_updating = {is_already_updating}");
             if is_already_updating {
                 self.is_another_update_pending.store(true, Ordering::Relaxed);
                 send_now = false;
             } else {
-                println!("tuner.tune: Setting is_already_updating to true");
+                trace!("tuner.tune: Setting is_already_updating to true");
                 self.is_already_updating.store(true, Ordering::Relaxed);
                 send_now = true;
             }
@@ -103,7 +104,7 @@ impl Tuner {
     /// The tuning table will be assigned to the instrument's current preset, which will also be
     /// updated with any rounding parameters that have been specified.
     fn send_tuning_update(&self, generate: bool) {
-        println!("tuner.send_tuning_update: generate = {}", generate);
+        debug!("tuner.send_tuning_update: generate = {}", generate);
         self.tuning_signaller.lock().unwrap().on_updating_tuning();
         if generate {
             let mut keys = self.keys.lock().unwrap().clone();
@@ -114,7 +115,7 @@ impl Tuner {
         // The following commands update the instrument's current preset.
         self.send_rounding_params();
         // Set active pitch table for performance.
-        println!("tuner.send_tuning_update: Setting active pitch table to {}", Self::pitch_table());
+        debug!("tuner.send_tuning_update: Setting active pitch table to {}", Self::pitch_table());
         self.midi_sender.lock().unwrap().send_control_change(16, 51, Self::pitch_table());
     }
 
@@ -170,15 +171,15 @@ impl Tuner {
     fn send_rounding_params(&self) {
         if self.override_rounding_initial.load(Ordering::Relaxed) {
             // Turn on Rounding Initial
-            println!("tuner.send_rounding_params: Sending Rounding Initial");
+            debug!("tuner.send_rounding_params: Sending Rounding Initial");
             self.midi_sender.lock().unwrap().send_control_change(1, 28, 127); // RndIni
         }
         if self.override_rounding_rate.load(Ordering::Relaxed) {
             // Rounding Mode Normal
-            println!("tuner.send_rounding_params: Sending Rounding Mode Normal");
+            debug!("tuner.send_rounding_params: Sending Rounding Mode Normal");
             self.midi_sender.lock().unwrap().send_matrix_poke(10, 0); // RoundMode
             // Rounding Rate
-            println!("tuner.send_rounding_params: Sending Rounding Rate");
+            debug!("tuner.send_rounding_params: Sending Rounding Rate");
             self.midi_sender.lock().unwrap().send_control_change(
                 1, 25, self.rounding_rate.load(Ordering::Relaxed)); // RoundRate
         }
@@ -205,7 +206,7 @@ impl ITuner for Tuner {
     ///             The scalatrix MOS class also has mos.nL and mos.nS properties
     ///             which will be used when displaying the MOS system (like 5L 2s).
     fn on_tuning_received(&self, params: TuningParams) {
-        println!(
+        debug!(
             "tuner.on_tuning_received: mode = {}; root_freq = {}; stretch = {}; \
             skew = {}; mode_offset = {}; steps = {}; mos_a = {}; mos_b = {}",
             params.mode(), params.root_freq(), params.stretch(),
@@ -219,7 +220,7 @@ impl ITuner for Tuner {
     }
 
     fn remove_data(&self) {
-        println!("tuner.remove_data: Setting is_already_updating to false");
+        trace!("tuner.remove_data: Setting is_already_updating to false");
         self.is_already_updating.store(false, Ordering::Relaxed);
         self.is_another_update_pending.store(false, Ordering::Relaxed);
         *self.params.lock().unwrap() = TuningParams::default();
@@ -232,10 +233,10 @@ impl ITuner for Tuner {
     /// with any rounding parameters that have been specified.
     /// Returns whether an update has been sent.
     fn send_current_preset_update(&self) -> bool {
-        println!("tuner.send_current_preset_update");
+        debug!("tuner.send_current_preset_update");
         let can_update = self.has_data();
         if can_update {
-            println!("tuner.send_current_preset_update: Sending update");
+            debug!("tuner.send_current_preset_update: Sending update");
             self.send_tuning_update(false);
         }
         can_update
@@ -287,9 +288,9 @@ impl ITuner for Tuner {
     }
 
     fn on_tuning_updated(&self) {
-        println!("tuner.on_tuning_updated");
+        debug!("tuner.on_tuning_updated");
         if !self.has_data() {
-            println!("tuner.on_tuning_updated: no tuning data");
+            debug!("tuner.on_tuning_updated: no tuning data");
             // Could be tuning updated when an instrument preset is loaded
             // while PitchGrid is not connected.
             return;
@@ -298,12 +299,12 @@ impl ITuner for Tuner {
         let send_again: bool;
         {
             let is_another_update_pending = self.is_another_update_pending.load(Ordering::Relaxed);
-            println!("tuner.on_tuning_updated: is_another_update_pending = {is_another_update_pending}");
+            trace!("tuner.on_tuning_updated: is_another_update_pending = {is_another_update_pending}");
             if is_another_update_pending {
                 self.is_another_update_pending.store(false, Ordering::Relaxed);
                 send_again = true;
             } else {
-                println!("tuner.on_tuning_updated: Setting is_already_updating to false");
+                trace!("tuner.on_tuning_updated: Setting is_already_updating to false");
                 self.is_already_updating.store(false, Ordering::Relaxed);
                 send_again = false;
             }

@@ -18,6 +18,13 @@ use pitchgrid_continuum::tuner::Tuner;
 /// main.rs is part of the view in the Model-View-Controller (MVC) pattern.
 /// See `Controller`'s doc comment for more information on how the project implements MVC.
 fn main() {
+    // Initialise logging. Levels are chosen at runtime via the RUST_LOG env var
+    // (e.g. `RUST_LOG=debug`, or `RUST_LOG=pitchgrid_continuum::tuner=trace`); with RUST_LOG unset
+    // the default filter is `info`, so the breadcrumb `debug!`/`trace!` lines stay silent.
+    // `log` is a facade: this init line is the only place that names `env_logger`, so switching to a
+    // file logger later (handoff §6) changes just this line, not the call sites.
+    env_logger::Builder::from_env(
+        env_logger::Env::default().default_filter_or("info")).init();
     #[cfg(target_os = "macos")]
     set_macos_app_icon();
     let main_window = MainWindow::new().unwrap();

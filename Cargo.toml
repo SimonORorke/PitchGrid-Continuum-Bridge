@@ -27,6 +27,8 @@ new_without_default = "allow"
 app_info = { path = "app_info" }
 cxx = "1.0.194"
 directories = "6.0.0"
+env_logger = "0.11"
+log = "0.4"
 rosc = "0.11.4"
 round = "0.1.2"
 midir = "0.11.0"

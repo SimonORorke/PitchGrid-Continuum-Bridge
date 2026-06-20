@@ -4,6 +4,7 @@ use std::sync::{Arc, Mutex, OnceLock};
 use std::sync::mpsc;
 use std::sync::atomic::{AtomicBool, AtomicU16, Ordering};
 use std::time::{Duration, Instant};
+use log::{debug, error, warn};
 use rosc::{decoder, encoder, OscMessage, OscPacket, OscType};
 use crate::tuning_params::TuningParams;
 use crate::i_osc::{IOsc, OscCallbacks};
@@ -68,7 +69,7 @@ impl Osc {
         ] = args[..] {
             rayon::spawn(move || {
                 if !IS_PITCHGRID_CONNECTED.load(Ordering::SeqCst) {
-                    println!("Osc.handle_tuning: PitchGrid connected");
+                    debug!("Osc.handle_tuning: PitchGrid connected");
                     IS_PITCHGRID_CONNECTED.store(true, Ordering::SeqCst);
                     callbacks.on_pitchgrid_connected_changed();
                 }
@@ -102,7 +103,7 @@ impl Osc {
                     let (_, packet) = match decoded {
                         Ok(v) => v,
                         Err(err) => {
-                            println!("OSC decode error: {}", err);
+                            warn!("OSC decode error: {}", err);
                             continue;
                         }
                     };
@@ -128,12 +129,12 @@ impl Osc {
                                     // println!("Osc.listen: Received and ignored: {}", msg.addr);
                                 }
                                 _ => {
-                                    println!("Osc.listen: Received unknown address: {}", msg.addr);
+                                    debug!("Osc.listen: Received unknown address: {}", msg.addr);
                                 }
                             }
                         }
                         OscPacket::Bundle(bundle) => {
-                            println!("Osc.listen: Received OSC Bundle: {:?}", bundle);
+                            debug!("Osc.listen: Received OSC Bundle: {:?}", bundle);
                         }
                     }
                 }
@@ -152,7 +153,7 @@ impl Osc {
                         // println!("Osc.listen: Socket recv_from() got ConnectionReset (WSAECONNRESET/10054); ignoring and continuing");
                         continue;
                     }
-                    println!("Osc.listen: Socket error receiving from socket: {}", e);
+                    error!("Osc.listen: Socket error receiving from socket: {}", e);
                     break;
                 }
             }
