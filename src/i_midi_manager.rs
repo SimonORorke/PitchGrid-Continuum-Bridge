@@ -42,6 +42,13 @@ pub trait IMidiManager {
 
     fn io(&self, device_strategy: &dyn DeviceStrategy) -> &dyn IIo;
 
+    /// Whether both MIDI devices are connected *and* data is being received from the instrument.
+    /// Provided so a caller holding the manager lock can test both conditions with a single lock
+    /// rather than locking the manager twice. Has a default impl; implementors need not override it.
+    fn is_connected_and_receiving(&self) -> bool {
+        self.are_devices_connected() && self.is_receiving_data()
+    }
+
     fn is_output_device_connected(&self) -> bool;
 
     fn is_receiving_data(&self) -> bool;

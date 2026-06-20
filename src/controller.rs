@@ -312,8 +312,7 @@ impl Controller {
     /// We probably don't need a setting for this.
     /// The player should have to choose an override, if required, on startup.
     pub fn set_root_freq_override(&mut self, index: usize) {
-        let send_tuning = self.midi_manager.lock().unwrap().is_receiving_data()
-            && self.midi_manager.lock().unwrap().are_devices_connected()
+        let send_tuning = self.midi_manager.lock().unwrap().is_connected_and_receiving()
             && self.continuum_protocol.has_downloaded_init_data()
             && self.osc.is_pitchgrid_connected();
         if send_tuning {
@@ -353,8 +352,7 @@ impl Controller {
 
     fn on_data_download_completed(&mut self) {
         debug!("on_data_download_completed");
-        if self.midi_manager.lock().unwrap().is_receiving_data()
-                && self.midi_manager.lock().unwrap().are_devices_connected()
+        if self.midi_manager.lock().unwrap().is_connected_and_receiving()
                 && !self.osc.is_running() {
             debug!("on_data_download_completed: Starting OSC");
             self.start_osc();
@@ -704,7 +702,7 @@ impl OscCallbacks for Controller {
         // whose confirmation never arrived, so this tuning's confirmation isn't mislabelled.
         self.is_preset_reselect.store(false, Ordering::Relaxed);
         trace!("on_tuning_received: {tuning_params:?}");
-        if self.midi_manager.lock().unwrap().are_devices_connected() && self.midi_manager.lock().unwrap().is_receiving_data() {
+        if self.midi_manager.lock().unwrap().is_connected_and_receiving() {
             debug!("on_tuning_received: Showing Updating instrument tuning");
             self.ui_methods.show_pitchgrid_status(UPDATING_INSTRUMENT_TUNING, MessageType::Info);
             debug!("on_tuning_received: Updating instrument tuning");
