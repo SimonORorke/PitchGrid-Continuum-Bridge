@@ -586,7 +586,7 @@ fn test_mutex_guard() -> MutexGuard<'static, ()> {
 /// e.g. `RUST_LOG=debug cargo test connect_device -- --nocapture`.
 #[allow(dead_code)]
 fn init_test_logging() {
-    let _ = env_logger::builder().is_test(true).try_init();
+    let _ = env_logger::builder().is_test(true).format_timestamp_millis().try_init();
 }
 
 fn tuner() -> MutexGuard<'static, Arc<Tuner>> {

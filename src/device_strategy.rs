@@ -4,6 +4,7 @@ use crate::global::DeviceType;
 use crate::i_midi_manager::IMidiManager;
 use crate::midi_ports::IIo;
 use crate::i_settings::ISettings;
+use log::trace;
 
 /// This trait is used to implement strategies that depend on whether a MIDI device is input or
 /// output.
@@ -79,12 +80,12 @@ impl DeviceStrategy for InputStrategy {
 
     fn get_selected_device_index(&self, main_window: &MainWindow) -> i32 {
         let index = main_window.get_input_selected_device_index();
-        // println!("InputStrategy.get_selected_device_index: returning selected device index {}", index);
+        trace!("InputStrategy.get_selected_device_index: returning selected device index {}", index);
         index
     }
 
     fn set_selected_device_index(&self, main_window: &MainWindow, index: i32) {
-        // println!("InputStrategy.set_selected_device_index: Setting selected device index to {}", index);
+        trace!("InputStrategy.set_selected_device_index: Setting selected device index to {}", index);
         main_window.set_input_selected_device_index(index);
     }
 
@@ -156,12 +157,12 @@ impl DeviceStrategy for OutputStrategy {
 
     fn get_selected_device_index(&self, main_window: &MainWindow) -> i32 {
         let index = main_window.get_output_selected_device_index();
-        // println!("OutputStrategy.get_selected_device_index: returning selected device index {}", index);
+        trace!("OutputStrategy.get_selected_device_index: returning selected device index {}", index);
         index
     }
 
     fn set_selected_device_index(&self, main_window: &MainWindow, index: i32) {
-        // println!("OutputStrategy.set_selected_device_index: Setting selected device index to {}", index);
+        trace!("OutputStrategy.set_selected_device_index: Setting selected device index to {}", index);
         main_window.set_output_selected_device_index(index);
     }
 

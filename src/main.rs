@@ -14,6 +14,7 @@ use pitchgrid_continuum::device_strategy::{InputStrategy, OutputStrategy, Device
 use pitchgrid_continuum::ui_methods::UiMethods;
 use pitchgrid_continuum::global;
 use pitchgrid_continuum::tuner::Tuner;
+use log::trace;
 
 /// main.rs is part of the view in the Model-View-Controller (MVC) pattern.
 /// See `Controller`'s doc comment for more information on how the project implements MVC.
@@ -24,7 +25,8 @@ fn main() {
     // `log` is a facade: this init line is the only place that names `env_logger`, so switching to a
     // file logger later (handoff §6) changes just this line, not the call sites.
     env_logger::Builder::from_env(
-        env_logger::Env::default().default_filter_or("info")).init();
+        env_logger::Env::default().default_filter_or("info"))
+            .format_timestamp_millis().init();
     #[cfg(target_os = "macos")]
     set_macos_app_icon();
     let main_window = MainWindow::new().unwrap();
@@ -182,7 +184,7 @@ fn init_ui_handlers(main_window: &MainWindow, controller: SharedController) {
 }
 
 fn handle_close_request(main_window_weak: &Weak<MainWindow>, controller: &SharedController, about_window: &Rc<RefCell<Option<AboutWindow>>>) -> CloseRequestResponse {
-    // println!("main.handle_close_request");
+    trace!("main.handle_close_request");
     if let Some(dialog) = about_window.borrow().as_ref()
         && dialog.window().is_visible()
     {

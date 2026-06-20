@@ -5,6 +5,7 @@ use serde::{Serialize, Deserialize};
 use app_info::APP_TITLE;
 use crate::i_settings::ISettings;
 use crate::path_finder::{PathFinder, SystemPathFinder};
+use log::trace;
 
 // Application settings, serialised to file.
 #[derive(Serialize, Deserialize, Debug)]
@@ -148,8 +149,8 @@ impl ISettings for Settings {
         self.override_rounding_initial = settings.override_rounding_initial;
         self.override_rounding_rate = settings.override_rounding_rate;
         self.rounding_rate = settings.rounding_rate;
-        // println!("Settings.read_from_file: self.midi_input_device = {}; self.midi_output_device = {}; \
-        // self.pitch_table = {:?};", self.midi_input_device, self.midi_output_device, self.pitch_table);
+        trace!("Settings.read_from_file: self.midi_input_device = {}; self.midi_output_device = {}; \
+            self.pitch_table = {:?};", self.midi_input_device, self.midi_output_device, self.pitch_table);
         Ok(())
     }
 
@@ -168,8 +169,8 @@ impl ISettings for Settings {
                 Box::new(std::io::Error::new(e.kind(),
                 format!("Error writing settings file '{:?}': {e}", path))));
         }
-        // println!("Settings.write_to_file: self.midi_input_device = {}; self.midi_output_device = {}; \
-        // self.pitch_table = {:?};", self.midi_input_device, self.midi_output_device, self.pitch_table);
+        trace!("Settings.write_to_file: self.midi_input_device = {}; self.midi_output_device = {}; \
+            self.pitch_table = {:?};", self.midi_input_device, self.midi_output_device, self.pitch_table);
         Ok(())
     }
 

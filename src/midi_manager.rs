@@ -11,6 +11,7 @@ use std::thread::sleep;
 use crate::global::{DeviceType};
 use crate::midi_ports::{Io, IIo};
 use crate::device_strategy::DeviceStrategy;
+use log::trace;
 
 /// The generic MIDI reception state: whether data is arriving and when the last message arrived.
 /// Held behind an `Arc` so the input callback and the monitor / watchdog threads can each own a
@@ -32,7 +33,7 @@ impl MidiInputState {
     /// Records that a message has just arrived. Returns whether it is the first message since
     /// monitoring started, so the caller can raise `on_receiving_data_started`.
     fn record_message(&self) -> bool {
-        // println!("MidiManager.record_message");
+        trace!("MidiManager.record_message");
         self.is_receiving_data.store(true, Ordering::Relaxed);
         let mut last_time = self.last_message_received_time.lock().unwrap();
         let is_first_message = last_time.is_none();
@@ -82,7 +83,7 @@ impl MidiManager {
         index: usize,
         device_strategy: &dyn DeviceStrategy,
     ) -> Result<(), Box<dyn Error>> {
-        // println!("Midi.connect_input_device: start");
+        trace!("Midi.connect_input_device: start");
         self.disconnect_input_device();
         // The input callback runs on midir's own thread and must be `'static + Send`, so it owns
         // clones of the shared reception state and the listener rather than borrowing `&self`.
@@ -90,7 +91,7 @@ impl MidiManager {
         let listener = Arc::clone(&self.listener);
         let input = &mut self.input;
         if let Some(port) = input.ports().get(index) {
-            // println!("Midi.connect_input_device: found port");
+            trace!("Midi.connect_input_device: found port");
             let device_name = port.device_name();
             let midi_port = port.midi_port();
             let midi_input = Self::create_midi_input();
@@ -109,10 +110,10 @@ impl MidiManager {
                     input.set_port(port.clone());
                     let connection_option = Option::from(connection);
                     self.input_connection = connection_option;
-                    // println!("Midi.connect_input_device: success");
+                    trace!("Midi.connect_input_device: success");
                 }
                 Err(_) => {
-                    // println!("Midi.connect_input_device: error");
+                    trace!("Midi.connect_input_device: error");
                     // See comment in connect_output_device.
                     return Err(device_strategy.msg_cannot_connect(&device_name).into());
                 }
@@ -126,7 +127,7 @@ impl MidiManager {
         rayon::spawn(move || {
             sleep(Duration::from_secs(MIDI_WAIT_SECS));
             if !watchdog_state.is_receiving_data.load(Ordering::Relaxed) {
-                // println!("Midi.connect_input_device: Stopped receiving data");
+                trace!("Midi.connect_input_device: Stopped receiving data");
                 watchdog_listener.on_receiving_data_stopped();
             }
         });
@@ -182,7 +183,7 @@ impl MidiManager {
     }
 
     fn disconnect_input_device(&mut self) {
-        // println!("Midi.disconnect_input_device start");
+        trace!("Midi.disconnect_input_device start");
         let input_connection = self.input_connection.take();
         if let Some(connection) = input_connection {
             connection.close();
@@ -192,7 +193,7 @@ impl MidiManager {
     }
 
     fn disconnect_output_device(&mut self) {
-        // println!("Midi.disconnect_output_device start");
+        trace!("Midi.disconnect_output_device start");
         let connection_opt = self.output_connection.lock().unwrap().take();
         if let Some(connection) = connection_opt {
             connection.close();
@@ -223,7 +224,7 @@ impl MidiManager {
                     let duration = now.duration_since(last_time);
                     let seconds = duration.as_secs();
                     if seconds > MIDI_WAIT_SECS {
-                        // println!("midi.monitor_instrument_connection: Instrument disconnected.");
+                        trace!("midi.monitor_instrument_connection: Instrument disconnected.");
                         *input_state.last_message_received_time.lock().unwrap() = None;
                         input_state.is_receiving_data.store(false, Ordering::Relaxed);
                         listener.on_receiving_data_stopped();
@@ -235,7 +236,7 @@ impl MidiManager {
                 let seconds = duration.as_secs();
                 // Give a chance for the instrument heartbeat messages to arrive.
                 if seconds > MIDI_WAIT_SECS {
-                    // println!("midi.monitor_instrument_connection: Instrument not connected for 2 seconds on startup.");
+                    trace!("midi.monitor_instrument_connection: Instrument not connected for 2 seconds on startup.");
                     // Not connected for 2 seconds after application start.
                     // So we can assume that the instrument is not yet connected.
                     // Provide an opportunity for a helpful message to be displayed.
@@ -252,13 +253,13 @@ impl MidiManager {
     }
 
     fn refresh_input_devices(&mut self, input_device_name: &str) {
-        // println!("Midi.refresh_input_devices: start");
+        trace!("Midi.refresh_input_devices: start");
         self.disconnect_input_device();
         self.input.populate_devices(input_device_name);
     }
 
     fn refresh_output_devices(&mut self, output_device_name: &str) {
-        // println!("Midi.refresh_output_devices: start");
+        trace!("Midi.refresh_output_devices: start");
         self.disconnect_output_device();
         self.output.populate_devices(output_device_name);
     }
@@ -275,7 +276,7 @@ impl IMidiManager for MidiManager {
     }
 
     fn close(&mut self) {
-        // println!("Midi.close");
+        trace!("Midi.close");
         self.disconnect_input_device();
         self.disconnect_output_device();
         // self.stop_download_monitor();
@@ -297,8 +298,8 @@ impl IMidiManager for MidiManager {
         if !were_ports_connected {
             // The other port was already connected, so now they both are.
             if self.are_devices_connected() {
-                // println!("Midi.connect_device {:?}: Calling on_devices_connected_changed \
-                // because both ports are now connected", device_strategy.device_type());
+                trace!("Midi.connect_device {:?}: Calling on_devices_connected_changed \
+                    because both ports are now connected", device_strategy.device_type());
                 // Raised synchronously; the listener hands off to the Controller itself.
                 self.listener.on_devices_connected_changed();
             }
@@ -352,13 +353,13 @@ impl IMidiManager for MidiManager {
         }
         if were_devices_connected {
             // We have just disconnected one of the ports.
-            // println!("Midi.refresh_devices: Calling on_devices_connected_changed because we have just disconnected one of the ports");
+            trace!("Midi.refresh_devices: Calling on_devices_connected_changed because we have just disconnected one of the ports");
             self.listener.on_devices_connected_changed();
         }
     }
 
     fn start_instrument_connection_monitor(&mut self) {
-        // println!("Midi.start_instrument_connection_monitor");
+        trace!("Midi.start_instrument_connection_monitor");
         *self.input_state.last_message_received_time.lock().unwrap() = None;
         let (stopper_sender, stopper_receiver) = mpsc::channel();
         self.connection_monitor_stopper_sender = Some(stopper_sender);
@@ -371,9 +372,9 @@ impl IMidiManager for MidiManager {
     }
 
     fn stop_instrument_connection_monitor(&mut self) {
-        // println!("Midi.stop_instrument_connection_monitor");
+        trace!("Midi.stop_instrument_connection_monitor");
         if !self.is_connection_monitor_running {
-            // println!("Midi.stop_instrument_connection_monitor: Already stopped.");
+            trace!("Midi.stop_instrument_connection_monitor: Already stopped.");
             return;
         }
         let stopper_sender =
@@ -382,10 +383,10 @@ impl IMidiManager for MidiManager {
         stopper_sender.unwrap().send(()).unwrap_or_else(|_| {
             panic!("MidiManager.stop_instrument_connection_monitor: Failed to send stop signal to connection monitor");
         });
-        // println!("Midi.stop_instrument_connection_monitor: Stopped monitor thread.");
+        trace!("Midi.stop_instrument_connection_monitor: Stopped monitor thread.");
         self.is_connection_monitor_running = false;
         self.input_state.is_receiving_data.store(false, Ordering::Relaxed);
-        // println!("Midi.stop_instrument_connection_monitor: Done.");
+        trace!("Midi.stop_instrument_connection_monitor: Done.");
     }
 }
 

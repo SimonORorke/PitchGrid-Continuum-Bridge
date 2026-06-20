@@ -5,6 +5,7 @@ use crate::global::{MessageType, DeviceType};
 use crate::i_ui_methods::IUiMethods;
 use crate::device_strategy::DeviceStrategy;
 use crate::tuning_params::FormattedTuningParams;
+use log::trace;
 
 /// This struct contains the methods called by `Controller` to make changes to the UI.
 /// It is part of the view in the Model-View-Controller (MVC) pattern.
@@ -63,39 +64,39 @@ impl IUiMethods for UiMethods {
     }
 
     fn get_selected_device_index(&self, device_strategy: &dyn DeviceStrategy) -> usize {
-        // println!("UiMethods.get_selected_device_index: {:?}", device_strategy.device_type());
+        trace!("UiMethods.get_selected_device_index: {:?}", device_strategy.device_type());
         let device_strategy = device_strategy.clone_box();
         let index = self.with_main_window_result(move |main_window| {
             device_strategy.get_selected_device_index(main_window) as usize
         });
-        // println!("UiMethods.get_selected_device_index: returning selected device index {}", index);
+        trace!("UiMethods.get_selected_device_index: returning selected device index {}", index);
         index
     }
 
     fn set_selected_device_index(&self, index: usize, device_strategy: &dyn DeviceStrategy) {
-        // println!("UiMethods.set_selected_device_index: index = {}, device_strategy = {:?}", index, device_strategy.device_type());
+        trace!("UiMethods.set_selected_device_index: index = {}, device_strategy = {:?}", index, device_strategy.device_type());
         let device_strategy = device_strategy.clone_box();
         self.with_main_window(move |main_window| {
-            // println!("UiMethods.set_selected_device_index: Setting selected device index");
+            trace!("UiMethods.set_selected_device_index: Setting selected device index");
             device_strategy.set_selected_device_index(main_window, index as i32);
         });
     }
 
     fn set_devices_model(&self, device_names: &[String], device_strategy: &dyn DeviceStrategy) {
-        // println!("UiMethods.set_devices_model: START");
-        // println!("UiMethods.set_devices_model: Creating device items from port names");
+        trace!("UiMethods.set_devices_model: START");
+        trace!("UiMethods.set_devices_model: Creating device items from port names");
         let device_items: Vec<ComboBoxItem> =
             device_names
                 .iter()
                 .map(|text| ComboBoxItem { text: text.into() })
                 .collect();
-        // println!("UiMethods.set_devices_model: Getting device type");
+        trace!("UiMethods.set_devices_model: Getting device type");
         let device_type = *device_strategy.device_type();
-        // println!("UiMethods.set_devices_model: Cloning device_strategy");
+        trace!("UiMethods.set_devices_model: Cloning device_strategy");
         let device_strategy = device_strategy.clone_box();
-        // println!("UiMethods.set_devices_model: Calling with_main_window");
+        trace!("UiMethods.set_devices_model: Calling with_main_window");
         self.with_main_window(move |main_window| {
-            // println!("UiMethods.set_devices_model: Inside with_main_window closure");
+            trace!("UiMethods.set_devices_model: Inside with_main_window closure");
             let model = match device_type {
                 DeviceType::Input => {
                     let input_model = Rc::new(MainComboBoxModel(device_items.clone()));
@@ -106,11 +107,11 @@ impl IUiMethods for UiMethods {
                     slint::ModelRc::from(output_model)
                 },
             };
-            // println!("UiMethods.set_devices_model: Calling device_strategy.set_devices_model");
+            trace!("UiMethods.set_devices_model: Calling device_strategy.set_devices_model");
             device_strategy.set_devices_model(main_window, model);
-            // println!("UiMethods.set_devices_model: Done with device_strategy.set_devices_model");
+            trace!("UiMethods.set_devices_model: Done with device_strategy.set_devices_model");
         });
-        // println!("UiMethods.set_devices_model: END");
+        trace!("UiMethods.set_devices_model: END");
     }
 
     fn show_connected_device_name(&self, name: &str, message_type: MessageType,
@@ -124,7 +125,7 @@ impl IUiMethods for UiMethods {
     }
 
     fn show_message(&self, message: &str, message_type: MessageType) {
-        // println!("UiMethods.show_message: {}", message);
+        trace!("UiMethods.show_message: {}", message);
         let message = message.to_string();
         self.with_main_window(move |main_window| {
             main_window.invoke_show_message(message.into(), slint_message_type(message_type));
@@ -140,7 +141,7 @@ impl IUiMethods for UiMethods {
     }
 
     fn show_tuning(&self, tuning: FormattedTuningParams, is_root_freq_overridden: bool) {
-        // println!("UiMethods.show_tuning");
+        trace!("UiMethods.show_tuning");
         self.with_main_window(move |main_window| {
             main_window.set_root_freq(tuning.root_freq.into());
             main_window.set_stretch(tuning.stretch.into());

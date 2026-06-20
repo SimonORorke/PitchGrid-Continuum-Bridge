@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex, OnceLock};
 use std::sync::mpsc;
 use std::sync::atomic::{AtomicBool, AtomicU16, Ordering};
 use std::time::{Duration, Instant};
-use log::{debug, error, warn};
+use log::{debug, error, trace, warn};
 use rosc::{decoder, encoder, OscMessage, OscPacket, OscType};
 use crate::tuning_params::TuningParams;
 use crate::i_osc::{IOsc, OscCallbacks};
@@ -56,7 +56,7 @@ impl Osc {
     }
 
     fn handle_tuning(args: Vec<OscType>, callbacks: Arc<dyn OscCallbacks>) {
-        // println!("Osc.handle_tuning");
+        trace!("Osc.handle_tuning");
         if let [
             OscType::Int(mode),
             OscType::Float(root_freq),
@@ -77,7 +77,7 @@ impl Osc {
                     mode, root_freq, stretch, skew, mode_offset, steps, mos_a, mos_b));
             });
         } else {
-            // println!("Osc.handle_tuning Invalid tuning arguments.");
+            trace!("Osc.handle_tuning Invalid tuning arguments.");
         }
     }
 
@@ -87,7 +87,7 @@ impl Osc {
         callbacks: Arc<dyn OscCallbacks>,
         stopper_receiver: mpsc::Receiver<()>) {
         socket.set_read_timeout(Some(Duration::from_millis(500))).unwrap();
-        // println!("Osc.listen: starting, listening on {}", socket.local_addr().unwrap());
+        trace!("Osc.listen: starting, listening on {}", socket.local_addr().unwrap());
         let mut buf = [0u8; decoder::MTU];
         loop {
             // Check for stop signal
@@ -95,10 +95,10 @@ impl Osc {
                 // Interrupted
                 return;
             }
-            // println!("Osc.listen: Waiting for packet...");
+            trace!("Osc.listen: Waiting for packet...");
             match socket.recv_from(&mut buf) {
-                Ok((size, _addr)) => {
-                    // println!("Osc.listen: received {} bytes from {}", size, addr);
+                Ok((size, addr)) => {
+                    trace!("Osc.listen: received {} bytes from {}", size, addr);
                     let decoded = decoder::decode_udp(&buf[..size]);
                     let (_, packet) = match decoded {
                         Ok(v) => v,
@@ -109,24 +109,24 @@ impl Osc {
                     };
                     match packet {
                         OscPacket::Message(msg) => {
-                            // println!("Osc.listen: message received:");
+                            trace!("Osc.listen: message received:");
                             *last_ack_time.lock().unwrap() = Some(Instant::now());
                             match msg.addr.as_str() {
                                 // The incoming heartbeat message is acknowledged as valid and
                                 // otherwise ignored.
                                 HEARTBEAT_ADDR => {
-                                    // println!("    {HEARTBEAT_ADDR}");
+                                    trace!("    {HEARTBEAT_ADDR}");
                                 }
                                 TUNING_ADDR => {
-                                    // println!("Osc.listen: Received {TUNING_ADDR}");
-                                    // println!("    args: {:?}", msg.args);
+                                    trace!("Osc.listen: Received {TUNING_ADDR}");
+                                    trace!("    args: {:?}", msg.args);
                                     Self::handle_tuning(msg.args, callbacks.clone());
                                 }
                                 // Spectrum and consonance messages are acknowledged as valid
                                 // and otherwise ignored — PCB does not use them.
                                 SPECTRUM_ADDR | CONSONANCE_ADDR | MAPPING_ADDR
                                 | NOTE_ON_ADDR | NOTE_OFF_ADDR => {
-                                    // println!("Osc.listen: Received and ignored: {}", msg.addr);
+                                    trace!("Osc.listen: Received and ignored: {}", msg.addr);
                                 }
                                 _ => {
                                     debug!("Osc.listen: Received unknown address: {}", msg.addr);
@@ -150,7 +150,7 @@ impl Osc {
                     // On Windows with a connected UDP socket, ICMP "Port Unreachable"
                     // shows up here as WSAECONNRESET (10054) / ErrorKind::ConnectionReset.
                     if e.kind() == ErrorKind::ConnectionReset {
-                        // println!("Osc.listen: Socket recv_from() got ConnectionReset (WSAECONNRESET/10054); ignoring and continuing");
+                        trace!("Osc.listen: Socket recv_from() got ConnectionReset (WSAECONNRESET/10054); ignoring and continuing");
                         continue;
                     }
                     error!("Osc.listen: Socket error receiving from socket: {}", e);
@@ -166,10 +166,10 @@ impl Osc {
     fn monitor_connection(last_ack_time: Arc<Mutex<Option<Instant>>>,
                           callbacks: Arc<dyn OscCallbacks>,
                           stopper_receiver: mpsc::Receiver<()>) {
-        // println!("Osc.monitor_connection: starting");
+        trace!("Osc.monitor_connection: starting");
         let mut has_initially_not_connected_callback_been_called = false;
         loop {
-            // println!("Osc.monitor_connection: looping");
+            trace!("Osc.monitor_connection: looping");
             let current_time = Instant::now();
             let maybe_last_ack_time = *last_ack_time.lock().unwrap();
             if maybe_last_ack_time.is_none() {
@@ -187,10 +187,10 @@ impl Osc {
             let last_ack_time = maybe_last_ack_time.unwrap();
             let time_since_ack = current_time.duration_since(last_ack_time);
             let was_connected = IS_PITCHGRID_CONNECTED.load(Ordering::SeqCst);
-            // println!("current_time = {:?}, last_ack_time = {:?}, time_since_ack = {:?}, was_connected = {}",
-            //          current_time, last_ack_time, time_since_ack, was_connected );
+            trace!("current_time = {:?}, last_ack_time = {:?}, time_since_ack = {:?}, was_connected = {}",
+                   current_time, last_ack_time, time_since_ack, was_connected );
             if time_since_ack > Duration::from_secs(2) { // No ack for 2 seconds
-                // println!("Osc.monitor_connection: not connected");
+                trace!("Osc.monitor_connection: not connected");
                 IS_PITCHGRID_CONNECTED.store(false, Ordering::SeqCst);
                 if was_connected {
                     callbacks.on_pitchgrid_connected_changed();
@@ -209,7 +209,7 @@ impl Osc {
     /// PitchGrid will send us messages if we send a heartbeat message at least every 2 seconds.
     /// So send PitchGrid a heartbeat message every second.
     fn send_heartbeats(socket: UdpSocket, stopper_receiver: mpsc::Receiver<()>) {
-        // println!("Osc.send_heartbeats: Starting with listening port {}", Self::listening_port());
+        trace!("Osc.send_heartbeats: Starting with listening port {}", Self::listening_port());
         let msg_buf = encoder::encode(&OscPacket::Message(OscMessage {
             addr: HEARTBEAT_ADDR.to_string(),
             args: vec![OscType::Int(1),
@@ -217,13 +217,13 @@ impl Osc {
         })).unwrap();
         let socket_to_addr = Self::create_socket_addr(SEND_TO_PITCHGRID_PORT);
         loop {
-            // println!("Osc.send_heartbeats: sending heartbeat message to {}", socket_to_addr);
+            trace!("Osc.send_heartbeats: sending heartbeat message to {}", socket_to_addr);
             match socket.send_to(&msg_buf, socket_to_addr) {
-                Ok(_bytes_sent) => {
-                    // println!("Osc.send_heartbeats: sent {} bytes", bytes_sent);
+                Ok(bytes_sent) => {
+                    trace!("Osc.send_heartbeats: sent {} bytes", bytes_sent);
                 }
-                Err(_e) => {
-                    // println!("Osc.send_heartbeats: ERROR sending: {}", e);
+                Err(e) => {
+                    warn!("Osc.send_heartbeats: ERROR sending: {}", e);
                 }
             }
             if stopper_receiver.recv_timeout(Duration::from_secs(1)).is_ok() {
@@ -254,7 +254,7 @@ impl IOsc for Osc {
     }
 
     fn start(&mut self, callbacks: Arc<dyn OscCallbacks>) {
-        // println!("Osc.start");
+        trace!("Osc.start");
         if self.is_pitchgrid_connected() {
             panic!("PitchGrid is already connected.");
         }
@@ -273,7 +273,7 @@ impl IOsc for Osc {
 
         let socket = UdpSocket::bind(Self::create_socket_addr(
             Self::listening_port())).unwrap();
-        // println!("Osc.start: bound socket to {}", socket.local_addr().unwrap());
+        trace!("Osc.start: bound socket to {}", socket.local_addr().unwrap());
         let send_socket = socket.try_clone().unwrap();
         let listen_socket = socket;
         let last_ack_time = self.last_ack_time.clone();
@@ -296,7 +296,7 @@ impl IOsc for Osc {
     }
 
     fn stop(&self) {
-        // println!("Osc.stop");
+        trace!("Osc.stop");
         IS_PITCHGRID_CONNECTED.store(false, Ordering::SeqCst);
         // Stop the threads.
         let mut inner = self.inner.lock().unwrap();
@@ -306,7 +306,7 @@ impl IOsc for Osc {
         let last_ack_time_clone = self.last_ack_time.clone();
         *last_ack_time_clone.lock().unwrap() = None;
         inner.is_running = false;
-        // println!("Osc.stop: stopped OSC");
+        trace!("Osc.stop: stopped OSC");
     }
 
     fn is_pitchgrid_connected(&self) -> bool {

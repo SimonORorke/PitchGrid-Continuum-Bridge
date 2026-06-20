@@ -1,5 +1,5 @@
 use std::fmt;
-use log::error;
+use log::{error, trace};
 use midly::{MidiMessage, live::LiveEvent};
 use crate::i_midi_manager::SharedOutput;
 
@@ -46,7 +46,7 @@ impl MidiSender {
     }
 
     fn send_message(&self, message: &[u8]) {
-        // println!("MidiSender.send_message: message={:?}", message);
+        trace!("MidiSender.send_message: message={:?}", message);
         let mut connection_option = self.output.lock().unwrap();
         if let Some(connection) = connection_option.as_mut() {
             connection.send(message).unwrap_or_else(|_| {
