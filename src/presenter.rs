@@ -23,12 +23,12 @@ use crate::tuning_update_watchdog::TuningUpdateWatchdog;
 /// This type plays the **Presenter** in the Model-View-Presenter (MVP) pattern — specifically the
 /// Passive View / Humble Object variant: `IUiMethods` reduces the View to dumb setters, and the
 /// Presenter pushes formatted state into that view abstraction (the view never pulls from a model).
-/// It is named `Controller` for historical reasons; the code was first described as MVC but is
-/// really MVP.
+/// (The code was originally described as MVC, but is really MVP; the type was renamed from
+/// `Controller` to `Presenter` to reflect that.)
 /// `DeviceStrategy` contains both view and presenter methods.
 /// The Slint UI, main.rs and UiMethods are the remainder of the view.
 /// Everything else is the model.
-pub struct Controller {
+pub struct Presenter {
     /// The view-facing facade. Owns the injected `IUiMethods` and every user-facing message
     /// string; the Presenter pushes formatted state through its intention-named methods.
     presentation: Presentation,
@@ -46,17 +46,17 @@ pub struct Controller {
     /// The MIDI manager, injected (like osc/settings/tuner) rather than reached through a global
     /// singleton. Shared because callback methods clone the `Arc` to pass it around.
     midi_manager: SharedMidiManager,
-    /// The Continuum-protocol interpreter, injected. The Controller queries it for download state;
+    /// The Continuum-protocol interpreter, injected. The Presenter queries it for download state;
     /// the same instance is the MidiManager's `MidiInputListener` and the Tuner's
     /// `TuningUpdateSignaller` (all wired in `new`).
     continuum_protocol: Arc<dyn IContinuumProtocol>,
-    /// Weak self-reference used to hand an `Arc<Mutex<Controller>>` to the OSC layer and the
+    /// Weak self-reference used to hand an `Arc<Mutex<Presenter>>` to the OSC layer and the
     /// protocol listener as their callback target. Weak, not Arc, to avoid a reference cycle. Set
     /// by `init`.
-    controller_weak: Weak<Mutex<Controller>>,
+    presenter_weak: Weak<Mutex<Presenter>>,
 }
 
-impl Controller {
+impl Presenter {
     pub fn new(callbacks: Arc<dyn IUiMethods>) -> Self {
         // The output MIDI connection is shared between the MidiManager (which connects and
         // disconnects it) and the MidiSender (which writes to it). Create it here and inject it
@@ -64,7 +64,7 @@ impl Controller {
         let output: SharedOutput = Arc::new(Mutex::new(None));
         // The ContinuumProtocol is created here and injected three ways: into the MidiManager (as
         // its raw MidiInputListener), into the Tuner (as its TuningUpdateSignaller), and kept on the
-        // Controller (as its IContinuumProtocol). One shared Arc keeps the Tuner's tuning_status
+        // Presenter (as its IContinuumProtocol). One shared Arc keeps the Tuner's tuning_status
         // write visible to the protocol's confirmation logic. Replaces the former midi_refs globals.
         let continuum_protocol = Arc::new(ContinuumProtocol::new());
         let tuner: SharedTuner = Arc::new(Tuner::new());
@@ -81,16 +81,16 @@ impl Controller {
             tuner,
             midi_manager: Arc::new(Mutex::new(Box::new(MidiManager::new(output, continuum_protocol.clone())) as Box<dyn IMidiManager + Send>)),
             continuum_protocol,
-            controller_weak: Weak::new(),
+            presenter_weak: Weak::new(),
         }
     }
 
-    pub fn init(&mut self, self_arc: &SharedController) {
+    pub fn init(&mut self, self_arc: &SharedPresenter) {
         trace!("init");
         // Record a weak self-reference so the MIDI/OSC layers can be given an
-        // `Arc<Mutex<Controller>>` callback target without a global singleton.
-        self.controller_weak = Arc::downgrade(self_arc);
-        // Register this Controller as the protocol's semantic listener (Weak, to avoid a cycle).
+        // `Arc<Mutex<Presenter>>` callback target without a global singleton.
+        self.presenter_weak = Arc::downgrade(self_arc);
+        // Register this Presenter as the protocol's semantic listener (Weak, to avoid a cycle).
         let listener: Arc<dyn ContinuumProtocolListener> = self_arc.clone();
         self.continuum_protocol.set_listener(Arc::downgrade(&listener));
         let main_window_x: i32;
@@ -314,11 +314,11 @@ impl Controller {
         self.continuum_protocol = protocol;
     }
 
-    /// Returns an `Arc` to this Controller for use as a MIDI/OSC callback target.
+    /// Returns an `Arc` to this Presenter for use as a MIDI/OSC callback target.
     /// Relies on `init` having recorded the weak self-reference.
-    fn clone_controller(&self) -> SharedController {
-        self.controller_weak.upgrade()
-            .expect("controller_weak not set; init() must run before clone_controller()")
+    fn clone_presenter(&self) -> SharedPresenter {
+        self.presenter_weak.upgrade()
+            .expect("presenter_weak not set; init() must run before clone_presenter()")
     }
 
     /// Sets the root frequency override and sends it to the instrument,
@@ -463,7 +463,7 @@ impl Controller {
     }
 
     fn start_osc(&mut self) {
-        let callbacks = self.clone_controller();
+        let callbacks = self.clone_presenter();
         self.osc.start(callbacks);
     }
 
@@ -497,7 +497,7 @@ impl Controller {
     }
 }
 
-impl ContinuumProtocolListener for Mutex<Controller> {
+impl ContinuumProtocolListener for Mutex<Presenter> {
     fn on_download_completed(&self) {
         self.lock().unwrap().on_data_download_completed();
     }
@@ -531,21 +531,21 @@ impl ContinuumProtocolListener for Mutex<Controller> {
     }
 }
 
-impl OscCallbacks for Mutex<Controller> {
+impl OscCallbacks for Mutex<Presenter> {
     fn on_pitchgrid_connected_changed(&self) {
-        trace!("OscCallbacks for Mutex<Controller>.on_pitchgrid_connected_changed");
-        let controller = self.lock().unwrap();
-        controller.on_pitchgrid_connected_changed();
+        trace!("OscCallbacks for Mutex<Presenter>.on_pitchgrid_connected_changed");
+        let presenter = self.lock().unwrap();
+        presenter.on_pitchgrid_connected_changed();
     }
 
     fn on_tuning_received(&self, tuning_params: TuningParams) {
-        trace!("OscCallbacks for Mutex<Controller>.on_tuning_received");
-        let controller = self.lock().unwrap();
-        controller.on_tuning_received(tuning_params);
+        trace!("OscCallbacks for Mutex<Presenter>.on_tuning_received");
+        let presenter = self.lock().unwrap();
+        presenter.on_tuning_received(tuning_params);
     }
 }
 
-impl OscCallbacks for Controller {
+impl OscCallbacks for Presenter {
     fn on_pitchgrid_connected_changed(&self) {
         trace!("on_pitchgrid_connected_changed");
         if self.osc.is_pitchgrid_connected() {
@@ -580,4 +580,4 @@ impl OscCallbacks for Controller {
     }
 }
 
-type SharedController = Arc<Mutex<Controller>>;
+type SharedPresenter = Arc<Mutex<Presenter>>;

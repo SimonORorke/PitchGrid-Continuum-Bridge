@@ -12,7 +12,7 @@ pub trait IMidiSender: std::fmt::Debug + Send + Sync {
 }
 
 /// A no-op sender used as the `Tuner`'s default until the real one is wired in (see
-/// `Controller::new`). Sends are silently dropped, which is also the correct behaviour whenever no
+/// `Presenter::new`). Sends are silently dropped, which is also the correct behaviour whenever no
 /// MIDI output is connected.
 #[derive(Clone, Debug)]
 pub struct NullMidiSender;

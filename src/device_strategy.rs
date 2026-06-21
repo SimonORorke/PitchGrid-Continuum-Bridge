@@ -9,7 +9,7 @@ use log::trace;
 /// This trait is used to implement strategies that depend on whether a MIDI device is input or
 /// output.
 /// In the Model-View-Presenter (MVP) pattern, it contains both view and presenter methods.
-/// See `Controller`'s doc comment for more information on how the project implements MVP.
+/// See `Presenter`'s doc comment for more information on how the project implements MVP.
 pub trait DeviceStrategy: Send + Sync {
     fn device_type(&self) -> &DeviceType;
     fn io<'a>(&self, midi: &'a dyn IMidiManager) -> &'a dyn IIo;

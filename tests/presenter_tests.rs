@@ -17,7 +17,7 @@ use std::sync::{Arc, LazyLock, Mutex, MutexGuard};
 use googletest::assert_that;
 use googletest::matchers::{
     displays_as, eq, err, len, ok, not, some, starts_with};
-use pitchgrid_continuum::controller::Controller;
+use pitchgrid_continuum::presenter::Presenter;
 use pitchgrid_continuum::presentation::{AWAITING_DATA_DOWNLOAD_COMPLETION, AWAITING_PITCHGRID_CONNECTION, CANNOT_UPDATE_TUNING_LOST, CHECKING_INSTRUMENT_CONNECTION, DEVICE_NONE, DISCONNECTED_FROM_PITCHGRID, INSTRUMENT_DISCONNECTED, INSTRUMENT_NOT_CONNECTED, INSTRUMENT_TUNING_UPDATED, OPENING_PITCHGRID_CONNECTION, PITCHGRID_CONNECTION_CLOSED, PITCHGRID_NOT_CONNECTED, PRESET_TUNING_LOADED, UPDATING_INSTRUMENT_TUNING, UPDATING_ROOT_FREQ_OVERRIDE, WAITING_FOR_DATA_DOWNLOAD};
 use pitchgrid_continuum::global::{MessageType, DeviceType};
 use pitchgrid_continuum::i_settings::ISettings;
@@ -48,8 +48,8 @@ fn init_from_settings() {
     settings.set_override_rounding_initial(OVERRIDE_ROUNDING_INITIAL);
     settings.set_override_rounding_rate(OVERRIDE_ROUNDING_RATE);
     settings.set_rounding_rate(ROUNDING_RATE);
-    let controller = create_controller(settings, true);
-    controller.lock().unwrap().init(&controller);
+    let presenter = create_presenter(settings, true);
+    presenter.lock().unwrap().init(&presenter);
     assert_that!(mock_midi().init_input_device_name, some(eq(&INPUT_DEVICE_NAMES[0])));
     assert_that!(input_state().device_name(), some(eq(&INPUT_DEVICE_NAMES[0])));
     assert_that!(input_state().device_index(), some(eq(0)));
@@ -71,8 +71,8 @@ fn init_from_settings() {
 #[googletest::gtest]
 fn init_no_settings() {
     let _guard = test_mutex_guard();
-    let controller = create_controller(MockSettings::new(), false);
-    controller.lock().unwrap().init(&controller);
+    let presenter = create_presenter(MockSettings::new(), false);
+    presenter.lock().unwrap().init(&presenter);
     assert_that!(mock_ui_methods().main_window_position_x, some(eq(0)));
     assert_that!(mock_ui_methods().main_window_position_y, some(eq(0)));
     assert_that!(mock_ui_methods().set_devices_model_count, eq(2));
@@ -109,8 +109,8 @@ fn init_read_settings_err() {
     const ERR_MSG: &str = "Test error";
     let settings = MockSettings::new();
     MockSettings::simulate_read_from_file_err(ERR_MSG);
-    let controller = create_controller(settings, true);
-    controller.lock().unwrap().init(&controller);
+    let presenter = create_presenter(settings, true);
+    presenter.lock().unwrap().init(&presenter);
     assert_that!(mock_ui_methods().show_message_count, eq(1));
     assert_that!(mock_ui_methods().show_message_msg, some(eq(ERR_MSG)));
     assert_that!(mock_ui_methods().show_message_msg_type, some(eq(MessageType::Error)));
@@ -120,8 +120,8 @@ fn init_read_settings_err() {
 #[googletest::gtest]
 fn connect_device() {
     let _guard = test_mutex_guard();
-    let controller = create_controller(MockSettings::new(), true);
-    controller.lock().unwrap().init(&controller);
+    let presenter = create_presenter(MockSettings::new(), true);
+    presenter.lock().unwrap().init(&presenter);
     assert_that!(mock_midi().start_instrument_connection_monitor_count, eq(1));
     MockMidiManager::set_is_receiving_data(true);
     MockMidiManager::set_are_devices_connected(true);
@@ -133,7 +133,7 @@ fn connect_device() {
     assert_that!(tuner().formatted_tuning_params().root_freq, not(eq("")));
     let device_strategy = InputStrategy::new();
     MockUiMethods::set_selected_device_index(1);
-    controller.lock().unwrap().connect_device(&device_strategy);
+    presenter.lock().unwrap().connect_device(&device_strategy);
     assert_that!(mock_midi().stop_instrument_connection_monitor_count, eq(1));
     assert_that!(mock_osc().stop_count, eq(1));
     assert_that!(tuner().has_data(), eq(false));
@@ -151,8 +151,8 @@ fn connect_device() {
 #[googletest::gtest]
 fn connect_device_after_refreshing_other_device_list() {
     let _guard = test_mutex_guard();
-    let controller = create_controller(MockSettings::new(), true);
-    controller.lock().unwrap().init(&controller);
+    let presenter = create_presenter(MockSettings::new(), true);
+    presenter.lock().unwrap().init(&presenter);
     assert_that!(mock_midi().start_instrument_connection_monitor_count, eq(1));
     MockMidiManager::set_is_receiving_data(true);
     MockMidiManager::set_are_devices_connected(true);
@@ -161,10 +161,10 @@ fn connect_device_after_refreshing_other_device_list() {
     MockContinuumProtocol::simulate_updating_tuning();
     MockContinuumProtocol::simulate_tuning_updated();
     let output_strategy = OutputStrategy::new();
-    controller.lock().unwrap().refresh_devices(&output_strategy);
+    presenter.lock().unwrap().refresh_devices(&output_strategy);
     let input_strategy = InputStrategy::new();
     MockUiMethods::set_selected_device_index(1);
-    controller.lock().unwrap().connect_device(&input_strategy);
+    presenter.lock().unwrap().connect_device(&input_strategy);
     assert_that!(mock_ui_methods().show_message_msg, some(eq("Connect MIDI output device")));
     assert_that!(mock_ui_methods().show_message_msg_type, some(eq(MessageType::Warning)));
     assert_that!(mock_midi().start_instrument_connection_monitor_count, eq(1));
@@ -174,13 +174,13 @@ fn connect_device_after_refreshing_other_device_list() {
 fn connect_device_err() {
     let _guard = test_mutex_guard();
     const ERR_MSG: &str = "Test error";
-    let controller = create_controller(MockSettings::new(), false);
-    controller.lock().unwrap().init(&controller);
+    let presenter = create_presenter(MockSettings::new(), false);
+    presenter.lock().unwrap().init(&presenter);
     assert_that!(mock_midi().start_instrument_connection_monitor_count, eq(0));
     let device_strategy = OutputStrategy::new();
     MockUiMethods::set_selected_device_index(1);
     MockMidiManager::simulate_connect_device_err(ERR_MSG);
-    controller.lock().unwrap().connect_device(&device_strategy);
+    presenter.lock().unwrap().connect_device(&device_strategy);
     assert_that!(mock_ui_methods().show_message_msg, some(eq(ERR_MSG)));
     assert_that!(mock_ui_methods().show_message_msg_type, some(eq(MessageType::Error)));
 }
@@ -191,13 +191,13 @@ fn connect_device_with_no_selection_is_silent_no_op() {
     // `usize::MAX`. The `device_names().get(index)` guard in `connect_selected_device` must reject
     // that silently: no MIDI connection attempt and no "connected" feedback (and no panic).
     let _guard = test_mutex_guard();
-    let controller = create_controller(MockSettings::new(), false);
-    controller.lock().unwrap().init(&controller);
+    let presenter = create_presenter(MockSettings::new(), false);
+    presenter.lock().unwrap().init(&presenter);
     let device_strategy = InputStrategy::new();
     MockUiMethods::set_selected_device_index(usize::MAX);
     let connect_before = mock_midi().connect_device_count;
     let show_connected_before = mock_ui_methods().show_connected_device_name_count;
-    controller.lock().unwrap().connect_device(&device_strategy);
+    presenter.lock().unwrap().connect_device(&device_strategy);
     // The MIDI layer was never asked to connect, and no device-connected name was shown.
     assert_that!(mock_midi().connect_device_count, eq(connect_before));
     assert_that!(mock_ui_methods().show_connected_device_name_count, eq(show_connected_before));
@@ -206,8 +206,8 @@ fn connect_device_with_no_selection_is_silent_no_op() {
 #[googletest::gtest]
 fn refresh_devices() {
     let _guard = test_mutex_guard();
-    let controller = create_controller(MockSettings::new(), true);
-    controller.lock().unwrap().init(&controller);
+    let presenter = create_presenter(MockSettings::new(), true);
+    presenter.lock().unwrap().init(&presenter);
     assert_that!(mock_ui_methods().set_devices_model_count, eq(2));
     MockMidiManager::set_is_receiving_data(true);
     MockMidiManager::set_are_devices_connected(true);
@@ -217,7 +217,7 @@ fn refresh_devices() {
     MockContinuumProtocol::simulate_tuning_updated();
     assert_that!(mock_ui_methods().show_tuning_count, eq(1));
     let input_strategy = InputStrategy::new();
-    controller.lock().unwrap().refresh_devices(&input_strategy);
+    presenter.lock().unwrap().refresh_devices(&input_strategy);
     assert_that!(mock_midi().stop_instrument_connection_monitor_count, eq(1));
     assert_that!(mock_osc().stop_count, eq(1));
     assert_that!(tuner().has_data(), eq(false));
@@ -240,8 +240,8 @@ fn refresh_devices() {
 #[googletest::gtest]
 fn on_devices_connected_changed_to_connected() {
     let _guard = test_mutex_guard();
-    let controller = create_controller(MockSettings::new(), true);
-    controller.lock().unwrap().init(&controller);
+    let presenter = create_presenter(MockSettings::new(), true);
+    presenter.lock().unwrap().init(&presenter);
     MockMidiManager::set_are_devices_connected(true);
     MockOsc::set_is_running_result(true);
     MockContinuumProtocol::simulate_devices_connected_changed();
@@ -251,8 +251,8 @@ fn on_devices_connected_changed_to_connected() {
 #[googletest::gtest]
 fn on_devices_connected_changed_to_not_connected() {
     let _guard = test_mutex_guard();
-    let controller = create_controller(MockSettings::new(), true);
-    controller.lock().unwrap().init(&controller);
+    let presenter = create_presenter(MockSettings::new(), true);
+    presenter.lock().unwrap().init(&presenter);
     MockMidiManager::set_are_devices_connected(false);
     MockOsc::set_is_running_result(true);
     MockContinuumProtocol::simulate_devices_connected_changed();
@@ -273,10 +273,10 @@ fn close() {
     let mut settings = MockSettings::new();
     settings.set_main_window_x(OLD_MAIN_WINDOW_X);
     settings.set_main_window_y(OLD_MAIN_WINDOW_Y);
-    let controller = create_controller(settings, true);
-    controller.lock().unwrap().init(&controller);
+    let presenter = create_presenter(settings, true);
+    presenter.lock().unwrap().init(&presenter);
     assert_that!(mock_midi().start_instrument_connection_monitor_count, eq(1));
-    let result = controller.lock().unwrap().close(NEW_MAIN_WINDOW_X, NEW_MAIN_WINDOW_Y);
+    let result = presenter.lock().unwrap().close(NEW_MAIN_WINDOW_X, NEW_MAIN_WINDOW_Y);
     assert_that!(result, ok(()));
     assert_that!(mock_midi().close_count, eq(1));
     assert_that!(mock_osc().stop_count, eq(1));
@@ -296,10 +296,10 @@ fn close_err() {
     settings.set_main_window_x(OLD_MAIN_WINDOW_X);
     settings.set_main_window_y(OLD_MAIN_WINDOW_Y);
     MockSettings::simulate_write_to_file_err(ERR_MSG);
-    let controller = create_controller(settings, true);
-    controller.lock().unwrap().init(&controller);
+    let presenter = create_presenter(settings, true);
+    presenter.lock().unwrap().init(&presenter);
     assert_that!(mock_midi().start_instrument_connection_monitor_count, eq(1));
-    let result = controller.lock().unwrap().close(NEW_MAIN_WINDOW_X, NEW_MAIN_WINDOW_Y);
+    let result = presenter.lock().unwrap().close(NEW_MAIN_WINDOW_X, NEW_MAIN_WINDOW_Y);
     assert_that!(result, err(displays_as(eq(ERR_MSG))));
     assert_that!(mock_midi().close_count, eq(1));
     assert_that!(mock_osc().stop_count, eq(1));
@@ -312,8 +312,8 @@ fn close_err() {
 #[googletest::gtest]
 fn on_receiving_data_started_show_waiting_for_download() {
     let _guard = test_mutex_guard();
-    let controller = create_controller(MockSettings::new(), true);
-    controller.lock().unwrap().init(&controller);
+    let presenter = create_presenter(MockSettings::new(), true);
+    presenter.lock().unwrap().init(&presenter);
     MockContinuumProtocol::simulate_receiving_data_started();
     assert_that!(mock_ui_methods().show_message_msg, some(eq(WAITING_FOR_DATA_DOWNLOAD)));
     assert_that!(mock_ui_methods().show_message_msg_type, some(eq(MessageType::Info)));
@@ -322,8 +322,8 @@ fn on_receiving_data_started_show_waiting_for_download() {
 #[googletest::gtest]
 fn on_data_download_started() {
     let _guard = test_mutex_guard();
-    let controller = create_controller(MockSettings::new(), true);
-    controller.lock().unwrap().init(&controller);
+    let presenter = create_presenter(MockSettings::new(), true);
+    presenter.lock().unwrap().init(&presenter);
     MockMidiManager::set_are_devices_connected(true);
     MockContinuumProtocol::simulate_download_started();
     assert_that!(mock_ui_methods().show_message_msg, some(eq(AWAITING_DATA_DOWNLOAD_COMPLETION)));
@@ -333,8 +333,8 @@ fn on_data_download_started() {
 #[googletest::gtest]
 fn on_data_download_completed_start_osc() {
     let _guard = test_mutex_guard();
-    let controller = create_controller(MockSettings::new(), true);
-    controller.lock().unwrap().init(&controller);
+    let presenter = create_presenter(MockSettings::new(), true);
+    presenter.lock().unwrap().init(&presenter);
     MockMidiManager::set_is_receiving_data(true);
     MockMidiManager::set_are_devices_connected(true);
     MockContinuumProtocol::simulate_download_completed();
@@ -346,8 +346,8 @@ fn on_data_download_completed_start_osc() {
 #[googletest::gtest]
 fn on_tuning_received() {
     let _guard = test_mutex_guard();
-    let controller = create_controller(MockSettings::new(), true);
-    controller.lock().unwrap().init(&controller);
+    let presenter = create_presenter(MockSettings::new(), true);
+    presenter.lock().unwrap().init(&presenter);
     MockMidiManager::set_is_receiving_data(true);
     MockMidiManager::set_are_devices_connected(true);
     MockContinuumProtocol::simulate_download_completed();
@@ -361,8 +361,8 @@ fn on_tuning_received() {
 #[googletest::gtest]
 fn on_tuning_received_when_instrument_disconnected() {
     let _guard = test_mutex_guard();
-    let controller = create_controller(MockSettings::new(), true);
-    controller.lock().unwrap().init(&controller);
+    let presenter = create_presenter(MockSettings::new(), true);
+    presenter.lock().unwrap().init(&presenter);
     MockMidiManager::set_is_receiving_data(true);
     MockMidiManager::set_are_devices_connected(true);
     MockContinuumProtocol::simulate_download_completed();
@@ -377,8 +377,8 @@ fn on_tuning_received_when_instrument_disconnected() {
 #[googletest::gtest]
 fn on_updating_tuning() {
     let _guard = test_mutex_guard();
-    let controller = create_controller(MockSettings::new(), true);
-    controller.lock().unwrap().init(&controller);
+    let presenter = create_presenter(MockSettings::new(), true);
+    presenter.lock().unwrap().init(&presenter);
     MockContinuumProtocol::simulate_updating_tuning();
     assert_that!(mock_ui_methods().show_message_msg_type, some(not(eq(MessageType::Error))));
 }
@@ -387,9 +387,9 @@ fn on_updating_tuning() {
 fn on_tuning_updated() {
     let _guard = test_mutex_guard();
     const NOTE_INDEX: usize = 1;
-    let controller = create_controller(MockSettings::new(), true);
-    controller.lock().unwrap().init(&controller);
-    controller.lock().unwrap().set_root_freq_override(NOTE_INDEX);
+    let presenter = create_presenter(MockSettings::new(), true);
+    presenter.lock().unwrap().init(&presenter);
+    presenter.lock().unwrap().set_root_freq_override(NOTE_INDEX);
     MockMidiManager::set_is_receiving_data(true);
     MockMidiManager::set_are_devices_connected(true);
     MockContinuumProtocol::simulate_download_completed();
@@ -410,9 +410,9 @@ fn on_tuning_updated() {
 fn on_new_preset_selected() {
     let _guard = test_mutex_guard();
     const NOTE_INDEX: usize = 1;
-    let controller = create_controller(MockSettings::new(), true);
-    controller.lock().unwrap().init(&controller);
-    controller.lock().unwrap().set_root_freq_override(NOTE_INDEX);
+    let presenter = create_presenter(MockSettings::new(), true);
+    presenter.lock().unwrap().init(&presenter);
+    presenter.lock().unwrap().set_root_freq_override(NOTE_INDEX);
     MockMidiManager::set_is_receiving_data(true);
     MockMidiManager::set_are_devices_connected(true);
     MockContinuumProtocol::simulate_download_completed();
@@ -433,15 +433,15 @@ fn on_new_preset_selected() {
 fn set_root_freq_override() {
     let _guard = test_mutex_guard();
     const NOTE_INDEX: usize = 1;
-    let controller = create_controller(MockSettings::new(), true);
-    controller.lock().unwrap().init(&controller);
+    let presenter = create_presenter(MockSettings::new(), true);
+    presenter.lock().unwrap().init(&presenter);
     MockMidiManager::set_is_receiving_data(true);
     MockMidiManager::set_are_devices_connected(true);
     MockContinuumProtocol::simulate_download_completed();
     assert_that!(mock_ui_methods().show_pitchgrid_status_count, eq(0));
     MockOsc::simulate_pitchgrid_connected_changed(true);
     assert_that!(mock_ui_methods().show_pitchgrid_status_count, eq(1));
-    controller.lock().unwrap().set_root_freq_override(NOTE_INDEX);
+    presenter.lock().unwrap().set_root_freq_override(NOTE_INDEX);
     assert_that!(mock_ui_methods().show_pitchgrid_status_count, eq(2));
     assert_that!(mock_ui_methods().show_pitchgrid_status_msg, some(eq(UPDATING_ROOT_FREQ_OVERRIDE)));
     assert_that!(mock_ui_methods().show_pitchgrid_status_msg_type, some(eq(MessageType::Info)));
@@ -452,10 +452,10 @@ fn set_root_freq_override() {
 fn set_override_rounding_initial() {
     let _guard = test_mutex_guard();
     const OVERRIDE_ROUNDING_INITIAL: bool = false; // as the default is true
-    let controller = create_controller(MockSettings::new(), true);
-    controller.lock().unwrap().init(&controller);
+    let presenter = create_presenter(MockSettings::new(), true);
+    presenter.lock().unwrap().init(&presenter);
     assert_that!(mock_settings().override_rounding_initial, eq(true));
-    controller.lock().unwrap().set_override_rounding_initial(OVERRIDE_ROUNDING_INITIAL);
+    presenter.lock().unwrap().set_override_rounding_initial(OVERRIDE_ROUNDING_INITIAL);
     assert_that!(mock_settings().override_rounding_initial, eq(OVERRIDE_ROUNDING_INITIAL));
 }
 
@@ -463,10 +463,10 @@ fn set_override_rounding_initial() {
 fn set_override_rounding_rate() {
     let _guard = test_mutex_guard();
     const OVERRIDE_ROUNDING_RATE: bool = false; // as the default is true
-    let controller = create_controller(MockSettings::new(), true);
-    controller.lock().unwrap().init(&controller);
+    let presenter = create_presenter(MockSettings::new(), true);
+    presenter.lock().unwrap().init(&presenter);
     assert_that!(mock_settings().override_rounding_rate, eq(true));
-    controller.lock().unwrap().set_override_rounding_rate(OVERRIDE_ROUNDING_RATE);
+    presenter.lock().unwrap().set_override_rounding_rate(OVERRIDE_ROUNDING_RATE);
     assert_that!(mock_settings().override_rounding_rate, eq(OVERRIDE_ROUNDING_RATE));
 }
 
@@ -474,10 +474,10 @@ fn set_override_rounding_rate() {
 fn set_rounding_rate() {
     let _guard = test_mutex_guard();
     const ROUNDING_RATE: u8 = 100;
-    let controller = create_controller(MockSettings::new(), true);
-    controller.lock().unwrap().init(&controller);
+    let presenter = create_presenter(MockSettings::new(), true);
+    presenter.lock().unwrap().init(&presenter);
     assert_that!(mock_settings().rounding_rate, eq(127));
-    controller.lock().unwrap().set_rounding_rate(ROUNDING_RATE);
+    presenter.lock().unwrap().set_rounding_rate(ROUNDING_RATE);
     assert_that!(mock_settings().rounding_rate, eq(ROUNDING_RATE));
 }
 
@@ -486,11 +486,11 @@ fn set_osc_listening_port() {
     let _guard = test_mutex_guard();
     const LISTENING_PORT: u16 = 34560;
     const LISTENING_PORT_INDEX: usize = 0;
-    let controller = create_controller(MockSettings::new(), true);
-    controller.lock().unwrap().init(&controller);
+    let presenter = create_presenter(MockSettings::new(), true);
+    presenter.lock().unwrap().init(&presenter);
     assert_that!(mock_settings().osc_listening_port, eq(0)); // Unspecified
     assert_that!(mock_osc().listening_port, some(eq(Osc::default_listening_port())));
-    controller.lock().unwrap().set_osc_listening_port(LISTENING_PORT_INDEX);
+    presenter.lock().unwrap().set_osc_listening_port(LISTENING_PORT_INDEX);
     assert_that!(mock_settings().osc_listening_port, eq(LISTENING_PORT));
     assert_that!(mock_osc().listening_port, some(eq(LISTENING_PORT)));
 }
@@ -500,11 +500,11 @@ fn set_pitch_table() {
     let _guard = test_mutex_guard();
     const PITCH_TABLE: u8 = 81;
     const PITCH_TABLE_INDEX: usize = 1;
-    let controller = create_controller(MockSettings::new(), true);
-    controller.lock().unwrap().init(&controller);
+    let presenter = create_presenter(MockSettings::new(), true);
+    presenter.lock().unwrap().init(&presenter);
     assert_that!(mock_settings().pitch_table, eq(0)); // Unspecified
     assert_that!(tuner().pitch_table_index(), eq(0));
-    controller.lock().unwrap().set_pitch_table(PITCH_TABLE_INDEX);
+    presenter.lock().unwrap().set_pitch_table(PITCH_TABLE_INDEX);
     assert_that!(mock_settings().pitch_table, eq(PITCH_TABLE));
     assert_that!(tuner().pitch_table_index(), eq(PITCH_TABLE_INDEX));
 }
@@ -512,8 +512,8 @@ fn set_pitch_table() {
 #[googletest::gtest]
 fn on_pitchgrid_disconnected() {
     let _guard = test_mutex_guard();
-    let controller = create_controller(MockSettings::new(), true);
-    controller.lock().unwrap().init(&controller);
+    let presenter = create_presenter(MockSettings::new(), true);
+    presenter.lock().unwrap().init(&presenter);
     MockMidiManager::set_is_receiving_data(true);
     MockMidiManager::set_are_devices_connected(true);
     MockContinuumProtocol::simulate_download_completed();
@@ -531,8 +531,8 @@ fn on_pitchgrid_disconnected() {
 #[googletest::gtest]
 fn on_receiving_data_stopped() {
     let _guard = test_mutex_guard();
-    let controller = create_controller(MockSettings::new(), true);
-    controller.lock().unwrap().init(&controller);
+    let presenter = create_presenter(MockSettings::new(), true);
+    presenter.lock().unwrap().init(&presenter);
     MockOsc::set_is_running_result(true);
     MockContinuumProtocol::simulate_receiving_data_stopped();
     assert_that!(mock_ui_methods().show_message_msg, some(eq(INSTRUMENT_NOT_CONNECTED)));
@@ -543,8 +543,8 @@ fn on_receiving_data_stopped() {
     assert_that!(mock_ui_methods().show_pitchgrid_status_msg_type, some(eq(MessageType::Error)));
 }
 
-fn create_controller(mut settings: MockSettings, default_midi_devices: bool)
-                     -> Arc<Mutex<Controller>> {
+fn create_presenter(mut settings: MockSettings, default_midi_devices: bool)
+                     -> Arc<Mutex<Presenter>> {
     if default_midi_devices {
         settings.set_midi_input_device(&INPUT_DEVICE_NAMES[0]);
         settings.set_midi_output_device(&OUTPUT_DEVICE_NAMES[0]);
@@ -556,21 +556,21 @@ fn create_controller(mut settings: MockSettings, default_midi_devices: bool)
     new_tuner.init(Tuner::default_pitch_table());
     new_tuner.set_midi_sender(MockMidiSender::new());
     *TUNER.lock().unwrap_or_else(|e| e.into_inner()) = new_tuner.clone();
-    // A single shared controller serves as both the test subject and its own MIDI/OSC callback
-    // target: init() (called by the test, passing &controller) records a weak self-reference, so
+    // A single shared presenter serves as both the test subject and its own MIDI/OSC callback
+    // target: init() (called by the test, passing &presenter) records a weak self-reference, so
     // there is no CONTROLLER singleton to set up. The mock MIDI/OSC/Tuner are injected directly.
     // Tests lock the returned Arc to drive it; simulate_* callbacks lock it too, which is
     // deadlock-free because they release the mock lock before invoking the callback.
-    let controller = Arc::new(Mutex::new(Controller::new(Arc::new(MockUiMethods::new()))));
+    let presenter = Arc::new(Mutex::new(Presenter::new(Arc::new(MockUiMethods::new()))));
     {
-        let mut guard = controller.lock().unwrap();
+        let mut guard = presenter.lock().unwrap();
         guard.set_midi_manager(mock_midi);
         guard.set_continuum_protocol(MockContinuumProtocol::new());
         guard.set_osc(Box::new(MockOsc::new()));
         guard.set_settings(Box::new(settings));
         guard.set_tuner(new_tuner as Arc<dyn ITuner>);
     }
-    controller
+    presenter
 }
 
 /// To avoid races on static data, hold the returned guard in each test to ensure sequential

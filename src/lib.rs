@@ -14,16 +14,16 @@ pub mod path_finder;
 pub mod settings;
 pub mod tuner;
 pub mod device_strategy;
-pub mod controller;
+pub mod presenter;
 pub mod presentation;
 pub mod ui_methods;
 pub mod tuning_params;
 mod tuning_update_watchdog;
 
 use std::sync::{Arc, Mutex};
-use controller::Controller;
+use presenter::Presenter;
 
-pub type SharedController = Arc<Mutex<Controller>>;
+pub type SharedPresenter = Arc<Mutex<Presenter>>;
 
 pub struct ComboBoxModel(pub Vec<ComboBoxItem>);
 

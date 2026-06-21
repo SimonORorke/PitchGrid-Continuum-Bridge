@@ -21,7 +21,7 @@ use crate::i_osc::{IOsc, OscCallbacks};
 ///         PitchGrid will send /pitchgrid/heartbeat back to all registered clients.
 pub struct Osc {
     callbacks: Option<Arc<dyn OscCallbacks>>,
-    /// Saves Controller.osc from having to be an Arc<Mutex>>.
+    /// Saves Presenter.osc from having to be an Arc<Mutex>>.
     inner: Mutex<OscInner>,
     last_ack_time: Arc<Mutex<Option<Instant>>>,
 }

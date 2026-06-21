@@ -18,7 +18,7 @@ pub struct Tuner {
     midi_sender: Mutex<Box<dyn IMidiSender>>,
     /// The seam to the protocol layer, told when a tuning send begins (see `send_tuning_update`).
     /// Defaults to a no-op so a standalone `Tuner` (e.g. in `tuner_tests`) needs no wiring; the real
-    /// one is injected by `Controller::new`. Replaces the former `MidiManager::on_updating_tuning`
+    /// one is injected by `Presenter::new`. Replaces the former `MidiManager::on_updating_tuning`
     /// static call.
     tuning_signaller: Mutex<Arc<dyn TuningUpdateSignaller>>,
     params: Arc<Mutex<TuningParams>>,
@@ -314,12 +314,12 @@ impl ITuner for Tuner {
         }
     }
 
-    /// Sets the MIDI sender: the real one (wired by `Controller::new`) in production, a mock in tests.
+    /// Sets the MIDI sender: the real one (wired by `Presenter::new`) in production, a mock in tests.
     fn set_midi_sender(&self, sender: Box<dyn IMidiSender>) {
         *self.midi_sender.lock().unwrap() = sender;
     }
 
-    /// Sets the tuning-update signaller, wired by `Controller::new` to the shared MIDI state.
+    /// Sets the tuning-update signaller, wired by `Presenter::new` to the shared MIDI state.
     fn set_tuning_signaller(&self, signaller: Arc<dyn TuningUpdateSignaller>) {
         *self.tuning_signaller.lock().unwrap() = signaller;
     }

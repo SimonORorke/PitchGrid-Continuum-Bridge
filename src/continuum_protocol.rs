@@ -28,16 +28,16 @@ enum TuningStatus {
 
 /// Interprets the Continuum MIDI protocol. It consumes the raw messages and connection-lifecycle
 /// events raised by the generic `MidiManager` (it is the manager's `MidiInputListener`) and raises
-/// the resulting semantic events to the `Controller` (it holds the `Controller` as a
+/// the resulting semantic events to the `Presenter` (it holds the `Presenter` as a
 /// `ContinuumProtocolListener`). It owns the protocol state formerly held in the `midi_refs`
 /// statics (and, in 3b, in `MidiState`).
 ///
-/// One instance is shared three ways, all wired in `Controller::new`: the `MidiManager` holds it as
-/// its raw listener, the `Tuner` holds it as its `TuningUpdateSignaller`, and the `Controller`
+/// One instance is shared three ways, all wired in `Presenter::new`: the `MidiManager` holds it as
+/// its raw listener, the `Tuner` holds it as its `TuningUpdateSignaller`, and the `Presenter`
 /// holds it as its `IContinuumProtocol`.
 pub struct ContinuumProtocol {
-    /// The semantic listener (the `Controller`). Weak to avoid a reference cycle; set by
-    /// `Controller::init`. Replaces the former `CALLBACKS` global.
+    /// The semantic listener (the `Presenter`). Weak to avoid a reference cycle; set by
+    /// `Presenter::init`. Replaces the former `CALLBACKS` global.
     listener: Mutex<Option<Weak<dyn ContinuumProtocolListener>>>,
     download_status: Mutex<DownloadStatus>,
     download_wait_start_time: Mutex<Option<Instant>>,
@@ -169,7 +169,7 @@ impl MidiInputListener for ContinuumProtocol {
                         // When the firmware bug is fixed, remove the above workaround
                         // and restore the tuning update confirmation check below.
                         // This will fix the problem described in a comment in
-                        // Controller.await_tuning_updated.
+                        // Presenter.await_tuning_updated.
                         // match status {
                         //     TuningStatus::None => {}
                         //     TuningStatus::Tuning => {

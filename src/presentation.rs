@@ -5,7 +5,7 @@ use crate::device_strategy::DeviceStrategy;
 use crate::i_ui_methods::IUiMethods;
 use crate::tuning_params::FormattedTuningParams;
 
-/// The view-facing facade the Presenter (`Controller`) speaks through.
+/// The view-facing facade the `Presenter` speaks through.
 ///
 /// It owns the injected `IUiMethods` view seam and every user-facing message string (the `const`s
 /// below), exposing intention-named methods (e.g. `disconnected_from_pitchgrid`) so that each

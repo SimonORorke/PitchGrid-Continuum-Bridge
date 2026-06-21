@@ -2,7 +2,7 @@
 use crate::device_strategy::DeviceStrategy;
 use crate::tuning_params::FormattedTuningParams;
 
-/// A trait that defines the interface for methods called by `Controller`
+/// A trait that defines the interface for methods called by `Presenter`
 /// to make changes to the UI.
 ///
 /// For the `I` prefix, see `ITuner`s doc comment.

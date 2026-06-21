@@ -7,8 +7,8 @@ use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
 use slint::{CloseRequestResponse, ComponentHandle, PhysicalPosition, WindowPosition, Weak};
 use app_info::{APP_TITLE, COPYRIGHT, DOCUMENTATION_LINK, LICENSE, PROJECT_LINK, VERSION};
-use pitchgrid_continuum::{ComboBoxModel, ComboBoxItem, MainWindow, AboutWindow, SharedController, SlintDeviceType};
-use pitchgrid_continuum::controller::Controller;
+use pitchgrid_continuum::{ComboBoxModel, ComboBoxItem, MainWindow, AboutWindow, SharedPresenter, SlintDeviceType};
+use pitchgrid_continuum::presenter::Presenter;
 use pitchgrid_continuum::osc::Osc;
 use pitchgrid_continuum::device_strategy::{InputStrategy, OutputStrategy, DeviceStrategy};
 use pitchgrid_continuum::ui_methods::UiMethods;
@@ -17,7 +17,7 @@ use pitchgrid_continuum::tuner::Tuner;
 use log::trace;
 
 /// main.rs is part of the view in the Model-View-Presenter (MVP) pattern.
-/// See `Controller`'s doc comment for more information on how the project implements MVP.
+/// See `Presenter`'s doc comment for more information on how the project implements MVP.
 fn main() {
     // Initialise logging. Levels are chosen at runtime via the RUST_LOG env var
     // (e.g. `RUST_LOG=debug`, or `RUST_LOG=pitchgrid_continuum::tuner=trace`); with RUST_LOG unset
@@ -32,23 +32,23 @@ fn main() {
     let main_window = MainWindow::new().unwrap();
     main_window.set_window_title(APP_TITLE.into());
     let ui_methods = UiMethods::new(main_window.as_weak());
-    let controller: SharedController = Arc::new(Mutex::new(Controller::new(
+    let presenter: SharedPresenter = Arc::new(Mutex::new(Presenter::new(
         Arc::new(ui_methods)
     )));
-    init_ui_handlers(&main_window, controller.clone());
+    init_ui_handlers(&main_window, presenter.clone());
     set_root_notes_model(&main_window);
     set_osc_listening_ports_model(&main_window);
     set_pitch_tables_model(&main_window);
 
-    // Initialise controller on a background thread so that UI callbacks within
+    // Initialise presenter on a background thread so that UI callbacks within
     // init() can use invoke_from_event_loop without deadlocking.
-    let self_arc = Arc::clone(&controller);
-    spawn_controller_action(&controller, move |c| c.init(&self_arc));
+    let self_arc = Arc::clone(&presenter);
+    spawn_presenter_action(&presenter, move |c| c.init(&self_arc));
 
     main_window.run().unwrap();
 }
 
-fn init_ui_handlers(main_window: &MainWindow, controller: SharedController) {
+fn init_ui_handlers(main_window: &MainWindow, presenter: SharedPresenter) {
     main_window.on_open_documentation(move || {
         open::that(DOCUMENTATION_LINK).unwrap();
     });
@@ -95,68 +95,68 @@ fn init_ui_handlers(main_window: &MainWindow, controller: SharedController) {
         });
     }
     {
-        let controller: SharedController = Arc::clone(&controller);
+        let presenter: SharedPresenter = Arc::clone(&presenter);
         let main_window_weak = main_window.as_weak();
         let about_window = Rc::clone(&about_window);
         main_window.window().on_close_requested(move || {
-            handle_close_request(&main_window_weak, &controller, &about_window)
+            handle_close_request(&main_window_weak, &presenter, &about_window)
         });
     }
-    // All Controller methods must be called from non-UI threads to avoid deadlock.
+    // All Presenter methods must be called from non-UI threads to avoid deadlock.
     // See the UiMethods.with_main_window_result doc comment for more information.
     {
-        let controller: SharedController = Arc::clone(&controller);
+        let presenter: SharedPresenter = Arc::clone(&presenter);
         main_window.on_connect_device(move |device_type: SlintDeviceType| {
             let device_strategy = create_device_strategy(device_type);
-            spawn_controller_action(&controller, move |c| c.connect_device(&*device_strategy));
+            spawn_presenter_action(&presenter, move |c| c.connect_device(&*device_strategy));
         });
     }
     {
-        let controller: SharedController = Arc::clone(&controller);
+        let presenter: SharedPresenter = Arc::clone(&presenter);
         main_window.on_refresh_devices(move |device_type: SlintDeviceType| {
             let device_strategy = create_device_strategy(device_type);
-            spawn_controller_action(&controller, move |c| c.refresh_devices(&*device_strategy));
+            spawn_presenter_action(&presenter, move |c| c.refresh_devices(&*device_strategy));
         });
     }
     {
-        let controller: SharedController = Arc::clone(&controller);
+        let presenter: SharedPresenter = Arc::clone(&presenter);
         main_window.on_selected_root_note_changed(move |index| {
-            spawn_controller_action(&controller, move |c| c.set_root_freq_override(index as usize));
+            spawn_presenter_action(&presenter, move |c| c.set_root_freq_override(index as usize));
         });
     }
     {
-        let controller: SharedController = Arc::clone(&controller);
+        let presenter: SharedPresenter = Arc::clone(&presenter);
         main_window.on_override_rounding_initial_changed(move |override_rounding_initial| {
-            spawn_controller_action(&controller, move |c| c.set_override_rounding_initial(override_rounding_initial));
+            spawn_presenter_action(&presenter, move |c| c.set_override_rounding_initial(override_rounding_initial));
         });
     }
     {
-        let controller: SharedController = Arc::clone(&controller);
+        let presenter: SharedPresenter = Arc::clone(&presenter);
         main_window.on_override_rounding_rate_changed(move |override_rounding_rate| {
-            spawn_controller_action(&controller, move |c| c.set_override_rounding_rate(override_rounding_rate));
+            spawn_presenter_action(&presenter, move |c| c.set_override_rounding_rate(override_rounding_rate));
         });
     }
     {
-        let controller: SharedController = Arc::clone(&controller);
+        let presenter: SharedPresenter = Arc::clone(&presenter);
         main_window.on_rounding_rate_changed(move |rounding_rate| {
-            spawn_controller_action(&controller, move |c| c.set_rounding_rate(rounding_rate as u8));
+            spawn_presenter_action(&presenter, move |c| c.set_rounding_rate(rounding_rate as u8));
         });
     }
     {
-        let controller: SharedController = Arc::clone(&controller);
+        let presenter: SharedPresenter = Arc::clone(&presenter);
         main_window.on_selected_osc_listening_port_changed(move |index| {
-            spawn_controller_action(&controller, move |c| c.set_osc_listening_port(index as usize));
+            spawn_presenter_action(&presenter, move |c| c.set_osc_listening_port(index as usize));
         });
     }
     {
-        let controller: SharedController = Arc::clone(&controller);
+        let presenter: SharedPresenter = Arc::clone(&presenter);
         main_window.on_selected_pitch_table_changed(move |index| {
-            spawn_controller_action(&controller, move |c| c.set_pitch_table(index as usize));
+            spawn_presenter_action(&presenter, move |c| c.set_pitch_table(index as usize));
         });
     }
 }
 
-fn handle_close_request(main_window_weak: &Weak<MainWindow>, controller: &SharedController, about_window: &Rc<RefCell<Option<AboutWindow>>>) -> CloseRequestResponse {
+fn handle_close_request(main_window_weak: &Weak<MainWindow>, presenter: &SharedPresenter, about_window: &Rc<RefCell<Option<AboutWindow>>>) -> CloseRequestResponse {
     trace!("main.handle_close_request");
     if let Some(dialog) = about_window.borrow().as_ref()
         && dialog.window().is_visible()
@@ -178,26 +178,26 @@ fn handle_close_request(main_window_weak: &Weak<MainWindow>, controller: &Shared
         (0, 0)
     };
     let response_clone = Arc::clone(&response);
-    if controller.lock().unwrap().close(x, y).is_err() {
+    if presenter.lock().unwrap().close(x, y).is_err() {
         *response_clone.lock().unwrap() = CloseRequestResponse::KeepWindowShown;
         IS_CLOSE_ERROR_SHOWN.store(true, Ordering::Relaxed);
     };
     *response.lock().unwrap()
 }
 
-/// Runs `action` against the `Controller` on a rayon worker thread.
+/// Runs `action` against the `Presenter` on a rayon worker thread.
 ///
-/// Every UI-event handler funnels through here: `Controller` methods must run off the Slint
+/// Every UI-event handler funnels through here: `Presenter` methods must run off the Slint
 /// UI thread (they re-enter the UI via `invoke_from_event_loop`, which deadlocks if called from
 /// the UI thread — see `UiMethods::with_main_window_result`). Centralising clone → spawn → lock
 /// also keeps the lock policy in one place.
-fn spawn_controller_action(
-    controller: &SharedController,
-    action: impl FnOnce(&mut Controller) + Send + 'static,
+fn spawn_presenter_action(
+    presenter: &SharedPresenter,
+    action: impl FnOnce(&mut Presenter) + Send + 'static,
 ) {
-    let controller = Arc::clone(controller);
+    let presenter = Arc::clone(presenter);
     rayon::spawn(move || {
-        let mut guard = controller.lock().unwrap();
+        let mut guard = presenter.lock().unwrap();
         action(&mut guard);
     });
 }

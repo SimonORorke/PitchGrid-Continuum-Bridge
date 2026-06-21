@@ -5,7 +5,7 @@ pub static MOCK_CONTINUUM_PROTOCOL: LazyLock<Mutex<MockContinuumProtocol>> =
     LazyLock::new(|| Mutex::new(MockContinuumProtocol::new_state()));
 
 /// Mock for `IContinuumProtocol`. It also stands in as the source of the semantic events the real
-/// `ContinuumProtocol` would raise: `Controller::init` registers the controller via `set_listener`,
+/// `ContinuumProtocol` would raise: `Presenter::init` registers the presenter via `set_listener`,
 /// and the `simulate_*` helpers fire the listener directly — the role formerly played by
 /// `MockMidiManager` (which captured the callbacks via `init`).
 pub struct MockContinuumProtocol {
@@ -29,13 +29,13 @@ impl MockContinuumProtocol {
         Arc::new(MockContinuumProtocolImpl)
     }
 
-    /// The registered semantic listener (the `Controller`). Clones the weak and releases the mock
+    /// The registered semantic listener (the `Presenter`). Clones the weak and releases the mock
     /// lock BEFORE upgrading and returning, so a callback that re-locks the mock cannot deadlock —
     /// the same discipline the `MockMidiManager` callbacks relied on.
     fn listener() -> Arc<dyn ContinuumProtocolListener> {
         let listener = MOCK_CONTINUUM_PROTOCOL.lock().unwrap_or_else(|e| e.into_inner())
-            .listener.clone().expect("set_listener (via Controller::init) must run first");
-        listener.upgrade().expect("the Controller must still be alive")
+            .listener.clone().expect("set_listener (via Presenter::init) must run first");
+        listener.upgrade().expect("the Presenter must still be alive")
     }
 
     pub fn simulate_download_completed() {

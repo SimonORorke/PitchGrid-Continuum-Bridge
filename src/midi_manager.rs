@@ -57,9 +57,9 @@ pub struct MidiManager {
     /// The generic reception state, shared with the input callback and the spawned monitor /
     /// watchdog threads. Replaces the reception fields of the former `midi_refs` statics.
     input_state: Arc<MidiInputState>,
-    /// The interpreter of inbound MIDI (the `ContinuumProtocol`), injected by `Controller::new`.
+    /// The interpreter of inbound MIDI (the `ContinuumProtocol`), injected by `Presenter::new`.
     /// `MidiManager` raises raw events to it synchronously; it does any thread hand-off before
-    /// re-entering the `Controller`.
+    /// re-entering the `Presenter`.
     listener: Arc<dyn MidiInputListener>,
 }
 
@@ -300,7 +300,7 @@ impl IMidiManager for MidiManager {
             if self.are_devices_connected() {
                 trace!("connect_device {:?}: Calling on_devices_connected_changed \
                     because both ports are now connected", device_strategy.device_type());
-                // Raised synchronously; the listener hands off to the Controller itself.
+                // Raised synchronously; the listener hands off to the Presenter itself.
                 self.listener.on_devices_connected_changed();
             }
         }

@@ -1,7 +1,7 @@
 use std::sync::Weak;
 
 /// The semantic seam by which the `ContinuumProtocol` reports interpreted Continuum events to the
-/// application (the `Controller`). These are the events that were formerly raised directly by the
+/// application (the `Presenter`). These are the events that were formerly raised directly by the
 /// MIDI layer. Identical to the former `MidiCallbacks`, renamed to reflect that it is the
 /// protocol-to-app boundary, not the raw MIDI one.
 pub trait ContinuumProtocolListener: Send + Sync {
@@ -15,13 +15,13 @@ pub trait ContinuumProtocolListener: Send + Sync {
     fn on_updating_tuning(&self);
 }
 
-/// The `Controller`'s handle on the protocol layer: query the download state and register the
+/// The `Presenter`'s handle on the protocol layer: query the download state and register the
 /// listener. Behind a trait so a mock can be injected in tests, mirroring `IMidiManager` / `ITuner`.
 pub trait IContinuumProtocol: Send + Sync {
     fn has_downloaded_init_data(&self) -> bool;
 
     /// Records the (weak) semantic listener the protocol raises events to. Weak to avoid a
-    /// reference cycle, mirroring the `Controller`'s `controller_weak`. Set by `Controller::init`.
+    /// reference cycle, mirroring the `Presenter`'s `presenter_weak`. Set by `Presenter::init`.
     fn set_listener(&self, listener: Weak<dyn ContinuumProtocolListener>);
 }
 
@@ -32,7 +32,7 @@ pub trait TuningUpdateSignaller: Send + Sync {
 }
 
 /// A no-op `TuningUpdateSignaller`, the `Tuner`'s default until the real one is wired in (see
-/// `Controller::new`). Mirrors `NullMidiSender`; keeps the standalone `Tuner` tests free of any
+/// `Presenter::new`). Mirrors `NullMidiSender`; keeps the standalone `Tuner` tests free of any
 /// MIDI/protocol wiring.
 pub struct NullTuningSignaller;
 
