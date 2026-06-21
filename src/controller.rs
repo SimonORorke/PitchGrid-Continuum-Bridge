@@ -21,8 +21,12 @@ use crate::i_tuner::SharedTuner;
 use crate::tuner::Tuner;
 use crate::tuning_params::TuningParams;
 
-/// This is the main controller in the Model-View-Controller (MVC) pattern.
-/// DeviceStrategy contains both view and controller methods.
+/// This type plays the **Presenter** in the Model-View-Presenter (MVP) pattern — specifically the
+/// Passive View / Humble Object variant: `IUiMethods` reduces the View to dumb setters, and the
+/// Presenter pushes formatted state into that view abstraction (the view never pulls from a model).
+/// It is named `Controller` for historical reasons; the code was first described as MVC but is
+/// really MVP.
+/// `DeviceStrategy` contains both view and presenter methods.
 /// The Slint UI, main.rs and UiMethods are the remainder of the view.
 /// Everything else is the model.
 pub struct Controller {

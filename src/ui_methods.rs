@@ -8,8 +8,8 @@ use crate::tuning_params::FormattedTuningParams;
 use log::trace;
 
 /// This struct contains the methods called by `Controller` to make changes to the UI.
-/// It is part of the view in the Model-View-Controller (MVC) pattern.
-/// See `Controller`'s doc comment for more information on how the project implements MVC.
+/// It is part of the view in the Model-View-Presenter (MVP) pattern.
+/// See `Controller`'s doc comment for more information on how the project implements MVP.
 pub struct UiMethods {
     main_window_weak: Weak<MainWindow>,
 }

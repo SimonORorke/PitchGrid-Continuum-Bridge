@@ -16,8 +16,8 @@ use pitchgrid_continuum::global;
 use pitchgrid_continuum::tuner::Tuner;
 use log::trace;
 
-/// main.rs is part of the view in the Model-View-Controller (MVC) pattern.
-/// See `Controller`'s doc comment for more information on how the project implements MVC.
+/// main.rs is part of the view in the Model-View-Presenter (MVP) pattern.
+/// See `Controller`'s doc comment for more information on how the project implements MVP.
 fn main() {
     // Initialise logging. Levels are chosen at runtime via the RUST_LOG env var
     // (e.g. `RUST_LOG=debug`, or `RUST_LOG=pitchgrid_continuum::tuner=trace`); with RUST_LOG unset
