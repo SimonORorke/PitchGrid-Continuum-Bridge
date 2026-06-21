@@ -15,6 +15,20 @@ use crate::tuning_params::FormattedTuningParams;
 /// Nor do we use `mockall` or similar to create the mocks:  so, for example, we don't need to
 /// rename trait `ITuner` to `Tuner` so that a mock called `MockTuner` can be automatically
 /// generated. And a `T` prefix is avoided because `T` in Rust is a common type parameter.
+///
+/// Project-wide trait-naming convention (two tiers). This is the key justification for the
+/// non-idiomatic `I` prefix, so the two tiers are kept distinct on purpose:
+/// * **`I`-prefixed traits are service interfaces**: each abstracts a *single* concrete struct
+///   (`ITuner`/`Tuner`, `ISettings`/`Settings`, `IOsc`/`Osc`, `IMidiManager`/`MidiManager`,
+///   `IContinuumProtocol`/`ContinuumProtocol`, `IUiMethods`/`UiMethods`, `IMidiSender`/`MidiSender`)
+///   so it can be injected and mocked. The struct keeps the descriptive name; the trait takes the
+///   `I` prefix.
+/// * **Role-named traits with no prefix are seams / callbacks**: named for what they do rather than
+///   for one concrete type, and may have several implementors — e.g. `MidiInputListener`,
+///   `ContinuumProtocolListener`, `TuningUpdateSignaller`.
+/// So an `I` prefix vs a bare role-name is a deliberate signal of which kind of trait it is. Don't
+/// "de-prefix" the service interfaces to match Rust's usual no-`I` convention — that would erase the
+/// distinction.
 pub trait ITuner: Send + Sync {
     fn init(&self, pitch_table: u8);
     fn on_tuning_received(&self, params: TuningParams);
