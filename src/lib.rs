@@ -15,6 +15,7 @@ pub mod settings;
 pub mod tuner;
 pub mod device_strategy;
 pub mod controller;
+pub mod presentation;
 pub mod ui_methods;
 pub mod tuning_params;
 mod tuning_update_watchdog;

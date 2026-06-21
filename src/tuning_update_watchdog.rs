@@ -1,10 +1,7 @@
-use std::sync::Arc;
 use std::sync::mpsc;
 use std::time::Duration;
 use log::{debug, warn};
-use crate::global::MessageType;
-use crate::i_ui_methods::IUiMethods;
-use crate::controller::INSTRUMENT_TUNING_UPDATE_NOT_CONFIRMED;
+use crate::presentation::Presentation;
 
 /// Watches for the instrument's confirmation that a tuning update has been applied.
 ///
@@ -18,15 +15,15 @@ use crate::controller::INSTRUMENT_TUNING_UPDATE_NOT_CONFIRMED;
 pub struct TuningUpdateWatchdog {
     stopper_sender: Option<mpsc::Sender<()>>,
     is_awaiting: bool,
-    ui_methods: Arc<dyn IUiMethods>,
+    presentation: Presentation,
 }
 
 impl TuningUpdateWatchdog {
-    pub fn new(ui_methods: Arc<dyn IUiMethods>) -> Self {
+    pub fn new(presentation: Presentation) -> Self {
         Self {
             stopper_sender: None,
             is_awaiting: false,
-            ui_methods,
+            presentation,
         }
     }
 
@@ -36,9 +33,9 @@ impl TuningUpdateWatchdog {
         let (stopper_sender, stopper_receiver) = mpsc::channel();
         self.stopper_sender = Some(stopper_sender);
         self.is_awaiting = true;
-        let ui_methods = Arc::clone(&self.ui_methods);
+        let presentation = self.presentation.clone();
         rayon::spawn(move || {
-            Self::run(stopper_receiver, ui_methods);
+            Self::run(stopper_receiver, presentation);
         });
     }
 
@@ -55,7 +52,7 @@ impl TuningUpdateWatchdog {
     }
 
     /// The watchdog thread body: wait for the confirmation signal, or report a timeout to the view.
-    fn run(stopper_receiver: mpsc::Receiver<()>, ui_methods: Arc<dyn IUiMethods>) {
+    fn run(stopper_receiver: mpsc::Receiver<()>, presentation: Presentation) {
         // There's one scenario where this check is known not to behave as expected.
         // Editor MIDI:
         //     Input  LB1 (A)
@@ -109,10 +106,10 @@ impl TuningUpdateWatchdog {
             return;
         }
         warn!("Tuning update not confirmed");
-        // Report straight to the view via the captured handle. We deliberately do NOT clear
-        // `is_awaiting` from here (this thread no longer holds the watchdog): it is cleared by
+        // Report straight to the view via the captured presentation handle. We deliberately do NOT
+        // clear `is_awaiting` from here (this thread no longer holds the watchdog): it is cleared by
         // `cancel`, whose stop-signal send tolerates this thread having already exited and dropped
         // the receiver.
-        ui_methods.show_message(INSTRUMENT_TUNING_UPDATE_NOT_CONFIRMED, MessageType::Error);
+        presentation.tuning_update_not_confirmed();
     }
 }
