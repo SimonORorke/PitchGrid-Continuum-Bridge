@@ -1,9 +1,7 @@
 ﻿use std::error::Error;
 use std::sync::{Arc, Mutex, Weak};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc;
-use std::time::Duration;
-use log::{debug, trace, warn};
+use log::{debug, trace};
 use crate::global::{MessageType};
 use crate::i_midi_manager::{IMidiManager, SharedMidiManager, SharedOutput};
 use crate::i_osc::{IOsc, OscCallbacks};
@@ -20,6 +18,7 @@ use crate::i_ui_methods::IUiMethods;
 use crate::i_tuner::SharedTuner;
 use crate::tuner::Tuner;
 use crate::tuning_params::TuningParams;
+use crate::tuning_update_watchdog::TuningUpdateWatchdog;
 
 /// This type plays the **Presenter** in the Model-View-Presenter (MVP) pattern — specifically the
 /// Passive View / Humble Object variant: `IUiMethods` reduces the View to dumb setters, and the
@@ -30,9 +29,11 @@ use crate::tuning_params::TuningParams;
 /// The Slint UI, main.rs and UiMethods are the remainder of the view.
 /// Everything else is the model.
 pub struct Controller {
-    await_tuning_updated_stopper_sender: Option<mpsc::Sender<()>>,
     ui_methods: Arc<dyn IUiMethods>,
-    is_awaiting_tuning_updated: bool,
+    /// Watches for the instrument's confirmation that a tuning update was applied and reports a
+    /// timeout to the view if none arrives. Owns the former `await_tuning_updated_*` /
+    /// `is_awaiting_*` state.
+    tuning_update_watchdog: TuningUpdateWatchdog,
     /// True while the in-flight tuning send was triggered by a new instrument preset being
     /// selected (rather than a fresh tuning), so on_tuning_updated can show a tailored
     /// confirmation. An AtomicBool because it is set from the `&self` callback methods.
@@ -67,10 +68,10 @@ impl Controller {
         let tuner: SharedTuner = Arc::new(Tuner::new());
         tuner.set_midi_sender(Box::new(MidiSender::new(output.clone())));
         tuner.set_tuning_signaller(continuum_protocol.clone());
+        let tuning_update_watchdog = TuningUpdateWatchdog::new(callbacks.clone());
         Self {
-            await_tuning_updated_stopper_sender: None,
             ui_methods: callbacks,
-            is_awaiting_tuning_updated: false,
+            tuning_update_watchdog,
             is_preset_reselect: AtomicBool::new(false),
             osc: Box::new(Osc::new()),
             settings: Box::new(Settings::new()),
@@ -433,14 +434,7 @@ impl Controller {
     fn on_tuning_updated(&mut self) {
         debug!("on_tuning_updated");
         // Stop waiting for tuning update to be confirmed.
-        if self.is_awaiting_tuning_updated {
-            if let Some(stopper_sender) = self.await_tuning_updated_stopper_sender.take() {
-                // Ignore a send error: the watchdog may have already timed out and returned,
-                // dropping the receiver. That is a normal outcome, not a failure.
-                let _ = stopper_sender.send(());
-            }
-            self.is_awaiting_tuning_updated = false;
-        }
+        self.tuning_update_watchdog.cancel();
         self.tuner.on_tuning_updated();
         // If there's no tuning data, the displayed tuning data will be blanked.
         self.ui_methods.show_tuning(self.tuner.formatted_tuning_params(), self.tuner.is_root_freq_overridden());
@@ -462,80 +456,7 @@ impl Controller {
 
     fn on_updating_tuning(&mut self) {
         debug!("on_updating_tuning");
-        let (stopper_sender, stopper_receiver) = mpsc::channel();
-        self.await_tuning_updated_stopper_sender = Some(stopper_sender);
-        self.is_awaiting_tuning_updated = true;
-        // The watchdog runs on a background thread, so it cannot borrow `self`. Hand it an owned
-        // `Arc` clone of the view (the only thing it needs on timeout) rather than reaching for
-        // the global `CONTROLLER` singleton.
-        let ui_methods = Arc::clone(&self.ui_methods);
-        rayon::spawn(move || {
-            Self::await_tuning_updated(stopper_receiver, ui_methods);
-        });
-    }
-
-    /// Shows an error message if tuning update is not confirmed within 2 seconds.
-    /// The probable cause of the error is that MIDI output does not connect to one the editor's
-    /// Ext All Data MIDI inputs.
-    fn await_tuning_updated(stopper_receiver: mpsc::Receiver<()>, ui_methods: Arc<dyn IUiMethods>) {
-        // There's one scenario where this check is known not to behave as expected.
-        // Editor MIDI:
-        //     Input  LB1 (A)
-        //     Output LB2 (A)
-        // As we are using loopback endpoints, the following are the correct MIDI connections in
-        // this application:
-        //     Input  LB2 (B)
-        //     Output LB1 (B)
-        // But try the following MIDI connections in this application:
-        //     Input  LB2 (B)
-        //     Output LB2 (A)
-        // In this scenario, this application's MIDI input is correct, but the incorrect output is
-        // the same as the editor's output.
-        // Expected behaviour:
-        //     As our output is incorrect, the instrument tuning and the tuning shown in the
-        //     editor should not be updated.
-        //     We should not receive confirmation that the tuning has been updated.
-        // Actual behavour:
-        //     As with the expected behaviour, the instrument tuning and the tuning shown in the
-        //     editor are not updated.
-        //     However, we receive Grid message ch16 cc51 g, where g is our seleted pitch table
-        //     number. We interpret this as confirmation that the tuning has been updated.
-        //
-        // Explanation
-        //
-        // Something like the following must be happening.
-        // As Windows MIDI devices are currently shared with no way to make them exclusive,
-        // there's nothing to stop us sending MIDI direct to the instrument, bypassing the editor.
-        // But from the instrument's perspective, our tuning data looks like invalid data from
-        // the editor, rather than a valid request from an external software component.
-        // So the firmware does not implement the request.
-        // As we request the current preset to be updated with the tuning with the same cc51 Grid
-        // message, what we currently interpret as update confirmation is just our
-        // request echoed back, which is expected. There is currently a firmware bug where,
-        // for some presets, the confirmation message is not sent when the preset's tuning has been
-        // updated. Our temporary workaround is to treat the echoed back request as confirmation.
-        //
-        // Pending fix
-        //
-        // Once the firmware bug is fixed, in MidiManager.on_message_received we can remove the workaround
-        // and revert to interpreting not the first cc51 Grid message received, our request, but
-        // the second as confirmation.
-        // That should make the problem go away. I've tested it with a preset that still sends
-        // the confirmation message even with the firmware bug.
-        // To test that INSTRUMENT_TUNING_UPDATE_NOT_CONFIRMED is shown on timeout,
-        // uncomment the following line and comment out the next one.
-        // if let Ok(_) = stopper_receiver.recv_timeout(Duration::from_millis(50)) {
-        if stopper_receiver.recv_timeout(Duration::from_secs(2)).is_ok() {
-            // Sleep was interrupted: tuning has been updated.
-            debug!("await_tuning_updated: Tuning updated");
-            return;
-        }
-        warn!("await_tuning_updated: Tuning update not confirmed");
-        // Report straight to the view via the captured handle. We deliberately do NOT clear
-        // `is_awaiting_tuning_updated` from here (we no longer hold the controller): it is cleared
-        // by `on_tuning_updated`, whose stop-signal send now tolerates this thread having already
-        // exited and dropped the receiver.
-        ui_methods.show_message(INSTRUMENT_TUNING_UPDATE_NOT_CONFIRMED, MessageType::Error);
+        self.tuning_update_watchdog.start();
     }
 
     fn show_connected_device_name(

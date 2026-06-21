@@ -26,6 +26,7 @@ use crate::tuning_params::FormattedTuningParams;
 /// * **Role-named traits with no prefix are seams / callbacks**: named for what they do rather than
 ///   for one concrete type, and may have several implementors — e.g. `MidiInputListener`,
 ///   `ContinuumProtocolListener`, `TuningUpdateSignaller`.
+///
 /// So an `I` prefix vs a bare role-name is a deliberate signal of which kind of trait it is. Don't
 /// "de-prefix" the service interfaces to match Rust's usual no-`I` convention — that would erase the
 /// distinction.
