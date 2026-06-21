@@ -57,7 +57,9 @@ pub struct Presenter {
 }
 
 impl Presenter {
-    pub fn new(callbacks: Arc<dyn IUiMethods>) -> Self {
+    /// `timeout_millis` is the number of milliseconds to wait for a tuning update confirmation.
+    /// It can be much shorter in tests.
+    pub fn new(callbacks: Arc<dyn IUiMethods>, timeout_millis: u16) -> Self {
         // The output MIDI connection is shared between the MidiManager (which connects and
         // disconnects it) and the MidiSender (which writes to it). Create it here and inject it
         // into both, replacing the former OUTPUT_CONNECTION global.
@@ -71,7 +73,8 @@ impl Presenter {
         tuner.set_midi_sender(Box::new(MidiSender::new(output.clone())));
         tuner.set_tuning_signaller(continuum_protocol.clone());
         let presentation = Presentation::new(callbacks);
-        let tuning_update_watchdog = TuningUpdateWatchdog::new(presentation.clone());
+        let tuning_update_watchdog =
+            TuningUpdateWatchdog::new(presentation.clone(), timeout_millis);
         Self {
             presentation,
             tuning_update_watchdog,
@@ -189,6 +192,11 @@ impl Presenter {
             return Err(err)
         };
         Ok(())
+    }
+
+    /// The number of milliseconds in real-time processing to wait for a tuning update confirmation.
+    pub fn real_timeout_millis() -> u16 {
+        2000
     }
 
     fn connect_initial_device(&mut self, device_strategy: &dyn DeviceStrategy) {

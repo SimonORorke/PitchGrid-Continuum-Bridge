@@ -9,21 +9,22 @@ use crate::presentation::Presentation;
 /// confirmation arrives within 2 seconds, the watchdog reports the failure straight to the view.
 /// The probable cause of a timeout is that MIDI output is not connected to one of the editor's
 /// "Ext All Data" MIDI inputs.
-///
-/// The 2-second timeout is currently hard-coded; injecting it (so tests can use a much shorter wait)
-/// is a candidate follow-up.
 pub struct TuningUpdateWatchdog {
     stopper_sender: Option<mpsc::Sender<()>>,
     is_awaiting: bool,
     presentation: Presentation,
+    timeout_millis: u16,
 }
 
 impl TuningUpdateWatchdog {
-    pub fn new(presentation: Presentation) -> Self {
+    /// `timeout_millis` is the number of milliseconds to wait for a tuning update confirmation.
+    /// It can be much shorter in tests.
+    pub fn new(presentation: Presentation, timeout_millis: u16) -> Self {
         Self {
             stopper_sender: None,
             is_awaiting: false,
             presentation,
+            timeout_millis,
         }
     }
 
@@ -34,8 +35,9 @@ impl TuningUpdateWatchdog {
         self.stopper_sender = Some(stopper_sender);
         self.is_awaiting = true;
         let presentation = self.presentation.clone();
+        let timeout_millis = self.timeout_millis as u64;
         rayon::spawn(move || {
-            Self::run(stopper_receiver, presentation);
+            Self::run(stopper_receiver, presentation, timeout_millis);
         });
     }
 
@@ -52,7 +54,7 @@ impl TuningUpdateWatchdog {
     }
 
     /// The watchdog thread body: wait for the confirmation signal, or report a timeout to the view.
-    fn run(stopper_receiver: mpsc::Receiver<()>, presentation: Presentation) {
+    fn run(stopper_receiver: mpsc::Receiver<()>, presentation: Presentation, timeout_millis: u64) {
         // There's one scenario where this check is known not to behave as expected.
         // Editor MIDI:
         //     Input  LB1 (A)
@@ -100,7 +102,7 @@ impl TuningUpdateWatchdog {
         // To test that INSTRUMENT_TUNING_UPDATE_NOT_CONFIRMED is shown on timeout,
         // uncomment the following line and comment out the next one.
         // if let Ok(_) = stopper_receiver.recv_timeout(Duration::from_millis(50)) {
-        if stopper_receiver.recv_timeout(Duration::from_secs(2)).is_ok() {
+        if stopper_receiver.recv_timeout(Duration::from_millis(timeout_millis)).is_ok() {
             // Sleep was interrupted: tuning has been updated.
             debug!("Tuning updated");
             return;

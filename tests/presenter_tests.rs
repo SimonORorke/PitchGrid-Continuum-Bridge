@@ -561,7 +561,8 @@ fn create_presenter(mut settings: MockSettings, default_midi_devices: bool)
     // there is no CONTROLLER singleton to set up. The mock MIDI/OSC/Tuner are injected directly.
     // Tests lock the returned Arc to drive it; simulate_* callbacks lock it too, which is
     // deadlock-free because they release the mock lock before invoking the callback.
-    let presenter = Arc::new(Mutex::new(Presenter::new(Arc::new(MockUiMethods::new()))));
+    let presenter =
+        Arc::new(Mutex::new(Presenter::new(Arc::new(MockUiMethods::new()), 10)));
     {
         let mut guard = presenter.lock().unwrap();
         guard.set_midi_manager(mock_midi);

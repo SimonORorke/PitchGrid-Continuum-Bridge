@@ -33,7 +33,7 @@ fn main() {
     main_window.set_window_title(APP_TITLE.into());
     let ui_methods = UiMethods::new(main_window.as_weak());
     let presenter: SharedPresenter = Arc::new(Mutex::new(Presenter::new(
-        Arc::new(ui_methods)
+        Arc::new(ui_methods), Presenter::real_timeout_millis()
     )));
     init_ui_handlers(&main_window, presenter.clone());
     set_root_notes_model(&main_window);
