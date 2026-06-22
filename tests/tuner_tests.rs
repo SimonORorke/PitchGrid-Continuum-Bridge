@@ -15,9 +15,6 @@ static TEST_MUTEX: Mutex<()> = Mutex::new(());
 
 #[googletest::gtest]
 fn on_tuning_received() {
-    println!("***********************************");
-    println!("on_tuning_received test started");
-    println!("***********************************");
     let _guard = test_mutex_guard();
     let tuner = create_tuner();
     tuner.set_override_rounding_initial(true);
@@ -44,9 +41,6 @@ fn on_tuning_received() {
     assert_that!(formatted.steps, eq("19"));
     assert_that!(formatted.mos_large_step_count, eq("5"));
     assert_that!(formatted.mos_small_step_count, eq("2"));
-    println!("***********************************");
-    println!("on_tuning_received test completed");
-    println!("***********************************");
 }
 
 #[googletest::gtest]
@@ -63,24 +57,18 @@ fn on_tuning_updated() {
     // No tuning updates are pending, so the tuning should be sent immediately.
     tuner.on_tuning_received(TestTunings::params_31_19());
     let single_tuning_control_change_count = mock_midi_sender().control_change_count;
-    println!("First tuning should have been sent: cumulative control_change_count = {}",
-             mock_midi_sender().control_change_count);
     // Check that the tuning has been sent.
     assert_that!(mock_midi_sender().control_change_count, gt(0),
         "First tuning should have been sent immediately after receiving");
     tuner.on_tuning_updated(); // Confirm that the first tuning has been updated on the instrument.
     // There was no pending tuning waiting to be sent when update was confirmed
     // for the first tuning sent. So no more MIDI messages should have been sent.
-    println!("First tuning update confirmed: cumulative control_change_count = {}",
-             mock_midi_sender().control_change_count);
     assert_that!(mock_midi_sender().control_change_count, eq(single_tuning_control_change_count),
         "First tuning update confirmed.");
     // Second tuning received.
     // No tuning updates are pending, so the tuning should be sent immediately.
     tuner.on_tuning_received(TestTunings::params_16_16());
     // Check that the tuning has been sent.
-    println!("Second tuning should have been sent: cumulative control_change_count = {}",
-             mock_midi_sender().control_change_count);
     assert_that!(mock_midi_sender().control_change_count, eq(single_tuning_control_change_count * 2),
         "Second tuning should have been sent immediately after receiving");
     // Send the third tuning before update confirmation has been received for the second tuning.
@@ -88,24 +76,17 @@ fn on_tuning_updated() {
     // yet.
     tuner.on_tuning_received(TestTunings::params_17_17());
     // Check that the tuning has not yet been sent.
-    println!("Third tuning has been received but should not have been sent yet: \
-        cumulative control_change_count = {}", mock_midi_sender().control_change_count);
     assert_that!(mock_midi_sender().control_change_count, eq(single_tuning_control_change_count * 2),
         "Third tuning has been received but should not have been sent yet");
     tuner.on_tuning_updated(); // Confirm that the second tuning was updated on the instrument.
     // The third tuning was waiting to be sent when update was confirmed
     // for the second tuning sent. So the third tuning should have been sent now.
-    println!("Second tuning update confirmed, so the third tuning should have been sent now: \
-        cumulative control_change_count = {}", mock_midi_sender().control_change_count);
     assert_that!(mock_midi_sender().control_change_count, eq(single_tuning_control_change_count * 3),
         "Second tuning update confirmed, so the third tuning should have been sent now.");
 }
 
 #[googletest::gtest]
 fn remove_data() {
-    println!("***********************************");
-    println!("remove_data test started");
-    println!("***********************************");
     let _guard = test_mutex_guard();
     let tuner = create_tuner();
     tuner.on_tuning_received(TestTunings::params_31_19());
@@ -114,16 +95,10 @@ fn remove_data() {
     assert_that!(tuner.has_data(), eq(false));
     let formatted = tuner.formatted_tuning_params();
     assert_that!(formatted.root_freq, eq(""));
-    println!("***********************************");
-    println!("remove_data test completed");
-    println!("***********************************");
 }
 
 #[googletest::gtest]
 fn send_current_preset_update() {
-    println!("*****************************************");
-    println!("send_current_preset_update test started");
-    println!("*****************************************");
     let _guard = test_mutex_guard();
     let tuner = create_tuner();
     tuner.set_override_rounding_initial(true);
@@ -140,9 +115,6 @@ fn send_current_preset_update() {
         cumulative_sent_control_change_count, eq(first_time_sent_control_change_count + 3));
     // Rounding Mode Normal, because Rounding Rate is on
     assert_that!(mock_midi_sender().matrix_poke_count, eq(2));
-    println!("*****************************************");
-    println!("send_current_preset_update test completed");
-    println!("*****************************************");
 }
 
 #[googletest::gtest]
