@@ -210,11 +210,6 @@ impl Presenter {
         Ok(())
     }
 
-    /// The number of milliseconds in real-time processing to wait for a tuning update confirmation.
-    pub fn real_timeout_millis() -> u16 {
-        2000
-    }
-
     fn connect_initial_device(&mut self, device_strategy: &dyn DeviceStrategy) {
         trace!("connect_initial_port: {:?}", device_strategy.device_type());
         let shared_midi = self.midi_manager.clone();

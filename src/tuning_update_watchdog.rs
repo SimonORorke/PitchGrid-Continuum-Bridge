@@ -18,7 +18,8 @@ pub struct TuningUpdateWatchdog {
 
 impl TuningUpdateWatchdog {
     /// `timeout_millis` is the number of milliseconds to wait for a tuning update confirmation.
-    /// It can be much shorter in tests.
+    /// It can be much shorter in tests. For the real-world value, set it to
+    /// `TuningUpdateWatchdog::real_timeout_millis()`
     pub fn new(presentation: Presentation, timeout_millis: u16) -> Self {
         Self {
             stopper_sender: None,
@@ -113,5 +114,10 @@ impl TuningUpdateWatchdog {
         // `cancel`, whose stop-signal send tolerates this thread having already exited and dropped
         // the receiver.
         presentation.tuning_update_not_confirmed();
+    }
+
+    /// The number of milliseconds in real-time processing to wait for a tuning update confirmation.
+    pub fn real_timeout_millis() -> u16 {
+        2000
     }
 }

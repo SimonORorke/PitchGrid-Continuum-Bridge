@@ -7,13 +7,15 @@ use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
 use slint::{CloseRequestResponse, ComponentHandle, PhysicalPosition, WindowPosition, Weak};
 use app_info::{APP_TITLE, COPYRIGHT, DOCUMENTATION_LINK, LICENSE, PROJECT_LINK, VERSION};
-use pitchgrid_continuum::{ComboBoxModel, ComboBoxItem, MainWindow, AboutWindow, SharedPresenter, SlintDeviceType};
+use pitchgrid_continuum::{ComboBoxModel, ComboBoxItem, MainWindow, AboutWindow, SharedPresenter,
+                          SlintDeviceType};
 use pitchgrid_continuum::presenter::Presenter;
 use pitchgrid_continuum::osc::Osc;
 use pitchgrid_continuum::device_strategy::{InputStrategy, OutputStrategy, DeviceStrategy};
 use pitchgrid_continuum::ui_methods::UiMethods;
 use pitchgrid_continuum::global;
 use pitchgrid_continuum::tuner::Tuner;
+use pitchgrid_continuum::tuning_update_watchdog::TuningUpdateWatchdog;
 use log::trace;
 
 /// main.rs is part of the view in the Model-View-Presenter (MVP) pattern.
@@ -33,7 +35,7 @@ fn main() {
     main_window.set_window_title(APP_TITLE.into());
     let ui_methods = UiMethods::new(main_window.as_weak());
     let presenter: SharedPresenter = Arc::new(Mutex::new(Presenter::new(
-        Arc::new(ui_methods), Presenter::real_timeout_millis()
+        Arc::new(ui_methods), TuningUpdateWatchdog::real_timeout_millis()
     )));
     init_ui_handlers(&main_window, presenter.clone());
     set_root_notes_model(&main_window);

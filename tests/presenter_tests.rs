@@ -557,8 +557,8 @@ fn create_presenter(mut settings: MockSettings, default_midi_devices: bool)
     new_tuner.set_midi_sender(MockMidiSender::new());
     *TUNER.lock().unwrap_or_else(|e| e.into_inner()) = new_tuner.clone();
     // A single shared presenter serves as both the test subject and its own MIDI/OSC callback
-    // target: init() (called by the test, passing &presenter) records a weak self-reference, so
-    // there is no CONTROLLER singleton to set up. The mock MIDI/OSC/Tuner are injected directly.
+    // target: init() (called by the test, passing &presenter) records a weak self-reference.
+    // The mock MIDI/OSC/Tuner are injected.
     // Tests lock the returned Arc to drive it; simulate_* callbacks lock it too, which is
     // deadlock-free because they release the mock lock before invoking the callback.
     let presenter =

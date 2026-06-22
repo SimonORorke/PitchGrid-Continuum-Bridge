@@ -18,7 +18,7 @@ pub mod presenter;
 pub mod presentation;
 pub mod ui_methods;
 pub mod tuning_params;
-mod tuning_update_watchdog;
+pub mod tuning_update_watchdog;
 
 use std::sync::{Arc, Mutex};
 use presenter::Presenter;

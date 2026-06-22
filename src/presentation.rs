@@ -18,7 +18,7 @@ use crate::tuning_params::FormattedTuningParams;
 /// two-tier trait-naming rule). `Clone` is cheap — it wraps a single `Arc` — so the
 /// `TuningUpdateWatchdog`'s background thread can own a copy.
 #[derive(Clone)]
-pub(crate) struct Presentation {
+pub struct Presentation {
     ui_methods: Arc<dyn IUiMethods>,
 }
 
