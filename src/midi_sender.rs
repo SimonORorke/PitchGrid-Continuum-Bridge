@@ -50,6 +50,14 @@ impl MidiSender {
         let mut connection_option = self.output.lock().unwrap();
         if let Some(connection) = connection_option.as_mut() {
             connection.send(message).unwrap_or_else(|_| {
+                // Ideally, we should report the error to the user,
+                // recommending restarting the application, editor and instrument.
+                // I tried showing a message via Presentation, like in TuningUpdateWatchdog.
+                // But that was not seen, as INSTRUMENT_NOT_CONNECTED was immediately then shown.
+                // Instead bubbling up the error to Preseter would have to go through many layers.
+                // We could probably set a flag somewhere so that "MIDI sender error [etc.]"
+                // is shown instead of INSTRUMENT_NOT_CONNECTED. But I'm not convinced I want to go
+                // there, as this is a rare and unreproducible error.
                 error!("Error when sending MIDI message: {:?}", message);
                 // Panic for stack trace diagnostics.
                 // panic!("Error when sending MIDI message: {:?}", message);

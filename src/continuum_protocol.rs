@@ -37,7 +37,7 @@ enum TuningStatus {
 /// holds it as its `IContinuumProtocol`.
 pub struct ContinuumProtocol {
     /// The semantic listener (the `Presenter`). Weak to avoid a reference cycle; set by
-    /// `Presenter::init`. Replaces the former `CALLBACKS` global.
+    /// `Presenter::init`.
     listener: Mutex<Option<Weak<dyn ContinuumProtocolListener>>>,
     download_status: Mutex<DownloadStatus>,
     download_wait_start_time: Mutex<Option<Instant>>,

@@ -52,10 +52,10 @@ pub struct MidiManager {
     is_connection_monitor_running: bool,
     output: Io<MidiOutputPort>,
     /// The output connection, shared with the `MidiSender` that writes to it. `MidiManager` connects
-    /// and disconnects it; the sender reads it. Replaces the former `OUTPUT_CONNECTION` global.
+    /// and disconnects it; the sender reads it.
     output_connection: SharedOutput,
     /// The generic reception state, shared with the input callback and the spawned monitor /
-    /// watchdog threads. Replaces the reception fields of the former `midi_refs` statics.
+    /// watchdog threads.
     input_state: Arc<MidiInputState>,
     /// The interpreter of inbound MIDI (the `ContinuumProtocol`), injected by `Presenter::new`.
     /// `MidiManager` raises raw events to it synchronously; it does any thread hand-off before

@@ -25,9 +25,25 @@ use crate::tuning_update_watchdog::TuningUpdateWatchdog;
 /// Presenter pushes formatted state into that view abstraction (the view never pulls from a model).
 /// (The code was originally described as MVC, but is really MVP; the type was renamed from
 /// `Controller` to `Presenter` to reflect that.)
-/// `DeviceStrategy` contains both view and presenter methods.
-/// The Slint UI, main.rs and UiMethods are the remainder of the view.
+///
+/// In this application, `Presenter` is also a coordinator between the various model components and
+/// the view. This is useful for two interrelated reasons.
+/// * Processes in the model components depend on the events of other model components to start.
+/// * So many things external to the application can go wrong that event progress must be displayed
+///   to facilitate user action when required.
+///
+/// `Presentation` provides the model with a conduit for sending messages to the view to be shown:
+/// see `TuningUpdateWatchdog` for the only current example. It allows the model not to need to
+/// know about view or the `Preseter` itself. In that respect, I'd say it conforms with MVP:
+/// messaging facilities in MVVM are similar.
+///
+/// `DeviceStrategy` contains both view and presenter methods: that seems acceptable, as it is an
+/// implementation of the strategy pattern.
+///
+/// The Slint UI, main.rs and `UiMethods` are the remainder of the view.
+///
 /// Everything else is the model.
+///
 pub struct Presenter {
     /// The view-facing facade. Owns the injected `IUiMethods` and every user-facing message
     /// string; the Presenter pushes formatted state through its intention-named methods.
@@ -67,7 +83,7 @@ impl Presenter {
         // The ContinuumProtocol is created here and injected three ways: into the MidiManager (as
         // its raw MidiInputListener), into the Tuner (as its TuningUpdateSignaller), and kept on the
         // Presenter (as its IContinuumProtocol). One shared Arc keeps the Tuner's tuning_status
-        // write visible to the protocol's confirmation logic. Replaces the former midi_refs globals.
+        // write visible to the protocol's confirmation logic.
         let continuum_protocol = Arc::new(ContinuumProtocol::new());
         let tuner: SharedTuner = Arc::new(Tuner::new());
         tuner.set_midi_sender(Box::new(MidiSender::new(output.clone())));

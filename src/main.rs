@@ -23,7 +23,7 @@ fn main() {
     // (e.g. `RUST_LOG=debug`, or `RUST_LOG=pitchgrid_continuum::tuner=trace`); with RUST_LOG unset
     // the default filter is `info`, so the breadcrumb `debug!`/`trace!` lines stay silent.
     // `log` is a facade: this init line is the only place that names `env_logger`, so switching to a
-    // file logger later (handoff §6) changes just this line, not the call sites.
+    // file logger later changes just this line, not the call sites.
     env_logger::Builder::from_env(
         env_logger::Env::default().default_filter_or("info"))
             .format_timestamp_millis().init();
