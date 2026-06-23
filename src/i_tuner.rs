@@ -1,6 +1,6 @@
 use std::sync::Arc;
 use crate::i_continuum_protocol::TuningUpdateSignaller;
-use crate::midi_sender::{SharedMidiSender};
+use crate::midi_sender::IMidiSender;
 use crate::tuning_params::TuningParams;
 use crate::tuning_params::FormattedTuningParams;
 
@@ -44,7 +44,7 @@ pub trait ITuner: Send + Sync {
     fn set_rounding_rate(&self, rate: u8);
     fn set_pitch_table(&self, pitch_table: u8);
     fn on_tuning_updated(&self);
-    fn set_midi_sender(&self, sender: SharedMidiSender);
+    fn set_midi_sender(&self, sender: Box<dyn IMidiSender>);
     fn set_tuning_signaller(&self, signaller: Arc<dyn TuningUpdateSignaller>);
     fn pitch_table_index(&self) -> usize;
 }
