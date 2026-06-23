@@ -114,4 +114,3 @@ impl IMidiSender for MidiSender {
         self.send_note_aftertouch(16, poke_id, poke_value); // Perform the Poke
     }
 }
-pub type SharedMidiSender = Arc<Mutex<Box<dyn IMidiSender + Send>>>;

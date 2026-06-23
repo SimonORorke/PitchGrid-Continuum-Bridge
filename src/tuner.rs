@@ -144,7 +144,7 @@ impl Tuner {
     }
 
     fn send_pitch_table(&self, pitch_table: u8, keys: &Vec<Key>) {
-        let sender = self.midi_sender.lock().unwrap();
+        let mut sender = self.midi_sender.lock().unwrap();
         // Select pitch table to update.
         sender.send_control_change(16, 109, pitch_table);
         // Tuning for each MIDI key
@@ -168,18 +168,19 @@ impl Tuner {
 
     /// Sends pitch rounding parameters, if required, to the instrument.
     fn send_rounding_params(&self) {
+        let mut sender = self.midi_sender.lock().unwrap();
         if self.override_rounding_initial.load(Ordering::Relaxed) {
             // Turn on Rounding Initial
             debug!("send_rounding_params: Sending Rounding Initial");
-            self.midi_sender.lock().unwrap().send_control_change(1, 28, 127); // RndIni
+            sender.send_control_change(1, 28, 127); // RndIni
         }
         if self.override_rounding_rate.load(Ordering::Relaxed) {
             // Rounding Mode Normal
             debug!("send_rounding_params: Sending Rounding Mode Normal");
-            self.midi_sender.lock().unwrap().send_matrix_poke(10, 0); // RoundMode
+            sender.send_matrix_poke(10, 0); // RoundMode
             // Rounding Rate
             debug!("send_rounding_params: Sending Rounding Rate");
-            self.midi_sender.lock().unwrap().send_control_change(
+            sender.send_control_change(
                 1, 25, self.rounding_rate.load(Ordering::Relaxed)); // RoundRate
         }
     }
