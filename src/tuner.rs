@@ -1,6 +1,7 @@
 use std::sync::atomic::{AtomicBool, AtomicU8, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use log::{debug, trace};
+use crate::error_notifier::{SharedErrorNotifier};
 use crate::i_continuum_protocol::{TuningUpdateSignaller, NullTuningSignaller};
 use crate::midi_sender::{IMidiSender, NullMidiSender};
 use crate::tuning_params::{FormattedTuningParams, TuningParams};
@@ -23,6 +24,22 @@ pub struct Tuner {
 }
 
 impl Tuner {
+    pub fn new() -> Self {
+        Self {
+            is_already_updating: AtomicBool::new(false),
+            is_another_update_pending: AtomicBool::new(false),
+            override_rounding_initial: AtomicBool::new(false),
+            override_rounding_rate: AtomicBool::new(false),
+            rounding_rate: AtomicU8::new(127),
+            root_freq_override_note_no: AtomicUsize::new(0),
+            keys: Mutex::new(vec![]),
+            // Will be replaced by the usable MIDI sender in `set_midi_sender`.
+            midi_sender: Mutex::new(Box::new(NullMidiSender)),
+            tuning_signaller: Mutex::new(Arc::new(NullTuningSignaller)),
+            params: Arc::new(Mutex::new(TuningParams::default())),
+        }
+    }
+
     pub fn init(&self, pitch_table: u8) {
         PITCH_TABLE.store(pitch_table, Ordering::Relaxed);
     }
@@ -177,19 +194,8 @@ impl Tuner {
 
     pub fn default_pitch_table() -> u8 { 80 }
 
-    pub fn new() -> Self {
-        Self {
-            is_already_updating: AtomicBool::new(false),
-            is_another_update_pending: AtomicBool::new(false),
-            override_rounding_initial: AtomicBool::new(false),
-            override_rounding_rate: AtomicBool::new(false),
-            rounding_rate: AtomicU8::new(127),
-            root_freq_override_note_no: AtomicUsize::new(0),
-            keys: Mutex::new(vec![]),
-            midi_sender: Mutex::new(Box::new(NullMidiSender)),
-            tuning_signaller: Mutex::new(Arc::new(NullTuningSignaller)),
-            params: Arc::new(Mutex::new(TuningParams::default())),
-        }
+    pub fn midi_send_error_notifier(&self) -> SharedErrorNotifier {
+        self.midi_sender.lock().unwrap().error_notifier()
     }
 
     /// Calculates the tuning and either sends it to the instrument, provided another tuning update

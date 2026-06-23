@@ -1,12 +1,15 @@
 use std::fmt;
+use std::sync::{Arc, Mutex};
 use log::{error, trace};
 use midly::{MidiMessage, live::LiveEvent};
+use crate::error_notifier::{ErrorNotifier, SharedErrorNotifier};
 use crate::i_midi_manager::SharedOutput;
 
 /// A trait that defines the interface for sending MIDI messages.
 ///
 /// For the `I` prefix, see `IUiMethods`s doc comment.
 pub trait IMidiSender: std::fmt::Debug + Send + Sync {
+    fn error_notifier(&self) -> SharedErrorNotifier;
     fn send_control_change(&mut self, channel: u8, cc_no: u8, value: u8);
     fn send_matrix_poke(&mut self, poke_id: u8, poke_value: u8);
 }
@@ -18,10 +21,7 @@ pub trait IMidiSender: std::fmt::Debug + Send + Sync {
 pub struct NullMidiSender;
 
 impl IMidiSender for NullMidiSender {
-    // fn clear_error(&mut self) {}
-    //
-    // fn has_error(&self) -> bool { false }
-
+    fn error_notifier(&self) -> SharedErrorNotifier { unimplemented!(); }
     fn send_control_change(&mut self, _channel: u8, _cc_no: u8, _value: u8) {}
     fn send_matrix_poke(&mut self, _poke_id: u8, _poke_value: u8) {}
 }
@@ -30,12 +30,15 @@ impl IMidiSender for NullMidiSender {
 #[derive(Clone)]
 pub struct MidiSender {
     output: SharedOutput,
-    has_error: bool,
+    error_notifier: SharedErrorNotifier,
 }
 
 impl MidiSender {
     pub fn new(output: SharedOutput) -> Self {
-        MidiSender { output, has_error: false }
+        MidiSender {
+            output,
+            error_notifier: Arc::new(Mutex::new(ErrorNotifier::new())),
+        }
     }
 
     /// Send a MIDI channel message.
@@ -55,14 +58,14 @@ impl MidiSender {
         let mut connection_option = self.output.lock().unwrap();
         if let Some(connection) = connection_option.as_mut() {
             connection.send(message).unwrap_or_else(|_| {
-                // This is a rare and unreproducible error.
+                // MIDI send errors are rare and unreproducible, but they do happen.
                 // I think it may sometimes happen when turning the instrument off and on again
                 // while everything is connected. I'm normally doing that for testing.
                 // But a user might need to do it too: some glitches that occur on the instrument
                 // are fixed if the instrument is bounced.
                 // So it's worth reporting the error to the user, suggesting a fix.
                 error!("Error when sending MIDI message: {:?}", message);
-                self.has_error = true;
+                self.error_notifier.lock().unwrap().notify_error();
                 // Panic for stack trace diagnostics.
                 // panic!("Error when sending MIDI message: {:?}", message);
             });
@@ -90,13 +93,9 @@ impl fmt::Debug for MidiSender {
 }
 
 impl IMidiSender for MidiSender {
-    // fn clear_error(&mut self) {
-    //     self.has_error = false;
-    // }
-    //
-    // fn has_error(&self) -> bool {
-    //     self.has_error
-    // }
+    fn error_notifier(&self) -> SharedErrorNotifier {
+        self.error_notifier.clone()
+    }
 
     fn send_control_change(&mut self, channel: u8, cc_no: u8, value: u8) {
         self.send_channel_message(
