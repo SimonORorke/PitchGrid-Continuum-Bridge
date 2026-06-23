@@ -12,7 +12,7 @@ use crate::settings::Settings;
 use crate::midi_manager::MidiManager;
 use crate::continuum_protocol::ContinuumProtocol;
 use crate::i_continuum_protocol::{ContinuumProtocolListener, IContinuumProtocol};
-use crate::midi_sender::MidiSender;
+use crate::midi_sender::{IMidiSender, MidiSender, NullMidiSender, SharedMidiSender};
 use crate::i_ui_methods::IUiMethods;
 use crate::presentation::Presentation;
 use crate::i_tuner::SharedTuner;
@@ -62,6 +62,7 @@ pub struct Presenter {
     /// The MIDI manager, injected (like osc/settings/tuner) rather than reached through a global
     /// singleton. Shared because callback methods clone the `Arc` to pass it around.
     midi_manager: SharedMidiManager,
+    midi_sender: SharedMidiSender,
     /// The Continuum-protocol interpreter, injected. The Presenter queries it for download state;
     /// the same instance is the MidiManager's `MidiInputListener` and the Tuner's
     /// `TuningUpdateSignaller` (all wired in `new`).
@@ -85,8 +86,10 @@ impl Presenter {
         // Presenter (as its IContinuumProtocol). One shared Arc keeps the Tuner's tuning_status
         // write visible to the protocol's confirmation logic.
         let continuum_protocol = Arc::new(ContinuumProtocol::new());
+        let midi_sender: SharedMidiSender =
+            Arc::new(Mutex::new(Box::new(MidiSender::new(output.clone())) as Box<dyn IMidiSender>));
         let tuner: SharedTuner = Arc::new(Tuner::new());
-        tuner.set_midi_sender(Box::new(MidiSender::new(output.clone())));
+        tuner.set_midi_sender(midi_sender.clone());
         tuner.set_tuning_signaller(continuum_protocol.clone());
         let presentation = Presentation::new(callbacks);
         let tuning_update_watchdog =
@@ -98,7 +101,9 @@ impl Presenter {
             osc: Box::new(Osc::new()),
             settings: Box::new(Settings::new()),
             tuner,
-            midi_manager: Arc::new(Mutex::new(Box::new(MidiManager::new(output, continuum_protocol.clone())) as Box<dyn IMidiManager + Send>)),
+            midi_manager: Arc::new(Mutex::new(Box::new(MidiManager::new(
+                output, continuum_protocol.clone())) as Box<dyn IMidiManager + Send>)),
+            midi_sender,
             continuum_protocol,
             presenter_weak: Weak::new(),
         }

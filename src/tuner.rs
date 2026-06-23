@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex, OnceLock};
 use log::{debug, trace};
 use crate::i_tuner::ITuner;
 use crate::i_continuum_protocol::{TuningUpdateSignaller, NullTuningSignaller};
-use crate::midi_sender::{IMidiSender, NullMidiSender};
+use crate::midi_sender::{IMidiSender, NullMidiSender, SharedMidiSender};
 use crate::tuning_params::{FormattedTuningParams, TuningParams};
 
 /// A facility for tuning a Continuum from PitchGrid parameters.
@@ -15,7 +15,7 @@ pub struct Tuner {
     rounding_rate: AtomicU8,
     root_freq_override_note_no: AtomicUsize,
     keys: Mutex<Vec<Key>>,
-    midi_sender: Mutex<Box<dyn IMidiSender>>,
+    midi_sender: SharedMidiSender,
     /// The seam to the protocol layer, told when a tuning send begins (see `send_tuning_update`).
     /// Defaults to a no-op so a standalone `Tuner` (e.g. in `tuner_tests`) needs no wiring; the real
     /// one is injected by `Presenter::new`.
@@ -46,7 +46,7 @@ impl Tuner {
             rounding_rate: AtomicU8::new(127),
             root_freq_override_note_no: AtomicUsize::new(0),
             keys: Mutex::new(vec![]),
-            midi_sender: Mutex::new(Box::new(NullMidiSender)),
+            midi_sender: Arc::new(Mutex::new(Box::new(NullMidiSender))),
             tuning_signaller: Mutex::new(Arc::new(NullTuningSignaller)),
             params: Arc::new(Mutex::new(TuningParams::default())),
         }
@@ -144,7 +144,7 @@ impl Tuner {
     }
 
     fn send_pitch_table(&self, pitch_table: u8, keys: &Vec<Key>) {
-        let sender = self.midi_sender.lock().unwrap();
+        let mut sender = self.midi_sender.lock().unwrap();
         // Select pitch table to update.
         sender.send_control_change(16, 109, pitch_table);
         // Tuning for each MIDI key
@@ -314,8 +314,12 @@ impl ITuner for Tuner {
     }
 
     /// Sets the MIDI sender: the real one (wired by `Presenter::new`) in production, a mock in tests.
-    fn set_midi_sender(&self, sender: Box<dyn IMidiSender>) {
-        *self.midi_sender.lock().unwrap() = sender;
+    fn set_midi_sender(&self, sender: SharedMidiSender) {
+        let mut new_sender = sender.lock().unwrap();
+        let new_box =
+            std::mem::replace(&mut *new_sender, Box::new(NullMidiSender));
+        let mut old_sender = self.midi_sender.lock().unwrap();
+        *old_sender = new_box;
     }
 
     /// Sets the tuning-update signaller, wired by `Presenter::new` to the shared MIDI state.

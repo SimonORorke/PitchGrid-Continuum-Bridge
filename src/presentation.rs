@@ -134,6 +134,8 @@ impl Presentation {
         self.show_warning(INSTRUMENT_NOT_CONNECTED);
     }
 
+    pub(crate) fn midi_send_error(&self) { self.show_error(MIDI_SEND_ERROR); }
+
     pub(crate) fn awaiting_pitchgrid_connection(&self) {
         self.show_warning(AWAITING_PITCHGRID_CONNECTION);
     }
@@ -207,6 +209,8 @@ pub const INSTRUMENT_NOT_CONNECTED: &str = "The instrument is not connected. Wai
 pub const INSTRUMENT_TUNING_UPDATE_NOT_CONFIRMED: &str = "Instrument tuning update has not been \
     confirmed. Ensure that MIDI output is connected to the editor.";
 pub const INSTRUMENT_TUNING_UPDATED: &str = "Instrument tuning updated";
+pub const MIDI_SEND_ERROR: &str = "MIDI send error. Try restarting the application and/or editor \
+    and/or instrument";
 pub const OPENING_PITCHGRID_CONNECTION: &str = "Opening PitchGrid connection...";
 pub const PITCHGRID_AND_INSTRUMENT_CONNECTED: &str = "PitchGrid and instrument are connected";
 pub const PITCHGRID_CONNECTION_CLOSED: &str = "PitchGrid connection closed while instrument disconnected";

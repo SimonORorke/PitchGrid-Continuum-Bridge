@@ -151,7 +151,6 @@ fn create_tuner() -> Tuner {
     tuner
 }
 
-
 /// To avoid races on static data, hold the returned guard in each test to ensure sequential
 /// execution of tests.
 fn test_mutex_guard() -> MutexGuard<'static, ()> {

@@ -12,6 +12,7 @@ pub struct MockMidiSender {
     pub control_change_channel: u8,
     pub control_change_cc_no: u8,
     pub control_change_value: u8,
+    has_error: bool,
     pub matrix_poke_count: u16,
     pub matrix_poke_id: u8,
     pub matrix_poke_value: u8,
@@ -24,6 +25,7 @@ impl MockMidiSender {
             control_change_channel: 0,
             control_change_cc_no: 0,
             control_change_value: 0,
+            has_error: false,
             matrix_poke_count: 0,
             matrix_poke_id: 0,
             matrix_poke_value: 0,
@@ -43,7 +45,21 @@ impl MockMidiSender {
 struct MockMidiSenderImpl {}
 
 impl IMidiSender for MockMidiSenderImpl {
-    fn send_control_change(&self, channel: u8, cc_no: u8, value: u8) {
+    fn clear_error(&mut self) {
+        MOCK_MIDI_SENDER.with_borrow_mut(|s| {
+            s.has_error = false;
+        });
+    }
+
+    fn has_error(&self) -> bool {
+        let mut result = false;
+        MOCK_MIDI_SENDER.with_borrow(|s| {
+            result = s.has_error;
+        });
+        result
+    }
+
+    fn send_control_change(&mut self, channel: u8, cc_no: u8, value: u8) {
         MOCK_MIDI_SENDER.with_borrow_mut(|s| {
             s.control_change_count += 1;
             s.control_change_channel = channel;
@@ -52,7 +68,7 @@ impl IMidiSender for MockMidiSenderImpl {
         });
     }
 
-    fn send_matrix_poke(&self, poke_id: u8, poke_value: u8) {
+    fn send_matrix_poke(&mut self, poke_id: u8, poke_value: u8) {
         MOCK_MIDI_SENDER.with_borrow_mut(|s| {
             s.matrix_poke_count += 1;
             s.matrix_poke_id = poke_id;
