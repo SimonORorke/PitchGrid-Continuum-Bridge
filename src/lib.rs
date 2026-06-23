@@ -5,7 +5,6 @@ pub mod error_notifier;
 pub mod i_midi_manager;
 pub mod i_osc;
 pub mod i_settings;
-pub mod i_tuner;
 pub mod i_ui_methods;
 pub mod midi_manager;
 pub mod midi_ports;

@@ -5,7 +5,7 @@ use crate::i_midi_manager::SharedOutput;
 
 /// A trait that defines the interface for sending MIDI messages.
 ///
-/// For the `I` prefix, see `ITuner`s doc comment.
+/// For the `I` prefix, see `IUiMethods`s doc comment.
 pub trait IMidiSender: std::fmt::Debug + Send + Sync {
     fn send_control_change(&mut self, channel: u8, cc_no: u8, value: u8);
     fn send_matrix_poke(&mut self, poke_id: u8, poke_value: u8);

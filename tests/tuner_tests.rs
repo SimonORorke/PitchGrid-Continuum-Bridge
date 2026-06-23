@@ -4,7 +4,6 @@
 use std::sync::{Mutex, MutexGuard};
 use googletest::assert_that;
 use googletest::matchers::{eq, gt};
-use pitchgrid_continuum::i_tuner::ITuner;
 use pitchgrid_continuum::tuner::Tuner;
 use mock_midi_sender::{MockMidiSender, mock_midi_sender};
 use test_tunings::TestTunings;

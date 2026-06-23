@@ -15,8 +15,7 @@ use crate::i_continuum_protocol::{ContinuumProtocolListener, IContinuumProtocol}
 use crate::midi_sender::MidiSender;
 use crate::i_ui_methods::IUiMethods;
 use crate::presentation::Presentation;
-use crate::i_tuner::SharedTuner;
-use crate::tuner::Tuner;
+use crate::tuner::{Tuner, SharedTuner};
 use crate::tuning_params::TuningParams;
 use crate::tuning_update_watchdog::TuningUpdateWatchdog;
 

@@ -20,7 +20,7 @@ pub trait MidiInputListener: Send + Sync {
 
 /// A trait that defines the interface for managing MIDI devices and messages.
 ///
-/// For the `I` prefix, see `ITuner`s doc comment.
+/// For the `I` prefix, see `IUiMethods`s doc comment.
 pub trait IMidiManager {
     fn are_devices_connected(&self) -> bool;
 

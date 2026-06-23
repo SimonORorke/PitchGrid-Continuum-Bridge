@@ -14,7 +14,7 @@ use crate::tuning_params::FormattedTuningParams;
 /// forwards to the view.
 ///
 /// It is a concrete type, not an `I`-prefixed service interface: tests mock the underlying
-/// `IUiMethods`, so the facade needs no interface of its own (see `ITuner`'s doc comment for the
+/// `IUiMethods`, so the facade needs no interface of its own (see `IUiMethods`'s doc comment for the
 /// two-tier trait-naming rule). `Clone` is cheap — it wraps a single `Arc` — so the
 /// `TuningUpdateWatchdog`'s background thread can own a copy.
 #[derive(Clone)]

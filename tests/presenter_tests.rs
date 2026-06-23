@@ -23,7 +23,6 @@ use pitchgrid_continuum::global::{MessageType, DeviceType};
 use pitchgrid_continuum::i_settings::ISettings;
 use pitchgrid_continuum::osc::Osc;
 use pitchgrid_continuum::device_strategy::{InputStrategy, OutputStrategy};
-use pitchgrid_continuum::i_tuner::ITuner;
 use pitchgrid_continuum::tuner::Tuner;
 use mock_midi_manager::{MockMidiManager, mock_midi};
 use mock_midi_manager::mock_io::{input_state, output_state};
@@ -569,7 +568,7 @@ fn create_presenter(mut settings: MockSettings, default_midi_devices: bool)
         guard.set_continuum_protocol(MockContinuumProtocol::new());
         guard.set_osc(Box::new(MockOsc::new()));
         guard.set_settings(Box::new(settings));
-        guard.set_tuner(new_tuner as Arc<dyn ITuner>);
+        guard.set_tuner(new_tuner);
     }
     presenter
 }

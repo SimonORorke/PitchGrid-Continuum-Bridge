@@ -8,7 +8,7 @@ pub trait OscCallbacks: Send + Sync {
 
 /// A trait that defines the interface for communicating with PitchGrid via OSC.
 ///
-/// For the `I` prefix, see `ITuner`s doc comment.
+/// For the `I` prefix, see `IUiMethods`s doc comment.
 pub trait IOsc: Send + Sync {
     fn set_listening_port(&mut self, listening_port: u16);
     fn start(&mut self, callbacks: Arc<dyn OscCallbacks>);
