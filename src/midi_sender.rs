@@ -1,8 +1,7 @@
 use std::fmt;
-use std::sync::{Arc, Mutex};
 use log::{error, trace};
 use midly::{MidiMessage, live::LiveEvent};
-use crate::i_midi_manager::{IMidiManager, SharedOutput};
+use crate::i_midi_manager::SharedOutput;
 
 /// A trait that defines the interface for sending MIDI messages.
 ///
