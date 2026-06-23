@@ -1,6 +1,7 @@
 pub mod global;
 pub mod continuum_protocol;
 pub mod i_continuum_protocol;
+pub mod error_notifier;
 pub mod i_midi_manager;
 pub mod i_osc;
 pub mod i_settings;

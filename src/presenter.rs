@@ -12,7 +12,7 @@ use crate::settings::Settings;
 use crate::midi_manager::MidiManager;
 use crate::continuum_protocol::ContinuumProtocol;
 use crate::i_continuum_protocol::{ContinuumProtocolListener, IContinuumProtocol};
-use crate::midi_sender::{IMidiSender, MidiSender, NullMidiSender, SharedMidiSender};
+use crate::midi_sender::{IMidiSender, MidiSender, SharedMidiSender};
 use crate::i_ui_methods::IUiMethods;
 use crate::presentation::Presentation;
 use crate::i_tuner::SharedTuner;
@@ -62,7 +62,6 @@ pub struct Presenter {
     /// The MIDI manager, injected (like osc/settings/tuner) rather than reached through a global
     /// singleton. Shared because callback methods clone the `Arc` to pass it around.
     midi_manager: SharedMidiManager,
-    midi_sender: SharedMidiSender,
     /// The Continuum-protocol interpreter, injected. The Presenter queries it for download state;
     /// the same instance is the MidiManager's `MidiInputListener` and the Tuner's
     /// `TuningUpdateSignaller` (all wired in `new`).
