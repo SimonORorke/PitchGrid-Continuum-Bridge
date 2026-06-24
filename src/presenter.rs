@@ -89,7 +89,8 @@ impl Presenter {
         tuner.set_tuning_signaller(continuum_protocol.clone());
         let presentation = Presentation::new(callbacks);
         let tuning_update_watchdog =
-            TuningUpdateWatchdog::new(presentation.clone(), timeout_millis);
+            TuningUpdateWatchdog::new(presentation.clone(), timeout_millis,
+                                      tuner.midi_send_error_notifier().clone());
         Self {
             presentation,
             tuning_update_watchdog,
@@ -97,7 +98,8 @@ impl Presenter {
             osc: Box::new(Osc::new()),
             settings: Box::new(Settings::new()),
             tuner,
-            midi_manager: Arc::new(Mutex::new(Box::new(MidiManager::new(output, continuum_protocol.clone())) as Box<dyn IMidiManager + Send>)),
+            midi_manager: Arc::new(Mutex::new(Box::new(MidiManager::new(
+                output, continuum_protocol.clone())) as Box<dyn IMidiManager + Send>)),
             continuum_protocol,
             presenter_weak: Weak::new(),
         }
@@ -449,17 +451,8 @@ impl Presenter {
             self.stop_osc_and_show_pitchgrid_status();
         }
         if self.midi_manager.lock().unwrap().are_devices_connected() {
-            let midi_send_error_notifier_shared =
-                self.tuner.midi_send_error_notifier().clone();
-            let midi_send_error_notifier =
-                midi_send_error_notifier_shared.lock().unwrap();
-            if !midi_send_error_notifier.has_error() {
-                trace!("on_receiving_data_stopped: Showing instrument not connected warning");
-                self.presentation.instrument_not_connected();
-            } else {
-                trace!("on_receiving_data_stopped: Showing MIDI send error");
-                self.presentation.midi_send_error();
-            }
+            trace!("on_receiving_data_stopped: Showing instrument not connected warning");
+            self.presentation.instrument_not_connected();
         }
     }
 

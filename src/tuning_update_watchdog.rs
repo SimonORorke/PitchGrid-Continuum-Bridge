@@ -1,6 +1,7 @@
 use std::sync::mpsc;
 use std::time::Duration;
-use log::{debug, warn};
+use log::{debug, trace, warn};
+use crate::error_notifier::SharedErrorNotifier;
 use crate::presentation::Presentation;
 
 /// Watches for the instrument's confirmation that a tuning update has been applied.
@@ -10,6 +11,7 @@ use crate::presentation::Presentation;
 /// The probable cause of a timeout is that MIDI output is not connected to one of the editor's
 /// "Ext All Data" MIDI inputs.
 pub struct TuningUpdateWatchdog {
+    midi_send_error_notifier: SharedErrorNotifier,
     stopper_sender: Option<mpsc::Sender<()>>,
     is_awaiting: bool,
     presentation: Presentation,
@@ -20,12 +22,14 @@ impl TuningUpdateWatchdog {
     /// `timeout_millis` is the number of milliseconds to wait for a tuning update confirmation.
     /// It can be much shorter in tests. For the real-world value, set it to
     /// `TuningUpdateWatchdog::real_timeout_millis()`
-    pub fn new(presentation: Presentation, timeout_millis: u16) -> Self {
+    pub fn new(presentation: Presentation, timeout_millis: u16,
+               midi_send_error_notifier: SharedErrorNotifier) -> Self {
         Self {
             stopper_sender: None,
             is_awaiting: false,
             presentation,
             timeout_millis,
+            midi_send_error_notifier,
         }
     }
 
@@ -37,8 +41,9 @@ impl TuningUpdateWatchdog {
         self.is_awaiting = true;
         let presentation = self.presentation.clone();
         let timeout_millis = self.timeout_millis as u64;
+        let midi_send_error_notifier = self.midi_send_error_notifier.clone();
         rayon::spawn(move || {
-            Self::run(stopper_receiver, presentation, timeout_millis);
+            Self::run(stopper_receiver, presentation, timeout_millis, midi_send_error_notifier);
         });
     }
 
@@ -55,7 +60,8 @@ impl TuningUpdateWatchdog {
     }
 
     /// The watchdog thread body: wait for the confirmation signal, or report a timeout to the view.
-    fn run(stopper_receiver: mpsc::Receiver<()>, presentation: Presentation, timeout_millis: u64) {
+    fn run(stopper_receiver: mpsc::Receiver<()>, presentation: Presentation, timeout_millis: u64,
+           midi_send_error_notifier: SharedErrorNotifier) {
         // There's one scenario where this check is known not to behave as expected.
         // Editor MIDI:
         //     Input  LB1 (A)
@@ -113,7 +119,15 @@ impl TuningUpdateWatchdog {
         // clear `is_awaiting` from here (this thread no longer holds the watchdog): it is cleared by
         // `cancel`, whose stop-signal send tolerates this thread having already exited and dropped
         // the receiver.
-        presentation.tuning_update_not_confirmed();
+        let mut error_notifier = midi_send_error_notifier.lock().unwrap();
+        if !error_notifier.has_error() {
+            trace!("Showing tuning update not confirmed error");
+            presentation.tuning_update_not_confirmed();
+        } else {
+            trace!("Showing MIDI send error");
+            error_notifier.clear_error();
+            presentation.midi_send_error();
+        }
     }
 
     /// The number of milliseconds in real-time processing to wait for a tuning update confirmation.
