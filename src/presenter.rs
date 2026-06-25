@@ -4,6 +4,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use log::{debug, trace};
 use crate::i_midi_manager::{IMidiManager, SharedMidiManager, SharedOutput};
 use crate::i_osc::{IOsc, OscCallbacks};
+use crate::error_notifier::SharedErrorNotifier;
 use crate::osc::Osc;
 use crate::i_settings::ISettings;
 use crate::device_strategy::{
@@ -48,8 +49,7 @@ pub struct Presenter {
     /// string; the Presenter pushes formatted state through its intention-named methods.
     presentation: Presentation,
     /// Watches for the instrument's confirmation that a tuning update was applied and reports a
-    /// timeout to the view if none arrives. Owns the former `await_tuning_updated_*` /
-    /// `is_awaiting_*` state.
+    /// timeout to the view if none arrives.
     tuning_update_watchdog: TuningUpdateWatchdog,
     /// True while the in-flight tuning send was triggered by a new instrument preset being
     /// selected (rather than a fresh tuning), so on_tuning_updated can show a tailored
@@ -73,7 +73,8 @@ pub struct Presenter {
 
 impl Presenter {
     /// `timeout_millis` is the number of milliseconds to wait for a tuning update confirmation.
-    /// It can be much shorter in tests.
+    /// It can be much shorter in tests. For the real-world value, set it to
+    /// `TuningUpdateWatchdog::real_timeout_millis()`
     pub fn new(callbacks: Arc<dyn IUiMethods>, timeout_millis: u16) -> Self {
         // The output MIDI connection is shared between the MidiManager (which connects and
         // disconnects it) and the MidiSender (which writes to it). Create it here and inject it
@@ -322,6 +323,11 @@ impl Presenter {
     /// Replaces the default Tuner instance for testing.
     pub fn set_tuner(&mut self, tuner: SharedTuner) {
         self.tuner = tuner;
+    }
+
+    /// Replaces the `TuningUpdateWatchdog`'s `ErrorNotifier` for testing.
+    pub fn set_tuning_update_watchdog_notifier(&mut self, notifier: SharedErrorNotifier) {
+        self.tuning_update_watchdog.set_midi_send_error_notifier(notifier);
     }
 
     /// Replaces the default MidiManager instance for testing.
