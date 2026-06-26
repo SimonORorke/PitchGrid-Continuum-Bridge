@@ -1,5 +1,5 @@
 use std::sync::{Arc, Mutex, LazyLock};
-use log::trace;
+use midly::{MidiMessage, live::LiveEvent};
 use pitchgrid_continuum::error_notifier::{ErrorNotifier, SharedErrorNotifier};
 use pitchgrid_continuum::midi_sender::IMidiSender;
 
@@ -45,16 +45,10 @@ impl MockMidiSender {
         Box::new(MockMidiSenderImpl {})
     }
 
-    #[allow(dead_code)]
-    // `allow(dead_code)` is required to silence a compiler warning,
-    // as this function is used in the `presenter_tests` crate but not the `tuner_tests` crate.
     pub fn simulate_error(value: bool) {
         MOCK_MIDI_SENDER.lock().unwrap().simulate_error = value;
     }
 
-    #[allow(dead_code)]
-    // `allow(dead_code)` is required to silence a compiler warning,
-    // as this function is used in the `presenter_tests` crate but not the `tuner_tests` crate.
     pub fn set_error_notifier(notifier: SharedErrorNotifier) {
         MOCK_MIDI_SENDER.lock().unwrap().error_notifier = notifier;
     }
@@ -68,23 +62,32 @@ impl IMidiSender for MockMidiSenderImpl {
         MOCK_MIDI_SENDER.lock().unwrap().error_notifier.clone()
     }
 
-    fn send_control_change(&mut self, channel: u8, cc_no: u8, value: u8) {
-        let mut s = MOCK_MIDI_SENDER.lock().unwrap();
-        trace!("send_control_change: channel={}, cc_no={}, value={}, simulate_error={}", channel, cc_no, value, s.simulate_error);
-        s.control_change_count += 1;
-        s.control_change_channel = channel;
-        s.control_change_cc_no = cc_no;
-        s.control_change_value = value;
-        if s.simulate_error {
-            s.error_notifier.lock().unwrap().notify_error();
+    fn send_batch(&mut self, batch: Vec<Box<[u8]>>) {
+        for message in batch {
+            self.send_message(&message);
         }
     }
 
-    fn send_matrix_poke(&mut self, poke_id: u8, poke_value: u8) {
+    fn send_message(&mut self, message: &[u8]) {
         let mut s = MOCK_MIDI_SENDER.lock().unwrap();
-        s.matrix_poke_count += 1;
-        s.matrix_poke_id = poke_id;
-        s.matrix_poke_value = poke_value;
+        // Parse + interpret
+        let event = LiveEvent::parse(message).unwrap();
+        if let LiveEvent::Midi { channel, message } = event {
+            match message {
+                MidiMessage::Controller { controller, value } => {
+                    s.control_change_count += 1;
+                    s.control_change_channel = u8::from(channel) + 1; // 1-based channel number.
+                    s.control_change_cc_no = u8::from(controller);
+                    s.control_change_value = u8::from(value);
+                }
+                MidiMessage::Aftertouch { key, vel } => {
+                    s.matrix_poke_count += 1;
+                    s.matrix_poke_id = u8::from(key);
+                    s.matrix_poke_value = u8::from(vel);
+                }
+                _ => {}
+            }
+        }
         if s.simulate_error {
             s.error_notifier.lock().unwrap().notify_error();
         }

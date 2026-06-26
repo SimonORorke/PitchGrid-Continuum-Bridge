@@ -1,9 +1,8 @@
 use std::sync::atomic::{AtomicBool, AtomicU8, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use log::{debug, trace};
-use crate::error_notifier::{SharedErrorNotifier};
 use crate::i_continuum_protocol::{TuningUpdateSignaller, NullTuningSignaller};
-use crate::midi_sender::{IMidiSender, NullMidiSender};
+use crate::continuum_midi_batch::{ContinuumMidiBatch};
 use crate::tuning_params::{FormattedTuningParams, TuningParams};
 
 /// A facility for tuning a Continuum from PitchGrid parameters.
@@ -15,7 +14,7 @@ pub struct Tuner {
     rounding_rate: AtomicU8,
     root_freq_override_note_no: AtomicUsize,
     keys: Mutex<Vec<Key>>,
-    midi_sender: Mutex<Box<dyn IMidiSender>>,
+    midi_batch: Mutex<ContinuumMidiBatch>,
     /// The seam to the protocol layer, told when a tuning send begins (see `send_tuning_update`).
     /// Defaults to a no-op so a standalone `Tuner` (e.g. in `tuner_tests`) needs no wiring; the real
     /// one is injected by `Presenter::new`.
@@ -33,8 +32,7 @@ impl Tuner {
             rounding_rate: AtomicU8::new(127),
             root_freq_override_note_no: AtomicUsize::new(0),
             keys: Mutex::new(vec![]),
-            // Will be replaced by the usable MIDI sender in `set_midi_sender`.
-            midi_sender: Mutex::new(Box::new(NullMidiSender)),
+            midi_batch: Mutex::new(ContinuumMidiBatch::new()),
             tuning_signaller: Mutex::new(Arc::new(NullTuningSignaller)),
             params: Arc::new(Mutex::new(TuningParams::default())),
         }
@@ -167,11 +165,6 @@ impl Tuner {
         }
     }
 
-    /// Sets the MIDI sender: the real one (wired by `Presenter::new`) in production, a mock in tests.
-    pub fn set_midi_sender(&self, sender: Box<dyn IMidiSender>) {
-        *self.midi_sender.lock().unwrap() = sender;
-    }
-
     /// Sets the tuning-update signaller, wired by `Presenter::new` to the shared MIDI state.
     pub fn set_tuning_signaller(&self, signaller: Arc<dyn TuningUpdateSignaller>) {
         *self.tuning_signaller.lock().unwrap() = signaller;
@@ -180,6 +173,11 @@ impl Tuner {
     pub fn pitch_table_index(&self) -> usize {
         // Return the index of the pitch_tables item that equals pitch_table.
         Self::pitch_tables().iter().position(|&x| x == Self::pitch_table()).unwrap_or(0)
+    }
+
+    /// Return the MIDI message batch, ready to be sent.
+    pub fn midi_batch(&self) -> &Mutex<ContinuumMidiBatch> {
+        &self.midi_batch
     }
 
     /// Returns the currently selected pitch table number.
@@ -194,9 +192,9 @@ impl Tuner {
 
     pub fn default_pitch_table() -> u8 { 80 }
 
-    pub fn midi_send_error_notifier(&self) -> SharedErrorNotifier {
-        self.midi_sender.lock().unwrap().error_notifier()
-    }
+    // pub fn midi_send_error_notifier(&self) -> SharedErrorNotifier {
+    //     self.midi_sender.lock().unwrap().error_notifier()
+    // }
 
     /// Calculates the tuning and either sends it to the instrument, provided another tuning update
     /// is not already in progress, or stores it for sending once the current update completes.
@@ -261,7 +259,8 @@ impl Tuner {
         self.send_rounding_params();
         // Set active pitch table for performance.
         debug!("send_tuning_update: Setting active pitch table to {}", Self::pitch_table());
-        self.midi_sender.lock().unwrap().send_control_change(16, 51, Self::pitch_table());
+        self.midi_batch.lock().unwrap().add_control_change(
+            16, 51, Self::pitch_table());
     }
 
     /// Sets the to_number field of each Key to the index of the pitch in DEFAULT_KEY_PITCHES
@@ -290,43 +289,43 @@ impl Tuner {
     }
 
     fn send_pitch_table(&self, pitch_table: u8, keys: &Vec<Key>) {
-        let mut sender = self.midi_sender.lock().unwrap();
+        let mut batch = self.midi_batch.lock().unwrap();
         // Select pitch table to update.
-        sender.send_control_change(16, 109, pitch_table);
+        batch.add_control_change(16, 109, pitch_table);
         // Tuning for each MIDI key
         for key in keys {
             // Base/From MIDI key
-            sender.send_control_change(16, 38, key.number);
+            batch.add_control_change(16, 38, key.number);
             // Base/From MIDI key tuning MSB
-            sender.send_control_change(16, 38, 0);
+            batch.add_control_change(16, 38, 0);
             // Base/From MIDI key tuning LSB
-            sender.send_control_change(16, 38, 0);
+            batch.add_control_change(16, 38, 0);
             // Re-tuned/To MIDI key
-            sender.send_control_change(16, 38, key.to_number);
+            batch.add_control_change(16, 38, key.to_number);
             // Re-tuned/To MIDI key tuning MSB
-            sender.send_control_change(16, 38, key.offset_msb);
+            batch.add_control_change(16, 38, key.offset_msb);
             // Re-tuned/To MIDI key tuning LSB
-            sender.send_control_change(16, 38, key.offset_lsb);
+            batch.add_control_change(16, 38, key.offset_lsb);
         }
         // Save pitch table on instrument.
-        sender.send_control_change(16, 109, 101);
+        batch.add_control_change(16, 109, 101);
     }
 
     /// Sends pitch rounding parameters, if required, to the instrument.
     fn send_rounding_params(&self) {
-        let mut sender = self.midi_sender.lock().unwrap();
+        let mut batch = self.midi_batch.lock().unwrap();
         if self.override_rounding_initial.load(Ordering::Relaxed) {
             // Turn on Rounding Initial
             debug!("send_rounding_params: Sending Rounding Initial");
-            sender.send_control_change(1, 28, 127); // RndIni
+            batch.add_control_change(1, 28, 127); // RndIni
         }
         if self.override_rounding_rate.load(Ordering::Relaxed) {
             // Rounding Mode Normal
             debug!("send_rounding_params: Sending Rounding Mode Normal");
-            sender.send_matrix_poke(10, 0); // RoundMode
+            batch.add_matrix_poke(10, 0); // RoundMode
             // Rounding Rate
             debug!("send_rounding_params: Sending Rounding Rate");
-            sender.send_control_change(
+            batch.add_control_change(
                 1, 25, self.rounding_rate.load(Ordering::Relaxed)); // RoundRate
         }
     }

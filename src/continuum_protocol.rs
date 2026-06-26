@@ -127,7 +127,7 @@ impl MidiInputListener for ContinuumProtocol {
                 self.is_monitoring_download.store(true, Ordering::Relaxed);
             }
         }
-        // Parse + interpret (formerly the body of `MidiState::on_message_received`).
+        // Parse + interpret
         let event = LiveEvent::parse(message).unwrap();
         if let LiveEvent::Midi { channel, message } = event {
             match message {

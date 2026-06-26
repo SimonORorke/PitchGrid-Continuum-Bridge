@@ -5,7 +5,7 @@ use std::sync::{Mutex, MutexGuard};
 use googletest::assert_that;
 use googletest::matchers::{eq, gt};
 use pitchgrid_continuum::tuner::Tuner;
-use mock_midi_sender::{MockMidiSender, mock_midi_sender};
+use mock_midi_sender::{ mock_midi_sender};
 use test_tunings::TestTunings;
 
 /// PITCH_TABLE is a shared static written by tuner.init() and tuner.set_pitch_table().
@@ -146,7 +146,7 @@ fn set_root_freq_override_note_no() {
 fn create_tuner() -> Tuner {
     let tuner = Tuner::new();
     tuner.init(PITCH_TABLE);
-    tuner.set_midi_sender(MockMidiSender::new());
+    // tuner.set_midi_sender(MockMidiSender::new());
     tuner
 }
 

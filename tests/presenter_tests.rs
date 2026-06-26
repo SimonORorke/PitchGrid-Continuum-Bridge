@@ -422,7 +422,7 @@ fn tuning_update_midi_send_error() {
     let _guard = test_mutex_guard();
     debug!("tuning_update_not_confirmed");
     let presenter = create_presenter(MockSettings::new(), true);
-    MockMidiSender::set_error_notifier(tuner().midi_send_error_notifier().clone());
+    //MockMidiSender::set_error_notifier(tuner().midi_send_error_notifier().clone());
     MockMidiSender::simulate_error(true);
     presenter.lock().unwrap().init(&presenter);
     MockMidiManager::set_is_receiving_data(true);
@@ -601,12 +601,13 @@ fn create_presenter(mut settings: MockSettings, default_midi_devices: bool)
         settings.set_midi_input_device(&INPUT_DEVICE_NAMES[0]);
         settings.set_midi_output_device(&OUTPUT_DEVICE_NAMES[0]);
     }
-    let mock_midi = MockMidiManager::new(
+    let mock_midi_manager = MockMidiManager::new(
         INPUT_DEVICE_NAMES.clone(), OUTPUT_DEVICE_NAMES.clone(),
         settings.midi_input_device(), settings.midi_output_device());
+    let mock_midi_sender = MockMidiSender::new();
+    let error_notifier = mock_midi_sender.error_notifier().clone();
     let new_tuner = Arc::new(Tuner::new());
     new_tuner.init(Tuner::default_pitch_table());
-    new_tuner.set_midi_sender(MockMidiSender::new());
     *TUNER.lock().unwrap_or_else(|e| e.into_inner()) = new_tuner.clone();
     // A single shared presenter serves as both the test subject and its own MIDI/OSC callback
     // target: init() (called by the test, passing &presenter) records a weak self-reference.
@@ -617,12 +618,13 @@ fn create_presenter(mut settings: MockSettings, default_midi_devices: bool)
         Arc::new(Mutex::new(Presenter::new(Arc::new(MockUiMethods::new()), 1)));
     {
         let mut guard = presenter.lock().unwrap();
-        guard.set_midi_manager(mock_midi);
+        guard.set_midi_manager(mock_midi_manager);
+        guard.set_midi_sender(mock_midi_sender);
         guard.set_continuum_protocol(MockContinuumProtocol::new());
         guard.set_osc(Box::new(MockOsc::new()));
         guard.set_settings(Box::new(settings));
         guard.set_tuner(new_tuner.clone());
-        guard.set_tuning_update_watchdog_notifier(new_tuner.midi_send_error_notifier().clone());
+        guard.set_tuning_update_watchdog_notifier(error_notifier);
     }
     presenter
 }
