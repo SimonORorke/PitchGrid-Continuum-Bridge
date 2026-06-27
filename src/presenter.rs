@@ -64,10 +64,10 @@ pub struct Presenter {
     /// protocol listener as their callback target. Weak, not Arc, to avoid a reference cycle. Set
     /// by `init`.
     presenter_weak: Weak<Mutex<Presenter>>,
-    /// Watches for the instrument's confirmation that a tuning update was applied and reports a
-    /// timeout to the view if none arrives.
     settings: Box<dyn ISettings>,
     tuner: Arc<Tuner>,
+    /// Watches for the instrument's confirmation that a tuning update was applied and reports a
+    /// timeout to the view if none arrives.
     tuning_update_watchdog: TuningUpdateWatchdog,
 }
 
@@ -334,38 +334,6 @@ impl Presenter {
         self.presentation.show_warning(device_strategy.msg_refreshed_reconnect());
     }
 
-    // /// Replaces the default `ContinuumProtocol instance for testing.
-    // pub fn set_continuum_protocol(&mut self, protocol: Arc<dyn IContinuumProtocol>) {
-    //     self.continuum_protocol = protocol;
-    // }
-    //
-    // /// Replaces the default `MidiManager` instance for testing.
-    // pub fn set_midi_manager(&mut self, midi_manager: Box<dyn IMidiManager + Send>) {
-    //     self.midi_manager = Arc::new(Mutex::new(midi_manager));
-    // }
-    //
-    // /// Replaces the default `MidiSender instance for testing.
-    // pub fn set_midi_sender(&mut self, sender: Box<dyn IMidiSender>) {
-    //     self.midi_sender = sender;
-    //     // *self.midi_sender.lock().unwrap() = sender;
-    // }
-    //
-    // /// Replaces the default `Osc` instance for testing.
-    // pub fn set_osc(&mut self, osc: Box<dyn IOsc>) { self.osc = osc; }
-    //
-    // /// Replaces the default `Settings` instance for testing.
-    // pub fn set_settings(&mut self, settings: Box<dyn ISettings>) { self.settings = settings; }
-    //
-    // /// Replaces the default `Tuner` instance for testing.
-    // pub fn set_tuner(&mut self, tuner: Tuner) {
-    //     self.tuner = tuner;
-    // }
-    //
-    // /// Replaces the `TuningUpdateWatchdog`'s default `ErrorNotifier` for testing.
-    // pub fn set_tuning_update_watchdog_notifier(&mut self, notifier: SharedErrorNotifier) {
-    //     self.tuning_update_watchdog.set_midi_send_error_notifier(notifier);
-    // }
-
     /// Returns an `Arc` to this Presenter for use as a MIDI/OSC callback target.
     /// Relies on `init` having recorded the weak self-reference.
     fn clone_presenter(&self) -> SharedPresenter {
@@ -551,6 +519,7 @@ impl Presenter {
     }
 
     fn send_tuner_midi_batch(&self) {
+        debug!("send_tuner_midi_batch");
         self.midi_sender.lock().unwrap().send_batch(
             (*self.tuner.midi_batch().lock().unwrap().release_to_send()).to_owned());
     }

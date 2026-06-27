@@ -161,6 +161,7 @@ impl Tuner {
             }
         }
         if send_again {
+            trace!("on_tuning_updated: sending tuning update again");
             self.send_tuning_update(true);
         }
     }
@@ -191,10 +192,6 @@ impl Tuner {
     }
 
     pub fn default_pitch_table() -> u8 { 80 }
-
-    // pub fn midi_send_error_notifier(&self) -> SharedErrorNotifier {
-    //     self.midi_sender.lock().unwrap().error_notifier()
-    // }
 
     /// Calculates the tuning and either sends it to the instrument, provided another tuning update
     /// is not already in progress, or stores it for sending once the current update completes.
@@ -362,5 +359,3 @@ struct Key {
 static PITCH_TABLE: AtomicU8 = AtomicU8::new(0);
 
 static PITCH_TABLES: OnceLock<Vec<u8>> = OnceLock::new();
-
-// pub type SharedTuner = Arc<Tuner>;

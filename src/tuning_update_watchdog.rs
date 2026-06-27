@@ -33,11 +33,6 @@ impl TuningUpdateWatchdog {
         }
     }
 
-    /// Replaces the `ErrorNotifier` for testing.
-    pub fn set_midi_send_error_notifier(&mut self, notifier: SharedErrorNotifier) {
-        self.midi_send_error_notifier = notifier;
-    }
-
     /// Start (or restart) waiting for the tuning-update confirmation. The wait runs on a background
     /// thread, so it owns an `Arc` clone of the view rather than borrowing `self`.
     pub fn start(&mut self) {
