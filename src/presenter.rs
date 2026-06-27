@@ -67,7 +67,7 @@ pub struct Presenter {
     /// Watches for the instrument's confirmation that a tuning update was applied and reports a
     /// timeout to the view if none arrives.
     settings: Box<dyn ISettings>,
-    tuner: Tuner,
+    tuner: Arc<Tuner>,
     tuning_update_watchdog: TuningUpdateWatchdog,
 }
 
@@ -91,7 +91,7 @@ impl Presenter {
                    Arc::new(Mutex::new(Box::new(midi_sender) as Box<dyn IMidiSender + Send>)),
                    Box::new(Osc::new()),
                    Box::new(Settings::new()),
-                   Tuner::new(),
+                   Arc::new(Tuner::new()),
                    watchdog_notifier)
     }
 
@@ -105,7 +105,7 @@ impl Presenter {
                 midi_sender: SharedMidiSender,
                 osc: Box<dyn IOsc>,
                 settings: Box<dyn ISettings>,
-                tuner: Tuner,
+                tuner: Arc<Tuner>,
                 watchdog_notifier: SharedErrorNotifier) -> Self {
         tuner.set_tuning_signaller(continuum_protocol.clone());
         let presentation = Presentation::new(callbacks);

@@ -14,9 +14,9 @@ pub struct MockMidiSender {
     pub control_change_channel: u8,
     pub control_change_cc_no: u8,
     pub control_change_value: u8,
-    pub matrix_poke_count: u16,
-    pub matrix_poke_id: u8,
-    pub matrix_poke_value: u8,
+    pub note_aftertouch_count: u16,
+    pub note_aftertouch_key: u8,
+    pub note_aftertouch_vel: u8,
     error_notifier: SharedErrorNotifier,
     simulate_error: bool,
 }
@@ -28,9 +28,9 @@ impl MockMidiSender {
             control_change_channel: 0,
             control_change_cc_no: 0,
             control_change_value: 0,
-            matrix_poke_count: 0,
-            matrix_poke_id: 0,
-            matrix_poke_value: 0,
+            note_aftertouch_count: 0,
+            note_aftertouch_key: 0,
+            note_aftertouch_vel: 0,
             // Will be replaced by the usable error notifier in `set_error_notifier`.
             error_notifier: Arc::new(Mutex::new(ErrorNotifier::new())),
             simulate_error: false,
@@ -81,9 +81,9 @@ impl IMidiSender for MockMidiSenderImpl {
                     s.control_change_value = u8::from(value);
                 }
                 MidiMessage::Aftertouch { key, vel } => {
-                    s.matrix_poke_count += 1;
-                    s.matrix_poke_id = u8::from(key);
-                    s.matrix_poke_value = u8::from(vel);
+                    s.note_aftertouch_count += 1;
+                    s.note_aftertouch_key = u8::from(key);
+                    s.note_aftertouch_vel = u8::from(vel);
                 }
                 _ => {}
             }
