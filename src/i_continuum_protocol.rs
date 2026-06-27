@@ -17,7 +17,7 @@ pub trait ContinuumProtocolListener: Send + Sync {
 
 /// The `Presenter`'s handle on the protocol layer: query the download state and register the
 /// listener. Behind a trait so a mock can be injected in tests, mirroring `IMidiManager`.
-pub trait IContinuumProtocol: Send + Sync {
+pub trait IContinuumProtocol: TuningUpdateSignaller {
     fn has_downloaded_init_data(&self) -> bool;
 
     /// Records the (weak) semantic listener the protocol raises events to. Weak to avoid a

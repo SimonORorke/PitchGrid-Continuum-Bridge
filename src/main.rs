@@ -15,7 +15,6 @@ use pitchgrid_continuum::device_strategy::{InputStrategy, OutputStrategy, Device
 use pitchgrid_continuum::ui_methods::UiMethods;
 use pitchgrid_continuum::global;
 use pitchgrid_continuum::tuner::Tuner;
-use pitchgrid_continuum::tuning_update_watchdog::TuningUpdateWatchdog;
 use log::trace;
 
 /// main.rs is part of the view in the Model-View-Presenter (MVP) pattern.
@@ -35,8 +34,7 @@ fn main() {
     main_window.set_window_title(APP_TITLE.into());
     let ui_methods = UiMethods::new(main_window.as_weak());
     let presenter: SharedPresenter = Arc::new(Mutex::new(Presenter::new(
-        Arc::new(ui_methods), TuningUpdateWatchdog::real_timeout_millis()
-    )));
+        Arc::new(ui_methods))));
     init_ui_handlers(&main_window, presenter.clone());
     set_root_notes_model(&main_window);
     set_osc_listening_ports_model(&main_window);

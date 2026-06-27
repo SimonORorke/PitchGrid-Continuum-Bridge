@@ -363,4 +363,4 @@ static PITCH_TABLE: AtomicU8 = AtomicU8::new(0);
 
 static PITCH_TABLES: OnceLock<Vec<u8>> = OnceLock::new();
 
-pub type SharedTuner = Arc<Tuner>;
+// pub type SharedTuner = Arc<Tuner>;

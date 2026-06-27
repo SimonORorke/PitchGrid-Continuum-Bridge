@@ -1,22 +1,22 @@
-use std::error::Error;
+﻿use std::error::Error;
 use std::sync::{Arc, Mutex, Weak};
 use std::sync::atomic::{AtomicBool, Ordering};
 use log::{debug, trace};
-use crate::i_midi_manager::{IMidiManager, SharedMidiManager, SharedOutput};
-use crate::i_osc::{IOsc, OscCallbacks};
-use crate::error_notifier::SharedErrorNotifier;
-use crate::osc::Osc;
-use crate::i_settings::ISettings;
+use crate::continuum_protocol::ContinuumProtocol;
 use crate::device_strategy::{
     InputStrategy, OutputStrategy, DeviceStrategy};
-use crate::settings::Settings;
-use crate::midi_manager::MidiManager;
-use crate::continuum_protocol::ContinuumProtocol;
+use crate::error_notifier::SharedErrorNotifier;
 use crate::i_continuum_protocol::{ContinuumProtocolListener, IContinuumProtocol};
-use crate::midi_sender::{IMidiSender, MidiSender, SharedMidiSender};
+use crate::i_midi_manager::{IMidiManager, SharedMidiManager, SharedOutput};
+use crate::i_osc::{IOsc, OscCallbacks};
+use crate::i_settings::ISettings;
 use crate::i_ui_methods::IUiMethods;
+use crate::midi_manager::MidiManager;
+use crate::midi_sender::{IMidiSender, MidiSender, SharedMidiSender};
+use crate::osc::Osc;
 use crate::presentation::Presentation;
-use crate::tuner::{Tuner, SharedTuner};
+use crate::settings::Settings;
+use crate::tuner::{Tuner};
 use crate::tuning_params::TuningParams;
 use crate::tuning_update_watchdog::TuningUpdateWatchdog;
 
@@ -43,68 +43,86 @@ use crate::tuning_update_watchdog::TuningUpdateWatchdog;
 /// The Slint UI, main.rs and `UiMethods` are the remainder of the view.
 ///
 /// Everything else is the model.
-///
 pub struct Presenter {
-    /// The view-facing facade. Owns the injected `IUiMethods` and every user-facing message
-    /// string; the Presenter pushes formatted state through its intention-named methods.
-    presentation: Presentation,
-    midi_sender: SharedMidiSender,
-    /// Watches for the instrument's confirmation that a tuning update was applied and reports a
-    /// timeout to the view if none arrives.
-    tuning_update_watchdog: TuningUpdateWatchdog,
-    /// True while the in-flight tuning send was triggered by a new instrument preset being
-    /// selected (rather than a fresh tuning), so on_tuning_updated can show a tailored
-    /// confirmation. An AtomicBool because it is set from the `&self` callback methods.
-    is_preset_reselect: AtomicBool,
-    osc: Box<dyn IOsc>,
-    settings: Box<dyn ISettings>,
-    tuner: SharedTuner,
-    /// The MIDI manager, injected (like osc/settings/tuner) rather than reached through a global
-    /// singleton. Shared because callback methods clone the `Arc` to pass it around.
-    midi_manager: SharedMidiManager,
     /// The Continuum-protocol interpreter, injected. The Presenter queries it for download state;
     /// the same instance is the MidiManager's `MidiInputListener` and the Tuner's
     /// `TuningUpdateSignaller` (all wired in `new`).
     continuum_protocol: Arc<dyn IContinuumProtocol>,
+    /// True while the in-flight tuning send was triggered by a new instrument preset being
+    /// selected (rather than a fresh tuning), so on_tuning_updated can show a tailored
+    /// confirmation. An AtomicBool because it is set from the `&self` callback methods.
+    is_preset_reselect: AtomicBool,
+    /// The MIDI manager, injected (like osc/settings/tuner) rather than reached through a global
+    /// singleton. Shared because callback methods clone the `Arc` to pass it around.
+    midi_manager: SharedMidiManager,
+    midi_sender: SharedMidiSender,
+    osc: Box<dyn IOsc>,
+    /// The view-facing facade. Owns the injected `IUiMethods` and every user-facing message
+    /// string; the Presenter pushes formatted state through its intention-named methods.
+    presentation: Presentation,
     /// Weak self-reference used to hand an `Arc<Mutex<Presenter>>` to the OSC layer and the
     /// protocol listener as their callback target. Weak, not Arc, to avoid a reference cycle. Set
     /// by `init`.
     presenter_weak: Weak<Mutex<Presenter>>,
+    /// Watches for the instrument's confirmation that a tuning update was applied and reports a
+    /// timeout to the view if none arrives.
+    settings: Box<dyn ISettings>,
+    tuner: Tuner,
+    tuning_update_watchdog: TuningUpdateWatchdog,
 }
 
 impl Presenter {
-    /// `timeout_millis` is the number of milliseconds to wait for a tuning update confirmation.
-    /// It can be much shorter in tests. For the real-world value, set it to
-    /// `TuningUpdateWatchdog::real_timeout_millis()`
-    pub fn new(callbacks: Arc<dyn IUiMethods>, timeout_millis: u16) -> Self {
+    pub fn new(callbacks: Arc<dyn IUiMethods>) -> Self {
         // The output MIDI connection is shared between the MidiManager (which connects and
         // disconnects it) and the MidiSender (which writes to it). Create it here and inject it
-        // into both, replacing the former OUTPUT_CONNECTION global.
+        // into both. MidiOutputConnection
         let output: SharedOutput = Arc::new(Mutex::new(None));
+        let midi_sender = MidiSender::new(output.clone());
+        let watchdog_notifier = midi_sender.error_notifier().clone();
         // The ContinuumProtocol is created here and injected three ways: into the MidiManager (as
         // its raw MidiInputListener), into the Tuner (as its TuningUpdateSignaller), and kept on the
         // Presenter (as its IContinuumProtocol). One shared Arc keeps the Tuner's tuning_status
         // write visible to the protocol's confirmation logic.
         let continuum_protocol = Arc::new(ContinuumProtocol::new());
-        let tuner: SharedTuner = Arc::new(Tuner::new());
+        Self::new2(callbacks.clone(), TuningUpdateWatchdog::real_timeout_millis(),
+                   continuum_protocol.clone(),
+                   Arc::new(Mutex::new(Box::new(MidiManager::new(
+                       output.clone(), continuum_protocol.clone())) as Box<dyn IMidiManager + Send>)),
+                   Arc::new(Mutex::new(Box::new(midi_sender) as Box<dyn IMidiSender + Send>)),
+                   Box::new(Osc::new()),
+                   Box::new(Settings::new()),
+                   Tuner::new(),
+                   watchdog_notifier)
+    }
+
+    /// Call this directly from tests to specify non-default parameter values.
+    /// `timeout_millis` is the number of milliseconds to wait for a tuning update confirmation.
+    /// It can be much shorter in tests. For the real-world value, set it to
+    /// `TuningUpdateWatchdog::real_timeout_millis()`
+    pub fn new2(callbacks: Arc<dyn IUiMethods>, timeout_millis: u16,
+                continuum_protocol: Arc<dyn IContinuumProtocol>,
+                midi_manager: SharedMidiManager,
+                midi_sender: SharedMidiSender,
+                osc: Box<dyn IOsc>,
+                settings: Box<dyn ISettings>,
+                tuner: Tuner,
+                watchdog_notifier: SharedErrorNotifier) -> Self {
         tuner.set_tuning_signaller(continuum_protocol.clone());
         let presentation = Presentation::new(callbacks);
-        let midi_sender = MidiSender::new(output.clone());
         let tuning_update_watchdog =
             TuningUpdateWatchdog::new(presentation.clone(), timeout_millis,
-                                      midi_sender.error_notifier().clone());
+                                      watchdog_notifier);
         Self {
-            presentation,
-            midi_sender: Arc::new(Mutex::new(Box::new(midi_sender) as Box<dyn IMidiSender + Send>)),
-            tuning_update_watchdog,
-            is_preset_reselect: AtomicBool::new(false),
-            osc: Box::new(Osc::new()),
-            settings: Box::new(Settings::new()),
-            tuner,
-            midi_manager: Arc::new(Mutex::new(Box::new(MidiManager::new(
-                output, continuum_protocol.clone())) as Box<dyn IMidiManager + Send>)),
             continuum_protocol,
+            is_preset_reselect: AtomicBool::new(false),
+            midi_manager,
+            midi_sender,
+            osc,
+            presentation,
             presenter_weak: Weak::new(),
+            settings,
+            tuner,
+            tuning_update_watchdog,
         }
     }
 
@@ -316,36 +334,37 @@ impl Presenter {
         self.presentation.show_warning(device_strategy.msg_refreshed_reconnect());
     }
 
-    /// Replaces the default `ContinuumProtocol instance for testing.
-    pub fn set_continuum_protocol(&mut self, protocol: Arc<dyn IContinuumProtocol>) {
-        self.continuum_protocol = protocol;
-    }
-
-    /// Replaces the default `MidiManager` instance for testing.
-    pub fn set_midi_manager(&mut self, midi_manager: Box<dyn IMidiManager + Send>) {
-        self.midi_manager = Arc::new(Mutex::new(midi_manager));
-    }
-
-    /// Replaces the default `MidiSender instance for testing.
-    pub fn set_midi_sender(&self, sender: Box<dyn IMidiSender + Send>) {
-        *self.midi_sender.lock().unwrap() = sender;
-    }
-
-    /// Replaces the default `Osc` instance for testing.
-    pub fn set_osc(&mut self, osc: Box<dyn IOsc>) { self.osc = osc; }
-
-    /// Replaces the default `Settings` instance for testing.
-    pub fn set_settings(&mut self, settings: Box<dyn ISettings>) { self.settings = settings; }
-
-    /// Replaces the default `Tuner` instance for testing.
-    pub fn set_tuner(&mut self, tuner: SharedTuner) {
-        self.tuner = tuner;
-    }
-
-    /// Replaces the default `TuningUpdateWatchdog`'s `ErrorNotifier` for testing.
-    pub fn set_tuning_update_watchdog_notifier(&mut self, notifier: SharedErrorNotifier) {
-        self.tuning_update_watchdog.set_midi_send_error_notifier(notifier);
-    }
+    // /// Replaces the default `ContinuumProtocol instance for testing.
+    // pub fn set_continuum_protocol(&mut self, protocol: Arc<dyn IContinuumProtocol>) {
+    //     self.continuum_protocol = protocol;
+    // }
+    //
+    // /// Replaces the default `MidiManager` instance for testing.
+    // pub fn set_midi_manager(&mut self, midi_manager: Box<dyn IMidiManager + Send>) {
+    //     self.midi_manager = Arc::new(Mutex::new(midi_manager));
+    // }
+    //
+    // /// Replaces the default `MidiSender instance for testing.
+    // pub fn set_midi_sender(&mut self, sender: Box<dyn IMidiSender>) {
+    //     self.midi_sender = sender;
+    //     // *self.midi_sender.lock().unwrap() = sender;
+    // }
+    //
+    // /// Replaces the default `Osc` instance for testing.
+    // pub fn set_osc(&mut self, osc: Box<dyn IOsc>) { self.osc = osc; }
+    //
+    // /// Replaces the default `Settings` instance for testing.
+    // pub fn set_settings(&mut self, settings: Box<dyn ISettings>) { self.settings = settings; }
+    //
+    // /// Replaces the default `Tuner` instance for testing.
+    // pub fn set_tuner(&mut self, tuner: Tuner) {
+    //     self.tuner = tuner;
+    // }
+    //
+    // /// Replaces the `TuningUpdateWatchdog`'s default `ErrorNotifier` for testing.
+    // pub fn set_tuning_update_watchdog_notifier(&mut self, notifier: SharedErrorNotifier) {
+    //     self.tuning_update_watchdog.set_midi_send_error_notifier(notifier);
+    // }
 
     /// Returns an `Arc` to this Presenter for use as a MIDI/OSC callback target.
     /// Relies on `init` having recorded the weak self-reference.
