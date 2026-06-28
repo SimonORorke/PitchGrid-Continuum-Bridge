@@ -4,10 +4,9 @@ use pitchgrid_continuum::i_continuum_protocol::{ContinuumProtocolListener, ICont
 pub static MOCK_CONTINUUM_PROTOCOL: LazyLock<Mutex<MockContinuumProtocol>> =
     LazyLock::new(|| Mutex::new(MockContinuumProtocol::new_state()));
 
-/// Mock for `IContinuumProtocol`. It also stands in as the source of the semantic events the real
+/// Mock for `IContinuumProtocol`. It stands in as the source of the semantic events the real
 /// `ContinuumProtocol` would raise: `Presenter::init` registers the presenter via `set_listener`,
-/// and the `simulate_*` helpers fire the listener directly — the role formerly played by
-/// `MockMidiManager` (which captured the callbacks via `init`).
+/// and the `simulate_*` helpers fire the listener.
 pub struct MockContinuumProtocol {
     listener: Option<Weak<dyn ContinuumProtocolListener>>,
     has_downloaded_init_data_result: bool,

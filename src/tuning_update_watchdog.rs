@@ -20,8 +20,7 @@ pub struct TuningUpdateWatchdog {
 
 impl TuningUpdateWatchdog {
     /// `timeout_millis` is the number of milliseconds to wait for a tuning update confirmation.
-    /// It can be much shorter in tests. For the real-world value, set it to
-    /// `TuningUpdateWatchdog::real_timeout_millis()`
+    /// It can be much shorter in tests. For the real-world value, set it to 2000.
     pub fn new(presentation: Presentation, timeout_millis: u16,
                midi_send_error_notifier: SharedErrorNotifier) -> Self {
         Self {
@@ -128,10 +127,5 @@ impl TuningUpdateWatchdog {
             error_notifier.clear_error();
             presentation.midi_send_error();
         }
-    }
-
-    /// The number of milliseconds in real-time processing to wait for a tuning update confirmation.
-    pub fn real_timeout_millis() -> u16 {
-        2000
     }
 }

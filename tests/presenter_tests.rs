@@ -1,7 +1,8 @@
 ﻿mod mock_midi_manager;
 mod mock_continuum_protocol;
-// `mock_midi_sender()` (the sent-stats reader) is used only by `tuner_tests`, which shares this
-// mock. This crate uses `MockMidiSender::new()` but not the reader, so allow the dead function.
+// `mock_midi_sender()` is used only by `tuner_tests`, which shares this mock.  Each is compiled
+// separately. So there would be a compiler warning.
+// That is suppressed by the `#[allow(dead_code)]` annotation.
 #[allow(dead_code)] mod mock_midi_sender;
 mod mock_osc;
 mod mock_settings;
@@ -9,8 +10,8 @@ mod mock_ui_methods;
 
 // `mod test_tunings` is declared twice, here and in `tests/tuner_tests.rs`.
 // Each is compiled separately. So there would be a compiler warning for any `test_tunings`
-// functions that are not used in this module.  The workaround is the `#[allow(dead_code)]`
-// annotation.
+// functions that are not used in this module.
+// The warnings are suppressed by the `#[allow(dead_code)]` annotation.
 #[allow(dead_code)] mod test_tunings;
 
 use std::sync::{Arc, LazyLock, Mutex, MutexGuard};

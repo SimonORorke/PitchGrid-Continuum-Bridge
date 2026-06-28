@@ -1,6 +1,6 @@
 // `MockMidiSender::simulate_error()` is used only by `presentation_tests`, which shares this
-// mock. Each is compiled separately. So there would be a compiler warning.  The workaround is the
-// `#[allow(dead_code)]` annotation.
+// mock. Each is compiled separately. So there would be a compiler warning.
+// That is suppressed by the `#[allow(dead_code)]` annotation.
 #[allow(dead_code)]
 #[path = "mock_midi_sender.rs"]
 mod mock_midi_sender;
@@ -8,7 +8,7 @@ mod mock_midi_sender;
 // `mod mock_continuum_protocol` is declared twice, here and in `tests/presentation_tests.rs`.
 // Each is compiled separately. So there would be a compiler warning for the
 // `MockContinuumProtocol` functions that are not used in this module.
-// The workaround is the `#[allow(dead_code)]` annotation.
+// The warnings are suppressed by the `#[allow(dead_code)]` annotation.
 #[allow(dead_code)]
 #[path = "mock_continuum_protocol.rs"]
 mod mock_continuum_protocol;

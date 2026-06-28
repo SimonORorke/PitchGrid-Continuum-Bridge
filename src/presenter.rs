@@ -87,7 +87,7 @@ impl Presenter {
         // Presenter (as its IContinuumProtocol). One shared Arc keeps the Tuner's tuning_status
         // write visible to the protocol's confirmation logic.
         let continuum_protocol = Arc::new(ContinuumProtocol::new());
-        Self::new2(callbacks.clone(), TuningUpdateWatchdog::real_timeout_millis(),
+        Self::new2(callbacks.clone(), 2000,
                    continuum_protocol.clone(),
                    Arc::new(Mutex::new(Box::new(MidiManager::new(
                        output.clone(), continuum_protocol.clone()))
@@ -100,8 +100,7 @@ impl Presenter {
 
     /// Call this directly from tests to specify non-default parameter values.
     /// `timeout_millis` is the number of milliseconds to wait for a tuning update confirmation.
-    /// It can be much shorter in tests. For the real-world value, set it to
-    /// `TuningUpdateWatchdog::real_timeout_millis()`
+    /// It can be much shorter in tests.
     pub fn new2(callbacks: Arc<dyn IUiMethods>, timeout_millis: u16,
                 continuum_protocol: Arc<dyn IContinuumProtocol>,
                 midi_manager: SharedMidiManager,
