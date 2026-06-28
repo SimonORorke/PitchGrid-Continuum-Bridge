@@ -31,7 +31,6 @@ impl MockMidiSender {
             note_aftertouch_count: 0,
             note_aftertouch_key: 0,
             note_aftertouch_vel: 0,
-            // Will be replaced by the usable error notifier in `set_error_notifier`.
             error_notifier: Arc::new(Mutex::new(ErrorNotifier::new())),
             simulate_error: false,
         }
@@ -47,10 +46,6 @@ impl MockMidiSender {
 
     pub fn simulate_error(value: bool) {
         MOCK_MIDI_SENDER.lock().unwrap().simulate_error = value;
-    }
-
-    pub fn set_error_notifier(notifier: SharedErrorNotifier) {
-        MOCK_MIDI_SENDER.lock().unwrap().error_notifier = notifier;
     }
 }
 

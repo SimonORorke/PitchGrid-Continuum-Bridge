@@ -31,11 +31,11 @@ pub trait TuningUpdateSignaller: Send + Sync {
     fn on_updating_tuning(&self);
 }
 
-/// A no-op `TuningUpdateSignaller`, the `Tuner`'s default until the real one is wired in (see
-/// `Presenter::new`). Mirrors `NullMidiSender`; keeps the standalone `Tuner` tests free of any
-/// MIDI/protocol wiring.
-pub struct NullTuningSignaller;
-
-impl TuningUpdateSignaller for NullTuningSignaller {
-    fn on_updating_tuning(&self) {}
-}
+// /// A no-op `TuningUpdateSignaller`, the `Tuner`'s default until the real one is wired in (see
+// /// `Presenter::new`). Mirrors `NullMidiSender`; keeps the standalone `Tuner` tests free of any
+// /// MIDI/protocol wiring.
+// pub struct NullTuningSignaller;
+//
+// impl TuningUpdateSignaller for NullTuningSignaller {
+//     fn on_updating_tuning(&self) {}
+// }

@@ -1,8 +1,9 @@
 use std::sync::atomic::{AtomicBool, AtomicU8, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use log::{debug, trace};
-use crate::i_continuum_protocol::{TuningUpdateSignaller, NullTuningSignaller};
+use crate::i_continuum_protocol::{TuningUpdateSignaller};
 use crate::continuum_midi_batch::{ContinuumMidiBatch};
+use crate::midi_sender::{SharedMidiSender};
 use crate::tuning_params::{FormattedTuningParams, TuningParams};
 
 /// A facility for tuning a Continuum from PitchGrid parameters.
@@ -15,15 +16,15 @@ pub struct Tuner {
     root_freq_override_note_no: AtomicUsize,
     keys: Mutex<Vec<Key>>,
     midi_batch: Mutex<ContinuumMidiBatch>,
+    midi_sender: SharedMidiSender,
     /// The seam to the protocol layer, told when a tuning send begins (see `send_tuning_update`).
-    /// Defaults to a no-op so a standalone `Tuner` (e.g. in `tuner_tests`) needs no wiring; the real
-    /// one is injected by `Presenter::new`.
     tuning_signaller: Mutex<Arc<dyn TuningUpdateSignaller>>,
     params: Arc<Mutex<TuningParams>>,
 }
 
 impl Tuner {
-    pub fn new() -> Self {
+    pub fn new(tuning_signaller: Arc<dyn TuningUpdateSignaller>,
+               midi_sender: SharedMidiSender) -> Self {
         Self {
             is_already_updating: AtomicBool::new(false),
             is_another_update_pending: AtomicBool::new(false),
@@ -33,7 +34,8 @@ impl Tuner {
             root_freq_override_note_no: AtomicUsize::new(0),
             keys: Mutex::new(vec![]),
             midi_batch: Mutex::new(ContinuumMidiBatch::new()),
-            tuning_signaller: Mutex::new(Arc::new(NullTuningSignaller)),
+            midi_sender,
+            tuning_signaller: Mutex::new(tuning_signaller),
             params: Arc::new(Mutex::new(TuningParams::default())),
         }
     }
@@ -166,19 +168,9 @@ impl Tuner {
         }
     }
 
-    /// Sets the tuning-update signaller, wired by `Presenter::new` to the shared MIDI state.
-    pub fn set_tuning_signaller(&self, signaller: Arc<dyn TuningUpdateSignaller>) {
-        *self.tuning_signaller.lock().unwrap() = signaller;
-    }
-
     pub fn pitch_table_index(&self) -> usize {
         // Return the index of the pitch_tables item that equals pitch_table.
         Self::pitch_tables().iter().position(|&x| x == Self::pitch_table()).unwrap_or(0)
-    }
-
-    /// Return the MIDI message batch, ready to be sent.
-    pub fn midi_batch(&self) -> &Mutex<ContinuumMidiBatch> {
-        &self.midi_batch
     }
 
     /// Returns the currently selected pitch table number.
@@ -256,8 +248,11 @@ impl Tuner {
         self.send_rounding_params();
         // Set active pitch table for performance.
         debug!("send_tuning_update: Setting active pitch table to {}", Self::pitch_table());
-        self.midi_batch.lock().unwrap().add_control_change(
+        let mut midi_batch = self.midi_batch.lock().unwrap();
+        midi_batch.add_control_change(
             16, 51, Self::pitch_table());
+        self.midi_sender.lock().unwrap().send_batch(
+            (*midi_batch.release_to_send()).to_owned());
     }
 
     /// Sets the to_number field of each Key to the index of the pitch in DEFAULT_KEY_PITCHES
@@ -286,43 +281,43 @@ impl Tuner {
     }
 
     fn send_pitch_table(&self, pitch_table: u8, keys: &Vec<Key>) {
-        let mut batch = self.midi_batch.lock().unwrap();
+        let mut midi_batch = self.midi_batch.lock().unwrap();
         // Select pitch table to update.
-        batch.add_control_change(16, 109, pitch_table);
+        midi_batch.add_control_change(16, 109, pitch_table);
         // Tuning for each MIDI key
         for key in keys {
             // Base/From MIDI key
-            batch.add_control_change(16, 38, key.number);
+            midi_batch.add_control_change(16, 38, key.number);
             // Base/From MIDI key tuning MSB
-            batch.add_control_change(16, 38, 0);
+            midi_batch.add_control_change(16, 38, 0);
             // Base/From MIDI key tuning LSB
-            batch.add_control_change(16, 38, 0);
+            midi_batch.add_control_change(16, 38, 0);
             // Re-tuned/To MIDI key
-            batch.add_control_change(16, 38, key.to_number);
+            midi_batch.add_control_change(16, 38, key.to_number);
             // Re-tuned/To MIDI key tuning MSB
-            batch.add_control_change(16, 38, key.offset_msb);
+            midi_batch.add_control_change(16, 38, key.offset_msb);
             // Re-tuned/To MIDI key tuning LSB
-            batch.add_control_change(16, 38, key.offset_lsb);
+            midi_batch.add_control_change(16, 38, key.offset_lsb);
         }
         // Save pitch table on instrument.
-        batch.add_control_change(16, 109, 101);
+        midi_batch.add_control_change(16, 109, 101);
     }
 
     /// Sends pitch rounding parameters, if required, to the instrument.
     fn send_rounding_params(&self) {
-        let mut batch = self.midi_batch.lock().unwrap();
+        let mut midi_batch = self.midi_batch.lock().unwrap();
         if self.override_rounding_initial.load(Ordering::Relaxed) {
             // Turn on Rounding Initial
             debug!("send_rounding_params: Sending Rounding Initial");
-            batch.add_control_change(1, 28, 127); // RndIni
+            midi_batch.add_control_change(1, 28, 127); // RndIni
         }
         if self.override_rounding_rate.load(Ordering::Relaxed) {
             // Rounding Mode Normal
             debug!("send_rounding_params: Sending Rounding Mode Normal");
-            batch.add_matrix_poke(10, 0); // RoundMode
+            midi_batch.add_matrix_poke(10, 0); // RoundMode
             // Rounding Rate
             debug!("send_rounding_params: Sending Rounding Rate");
-            batch.add_control_change(
+            midi_batch.add_control_change(
                 1, 25, self.rounding_rate.load(Ordering::Relaxed)); // RoundRate
         }
     }

@@ -34,6 +34,7 @@ use mock_osc::{MockOsc, mock_osc};
 use mock_settings::{MockSettings, mock_settings};
 use mock_midi_sender::MockMidiSender;
 use mock_ui_methods::{MockUiMethods, mock_ui_methods};
+use pitchgrid_continuum::midi_sender::{SharedMidiSender};
 use test_tunings::TestTunings;
 
 #[googletest::gtest]
@@ -422,7 +423,6 @@ fn tuning_update_midi_send_error() {
     let _guard = test_mutex_guard();
     debug!("tuning_update_not_confirmed");
     let presenter = create_presenter(MockSettings::new(), true);
-    //MockMidiSender::set_error_notifier(tuner().midi_send_error_notifier().clone());
     MockMidiSender::simulate_error(true);
     presenter.lock().unwrap().init(&presenter);
     MockMidiManager::set_is_receiving_data(true);
@@ -595,21 +595,25 @@ fn on_receiving_data_stopped() {
     assert_that!(mock_ui_methods().show_pitchgrid_status_msg_type, some(eq(MessageType::Error)));
 }
 
-fn create_presenter(mut settings: MockSettings, default_midi_devices: bool)
-                     -> Arc<Mutex<Presenter>> {
+fn create_presenter(mut mock_settings: MockSettings, default_midi_devices: bool)
+                    -> Arc<Mutex<Presenter>> {
     if default_midi_devices {
-        settings.set_midi_input_device(&INPUT_DEVICE_NAMES[0]);
-        settings.set_midi_output_device(&OUTPUT_DEVICE_NAMES[0]);
+        mock_settings.set_midi_input_device(&INPUT_DEVICE_NAMES[0]);
+        mock_settings.set_midi_output_device(&OUTPUT_DEVICE_NAMES[0]);
     }
     let mock_midi_manager = MockMidiManager::new(
         INPUT_DEVICE_NAMES.clone(), OUTPUT_DEVICE_NAMES.clone(),
-        settings.midi_input_device(), settings.midi_output_device());
-    let mock_midi_sender = MockMidiSender::new();
-    let error_notifier = mock_midi_sender.error_notifier().clone();
-    let new_tuner = Arc::new(Tuner::new());
-    new_tuner.init(Tuner::default_pitch_table());
+        mock_settings.midi_input_device(), mock_settings.midi_output_device());
+    let mock_midi_sender: SharedMidiSender =
+        Arc::new(Mutex::new(MockMidiSender::new()));
+    let watchdog_notifier =
+        mock_midi_sender.lock().unwrap().error_notifier().clone();
+    let mock_continuum_protocol = MockContinuumProtocol::new();
+    let tuner =
+        Arc::new(Tuner::new(mock_continuum_protocol.clone(), mock_midi_sender.clone()));
+    tuner.init(Tuner::default_pitch_table());
     *TUNER.lock().unwrap_or_else(|e| e.into_inner()) =
-        new_tuner.clone();
+        Some(tuner.clone());
     // A single shared presenter serves as both the test subject and its own MIDI/OSC callback
     // target: init() (called by the test, passing &presenter) records a weak self-reference.
     // The mock MIDI/OSC/Tuner are injected.
@@ -618,13 +622,12 @@ fn create_presenter(mut settings: MockSettings, default_midi_devices: bool)
     let presenter =
         Arc::new(Mutex::new(Presenter::new2(
             Arc::new(MockUiMethods::new()), 1,
-            MockContinuumProtocol::new(),
+            mock_continuum_protocol.clone(),
             Arc::new(Mutex::new(mock_midi_manager)),
-            Arc::new(Mutex::new(mock_midi_sender)),
             Box::new(MockOsc::new()),
-            Box::new(settings),
-            new_tuner,
-            error_notifier,
+            Box::new(mock_settings),
+            tuner,
+            watchdog_notifier,
         )));
     presenter
 }
@@ -647,8 +650,8 @@ fn init_test_logging() {
     // let _ = env_logger::builder().format_timestamp_millis().try_init();
 }
 
-fn tuner() -> MutexGuard<'static, Arc<Tuner>> {
-    TUNER.lock().unwrap_or_else(|e| e.into_inner())
+fn tuner() -> Arc<Tuner> {
+    TUNER.lock().unwrap_or_else(|e| e.into_inner()).clone().expect("TUNER must be initialized")
 }
 
 static INPUT_DEVICE_NAMES: LazyLock<Vec<String>> = LazyLock::new(|| {
@@ -663,4 +666,4 @@ static OUTPUT_DEVICE_NAMES: LazyLock<Vec<String>> = LazyLock::new(|| {
 /// Tests must run sequentially to avoid races on static data.
 static TEST_MUTEX: Mutex<()> = Mutex::new(());
 
-static TUNER: LazyLock<Mutex<Arc<Tuner>>> = LazyLock::new(|| Mutex::new(Arc::new(Tuner::new())));
+static TUNER: Mutex<Option<Arc<Tuner>>> = Mutex::new(None);

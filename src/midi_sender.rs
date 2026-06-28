@@ -75,4 +75,4 @@ impl IMidiSender for MidiSender {
     }
 }
 
-pub type SharedMidiSender = Arc<Mutex<Box<dyn IMidiSender + Send>>>;
+pub type SharedMidiSender = Arc<Mutex<Box<dyn IMidiSender>>>;

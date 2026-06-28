@@ -55,7 +55,7 @@ pub struct Presenter {
     /// The MIDI manager, injected (like osc/settings/tuner) rather than reached through a global
     /// singleton. Shared because callback methods clone the `Arc` to pass it around.
     midi_manager: SharedMidiManager,
-    midi_sender: SharedMidiSender,
+    // midi_sender: SharedMidiSender,
     osc: Box<dyn IOsc>,
     /// The view-facing facade. Owns the injected `IUiMethods` and every user-facing message
     /// string; the Presenter pushes formatted state through its intention-named methods.
@@ -77,8 +77,11 @@ impl Presenter {
         // disconnects it) and the MidiSender (which writes to it). Create it here and inject it
         // into both. MidiOutputConnection
         let output: SharedOutput = Arc::new(Mutex::new(None));
-        let midi_sender = MidiSender::new(output.clone());
-        let watchdog_notifier = midi_sender.error_notifier().clone();
+        let midi_sender: SharedMidiSender =
+            Arc::new(Mutex::new(Box::new(MidiSender::new(output.clone()))
+                as Box<dyn IMidiSender + Send>));
+        let watchdog_notifier =
+            midi_sender.lock().unwrap().error_notifier().clone();
         // The ContinuumProtocol is created here and injected three ways: into the MidiManager (as
         // its raw MidiInputListener), into the Tuner (as its TuningUpdateSignaller), and kept on the
         // Presenter (as its IContinuumProtocol). One shared Arc keeps the Tuner's tuning_status
@@ -87,11 +90,11 @@ impl Presenter {
         Self::new2(callbacks.clone(), TuningUpdateWatchdog::real_timeout_millis(),
                    continuum_protocol.clone(),
                    Arc::new(Mutex::new(Box::new(MidiManager::new(
-                       output.clone(), continuum_protocol.clone())) as Box<dyn IMidiManager + Send>)),
-                   Arc::new(Mutex::new(Box::new(midi_sender) as Box<dyn IMidiSender + Send>)),
+                       output.clone(), continuum_protocol.clone()))
+                       as Box<dyn IMidiManager + Send>)),
                    Box::new(Osc::new()),
                    Box::new(Settings::new()),
-                   Arc::new(Tuner::new()),
+                   Arc::new(Tuner::new(continuum_protocol.clone(), midi_sender.clone())),
                    watchdog_notifier)
     }
 
@@ -102,12 +105,10 @@ impl Presenter {
     pub fn new2(callbacks: Arc<dyn IUiMethods>, timeout_millis: u16,
                 continuum_protocol: Arc<dyn IContinuumProtocol>,
                 midi_manager: SharedMidiManager,
-                midi_sender: SharedMidiSender,
                 osc: Box<dyn IOsc>,
                 settings: Box<dyn ISettings>,
                 tuner: Arc<Tuner>,
                 watchdog_notifier: SharedErrorNotifier) -> Self {
-        tuner.set_tuning_signaller(continuum_protocol.clone());
         let presentation = Presentation::new(callbacks);
         let tuning_update_watchdog =
             TuningUpdateWatchdog::new(presentation.clone(), timeout_millis,
@@ -116,7 +117,6 @@ impl Presenter {
             continuum_protocol,
             is_preset_reselect: AtomicBool::new(false),
             midi_manager,
-            midi_sender,
             osc,
             presentation,
             presenter_weak: Weak::new(),
@@ -353,7 +353,6 @@ impl Presenter {
             self.presentation.updating_root_freq_override();
         }
         self.tuner.set_root_freq_override_note_no(index, send_tuning);
-        self.send_tuner_midi_batch();
     }
 
     pub fn set_override_rounding_initial(&mut self, value: bool) {
@@ -428,7 +427,6 @@ impl Presenter {
         // rather than the generic INSTRUMENT_TUNING_UPDATED.
         self.is_preset_reselect.store(true, Ordering::Relaxed);
         self.tuner.send_current_preset_update();
-        self.send_tuner_midi_batch();
         debug!("on_new_preset_selected: Updated");
     }
 
@@ -517,12 +515,6 @@ impl Presenter {
         // As we've removed tuning data, the displayed tuning data will be blanked.
         self.presentation.show_tuning(self.tuner.formatted_tuning_params(), self.tuner.is_root_freq_overridden());
     }
-
-    fn send_tuner_midi_batch(&self) {
-        debug!("send_tuner_midi_batch");
-        self.midi_sender.lock().unwrap().send_batch(
-            (*self.tuner.midi_batch().lock().unwrap().release_to_send()).to_owned());
-    }
 }
 
 impl ContinuumProtocolListener for Mutex<Presenter> {
@@ -602,7 +594,6 @@ impl OscCallbacks for Presenter {
             self.presentation.updating_instrument_tuning();
             debug!("on_tuning_received: Updating instrument tuning");
             self.tuner.on_tuning_received(tuning_params);
-            self.send_tuner_midi_batch();
         } else {
             self.stop_osc_and_show_pitchgrid_status();
         }
