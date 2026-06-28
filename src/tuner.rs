@@ -59,11 +59,11 @@ impl Tuner {
     ///             The scalatrix MOS class also has mos.nL and mos.nS properties
     ///             which will be used when displaying the MOS system (like 5L 2s).
     pub fn on_tuning_received(&self, params: TuningParams) {
-        debug!(
-            "on_tuning_received: mode = {}; root_freq = {}; stretch = {}; \
-            skew = {}; mode_offset = {}; steps = {}; mos_a = {}; mos_b = {}",
-            params.mode(), params.root_freq(), params.stretch(),
-            params.skew(), params.mode_offset(), params.steps(), params.mos_a(), params.mos_b());
+        // debug!(
+        //     "on_tuning_received: mode = {}; root_freq = {}; stretch = {}; \
+        //     skew = {}; mode_offset = {}; steps = {}; mos_a = {}; mos_b = {}",
+        //     params.mode(), params.root_freq(), params.stretch(),
+        //     params.skew(), params.mode_offset(), params.steps(), params.mos_a(), params.mos_b());
         *self.params.lock().unwrap() = params;
         self.tune();
     }

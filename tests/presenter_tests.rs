@@ -258,7 +258,7 @@ fn on_devices_connected_changed_to_connected() {
     MockMidiManager::set_are_devices_connected(true);
     MockOsc::set_is_running_result(true);
     MockContinuumProtocol::simulate_devices_connected_changed();
-    assert_that!(mock_osc().stop_count,eq(0));
+    assert_that!(mock_osc().stop_count, eq(0));
 }
 
 #[googletest::gtest]
@@ -270,11 +270,23 @@ fn on_devices_connected_changed_to_not_connected() {
     MockMidiManager::set_are_devices_connected(false);
     MockOsc::set_is_running_result(true);
     MockContinuumProtocol::simulate_devices_connected_changed();
-    assert_that!(mock_osc().stop_count,eq(1));
+    assert_that!(mock_osc().stop_count, eq(1));
     assert_that!(mock_ui_methods().show_message_msg, some(eq(INSTRUMENT_DISCONNECTED)));
     assert_that!(mock_ui_methods().show_message_msg_type, some(eq(MessageType::Warning)));
     assert_that!(mock_ui_methods().show_pitchgrid_status_msg, some(eq(PITCHGRID_CONNECTION_CLOSED)));
     assert_that!(mock_ui_methods().show_pitchgrid_status_msg_type, some(eq(MessageType::Warning)));
+}
+
+#[googletest::gtest]
+fn on_devices_connected_changed_to_not_connected_osc_not_running() {
+    let _guard = test_mutex_guard();
+    debug!("on_devices_connected_changed_to_not_connected");
+    let presenter = create_presenter(MockSettings::new(), true);
+    presenter.lock().unwrap().init(&presenter);
+    MockMidiManager::set_are_devices_connected(false);
+    MockOsc::set_is_running_result(false);
+    MockContinuumProtocol::simulate_devices_connected_changed();
+    assert_that!(mock_osc().stop_count, eq(0));
 }
 
 #[googletest::gtest]
@@ -349,6 +361,18 @@ fn on_data_download_started() {
 }
 
 #[googletest::gtest]
+fn on_data_download_completed_not_connected() {
+    let _guard = test_mutex_guard();
+    debug!("on_data_download_completed_start_osc");
+    let presenter = create_presenter(MockSettings::new(), true);
+    presenter.lock().unwrap().init(&presenter);
+    MockMidiManager::set_is_receiving_data(true);
+    MockMidiManager::set_are_devices_connected(false);
+    MockContinuumProtocol::simulate_download_completed();
+    assert_that!(mock_osc().start_count, eq(0));
+}
+
+#[googletest::gtest]
 fn on_data_download_completed_start_osc() {
     let _guard = test_mutex_guard();
     debug!("on_data_download_completed_start_osc");
@@ -417,6 +441,25 @@ fn on_tuning_updated() {
         some(eq(&tuner().formatted_tuning_params())));
     assert_that!(mock_ui_methods().show_pitchgrid_status_msg, some(eq(INSTRUMENT_TUNING_UPDATED)));
     assert_that!(mock_ui_methods().show_pitchgrid_status_msg_type, some(eq(MessageType::Info)));
+}
+
+#[googletest::gtest]
+fn on_tuning_updated_no_tuning_data() {
+    let _guard = test_mutex_guard();
+    debug!("on_tuning_updated");
+    const NOTE_INDEX: usize = 1;
+    let presenter = create_presenter(MockSettings::new(), true);
+    presenter.lock().unwrap().init(&presenter);
+    presenter.lock().unwrap().set_root_freq_override(NOTE_INDEX);
+    MockMidiManager::set_is_receiving_data(true);
+    MockMidiManager::set_are_devices_connected(true);
+    MockContinuumProtocol::simulate_download_completed();
+    MockOsc::simulate_tuning_received(TestTunings::params_16_16());
+    MockContinuumProtocol::simulate_updating_tuning();
+    tuner().remove_data();
+    assert_that!(tuner().has_data(), eq(false));
+    MockContinuumProtocol::simulate_tuning_updated();
+    assert_that!(mock_ui_methods().show_pitchgrid_status_msg, some(not(eq(INSTRUMENT_TUNING_UPDATED))));
 }
 
 #[googletest::gtest]
@@ -594,6 +637,19 @@ fn on_receiving_data_stopped() {
     assert_that!(tuner().has_data(), eq(false));
     assert_that!(mock_ui_methods().show_pitchgrid_status_msg, some(eq(CANNOT_UPDATE_TUNING_LOST)));
     assert_that!(mock_ui_methods().show_pitchgrid_status_msg_type, some(eq(MessageType::Error)));
+}
+
+#[googletest::gtest]
+fn on_receiving_data_stopped_osc_not_running_devices_not_connected() {
+    let _guard = test_mutex_guard();
+    debug!("on_pitchgrid_disconnected");
+    let presenter = create_presenter(MockSettings::new(), true);
+    presenter.lock().unwrap().init(&presenter);
+    MockOsc::set_is_running_result(false);
+    MockMidiManager::set_are_devices_connected(false);
+    MockContinuumProtocol::simulate_receiving_data_stopped();
+    assert_that!(mock_osc().stop_count, eq(0));
+    assert_that!(mock_ui_methods().show_message_msg, some(not(eq(INSTRUMENT_NOT_CONNECTED))));
 }
 
 fn create_presenter(mut mock_settings: MockSettings, default_midi_devices: bool)

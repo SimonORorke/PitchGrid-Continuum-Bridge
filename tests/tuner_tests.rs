@@ -134,6 +134,18 @@ fn send_current_preset_update() {
 }
 
 #[googletest::gtest]
+fn send_current_preset_update_no_tuning_data() {
+    let _guard = test_mutex_guard();
+    let tuner = create_tuner();
+    tuner.set_override_rounding_initial(true);
+    tuner.set_override_rounding_rate(true);
+    tuner.set_rounding_rate(MAX_ROUNDING_RATE);
+    tuner.on_tuning_received(TestTunings::params_31_19());
+    tuner.remove_data();
+    assert_that!(tuner.send_current_preset_update(), eq(false));
+}
+
+#[googletest::gtest]
 fn set_pitch_table() {
     let _guard = test_mutex_guard();
     let new_pitch_table: u8 = Tuner::default_pitch_table();
