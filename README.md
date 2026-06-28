@@ -117,7 +117,7 @@ When a root frequency has been overridden, the overriding frequency will be show
 
 <img src="docs\images\OSC Listening Port.png" alt="OSC Listening Port" style="zoom: 80%;" />
 
-The OSC port on which PitchGrid-Continuum Bridge is to listen for tunings from PitchGrid.  Unless you have will have more than one application listening for PitchGrid tunings at once, which PitchGrid supports, you can probably safely leave this to the default, 34561.  The OSC port on which PitchGrid listens for heartbeats from applications, 34562, is of course not available for use by PCB as its own listening port.
+The OSC port on which PitchGrid-Continuum Bridge is to listen for tunings from PitchGrid.  Unless you will have more than one application listening for PitchGrid tunings at once, which PitchGrid supports, you can probably safely leave this to the default, 34561.  The OSC port on which PitchGrid listens for heartbeats from applications, 34562, is of course not available for use by PCB as its own listening port.
 
 ### Pitch Table
 
