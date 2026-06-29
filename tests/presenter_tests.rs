@@ -14,13 +14,16 @@ mod mock_ui_methods;
 // The warnings are suppressed by the `#[allow(dead_code)]` annotation.
 #[allow(dead_code)] mod test_tunings;
 
+use std::any::type_name_of_val;
 use std::sync::{Arc, LazyLock, Mutex, MutexGuard};
 use std::thread::sleep;
 use std::time::Duration;
 use googletest::assert_that;
 use googletest::matchers::{
-    displays_as, eq, err, len, ok, not, some, starts_with};
+    contains_substring, displays_as, eq, err, len, ok, not, some, starts_with};
 use log::{debug};
+use slint::ComponentHandle;
+use pitchgrid_continuum::{MainWindow};
 use pitchgrid_continuum::presenter::Presenter;
 use pitchgrid_continuum::presentation::{AWAITING_DATA_DOWNLOAD_COMPLETION, AWAITING_PITCHGRID_CONNECTION, CANNOT_UPDATE_TUNING_LOST, CHECKING_INSTRUMENT_CONNECTION, DEVICE_NONE, DISCONNECTED_FROM_PITCHGRID, INSTRUMENT_DISCONNECTED, INSTRUMENT_NOT_CONNECTED, INSTRUMENT_TUNING_UPDATE_NOT_CONFIRMED, INSTRUMENT_TUNING_UPDATED, MIDI_SEND_ERROR, OPENING_PITCHGRID_CONNECTION, PITCHGRID_CONNECTION_CLOSED, PITCHGRID_NOT_CONNECTED, PRESET_TUNING_LOADED, UPDATING_INSTRUMENT_TUNING, UPDATING_ROOT_FREQ_OVERRIDE, WAITING_FOR_DATA_DOWNLOAD};
 use pitchgrid_continuum::global::{MessageType, DeviceType};
@@ -36,6 +39,7 @@ use mock_settings::{MockSettings, mock_settings};
 use mock_midi_sender::MockMidiSender;
 use mock_ui_methods::{MockUiMethods, mock_ui_methods};
 use pitchgrid_continuum::midi_sender::{SharedMidiSender};
+use pitchgrid_continuum::ui_methods::UiMethods;
 use test_tunings::TestTunings;
 
 #[googletest::gtest]
@@ -349,6 +353,21 @@ fn on_receiving_data_started_show_waiting_for_download() {
 }
 
 #[googletest::gtest]
+fn on_receiving_data_started_output_not_connected() {
+    let _guard = test_mutex_guard();
+    debug!("on_receiving_data_started_output_disconnected");
+    let presenter = create_presenter(MockSettings::new(), true);
+    presenter.lock().unwrap().init(&presenter);
+    // As we have just started receiving data from the instrument, the MIDI input must be
+    // connected. So the following simulates the MIDI output not being connected.
+    MockMidiManager::set_are_devices_connected(false);
+    MockContinuumProtocol::simulate_receiving_data_started();
+    // We don't want to show the WAITING_FOR_DATA_DOWNLOAD message, as that would
+    // overwrite the "Connect MIDI output device" warning message that should already be displayed.
+    assert_that!(mock_ui_methods().show_message_msg, some(not(eq(WAITING_FOR_DATA_DOWNLOAD))));
+}
+
+#[googletest::gtest]
 fn on_data_download_started() {
     let _guard = test_mutex_guard();
     debug!("on_data_download_started");
@@ -518,6 +537,24 @@ fn on_new_preset_selected() {
 }
 
 #[googletest::gtest]
+fn on_new_preset_selected_no_tuning_data() {
+    let _guard = test_mutex_guard();
+    debug!("on_new_preset_selected_no_tuning_data");
+    const NOTE_INDEX: usize = 1;
+    let presenter = create_presenter(MockSettings::new(), true);
+    presenter.lock().unwrap().init(&presenter);
+    presenter.lock().unwrap().set_root_freq_override(NOTE_INDEX);
+    MockMidiManager::set_is_receiving_data(true);
+    MockMidiManager::set_are_devices_connected(true);
+    MockContinuumProtocol::simulate_download_completed();
+    MockOsc::simulate_tuning_received(TestTunings::params_16_16());
+    assert_that!(mock_ui_methods().show_pitchgrid_status_count, eq(1));
+    tuner().remove_data();
+    MockContinuumProtocol::simulate_new_preset_selected();
+    assert_that!(tuner().has_data(), eq(false));
+}
+
+#[googletest::gtest]
 fn set_root_freq_override() {
     let _guard = test_mutex_guard();
     debug!("set_root_freq_override");
@@ -652,6 +689,18 @@ fn on_receiving_data_stopped_osc_not_running_devices_not_connected() {
     assert_that!(mock_ui_methods().show_message_msg, some(not(eq(INSTRUMENT_NOT_CONNECTED))));
 }
 
+#[googletest::gtest]
+fn production_new() {
+    // Just so we can get 100% test coverage of `Presenter`,
+    // test the production `Presenter::new`, which does not allow us to inject all the mocks.
+    // (Other tests call `Presenter::new2` to specify the mocks: see `create_presenter`.)
+    let main_window = MainWindow::new().unwrap();
+    let ui_methods = UiMethods::new(main_window.as_weak());
+    let presenter = Presenter::new(Arc::new(ui_methods));
+    // There's no application code we can check. So I've added this banale assertion.
+    assert_that!(type_name_of_val(&presenter), contains_substring("Presenter"));
+}
+
 fn create_presenter(mut mock_settings: MockSettings, default_midi_devices: bool)
                     -> Arc<Mutex<Presenter>> {
     if default_midi_devices {
@@ -673,9 +722,11 @@ fn create_presenter(mut mock_settings: MockSettings, default_midi_devices: bool)
         Some(tuner.clone());
     // A single shared presenter serves as both the test subject and its own MIDI/OSC callback
     // target: init() (called by the test, passing &presenter) records a weak self-reference.
-    // The mock MIDI/OSC/Tuner are injected.
+    // The mock MIDI, OSC, etc. are injected.
     // Tests lock the returned Arc to drive it; simulate_* callbacks lock it too, which is
     // deadlock-free because they release the mock lock before invoking the callback.
+    // Instead of `Presenter::new`, call `Presenter::new2`, as that allows us to inject all the
+    // mocks.
     let presenter =
         Arc::new(Mutex::new(Presenter::new2(
             Arc::new(MockUiMethods::new()), 1,
