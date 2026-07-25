@@ -123,6 +123,7 @@ impl ISettings for Settings {
 
     fn read_from_file(&mut self) -> Result<(), Box<dyn Error>> {
         let path = self.get_path()?;
+        trace!("read_from_file: path = {:?}", &path);
         let toml_str = match fs::read_to_string(&path) {
             Ok(s) => s,
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(()),
@@ -156,7 +157,7 @@ impl ISettings for Settings {
 
     fn write_to_file(&mut self) -> Result<(), Box<dyn Error>> {
         let path = self.get_path()?;
-        // It is safe to unwrap as get_path() would have thrown an error if a parent folder
+        // It is safe to unwrap, as get_path() would have thrown an error if a parent folder
         // could not be specified.
         let parent_folder_path = path.parent().unwrap();
         if !parent_folder_path.try_exists()? {
@@ -184,4 +185,4 @@ fn default_path_finder() -> Box<dyn PathFinder> {
     Box::new(SystemPathFinder::new())
 }
 
-const SETTINGS_FILE_NAME: &str = "toml";
+const SETTINGS_FILE_NAME: &str = "Settings.toml";
