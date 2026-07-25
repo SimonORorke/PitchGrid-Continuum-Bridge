@@ -1,3 +1,5 @@
+// The CARGO_PKG_... environment variables are set in the workspace.package section of the
+// Cargo.toml file.
 pub const APP_TITLE: &str = env!("CARGO_PKG_DESCRIPTION");
 pub const COPYRIGHT: &str = "Copyright © 2026 Simon O'Rorke";
 pub const DOCUMENTATION_LINK: &str =
