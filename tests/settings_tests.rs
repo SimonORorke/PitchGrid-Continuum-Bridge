@@ -1,10 +1,10 @@
-mod temp_path_finder;
+mod common;
 
 use googletest::assert_that;
 use googletest::matchers::{eq, ok};
 use pitchgrid_continuum::i_settings::ISettings;
 use pitchgrid_continuum::settings::Settings;
-use temp_path_finder::TempPathFinder;
+use common::temp_path_finder::TempPathFinder;
 
 #[googletest::gtest]
 fn persist() {

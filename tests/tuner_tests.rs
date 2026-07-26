@@ -1,29 +1,14 @@
-// `MockMidiSender::simulate_error()` is used only by `presentation_tests`, which shares this
-// mock. Each is compiled separately. So there would be a compiler warning.
-// That is suppressed by the `#[allow(dead_code)]` annotation.
-#[allow(dead_code)]
-#[path = "mock_midi_sender.rs"]
-mod mock_midi_sender;
-
-// `mod mock_continuum_protocol` is declared twice, here and in `tests/presentation_tests.rs`.
-// Each is compiled separately. So there would be a compiler warning for the
-// `MockContinuumProtocol` functions that are not used in this module.
-// The warnings are suppressed by the `#[allow(dead_code)]` annotation.
-#[allow(dead_code)]
-#[path = "mock_continuum_protocol.rs"]
-mod mock_continuum_protocol;
-
-#[path = "test_tunings.rs"] mod test_tunings;
+mod common;
 
 use std::sync::{Arc, Mutex, MutexGuard};
 use googletest::assert_that;
 use googletest::matchers::{eq, gt};
 use pitchgrid_continuum::tuner::Tuner;
-use mock_midi_sender::{mock_midi_sender};
-use mock_continuum_protocol::MockContinuumProtocol;
 use pitchgrid_continuum::midi_sender::{SharedMidiSender};
-use test_tunings::TestTunings;
-use crate::mock_midi_sender::MockMidiSender;
+use common::mock_midi_sender::{mock_midi_sender};
+use common::mock_continuum_protocol::MockContinuumProtocol;
+use common::test_tunings::TestTunings;
+use common::mock_midi_sender::MockMidiSender;
 
 /// PITCH_TABLE is a shared static written by tuner.init() and tuner.set_pitch_table().
 /// Tests must run sequentially to avoid data races on it.

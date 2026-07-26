@@ -1,18 +1,4 @@
-﻿mod mock_midi_manager;
-mod mock_continuum_protocol;
-// `mock_midi_sender()` is used only by `tuner_tests`, which shares this mock.  Each is compiled
-// separately. So there would be a compiler warning.
-// That is suppressed by the `#[allow(dead_code)]` annotation.
-#[allow(dead_code)] mod mock_midi_sender;
-mod mock_osc;
-mod mock_settings;
-mod mock_ui_methods;
-
-// `mod test_tunings` is declared twice, here and in `tests/tuner_tests.rs`.
-// Each is compiled separately. So there would be a compiler warning for any `test_tunings`
-// functions that are not used in this module.
-// The warnings are suppressed by the `#[allow(dead_code)]` annotation.
-#[allow(dead_code)] mod test_tunings;
+mod common;
 
 use std::any::type_name_of_val;
 use std::sync::{Arc, LazyLock, Mutex, MutexGuard};
@@ -31,16 +17,16 @@ use pitchgrid_continuum::i_settings::ISettings;
 use pitchgrid_continuum::osc::Osc;
 use pitchgrid_continuum::device_strategy::{InputStrategy, OutputStrategy};
 use pitchgrid_continuum::tuner::Tuner;
-use mock_midi_manager::{MockMidiManager, mock_midi};
-use mock_midi_manager::mock_io::{input_state, output_state};
-use mock_continuum_protocol::MockContinuumProtocol;
-use mock_osc::{MockOsc, mock_osc};
-use mock_settings::{MockSettings, mock_settings};
-use mock_midi_sender::MockMidiSender;
-use mock_ui_methods::{MockUiMethods, mock_ui_methods};
+use common::mock_midi_manager::{MockMidiManager, mock_midi};
+use common::mock_midi_manager::mock_io::{input_state, output_state};
+use common::mock_continuum_protocol::MockContinuumProtocol;
+use common::mock_osc::{MockOsc, mock_osc};
+use common::mock_settings::{MockSettings, mock_settings};
+use common::mock_midi_sender::MockMidiSender;
+use common::mock_ui_methods::{MockUiMethods, mock_ui_methods};
 use pitchgrid_continuum::midi_sender::{SharedMidiSender};
 use pitchgrid_continuum::ui_methods::UiMethods;
-use test_tunings::TestTunings;
+use common::test_tunings::TestTunings;
 
 #[googletest::gtest]
 fn init_from_settings() {
