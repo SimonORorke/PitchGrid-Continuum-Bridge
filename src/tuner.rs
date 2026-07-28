@@ -242,15 +242,19 @@ impl Tuner {
             let mut keys = self.keys.lock().unwrap().clone();
             self.set_to_key_numbers(&mut keys);
             self.calculate_offsets(&mut keys);
-            self.send_pitch_table(Self::pitch_table(), &keys);
+            self.generate_pitch_table(Self::pitch_table(), &keys);
+            for key in keys.iter() {
+                println!("{},{}", key.number, key.required_pitch);
+            }
         }
         // The following commands update the instrument's current preset.
-        self.send_rounding_params();
+        self.generate_rounding_params();
         // Set active pitch table for performance.
         debug!("send_tuning_update: Setting active pitch table to {}", Self::pitch_table());
         let mut midi_batch = self.midi_batch.lock().unwrap();
         midi_batch.add_control_change(
             16, 51, Self::pitch_table());
+        // We have now generated the complete batch of MIDI messages, so send them.
         self.midi_sender.lock().unwrap().send_batch(
             (*midi_batch.release_to_send()).to_owned());
     }
@@ -280,7 +284,8 @@ impl Tuner {
         }
     }
 
-    fn send_pitch_table(&self, pitch_table: u8, keys: &Vec<Key>) {
+    /// Generates the pitch table MIDI messages that are to be sent to the instrument.
+    fn generate_pitch_table(&self, pitch_table: u8, keys: &Vec<Key>) {
         let mut midi_batch = self.midi_batch.lock().unwrap();
         // Select pitch table to update.
         midi_batch.add_control_change(16, 109, pitch_table);
@@ -303,8 +308,9 @@ impl Tuner {
         midi_batch.add_control_change(16, 109, 101);
     }
 
-    /// Sends pitch rounding parameters, if required, to the instrument.
-    fn send_rounding_params(&self) {
+    /// Generates the pitch rounding parameter MIDI messages, if any, that are to be sent to
+    /// the instrument.
+    fn generate_rounding_params(&self) {
         let mut midi_batch = self.midi_batch.lock().unwrap();
         if self.override_rounding_initial.load(Ordering::Relaxed) {
             // Turn on Rounding Initial
