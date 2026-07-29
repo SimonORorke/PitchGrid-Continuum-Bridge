@@ -243,9 +243,10 @@ impl Tuner {
             self.set_to_key_numbers(&mut keys);
             self.calculate_offsets(&mut keys);
             self.generate_pitch_table(Self::pitch_table(), &keys);
-            for key in keys.iter() {
-                println!("{},{}", key.number, key.required_pitch);
-            }
+            // Uncomment this to list the pitches to be assigned to each key.
+            // for key in keys.iter() {
+            //     println!("{},{}", key.number, key.required_pitch);
+            // }
         }
         // The following commands update the instrument's current preset.
         self.generate_rounding_params();
