@@ -239,7 +239,7 @@ fn set_pitch_tables_model(main_window: &MainWindow) {
 
 #[cfg(target_os = "macos")]
 fn set_macos_app_icon() {
-    let icon_data = include_bytes!("../Midi port black on red 512.icns");
+    let icon_data = include_bytes!("../ui/images/Midi port black on red 512.icns");
     unsafe {
         use objc::runtime::Object;
         use objc::{class, msg_send, sel, sel_impl};

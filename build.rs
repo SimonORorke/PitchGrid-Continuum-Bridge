@@ -42,7 +42,7 @@ fn main() {
         );
         // Use forward slashes so rc.exe accepts the path
         let icon_path = std::path::Path::new(&manifest_dir)
-            .join("Midi port black on red 512.ico")
+            .join("ui/images/Midi port black on red 512.ico")
             .to_string_lossy()
             .replace('\\', "/");
         let rc = format!(
