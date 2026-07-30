@@ -109,10 +109,6 @@ The Root Frequency specified in PitchGrid, which is Middle C for most tuning pre
 
 When a root frequency has been overridden, the overriding frequency will be shown in orange in PitchGrid-Continuum Bridge's tuning parameters display. 
 
-> [!NOTE]
->
-> By design, Root Freq Override is not saved to PCB's settings: the assumption is that, for safety, the player should consider which override, if any, to use each time PCB is loaded.
-
 ### OSC Listening Port
 
 <img src="docs\images\OSC Listening Port.png" alt="OSC Listening Port" style="zoom: 80%;" />

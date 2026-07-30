@@ -179,21 +179,27 @@ impl IUiMethods for UiMethods {
         });
     }
 
+    fn set_root_freq_override_index(&self, index: usize) {
+        self.with_main_window(move |main_window| {
+            main_window.set_root_freq_override_index(index as i32);
+        });
+    }
+
     fn set_rounding_rate(&self, rate: u8) {
         self.with_main_window(move |main_window| {
             main_window.set_rounding_rate(rate as i32);
         });
     }
 
-    fn set_selected_osc_listening_port_index(&self, index: i32) {
+    fn set_selected_osc_listening_port_index(&self, index: usize) {
         self.with_main_window(move |main_window| {
-            main_window.set_selected_osc_listening_port_index(index);
+            main_window.set_selected_osc_listening_port_index(index as i32);
         });
     }
 
-    fn set_selected_pitch_table_index(&self, index: i32) {
+    fn set_selected_pitch_table_index(&self, index: usize) {
         self.with_main_window(move |main_window| {
-            main_window.set_selected_pitch_table_index(index);
+            main_window.set_selected_pitch_table_index(index as i32);
         });
     }
 }

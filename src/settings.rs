@@ -18,6 +18,7 @@ pub struct Settings {
     pitch_table: u8,
     override_rounding_initial: bool,
     override_rounding_rate: bool,
+    root_freq_override_index: u8,
     rounding_rate: u8,
     #[serde(skip, default = "default_path_finder")]
     system_path_finder: Box<dyn PathFinder>,
@@ -34,6 +35,7 @@ impl Settings {
             pitch_table: 0,
             override_rounding_initial: true,
             override_rounding_rate: true,
+            root_freq_override_index: 0,
             rounding_rate: 127,
             system_path_finder: default_path_finder(),
         }
@@ -113,6 +115,14 @@ impl ISettings for Settings {
         self.override_rounding_rate = value;
     }
 
+    fn root_freq_override_index(&self) -> usize {
+        self.root_freq_override_index as usize
+    }
+
+    fn set_root_freq_override_index(&mut self, value: usize) {
+        self.root_freq_override_index = value as u8;
+    }
+
     fn rounding_rate(&self) -> u8 {
         self.rounding_rate
     }
@@ -149,6 +159,7 @@ impl ISettings for Settings {
         self.pitch_table = settings.pitch_table;
         self.override_rounding_initial = settings.override_rounding_initial;
         self.override_rounding_rate = settings.override_rounding_rate;
+        self.root_freq_override_index = settings.root_freq_override_index;
         self.rounding_rate = settings.rounding_rate;
         trace!("read_from_file: self.midi_input_device = {}; self.midi_output_device = {}; \
             self.pitch_table = {:?};", self.midi_input_device, self.midi_output_device, self.pitch_table);

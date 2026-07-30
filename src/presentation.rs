@@ -51,11 +51,11 @@ impl Presentation {
         self.ui_methods.focus_device(device_strategy);
     }
 
-    pub(crate) fn set_selected_osc_listening_port_index(&self, index: i32) {
+    pub(crate) fn set_selected_osc_listening_port_index(&self, index: usize) {
         self.ui_methods.set_selected_osc_listening_port_index(index);
     }
 
-    pub(crate) fn set_selected_pitch_table_index(&self, index: i32) {
+    pub(crate) fn set_selected_pitch_table_index(&self, index: usize) {
         self.ui_methods.set_selected_pitch_table_index(index);
     }
 
@@ -65,6 +65,10 @@ impl Presentation {
 
     pub(crate) fn set_override_rounding_rate(&self, value: bool) {
         self.ui_methods.set_override_rounding_rate(value);
+    }
+
+    pub(crate) fn set_root_freq_override_index(&self, index: usize) {
+        self.ui_methods.set_root_freq_override_index(index);
     }
 
     pub(crate) fn set_rounding_rate(&self, rate: u8) {

@@ -21,6 +21,8 @@ pub trait ISettings: Send + Sync {
     fn set_override_rounding_initial(&mut self, value: bool);
     fn override_rounding_rate(&self) -> bool;
     fn set_override_rounding_rate(&mut self, value: bool);
+    fn root_freq_override_index(&self) -> usize;
+    fn set_root_freq_override_index(&mut self, value: usize);
     fn rounding_rate(&self) -> u8;
     fn set_rounding_rate(&mut self, value: u8);
     fn read_from_file(&mut self) -> Result<(), Box<dyn Error>>;

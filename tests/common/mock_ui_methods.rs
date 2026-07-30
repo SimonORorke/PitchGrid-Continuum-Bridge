@@ -49,8 +49,9 @@ pub struct MockUiMethods {
     pub override_rounding_initial: Option<bool>,
     pub override_rounding_rate: Option<bool>,
     pub rounding_rate: Option<u8>,
-    pub selected_osc_listening_port_index: Option<i32>,
-    pub selected_pitch_table_index: Option<i32>,
+    pub root_freq_override_index: Option<usize>,
+    pub selected_osc_listening_port_index: Option<usize>,
+    pub selected_pitch_table_index: Option<usize>,
 }
 
 impl MockUiMethods {
@@ -92,6 +93,7 @@ impl MockUiMethods {
             override_rounding_initial: None,
             override_rounding_rate: None,
             rounding_rate: None,
+            root_freq_override_index: None,
             selected_osc_listening_port_index: None,
             selected_pitch_table_index: None,
         }
@@ -182,16 +184,21 @@ impl IUiMethods for MockUiMethods {
             Some(value);
     }
 
+    fn set_root_freq_override_index(&self, index: usize) {
+        MOCK_UI_METHODS.lock().unwrap_or_else(|e| e.into_inner())
+            .root_freq_override_index = Some(index);
+    }
+
     fn set_rounding_rate(&self, rate: u8) {
         MOCK_UI_METHODS.lock().unwrap_or_else(|e| e.into_inner()).rounding_rate = Some(rate);
     }
 
-    fn set_selected_osc_listening_port_index(&self, index: i32) {
+    fn set_selected_osc_listening_port_index(&self, index: usize) {
         MOCK_UI_METHODS.lock().unwrap_or_else(|e| e.into_inner())
             .selected_osc_listening_port_index = Some(index);
     }
 
-    fn set_selected_pitch_table_index(&self, index: i32) {
+    fn set_selected_pitch_table_index(&self, index: usize) {
         MOCK_UI_METHODS.lock().unwrap_or_else(|e| e.into_inner()).selected_pitch_table_index =
             Some(index);
     }

@@ -19,6 +19,7 @@ pub struct MockSettings {
     pub pitch_table: u8,
     pub override_rounding_initial: bool,
     pub override_rounding_rate: bool,
+    pub root_freq_override_index: u8,
     pub rounding_rate: u8,
 
     read_from_file_err: Option<String>,
@@ -36,6 +37,7 @@ impl MockSettings {
             pitch_table: 0,
             override_rounding_initial: true,
             override_rounding_rate: true,
+            root_freq_override_index: 0,
             rounding_rate: 127,
             read_from_file_err: None,
             write_to_file_err: None,
@@ -125,6 +127,16 @@ impl ISettings for MockSettings {
 
     fn set_override_rounding_rate(&mut self, value: bool) {
         MOCK_SETTINGS.lock().unwrap_or_else(|e| e.into_inner()).override_rounding_rate = value;
+    }
+
+    fn root_freq_override_index(&self) -> usize {
+        MOCK_SETTINGS.lock().unwrap_or_else(|e|
+            e.into_inner()).root_freq_override_index as usize
+    }
+
+    fn set_root_freq_override_index(&mut self, value: usize) {
+        MOCK_SETTINGS.lock().unwrap_or_else(|e|
+            e.into_inner()).root_freq_override_index = value as u8;
     }
 
     fn rounding_rate(&self) -> u8 {

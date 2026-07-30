@@ -14,6 +14,7 @@ fn persist() {
     const MIDI_OUTPUT_DEVICE: &str = "Output Device 1";
     const OSC_LISTENING_PORT: u16 = 34563;
     const PITCH_TABLE: u8 = 81;
+    const ROOT_FREQ_OVERRIDE_INDEX: usize = 1;
     const OVERRIDE_ROUNDING_INITIAL: bool = false; // as the default is true
     const OVERRIDE_ROUNDING_RATE: bool = false; // as the default is true
     const ROUNDING_RATE: u8 = 100;
@@ -23,6 +24,7 @@ fn persist() {
     settings.set_midi_input_device(MIDI_INPUT_DEVICE);
     settings.set_midi_output_device(MIDI_OUTPUT_DEVICE);
     settings.set_osc_listening_port(OSC_LISTENING_PORT);
+    settings.set_root_freq_override_index(ROOT_FREQ_OVERRIDE_INDEX);
     settings.set_override_rounding_initial(OVERRIDE_ROUNDING_INITIAL);
     settings.set_override_rounding_rate(OVERRIDE_ROUNDING_RATE);
     settings.set_rounding_rate(ROUNDING_RATE);
@@ -39,6 +41,7 @@ fn persist() {
     assert_that!(settings.midi_output_device(), eq(MIDI_OUTPUT_DEVICE));
     assert_that!(settings.pitch_table(), eq(PITCH_TABLE));
     assert_that!(settings.osc_listening_port(), eq(OSC_LISTENING_PORT));
+    assert_that!(settings.root_freq_override_index(), eq(ROOT_FREQ_OVERRIDE_INDEX));
     assert_that!(settings.override_rounding_initial(), eq(OVERRIDE_ROUNDING_INITIAL));
     assert_that!(settings.override_rounding_rate(), eq(OVERRIDE_ROUNDING_RATE));
     assert_that!(settings.rounding_rate(), eq(ROUNDING_RATE));

@@ -42,7 +42,8 @@ pub trait IUiMethods: Send + Sync {
     fn set_main_window_position(&self, x: i32, y: i32);
     fn set_override_rounding_initial(&self, value: bool);
     fn set_override_rounding_rate(&self, value: bool);
+    fn set_root_freq_override_index(&self, index: usize);
     fn set_rounding_rate(&self, rate: u8);
-    fn set_selected_osc_listening_port_index(&self, index: i32);
-    fn set_selected_pitch_table_index(&self, index: i32);
+    fn set_selected_osc_listening_port_index(&self, index: usize);
+    fn set_selected_pitch_table_index(&self, index: usize);
 }

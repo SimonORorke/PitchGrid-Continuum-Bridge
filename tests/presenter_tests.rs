@@ -36,10 +36,12 @@ fn init_from_settings() {
     const PITCH_TABLE: u8 = 81;
     const OVERRIDE_ROUNDING_INITIAL: bool = false; // as the default is true
     const OVERRIDE_ROUNDING_RATE: bool = false; // as the default is true
+    const ROOT_FREQ_OVERRIDE_INDEX: usize = 1;
     const ROUNDING_RATE: u8 = 100;
     let mut settings = MockSettings::new();
     settings.set_osc_listening_port(LISTENING_PORT);
     settings.set_pitch_table(PITCH_TABLE);
+    settings.set_root_freq_override_index(ROOT_FREQ_OVERRIDE_INDEX);
     settings.set_override_rounding_initial(OVERRIDE_ROUNDING_INITIAL);
     settings.set_override_rounding_rate(OVERRIDE_ROUNDING_RATE);
     settings.set_rounding_rate(ROUNDING_RATE);
@@ -51,6 +53,7 @@ fn init_from_settings() {
     assert_that!(mock_midi().init_output_device_name, some(eq(&OUTPUT_DEVICE_NAMES[0])));
     assert_that!(output_state().device_name(), some(eq(&OUTPUT_DEVICE_NAMES[0])));
     assert_that!(output_state().device_index(), some(eq(0)));
+    assert_that!(mock_ui_methods().root_freq_override_index, some(eq(ROOT_FREQ_OVERRIDE_INDEX)));
     assert_that!(mock_ui_methods().show_connected_device_name_count, eq(2));
     assert_that!(mock_ui_methods().show_connected_device_name_name, some(eq(&INPUT_DEVICE_NAMES[0])));
     assert_that!(mock_ui_methods().show_connected_device_name_msg_type, some(eq(MessageType::Info)));
@@ -90,11 +93,12 @@ fn init_no_settings() {
     assert_that!(mock_ui_methods().show_message_msg_type, some(eq(MessageType::Warning)));
     assert_that!(mock_osc().listening_port, some(eq(Osc::default_listening_port())));
     assert_that!(mock_ui_methods().selected_osc_listening_port_index,
-        some(eq(Osc::listening_port_index() as i32)));
+        some(eq(Osc::listening_port_index())));
     assert_that!(Tuner::pitch_table(), eq(Tuner::default_pitch_table()));
     assert_that!(mock_ui_methods().selected_pitch_table_index, some(eq(0)));
     assert_that!(mock_ui_methods().override_rounding_initial, some(eq(true)));
     assert_that!(mock_ui_methods().override_rounding_rate, some(eq(true)));
+    assert_that!(mock_ui_methods().root_freq_override_index, some(eq(0)));
     assert_that!(mock_ui_methods().rounding_rate, some(eq(127)));
     assert_that!(mock_midi().start_instrument_connection_monitor_count, eq(0));
 }
@@ -428,10 +432,10 @@ fn on_tuning_received_when_instrument_disconnected() {
 fn on_tuning_updated() {
     let _guard = test_mutex_guard();
     debug!("on_tuning_updated");
-    const NOTE_INDEX: usize = 1;
+    const ROOT_FREQ_OVERRIDE_INDEX: usize = 1;
     let presenter = create_presenter(MockSettings::new(), true);
     presenter.lock().unwrap().init(&presenter);
-    presenter.lock().unwrap().set_root_freq_override(NOTE_INDEX);
+    presenter.lock().unwrap().set_root_freq_override(ROOT_FREQ_OVERRIDE_INDEX);
     MockMidiManager::set_is_receiving_data(true);
     MockMidiManager::set_are_devices_connected(true);
     MockContinuumProtocol::simulate_download_completed();
@@ -452,10 +456,10 @@ fn on_tuning_updated() {
 fn on_tuning_updated_no_tuning_data() {
     let _guard = test_mutex_guard();
     debug!("on_tuning_updated");
-    const NOTE_INDEX: usize = 1;
+    const ROOT_FREQ_OVERRIDE_INDEX: usize = 1;
     let presenter = create_presenter(MockSettings::new(), true);
     presenter.lock().unwrap().init(&presenter);
-    presenter.lock().unwrap().set_root_freq_override(NOTE_INDEX);
+    presenter.lock().unwrap().set_root_freq_override(ROOT_FREQ_OVERRIDE_INDEX);
     MockMidiManager::set_is_receiving_data(true);
     MockMidiManager::set_are_devices_connected(true);
     MockContinuumProtocol::simulate_download_completed();
@@ -502,10 +506,10 @@ fn tuning_update_not_confirmed() {
 fn on_new_preset_selected() {
     let _guard = test_mutex_guard();
     debug!("on_new_preset_selected");
-    const NOTE_INDEX: usize = 1;
+    const ROOT_FREQ_OVERRIDE_INDEX: usize = 1;
     let presenter = create_presenter(MockSettings::new(), true);
     presenter.lock().unwrap().init(&presenter);
-    presenter.lock().unwrap().set_root_freq_override(NOTE_INDEX);
+    presenter.lock().unwrap().set_root_freq_override(ROOT_FREQ_OVERRIDE_INDEX);
     MockMidiManager::set_is_receiving_data(true);
     MockMidiManager::set_are_devices_connected(true);
     MockContinuumProtocol::simulate_download_completed();
@@ -526,10 +530,10 @@ fn on_new_preset_selected() {
 fn on_new_preset_selected_no_tuning_data() {
     let _guard = test_mutex_guard();
     debug!("on_new_preset_selected_no_tuning_data");
-    const NOTE_INDEX: usize = 1;
+    const ROOT_FREQ_OVERRIDE_INDEX: usize = 1;
     let presenter = create_presenter(MockSettings::new(), true);
     presenter.lock().unwrap().init(&presenter);
-    presenter.lock().unwrap().set_root_freq_override(NOTE_INDEX);
+    presenter.lock().unwrap().set_root_freq_override(ROOT_FREQ_OVERRIDE_INDEX);
     MockMidiManager::set_is_receiving_data(true);
     MockMidiManager::set_are_devices_connected(true);
     MockContinuumProtocol::simulate_download_completed();
@@ -544,7 +548,7 @@ fn on_new_preset_selected_no_tuning_data() {
 fn set_root_freq_override() {
     let _guard = test_mutex_guard();
     debug!("set_root_freq_override");
-    const NOTE_INDEX: usize = 1;
+    const ROOT_FREQ_OVERRIDE_INDEX: usize = 1;
     let presenter = create_presenter(MockSettings::new(), true);
     presenter.lock().unwrap().init(&presenter);
     MockMidiManager::set_is_receiving_data(true);
@@ -553,10 +557,11 @@ fn set_root_freq_override() {
     assert_that!(mock_ui_methods().show_pitchgrid_status_count, eq(0));
     MockOsc::simulate_pitchgrid_connected_changed(true);
     assert_that!(mock_ui_methods().show_pitchgrid_status_count, eq(1));
-    presenter.lock().unwrap().set_root_freq_override(NOTE_INDEX);
+    presenter.lock().unwrap().set_root_freq_override(ROOT_FREQ_OVERRIDE_INDEX);
     assert_that!(mock_ui_methods().show_pitchgrid_status_count, eq(2));
     assert_that!(mock_ui_methods().show_pitchgrid_status_msg, some(eq(UPDATING_ROOT_FREQ_OVERRIDE)));
     assert_that!(mock_ui_methods().show_pitchgrid_status_msg_type, some(eq(MessageType::Info)));
+    assert_that!(mock_settings().root_freq_override_index as usize, eq(ROOT_FREQ_OVERRIDE_INDEX));
     assert_that!(tuner().is_root_freq_overridden(), eq(true));
 }
 

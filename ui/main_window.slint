@@ -51,7 +51,7 @@ export component MainWindow inherits MagicWindow {
     in property <bool> override_rounding_rate;
     in property <bool> root_freq_overridden;
     in property <int> rounding_rate;
-    in property <int> selected_root_note_index;
+    in property <int> root_freq_override_index;
     in property <int> selected_osc_listening_port_index;
     in property <int> selected_pitch_table_index;
     in property steps <=> steps_value.text;
@@ -156,7 +156,7 @@ export component MainWindow inherits MagicWindow {
                 VerticalLayout {
                     padding_top: 5px;
                     root_notes_combo := ComboBox {
-                        current_index: root.selected_root_note_index;
+                        current_index: root.root_freq_override_index;
                         changed current_index => {
                             root.selected_root_note_changed(self.current_index);
                         }

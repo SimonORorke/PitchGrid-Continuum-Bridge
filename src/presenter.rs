@@ -141,6 +141,7 @@ impl Presenter {
         let output_device_name: String;
         let override_rounding_initial: bool;
         let override_rounding_rate: bool;
+        let root_freq_override_index: usize;
         let rounding_rate: u8;
         trace!("init: Reading settings");
         match self.settings.read_from_file() {
@@ -165,6 +166,7 @@ impl Presenter {
                 };
                 override_rounding_initial = self.settings.override_rounding_initial();
                 override_rounding_rate = self.settings.override_rounding_rate();
+                root_freq_override_index = self.settings.root_freq_override_index() as usize;
                 rounding_rate = self.settings.rounding_rate();
             }
             Err(err) => {
@@ -195,15 +197,17 @@ impl Presenter {
             self.connect_initial_device(&input_strategy);
         }
         self.osc.set_listening_port(osc_listening_port);
-        self.presentation.set_selected_osc_listening_port_index(Osc::listening_port_index() as i32);
+        self.presentation.set_selected_osc_listening_port_index(Osc::listening_port_index());
         trace!("init: Configuring tuner");
         self.tuner.init(pitch_table);
-        self.presentation.set_selected_pitch_table_index(self.tuner.pitch_table_index() as i32);
+        self.presentation.set_selected_pitch_table_index(self.tuner.pitch_table_index());
         self.tuner.set_override_rounding_initial(override_rounding_initial);
         self.tuner.set_override_rounding_rate(override_rounding_rate);
+        self.tuner.set_root_freq_override_note_no(root_freq_override_index, false);
         self.tuner.set_rounding_rate(rounding_rate);
         self.presentation.set_override_rounding_initial(override_rounding_initial);
         self.presentation.set_override_rounding_rate(override_rounding_rate);
+        self.presentation.set_root_freq_override_index(root_freq_override_index);
         self.presentation.set_rounding_rate(rounding_rate);
         if self.midi_manager.lock().unwrap().are_devices_connected() {
             trace!("init: Starting instrument connection monitor");
@@ -342,8 +346,6 @@ impl Presenter {
 
     /// Sets the root frequency override and sends it to the instrument,
     /// if the instrument and PitchGrid are both connected.
-    /// We probably don't need a setting for this.
-    /// The player should have to choose an override, if required, on startup.
     pub fn set_root_freq_override(&mut self, index: usize) {
         let send_tuning = self.midi_manager.lock().unwrap().is_connected_and_receiving()
             && self.continuum_protocol.has_downloaded_init_data()
@@ -352,6 +354,7 @@ impl Presenter {
             self.presentation.updating_root_freq_override();
         }
         self.tuner.set_root_freq_override_note_no(index, send_tuning);
+        self.settings.set_root_freq_override_index(index);
     }
 
     pub fn set_override_rounding_initial(&mut self, value: bool) {
