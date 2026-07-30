@@ -6,6 +6,7 @@
 #define MyAppPublisher "Simon O'Rorke"
 #define MyAppURL "https://github.com/SimonORorke/PitchGrid-Continuum-Bridge"
 #define MyAppExeName "pitchgrid_continuum.exe"
+#define MyLicenseFile "..\..\LICENSE.txt"
 
 [Setup]
 ; NOTE: The value of AppId uniquely identifies this application. Do not use the same AppId value in installers for other applications.
@@ -28,7 +29,7 @@ ArchitecturesAllowed=x64compatible
 ; the 64-bit view of the registry.
 ArchitecturesInstallIn64BitMode=x64compatible
 DisableProgramGroupPage=yes
-LicenseFile=..\..\LICENSE.txt
+LicenseFile={#MyLicenseFile}
 ; Uncomment the following line to run in non administrative install mode (install for current user only.)
 ;PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
@@ -48,6 +49,7 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 
 [Files]
 Source: "D:\Rust Targets\release\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
+Source: {#MyLicenseFile}; DestDir: "{app}"; Flags: ignoreversion
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Icons]
