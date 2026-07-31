@@ -15,10 +15,12 @@ use crate::midi_manager::MidiManager;
 use crate::midi_sender::{IMidiSender, MidiSender, SharedMidiSender};
 use crate::osc::Osc;
 use crate::presentation::Presentation;
+use crate::release_info::{ReleaseInfo, SharedReleaseInfo};
 use crate::settings::Settings;
 use crate::tuner::{Tuner};
 use crate::tuning_params::TuningParams;
 use crate::tuning_update_watchdog::TuningUpdateWatchdog;
+use crate::version_checker::VersionChecker;
 
 /// This type plays the **Presenter** in the Model-View-Presenter (MVP) pattern — specifically the
 /// Passive View / Humble Object variant: `IUiMethods` reduces the View to dumb setters, and the
@@ -55,7 +57,6 @@ pub struct Presenter {
     /// The MIDI manager, injected (like osc/settings/tuner) rather than reached through a global
     /// singleton. Shared because callback methods clone the `Arc` to pass it around.
     midi_manager: SharedMidiManager,
-    // midi_sender: SharedMidiSender,
     osc: Box<dyn IOsc>,
     /// The view-facing facade. Owns the injected `IUiMethods` and every user-facing message
     /// string; the Presenter pushes formatted state through its intention-named methods.
@@ -64,6 +65,7 @@ pub struct Presenter {
     /// protocol listener as their callback target. Weak, not Arc, to avoid a reference cycle. Set
     /// by `init`.
     presenter_weak: Weak<Mutex<Presenter>>,
+    release_info: SharedReleaseInfo,
     settings: Box<dyn ISettings>,
     tuner: Arc<Tuner>,
     /// Watches for the instrument's confirmation that a tuning update was applied and reports a
@@ -93,6 +95,7 @@ impl Presenter {
                        output.clone(), continuum_protocol.clone()))
                        as Box<dyn IMidiManager + Send>)),
                    Box::new(Osc::new()),
+                   Arc::new(Mutex::new(Box::new(ReleaseInfo::new()))),
                    Box::new(Settings::new()),
                    Arc::new(Tuner::new(continuum_protocol.clone(), midi_sender.clone())),
                    watchdog_notifier)
@@ -105,6 +108,7 @@ impl Presenter {
                 continuum_protocol: Arc<dyn IContinuumProtocol>,
                 midi_manager: SharedMidiManager,
                 osc: Box<dyn IOsc>,
+                release_info: SharedReleaseInfo,
                 settings: Box<dyn ISettings>,
                 tuner: Arc<Tuner>,
                 watchdog_notifier: SharedErrorNotifier) -> Self {
@@ -119,6 +123,7 @@ impl Presenter {
             osc,
             presentation,
             presenter_weak: Weak::new(),
+            release_info,
             settings,
             tuner,
             tuning_update_watchdog,
@@ -133,6 +138,7 @@ impl Presenter {
         // Register this Presenter as the protocol's semantic listener (Weak, to avoid a cycle).
         let listener: Arc<dyn ContinuumProtocolListener> = self_arc.clone();
         self.continuum_protocol.set_listener(Arc::downgrade(&listener));
+        let ignore_version: String;
         let main_window_x: i32;
         let main_window_y: i32;
         let osc_listening_port: u16;
@@ -146,6 +152,7 @@ impl Presenter {
         trace!("init: Reading settings");
         match self.settings.read_from_file() {
             Ok(_) => {
+                ignore_version = self.settings.ignore_version().to_string();
                 main_window_x = self.settings.main_window_x();
                 main_window_y = self.settings.main_window_y();
                 input_device_name = self.settings.midi_input_device().to_string();
@@ -174,8 +181,13 @@ impl Presenter {
                 return;
             }
         }
-        trace!("init: Getting midi");
         self.presentation.set_main_window_position(main_window_x, main_window_y);
+        trace!("init: Checking for new version");
+        let version_checker = VersionChecker::new(self.release_info.clone());
+        if let Some(new_version) = version_checker.check_for_new_version(&ignore_version) {
+            self.presentation.open_new_version_dialog(&new_version);
+        }
+        trace!("init: Getting midi");
         let mut midi = self.midi_manager.lock().unwrap();
         midi.init(&input_device_name, &output_device_name);
         drop(midi); // Release MIDI lock before calling device_names which needs to acquire it

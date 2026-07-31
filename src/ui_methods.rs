@@ -73,6 +73,13 @@ impl IUiMethods for UiMethods {
         index
     }
 
+    fn open_new_version_dialog(&self, new_version: &str) {
+        let new_version = new_version.to_string();
+        self.with_main_window(move |main_window| {
+            main_window.invoke_open_new_version_dialog(new_version.into());
+        });
+    }
+
     fn set_selected_device_index(&self, index: usize, device_strategy: &dyn DeviceStrategy) {
         trace!("set_selected_device_index: index = {}, device_strategy = {:?}", index, device_strategy.device_type());
         let device_strategy = device_strategy.clone_box();

@@ -11,6 +11,7 @@ pub static MOCK_SETTINGS: LazyLock<Mutex<MockSettings>> =
     LazyLock::new(|| Mutex::new(MockSettings::new_state()));
 
 pub struct MockSettings {
+    pub ignore_version: String,
     pub main_window_x: i32,
     pub main_window_y: i32,
     pub midi_input_device: String,
@@ -29,6 +30,7 @@ pub struct MockSettings {
 impl MockSettings {
     fn new_state() -> Self {
         MockSettings {
+            ignore_version: String::new(),
             main_window_x: 0,
             main_window_y: 0,
             midi_input_device: String::new(),
@@ -61,6 +63,16 @@ impl MockSettings {
 }
 
 impl ISettings for MockSettings {
+    fn ignore_version(&self) -> &str {
+        Box::leak(MOCK_SETTINGS.lock().unwrap_or_else(|e| e.into_inner())
+            .ignore_version.clone().into_boxed_str())
+    }
+
+    fn set_ignore_version(&mut self, value: &str) {
+        MOCK_SETTINGS.lock().unwrap_or_else(|e| e.into_inner()).ignore_version =
+            value.to_string();
+    }
+
     fn main_window_x(&self) -> i32 {
         MOCK_SETTINGS.lock().unwrap_or_else(|e| e.into_inner()).main_window_x
     }

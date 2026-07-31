@@ -6,4 +6,5 @@ pub const DOCUMENTATION_LINK: &str =
     "https://github.com/SimonORorke/PitchGrid-Continuum-Bridge/blob/main/README.md";
 pub const LICENSE: &str = env!("CARGO_PKG_LICENSE");
 pub const PROJECT_LINK: &str = "https://github.com/SimonORorke/PitchGrid-Continuum-Bridge";
+pub const RELEASES_LINK: &str = "https://github.com/SimonORorke/PitchGrid-Continuum-Bridge/releases";
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

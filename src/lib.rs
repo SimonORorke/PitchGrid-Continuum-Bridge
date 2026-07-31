@@ -18,9 +18,11 @@ pub mod tuner;
 pub mod device_strategy;
 pub mod presenter;
 pub mod presentation;
-pub mod ui_methods;
+pub mod release_info;
 pub mod tuning_params;
 pub mod tuning_update_watchdog;
+pub mod ui_methods;
+pub mod version_checker;
 
 use std::sync::{Arc, Mutex};
 use presenter::Presenter;

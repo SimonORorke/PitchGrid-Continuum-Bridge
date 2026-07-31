@@ -5,10 +5,12 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
-use slint::{CloseRequestResponse, ComponentHandle, PhysicalPosition, WindowPosition, Weak};
-use app_info::{APP_TITLE, COPYRIGHT, DOCUMENTATION_LINK, LICENSE, PROJECT_LINK, VERSION};
-use pitchgrid_continuum::{ComboBoxModel, ComboBoxItem, MainWindow, AboutWindow, SharedPresenter,
-                          SlintDeviceType};
+use slint::{CloseRequestResponse, ComponentHandle, PhysicalPosition, WindowPosition, Weak,
+            PlatformError, SharedString};
+use app_info::{APP_TITLE, COPYRIGHT, DOCUMENTATION_LINK, LICENSE, PROJECT_LINK, RELEASES_LINK,
+               VERSION};
+use pitchgrid_continuum::{ComboBoxModel, ComboBoxItem, MainWindow, AboutWindow, NewVersionWindow,
+                          SharedPresenter, SlintDeviceType};
 use pitchgrid_continuum::presenter::Presenter;
 use pitchgrid_continuum::osc::Osc;
 use pitchgrid_continuum::device_strategy::{InputStrategy, OutputStrategy, DeviceStrategy};
@@ -57,49 +59,25 @@ fn init_ui_handlers(main_window: &MainWindow, presenter: SharedPresenter) {
         let about_window = Rc::clone(&about_window);
         let main_window_weak = main_window.as_weak();
         main_window.on_show_about_window(move || {
-            let dialog = AboutWindow::new().unwrap();
-            dialog.set_window_title(format!("About {}", APP_TITLE).into());
-            dialog.set_app_title(APP_TITLE.into());
-            dialog.set_version(VERSION.into());
-            dialog.set_copyright(COPYRIGHT.into());
-            dialog.set_license(LICENSE.into());
-            dialog.set_project_link(PROJECT_LINK.into());
-            dialog.on_open_project_link(|| {
-                open::that(PROJECT_LINK).unwrap();
-            });
-            // Why is there a dialog.on_close_window before the dialog.show().unwrap()?
-            // The callback must be registered before show() to avoid a race condition:
-            // if the user somehow closed the window during or immediately after show() returned,
-            // the close handler needs to already be in place. More practically, it's just the
-            // conventional setup pattern — configure all properties and callbacks first,
-            // then show. In practice for a dialog like this it makes no functional difference,
-            // but registering handlers before showing is the safe, idiomatic order.
-            dialog.on_close_window({
-                let dialog_weak = dialog.as_weak();
-                move || { dialog_weak.unwrap().hide().unwrap(); }
-            });
-            // Position the dialog in the centre of the main window.
-            // We have to show the dialog first before we can position it.
-            dialog.show().unwrap();
-            if let Some(main_window) = main_window_weak.upgrade() {
-                let mp = main_window.window().position();
-                let ms = main_window.window().size();
-                let scale = main_window.window().scale_factor();
-                let dw = (dialog.get_preferred_w() * scale) as i32;
-                let dh = (dialog.get_preferred_h() * scale) as i32;
-                let x = mp.x + (ms.width as i32 - dw) / 2;
-                let y = mp.y + (ms.height as i32 - dh) / 2;
-                dialog.window().set_position(WindowPosition::Physical(PhysicalPosition { x, y }));
-            }
-            *about_window.borrow_mut() = Some(dialog);
+            show_about_window(about_window.clone(), main_window_weak.clone());
+        });
+    }
+    let new_version_window: Rc<RefCell<Option<NewVersionWindow>>> = Rc::new(RefCell::new(None));
+    {
+        let new_version_window = Rc::clone(&new_version_window);
+        let main_window_weak = main_window.as_weak();
+        main_window.on_show_new_version_window(move |new_version: SharedString| {
+            show_new_version_window(new_version_window.clone(), main_window_weak.clone(),
+                                    &new_version);
         });
     }
     {
         let presenter: SharedPresenter = Arc::clone(&presenter);
         let main_window_weak = main_window.as_weak();
         let about_window = Rc::clone(&about_window);
+        let new_version_window = Rc::clone(&new_version_window);
         main_window.window().on_close_requested(move || {
-            handle_close_request(&main_window_weak, &presenter, &about_window)
+            handle_close_request(&main_window_weak, &presenter, &about_window, &new_version_window)
         });
     }
     // All Presenter methods must be called from non-UI threads to avoid deadlock.
@@ -156,10 +134,17 @@ fn init_ui_handlers(main_window: &MainWindow, presenter: SharedPresenter) {
     }
 }
 
-fn handle_close_request(main_window_weak: &Weak<MainWindow>, presenter: &SharedPresenter, about_window: &Rc<RefCell<Option<AboutWindow>>>) -> CloseRequestResponse {
+fn handle_close_request(main_window_weak: &Weak<MainWindow>, presenter: &SharedPresenter,
+                        about_window: &Rc<RefCell<Option<AboutWindow>>>,
+                        new_version_window: &Rc<RefCell<Option<NewVersionWindow>>>) -> CloseRequestResponse {
     trace!("main.handle_close_request");
     if let Some(dialog) = about_window.borrow().as_ref()
-        && dialog.window().is_visible()
+        && ComponentHandle::window(dialog).is_visible()
+    {
+        dialog.hide().unwrap();
+    }
+    if let Some(dialog) = new_version_window.borrow().as_ref()
+        && ComponentHandle::window(dialog).is_visible()
     {
         dialog.hide().unwrap();
     }
@@ -185,28 +170,29 @@ fn handle_close_request(main_window_weak: &Weak<MainWindow>, presenter: &SharedP
     *response.lock().unwrap()
 }
 
-/// Runs `action` against the `Presenter` on a rayon worker thread.
-///
-/// Every UI-event handler funnels through here: `Presenter` methods must run off the Slint
-/// UI thread (they re-enter the UI via `invoke_from_event_loop`, which deadlocks if called from
-/// the UI thread — see `UiMethods::with_main_window_result`). Centralising clone → spawn → lock
-/// also keeps the lock policy in one place.
-fn spawn_presenter_action(
-    presenter: &SharedPresenter,
-    action: impl FnOnce(&mut Presenter) + Send + 'static,
-) {
-    let presenter = Arc::clone(presenter);
-    rayon::spawn(move || {
-        let mut guard = presenter.lock().unwrap();
-        action(&mut guard);
-    });
-}
-
 fn create_device_strategy(device_type: SlintDeviceType)
                         -> Box<dyn DeviceStrategy> {
     match device_type {
         SlintDeviceType::Input => InputStrategy::new().clone_box(),
         SlintDeviceType::Output => OutputStrategy::new().clone_box(),
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn set_macos_app_icon() {
+    let icon_data = include_bytes!("../ui/images/Midi port black on red 512.icns");
+    unsafe {
+        use objc::runtime::Object;
+        use objc::{class, msg_send, sel, sel_impl};
+        let data: *mut Object = msg_send![
+            class!(NSData),
+            dataWithBytes: icon_data.as_ptr() as *const std::ffi::c_void
+            length: icon_data.len()
+        ];
+        let image: *mut Object = msg_send![class!(NSImage), alloc];
+        let image: *mut Object = msg_send![image, initWithData: data];
+        let app: *mut Object = msg_send![class!(NSApplication), sharedApplication];
+        let _: () = msg_send![app, setApplicationIconImage: image];
     }
 }
 
@@ -237,21 +223,120 @@ fn set_pitch_tables_model(main_window: &MainWindow) {
     main_window.set_pitch_tables_model(slint::ModelRc::from(model));
 }
 
-#[cfg(target_os = "macos")]
-fn set_macos_app_icon() {
-    let icon_data = include_bytes!("../ui/images/Midi port black on red 512.icns");
-    unsafe {
-        use objc::runtime::Object;
-        use objc::{class, msg_send, sel, sel_impl};
-        let data: *mut Object = msg_send![
-            class!(NSData),
-            dataWithBytes: icon_data.as_ptr() as *const std::ffi::c_void
-            length: icon_data.len()
-        ];
-        let image: *mut Object = msg_send![class!(NSImage), alloc];
-        let image: *mut Object = msg_send![image, initWithData: data];
-        let app: *mut Object = msg_send![class!(NSApplication), sharedApplication];
-        let _: () = msg_send![app, setApplicationIconImage: image];
+/// Runs `action` against the `Presenter` on a rayon worker thread.
+///
+/// Every UI-event handler funnels through here: `Presenter` methods must run off the Slint
+/// UI thread (they re-enter the UI via `invoke_from_event_loop`, which deadlocks if called from
+/// the UI thread — see `UiMethods::with_main_window_result`). Centralising clone → spawn → lock
+/// also keeps the lock policy in one place.
+fn spawn_presenter_action(
+    presenter: &SharedPresenter,
+    action: impl FnOnce(&mut Presenter) + Send + 'static,
+) {
+    let presenter = Arc::clone(presenter);
+    rayon::spawn(move || {
+        let mut guard = presenter.lock().unwrap();
+        action(&mut guard);
+    });
+}
+
+fn show_about_window(about_window: Rc<RefCell<Option<AboutWindow>>>, main_window_weak: Weak<MainWindow>) {
+    let dialog = AboutWindow::new().unwrap();
+    dialog.set_window_title(format!("About {}", APP_TITLE).into());
+    dialog.set_app_title(APP_TITLE.into());
+    dialog.set_version(VERSION.into());
+    dialog.set_copyright(COPYRIGHT.into());
+    dialog.set_license(LICENSE.into());
+    dialog.set_project_link(PROJECT_LINK.into());
+    dialog.on_open_project_link(|| {
+        open::that(PROJECT_LINK).unwrap();
+    });
+    // Why is there a dialog.on_close_window before the dialog.show().unwrap()?
+    // The callback must be registered before show() to avoid a race condition:
+    // if the user somehow closed the window during or immediately after show() returned,
+    // the close handler needs to already be in place. More practically, it's just the
+    // conventional setup pattern — configure all properties and callbacks first,
+    // then show. In practice for a dialog like this it makes no functional difference,
+    // but registering handlers before showing is the safe, idiomatic order.
+    dialog.on_close_window({
+        let dialog_weak = dialog.as_weak();
+        move || { dialog_weak.unwrap().hide().unwrap(); }
+    });
+    show_dialog_in_centre_of_main_window(main_window_weak.clone(), &dialog);
+    *about_window.borrow_mut() = Some(dialog);
+}
+
+/// Shows the dialog in the centre of the main window.
+fn show_dialog_in_centre_of_main_window(
+    main_window_weak: Weak<MainWindow>, dialog: &impl CenteredDialog) {
+    // We have to show the dialog first before we can position it.
+    dialog.show().unwrap();
+    if let Some(main_window) = main_window_weak.upgrade() {
+        let mp = main_window.window().position();
+        let ms = main_window.window().size();
+        let scale = main_window.window().scale_factor();
+        let dw = (dialog.get_preferred_w() * scale) as i32;
+        let dh = (dialog.get_preferred_h() * scale) as i32;
+        let x = mp.x + (ms.width as i32 - dw) / 2;
+        let y = mp.y + (ms.height as i32 - dh) / 2;
+        dialog.window().set_position(WindowPosition::Physical(PhysicalPosition { x, y }));
+    }
+}
+
+fn show_new_version_window(new_version_window: Rc<RefCell<Option<NewVersionWindow>>>,
+                           main_window_weak: Weak<MainWindow>, new_version: &str) {
+    let dialog = NewVersionWindow::new().unwrap();
+    dialog.set_window_title("New Version Available".into());
+    dialog.set_message(format!("Version {} of {} is available.", new_version, APP_TITLE).into());
+    dialog.set_release_link(RELEASES_LINK.into());
+    dialog.on_open_release_link(|| {
+        open::that(RELEASES_LINK).unwrap();
+    });
+    dialog.on_ignore_this_version(|| {
+        // TODO: Persist version to ignore
+    });
+    dialog.on_close_window({
+        let dialog_weak = dialog.as_weak();
+        move || { dialog_weak.unwrap().hide().unwrap(); }
+    });
+    show_dialog_in_centre_of_main_window(main_window_weak.clone(), &dialog);
+    *new_version_window.borrow_mut() = Some(dialog);
+}
+
+trait CenteredDialog {
+    fn show(&self) -> Result<(), PlatformError>;
+    fn window(&self) -> &slint::Window;
+    fn get_preferred_w(&self) -> f32;
+    fn get_preferred_h(&self) -> f32;
+}
+
+impl CenteredDialog for AboutWindow {
+    fn show(&self) -> Result<(), PlatformError> {
+        ComponentHandle::show(self)
+    }
+    fn window(&self) -> &slint::Window {
+        ComponentHandle::window(self)
+    }
+    fn get_preferred_w(&self) -> f32 {
+        self.get_preferred_w()
+    }
+    fn get_preferred_h(&self) -> f32 {
+        self.get_preferred_h()
+    }
+}
+
+impl CenteredDialog for NewVersionWindow {
+    fn show(&self) -> Result<(), PlatformError> {
+        ComponentHandle::show(self)
+    }
+    fn window(&self) -> &slint::Window {
+        ComponentHandle::window(self)
+    }
+    fn get_preferred_w(&self) -> f32 {
+        self.get_preferred_w()
+    }
+    fn get_preferred_h(&self) -> f32 {
+        self.get_preferred_h()
     }
 }
 

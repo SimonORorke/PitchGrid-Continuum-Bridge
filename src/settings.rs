@@ -10,6 +10,7 @@ use log::trace;
 // Application settings, serialised to file.
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Settings {
+    ignore_version: String,
     main_window_x: i32,
     main_window_y: i32,
     midi_input_device: String,
@@ -27,6 +28,7 @@ pub struct Settings {
 impl Settings {
     pub fn new() -> Self {
         Self {
+            ignore_version: String::new(),
             main_window_x: 0,
             main_window_y: 0,
             midi_input_device: String::new(),
@@ -51,6 +53,10 @@ impl Settings {
 }
 
 impl ISettings for Settings {
+    fn ignore_version(&self) -> &str { &self.ignore_version }
+
+    fn set_ignore_version(&mut self, value: &str) { self.ignore_version = value.into() }
+
     fn main_window_x(&self) -> i32 {
         self.main_window_x
     }
@@ -151,6 +157,7 @@ impl ISettings for Settings {
                 return Ok(());
             }
         };
+        self.ignore_version = settings.ignore_version;
         self.main_window_x = settings.main_window_x;
         self.main_window_y = settings.main_window_y;
         self.midi_input_device = settings.midi_input_device;

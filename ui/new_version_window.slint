@@ -1,0 +1,81 @@
+﻿import { ButtonAction, FilledButton, MagicText, MagicWindow } from "@vivi/magic.slint";
+import { Palette, VerticalBox, } from "std-widgets.slint";
+import { Globals } from "globals.slint";
+import { Catppuccin, } from "styling.slint";
+
+export component NewVersionWindow inherits MagicWindow {
+    init => {
+        Palette.color-scheme = ColorScheme.dark;
+    }
+    background: Globals.window_background;
+    title: window_title;
+    preferred-width: 795px;
+    preferred-height: 335px;
+    icon: Globals.icon;
+
+    out property <length> preferred_w: root.preferred-width;
+    out property <length> preferred_h: root.preferred-height;
+
+    in property <string> window_title;
+    in property <string> message;
+    in property <string> release_link;
+
+    callback ignore_this_version();
+    callback open_release_link();
+    callback close_window();
+
+    close_scope := FocusScope {
+        key-pressed(event) => {
+            if (event.text == Key.Escape || event.text == Key.Return) {
+                root.close_window();
+                return EventResult.accept;
+            }
+            EventResult.reject
+        }
+
+        VerticalLayout {
+            padding: 20px;
+            spacing: 10px;
+
+            message_line := HorizontalLayout {
+                spacing: 10px;
+
+                message_box := VerticalBox {
+                    MagicText {
+                        text: root.message;
+                        font-size: 32px;
+                        horizontal_alignment: left;
+                    }
+                }
+            }
+
+            buttons_line := HorizontalLayout {
+                alignment: space-between;
+
+                open_release_button := FilledButton {
+                    text: "Open Release page";
+                    height: Globals.control_height;
+                    width: Globals.button_width;
+                    action: ButtonAction.primary;
+                    clicked => { root.open_release_link(); }
+                }
+
+                ignore_button := FilledButton {
+                    text: "Ignore this version";
+                    height: Globals.control_height;
+                    width: Globals.button_width;
+                    action: ButtonAction.destructive;
+                    clicked => { root.ignore_this_version(); }
+                }
+
+                FilledButton {
+                    text: "Close";
+                    height: Globals.control_height;
+                    width: Globals.button_width;
+                    action: ButtonAction.default;
+                    clicked => { root.close_window(); }
+                }
+            }
+        }
+    }
+}
