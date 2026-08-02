@@ -9,6 +9,7 @@ pub trait IReleaseInfo {
 
 pub struct ReleaseInfo {}
 
+// Info on an application release held on GitHub.
 #[derive(Deserialize)]
 struct GitHubRelease {
     tag_name: String,
@@ -20,6 +21,8 @@ impl ReleaseInfo {
         ReleaseInfo {}
     }
 
+    /// Returns the release name suffix from which the release's target platform may be determined.
+    /// Platforms to be supported: 64-bit Windows, macOS.
     fn current_platform_release_name_suffix() -> Option<&'static str> {
         if cfg!(all(target_os = "windows", target_pointer_width = "64")) {
             Some(" (64-bit Windows)")
@@ -41,8 +44,8 @@ impl ReleaseInfo {
 impl IReleaseInfo for ReleaseInfo {
     fn get_latest_version_for_platform(&self) -> Option<String> {
         let platform_suffix = Self::current_platform_release_name_suffix()?;
+        // Get the list of the application's releases, latest first, from GitHub.
         let releases_api_url = Self::github_releases_api_url()?;
-
         let response_body = ureq::get(&releases_api_url)
             .header("User-Agent", app_info::APP_TITLE)
             .call()
@@ -50,20 +53,19 @@ impl IReleaseInfo for ReleaseInfo {
             .body_mut()
             .read_to_string()
             .ok()?;
-
         let releases: Vec<GitHubRelease> = serde_json::from_str(&response_body).ok()?;
-
+        // Find the latest release for the current platform.
         for release in releases {
             let release_name = release.name.as_deref()?;
-
             if !release_name.ends_with(platform_suffix) {
                 continue;
             }
-
+            // The version string from which the returned `Version` is to be constructed
+            // is the release tag less the "v" prefix.
             let version = release.tag_name.strip_prefix('v')?;
             return Some(version.to_string());
         }
-
+        // No release for the current platform was found.
         None
     }
 }

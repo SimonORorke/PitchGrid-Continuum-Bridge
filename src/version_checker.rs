@@ -21,21 +21,18 @@ impl VersionChecker {
     /// `ignore_version`: If specified, versions less than or equal to this version will be ignored.
     pub fn check_for_new_version(&self, ignore_version: &str) -> Option<String> {
         let current_version = Version::from(VERSION)?;
-
         let release_info = self.release_info.lock().unwrap();
         let latest_version_string = release_info.get_latest_version_for_platform()?;
         let latest_version = Version::from(&latest_version_string)?;
-
         if latest_version <= current_version {
-            return None;
+            return None; // Current version is the latest.
         }
-
         if let Some(ignore_version) = Version::from(ignore_version) {
+            // A version to be ignored has been specified.
             if latest_version <= ignore_version {
-                return None;
+                return None; // Ignoring this version.
             }
         }
-
         Some(latest_version_string)
     }
 }
