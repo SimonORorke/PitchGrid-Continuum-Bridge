@@ -5,6 +5,8 @@ use crate::path_finder::PathFinder;
 ///
 /// For the `I` prefix, see `IUiMethods`s doc comment.
 pub trait ISettings: Send + Sync {
+    fn auto_check_new_versions(&self) -> bool;
+    fn set_auto_check_new_versions(&mut self, value: bool);
     fn ignore_version(&self) -> &str;
     fn set_ignore_version(&mut self, value: &str);
     fn main_window_x(&self) -> i32;

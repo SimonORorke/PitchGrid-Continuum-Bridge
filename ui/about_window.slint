@@ -6,7 +6,7 @@ import { Catppuccin, } from "styling.slint";
 export component AboutWindow inherits MagicWindow {
     init => {
         Palette.color-scheme = ColorScheme.dark;
-        close_scope.focus();
+        keyboard_shortcuts_scope.focus();
     }
     background: Globals.window_background;
     title: window_title;
@@ -34,8 +34,9 @@ export component AboutWindow inherits MagicWindow {
     callback open_project_link();
     callback close_window();
 
-    close_scope := FocusScope {
+    keyboard_shortcuts_scope := FocusScope {
         key-pressed(event) => {
+            // Close window keyboard shortcuts
             if (event.text == Key.Escape || event.text == Key.Return) {
                 root.close_window();
                 return EventResult.accept;

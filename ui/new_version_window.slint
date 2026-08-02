@@ -1,4 +1,4 @@
-﻿import { ButtonAction, FilledButton, MagicText, MagicWindow } from "@vivi/magic.slint";
+﻿import { ButtonAction, FilledButton, MagicText, MagicWindow, Switch } from "@vivi/magic.slint";
 import { Palette, VerticalBox, } from "std-widgets.slint";
 import { Globals } from "globals.slint";
 import { Catppuccin, } from "styling.slint";
@@ -6,27 +6,31 @@ import { Catppuccin, } from "styling.slint";
 export component NewVersionWindow inherits MagicWindow {
     init => {
         Palette.color-scheme = ColorScheme.dark;
+        keyboard_shortcuts_scope.focus();
     }
     background: Globals.window_background;
     title: window_title;
-    preferred-width: 795px;
-    preferred-height: 335px;
+    preferred-width: 480px;
+    preferred-height: 255px;
     icon: Globals.icon;
+
+    in property <bool> auto_check_new_versions;
+    in property <string> message;
+    in property <string> releases_link;
+    in property <string> window_title;
 
     out property <length> preferred_w: root.preferred-width;
     out property <length> preferred_h: root.preferred-height;
 
-    in property <string> window_title;
-    in property <string> message;
-    in property <string> release_link;
-
-    callback ignore_this_version();
-    callback open_release_link();
+    callback auto_check_new_versions_changed(value: bool);
+    callback ignore_this_version(value: bool);
+    callback open_releases_link();
     callback close_window();
 
-    close_scope := FocusScope {
+    keyboard_shortcuts_scope := FocusScope {
         key-pressed(event) => {
-            if (event.text == Key.Escape || event.text == Key.Return) {
+            // Close window keyboard shortcuts
+            if (event.text == Key.Escape) { // Return key is used by other controls
                 root.close_window();
                 return EventResult.accept;
             }
@@ -34,41 +38,58 @@ export component NewVersionWindow inherits MagicWindow {
         }
 
         VerticalLayout {
-            padding: 20px;
+            alignment: start; // Stops spreading out when window lenghthened.
+            padding: 10px;
             spacing: 10px;
 
             message_line := HorizontalLayout {
-                spacing: 10px;
-
                 message_box := VerticalBox {
                     MagicText {
                         text: root.message;
-                        font-size: 32px;
                         horizontal_alignment: left;
                     }
                 }
             }
 
-            buttons_line := HorizontalLayout {
+            button_line_1 := HorizontalLayout {
                 alignment: space-between;
-
                 open_release_button := FilledButton {
-                    text: "Open Release page";
+                    text: "Open Releases Page";
                     height: Globals.control_height;
-                    width: Globals.button_width;
+                    width: 190px;
                     action: ButtonAction.primary;
-                    clicked => { root.open_release_link(); }
+                    clicked => { root.open_releases_link(); }
                 }
+            }
 
-                ignore_button := FilledButton {
-                    text: "Ignore this version";
+            option_line1 := HorizontalLayout {
+                padding-top: 10px;
+                auto_check_new_versions_switch := Switch {
+                    text: "Automatically check for new versions";
+                    checked: root.auto_check_new_versions;
+                    toggled => {
+                        root.auto_check_new_versions_changed(self.checked);
+                    }
                     height: Globals.control_height;
-                    width: Globals.button_width;
-                    action: ButtonAction.destructive;
-                    clicked => { root.ignore_this_version(); }
                 }
+            }
 
-                FilledButton {
+            option_line2 := HorizontalLayout {
+                padding-top: 10px;
+                ignore_version_switch := Switch {
+                    text: "Ignore This Version";
+                    checked: false;
+                    toggled => {
+                        root.ignore_this_version(self.checked);
+                    }
+                    height: Globals.control_height;
+                }
+            }
+
+            buttons_line_2 := HorizontalLayout {
+                alignment: space-between;
+                padding-top: 10px;
+                close_button := FilledButton {
                     text: "Close";
                     height: Globals.control_height;
                     width: Globals.button_width;

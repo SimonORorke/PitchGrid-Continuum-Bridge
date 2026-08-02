@@ -73,10 +73,10 @@ impl IUiMethods for UiMethods {
         index
     }
 
-    fn open_new_version_dialog(&self, new_version: &str) {
+    fn open_new_version_dialog(&self, new_version: &str, auto_check_new_versions: bool) {
         let new_version = new_version.to_string();
         self.with_main_window(move |main_window| {
-            main_window.invoke_open_new_version_dialog(new_version.into());
+            main_window.invoke_open_new_version_dialog(new_version.into(), auto_check_new_versions);
         });
     }
 

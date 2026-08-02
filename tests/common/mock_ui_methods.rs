@@ -20,6 +20,7 @@ pub struct MockUiMethods {
 
     pub open_new_version_dialog_count: u16,
     pub open_new_version_dialog_new_version: Option<String>,
+    pub open_new_version_dialog_auto_check_new_versions: bool,
 
     pub set_selected_device_index_count: u16,
     pub selected_device_index: Option<usize>,
@@ -68,7 +69,8 @@ impl MockUiMethods {
 
             open_new_version_dialog_count: 0,
             open_new_version_dialog_new_version: None,
-
+            open_new_version_dialog_auto_check_new_versions: false,
+            
             set_selected_device_index_count: 0,
             selected_device_index: None,
             set_selected_device_index_device_strategy: None,
@@ -130,10 +132,11 @@ impl IUiMethods for MockUiMethods {
         state.selected_device_index.unwrap_or(0)
     }
 
-    fn open_new_version_dialog(&self, new_version: &str) {
+    fn open_new_version_dialog(&self, new_version: &str, auto_check_new_versions: bool) {
         let mut state = MOCK_UI_METHODS.lock().unwrap_or_else(|e| e.into_inner());
         state.open_new_version_dialog_count += 1;
         state.open_new_version_dialog_new_version = Some(new_version.to_string());
+        state.open_new_version_dialog_auto_check_new_versions = Some(auto_check_new_versions);
     }
 
     fn set_selected_device_index(&self, index: usize, device_strategy: &dyn DeviceStrategy) {

@@ -10,6 +10,7 @@ use log::trace;
 // Application settings, serialised to file.
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Settings {
+    auto_check_new_versions: bool,
     ignore_version: String,
     main_window_x: i32,
     main_window_y: i32,
@@ -28,6 +29,7 @@ pub struct Settings {
 impl Settings {
     pub fn new() -> Self {
         Self {
+            auto_check_new_versions: true,
             ignore_version: String::new(),
             main_window_x: 0,
             main_window_y: 0,
@@ -53,6 +55,12 @@ impl Settings {
 }
 
 impl ISettings for Settings {
+    fn auto_check_new_versions(&self) -> bool { self.auto_check_new_versions }
+
+    fn set_auto_check_new_versions(&mut self, value: bool) {
+        self.auto_check_new_versions = value;
+    }
+
     fn ignore_version(&self) -> &str { &self.ignore_version }
 
     fn set_ignore_version(&mut self, value: &str) { self.ignore_version = value.into() }

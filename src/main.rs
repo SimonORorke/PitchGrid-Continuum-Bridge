@@ -66,9 +66,10 @@ fn init_ui_handlers(main_window: &MainWindow, presenter: SharedPresenter) {
     {
         let new_version_window = Rc::clone(&new_version_window);
         let main_window_weak = main_window.as_weak();
-        main_window.on_show_new_version_window(move |new_version: SharedString| {
+        main_window.on_show_new_version_window(
+            move |new_version: SharedString, auto_check_new_versions: bool| {
             show_new_version_window(new_version_window.clone(), main_window_weak.clone(),
-                                    &new_version);
+                                    &new_version, auto_check_new_versions);
         });
     }
     {
@@ -284,15 +285,17 @@ fn show_dialog_in_centre_of_main_window(
 }
 
 fn show_new_version_window(new_version_window: Rc<RefCell<Option<NewVersionWindow>>>,
-                           main_window_weak: Weak<MainWindow>, new_version: &str) {
+                           main_window_weak: Weak<MainWindow>, new_version: &str,
+                           auto_check_new_versions: bool) {
     let dialog = NewVersionWindow::new().unwrap();
-    dialog.set_window_title("New Version Available".into());
+    dialog.set_window_title(format!("{} - New Version Available", APP_TITLE).into());
+    dialog.set_auto_check_new_versions(auto_check_new_versions);
     dialog.set_message(format!("Version {} of {} is available.", new_version, APP_TITLE).into());
-    dialog.set_release_link(RELEASES_LINK.into());
-    dialog.on_open_release_link(|| {
+    dialog.set_releases_link(RELEASES_LINK.into());
+    dialog.on_open_releases_link(|| {
         open::that(RELEASES_LINK).unwrap();
     });
-    dialog.on_ignore_this_version(|| {
+    dialog.on_ignore_this_version(|value: bool| {
         // TODO: Persist version to ignore
     });
     dialog.on_close_window({

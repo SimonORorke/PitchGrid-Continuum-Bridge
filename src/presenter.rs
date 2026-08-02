@@ -138,6 +138,7 @@ impl Presenter {
         // Register this Presenter as the protocol's semantic listener (Weak, to avoid a cycle).
         let listener: Arc<dyn ContinuumProtocolListener> = self_arc.clone();
         self.continuum_protocol.set_listener(Arc::downgrade(&listener));
+        let auto_check_new_versions: bool;
         let ignore_version: String;
         let main_window_x: i32;
         let main_window_y: i32;
@@ -152,6 +153,7 @@ impl Presenter {
         trace!("init: Reading settings");
         match self.settings.read_from_file() {
             Ok(_) => {
+                auto_check_new_versions = self.settings.auto_check_new_versions();
                 ignore_version = self.settings.ignore_version().to_string();
                 main_window_x = self.settings.main_window_x();
                 main_window_y = self.settings.main_window_y();
@@ -185,7 +187,7 @@ impl Presenter {
         trace!("init: Checking for new version");
         let version_checker = VersionChecker::new(self.release_info.clone());
         if let Some(new_version) = version_checker.check_for_new_version(&ignore_version) {
-            self.presentation.open_new_version_dialog(&new_version);
+            self.presentation.open_new_version_dialog(&new_version, auto_check_new_versions);
         }
         trace!("init: Getting midi");
         let mut midi = self.midi_manager.lock().unwrap();

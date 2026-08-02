@@ -10,7 +10,9 @@ pub fn mock_settings() -> MutexGuard<'static, MockSettings> {
 pub static MOCK_SETTINGS: LazyLock<Mutex<MockSettings>> =
     LazyLock::new(|| Mutex::new(MockSettings::new_state()));
 
+#[derive()]
 pub struct MockSettings {
+    pub auto_check_new_versions: bool,
     pub ignore_version: String,
     pub main_window_x: i32,
     pub main_window_y: i32,
@@ -30,6 +32,7 @@ pub struct MockSettings {
 impl MockSettings {
     fn new_state() -> Self {
         MockSettings {
+            auto_check_new_versions: true,
             ignore_version: String::new(),
             main_window_x: 0,
             main_window_y: 0,
@@ -63,8 +66,19 @@ impl MockSettings {
 }
 
 impl ISettings for MockSettings {
+    fn auto_check_new_versions(&self) -> bool {
+        MOCK_SETTINGS.lock().unwrap_or_else(
+            |e| e.into_inner()).auto_check_new_versions
+    }
+
+    fn set_auto_check_new_versions(&mut self, value: bool) {
+        MOCK_SETTINGS.lock().unwrap_or_else(
+            |e| e.into_inner()).auto_check_new_versions = value;
+    }
+
     fn ignore_version(&self) -> &str {
-        Box::leak(MOCK_SETTINGS.lock().unwrap_or_else(|e| e.into_inner())
+        Box::leak(MOCK_SETTINGS.lock().unwrap_or_else(
+            |e| e.into_inner())
             .ignore_version.clone().into_boxed_str())
     }
 
