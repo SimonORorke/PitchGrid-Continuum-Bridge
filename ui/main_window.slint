@@ -67,15 +67,10 @@ export component MainWindow inherits MagicWindow {
     callback override_rounding_rate_changed(override_rounding_rate: bool);
     callback open_documentation();
     callback show_about_window();
-//    callback show_new_version_window(new_version: string, auto_check_new_versions: bool);
     callback rounding_rate_changed(rounding_rate: int);
     callback selected_root_note_changed(index: int);
     callback selected_osc_listening_port_changed(index: int);
     callback selected_pitch_table_changed(index: int);
-
-//    public function open_new_version_dialog(new_version: string, auto_check_new_versions: bool) {
-//        root.show_new_version_window(new_version, auto_check_new_versions);
-//    }
 
     public function show_message(message: string, message_type: SlintMessageType) {
         message_text.text = message;

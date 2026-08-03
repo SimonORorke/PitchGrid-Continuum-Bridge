@@ -30,12 +30,28 @@ impl UiMethods {
         // We have to show the dialog first before we can position it.
         dialog.show().unwrap();
         if let Some(main_window) = self.main_window_weak.upgrade() {
-            let position = main_window.window().position();
-            let size = main_window.window().size();
-            let dialog_width = dialog.get_preferred_width() as i32;
-            let dialog_height = dialog.get_preferred_height() as i32;
-            let x = position.x + (size.width as i32 - dialog_width) / 2;
-            let y = position.y + (size.height as i32 - dialog_height) / 2;
+            let scale_factor = main_window.window().scale_factor();
+
+            // Explicitly set the window size to the preferred dimensions if required
+            if dialog.should_force_size() {
+                let dw = (dialog.get_preferred_width() * scale_factor) as u32;
+                let dh = (dialog.get_preferred_height() * scale_factor) as u32;
+                dialog.window().set_size(slint::PhysicalSize::new(dw, dh));
+            }
+
+            // Calculate dimensions for centering
+            let dw_phys = (dialog.get_preferred_width() * scale_factor) as i32;
+            let dh_phys = (dialog.get_preferred_height() * scale_factor) as i32;
+            let ms = main_window.window().size(); // Physical
+            let mp = main_window.window().position();
+
+            // Parent dimensions are already physical
+            let pw_phys = ms.width as i32;
+            let ph_phys = ms.height as i32;
+
+            let x = mp.x + (pw_phys - dw_phys) / 2;
+            let y = mp.y + (ph_phys - dh_phys) / 2;
+
             dialog.window().set_position(WindowPosition::Physical(PhysicalPosition { x, y }));
         }
     }
@@ -162,23 +178,30 @@ impl IUiMethods for UiMethods {
         });
     }
 
+
     fn show_new_version_window(&self, new_version: &str, auto_check_new_versions: bool) {
         let new_version_string = new_version.to_string();
         let new_version_window_weak = self.new_version_window_weak.clone();
         let self_clone = self.clone();
         self.with_ui_thread(move || {
-            if let Some(new_version_window) = new_version_window_weak.upgrade() {
-                new_version_window.set_auto_check_new_versions(auto_check_new_versions);
-                new_version_window.set_message(
-                    format!("Version {} of {} is available.", new_version_string, APP_TITLE).into());
-                new_version_window.on_auto_check_new_versions_changed(|_value: bool| {
-                    // TODO: Persist auto_check_new_versions
-                });
-                new_version_window.on_ignore_this_version(|_value: bool| {
-                    // TODO: Persist ignore_this_version
-                });
-                self_clone.show_dialog_in_centre_of_main_window(&new_version_window);
-            }
+            let dialog_borrow = new_version_window_weak.upgrade().unwrap();
+            
+            // Re-setup callbacks each time as the window might be reused
+            dialog_borrow.set_auto_check_new_versions(auto_check_new_versions);
+            dialog_borrow.set_message(
+                format!("Version {} of {} is available.", new_version_string, APP_TITLE).into());
+            dialog_borrow.on_auto_check_new_versions_changed(|_value: bool| {
+                // TODO: Persist auto_check_new_versions
+            });
+            dialog_borrow.on_ignore_this_version(|_value: bool| {
+                // TODO: Persist ignore_this_version
+            });
+            dialog_borrow.on_close_window({
+                let dialog_weak = dialog_borrow.as_weak();
+                move || { dialog_weak.unwrap().hide().unwrap(); }
+            });
+
+            self_clone.show_dialog_in_centre_of_main_window(&dialog_borrow);
         });
     }
 

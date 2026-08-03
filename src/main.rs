@@ -37,7 +37,7 @@ fn main() {
     let ui_methods =
         Arc::new(UiMethods::new(main_window.as_weak(), new_version_window.as_weak()));
     let presenter: SharedPresenter = Arc::new(Mutex::new(Presenter::new(ui_methods.clone())));
-    init_ui_handlers(&main_window, new_version_window.as_weak(), presenter.clone(), ui_methods.clone());
+    init_ui_handlers(&main_window, &new_version_window, presenter.clone(), ui_methods.clone());
     set_root_notes_model(&main_window);
     set_osc_listening_ports_model(&main_window);
     set_pitch_tables_model(&main_window);
@@ -50,7 +50,7 @@ fn main() {
     main_window.run().unwrap();
 }
 
-fn init_ui_handlers(main_window: &MainWindow, new_version_window_weak: slint::Weak<NewVersionWindow>,
+fn init_ui_handlers(main_window: &MainWindow, new_version_window: &NewVersionWindow,
                     presenter: SharedPresenter, ui_methods: Arc<UiMethods>) {
     main_window.on_open_documentation(move || {
         open::that(DOCUMENTATION_LINK).unwrap();
@@ -63,23 +63,14 @@ fn init_ui_handlers(main_window: &MainWindow, new_version_window_weak: slint::We
             show_about_window(about_window.clone(), ui_methods_clone.clone());
         });
     }
-    // let new_version_window: Rc<RefCell<Option<NewVersionWindow>>> = Rc::new(RefCell::new(None));
-    // {
-    //     let new_version_window = Rc::clone(&new_version_window);
-    //     let main_window_weak = main_window.as_weak();
-    //     main_window.on_show_new_version_window(
-    //         move |new_version: SharedString, auto_check_new_versions: bool| {
-    //         show_new_version_window(new_version_window.clone(), main_window_weak.clone(),
-    //                                 &new_version, auto_check_new_versions);
-    //     });
-    // }
     {
         let presenter: SharedPresenter = Arc::clone(&presenter);
         let main_window_weak = main_window.as_weak();
         let about_window = Rc::clone(&about_window);
-        //let new_version_window = Rc::clone(&new_version_window);
+        let new_version_window_weak = new_version_window.as_weak();
         main_window.window().on_close_requested(move || {
-            handle_close_request(&main_window_weak, &presenter, &about_window, new_version_window_weak.clone())
+            handle_close_request(&main_window_weak, &presenter, &about_window,
+                                 new_version_window_weak.clone())
         });
     }
     // All Presenter methods must be called from non-UI threads to avoid deadlock.
@@ -138,7 +129,7 @@ fn init_ui_handlers(main_window: &MainWindow, new_version_window_weak: slint::We
 
 fn handle_close_request(main_window_weak: &Weak<MainWindow>, presenter: &SharedPresenter,
                         about_window: &Rc<RefCell<Option<AboutWindow>>>,
-                        new_version_window_weak: slint::Weak<NewVersionWindow>) -> CloseRequestResponse {
+                        new_version_window_weak: Weak<NewVersionWindow>) -> CloseRequestResponse {
     trace!("main.handle_close_request");
     if let Some(dialog) = about_window.borrow().as_ref()
         && ComponentHandle::window(dialog).is_visible() {
@@ -149,11 +140,6 @@ fn handle_close_request(main_window_weak: &Weak<MainWindow>, presenter: &SharedP
             new_version_window.hide().unwrap();
         }
     }
-    // if let Some(dialog) = new_version_window.borrow().as_ref()
-    //     && ComponentHandle::window(dialog).is_visible()
-    // {
-    //     dialog.hide().unwrap();
-    // }
     let response =
         Arc::new(Mutex::new(CloseRequestResponse::HideWindow));
     if IS_CLOSE_ERROR_SHOWN.load(Ordering::Relaxed) {
@@ -285,44 +271,5 @@ fn show_about_window(about_window: Rc<RefCell<Option<AboutWindow>>>, ui_methods:
     ui_methods.show_dialog_in_centre_of_main_window(&dialog);
     *about_window.borrow_mut() = Some(dialog);
 }
-
-// /// Shows the dialog in the centre of the main window.
-// fn show_dialog_in_centre_of_main_window(
-//     main_window_weak: Weak<MainWindow>, dialog: &impl CenteredDialog) {
-//     // We have to show the dialog first before we can position it.
-//     dialog.show().unwrap();
-//     if let Some(main_window) = main_window_weak.upgrade() {
-//         let mp = main_window.window().position();
-//         let ms = main_window.window().size();
-//         let scale = main_window.window().scale_factor();
-//         let dw = (dialog.get_preferred_w() * scale) as i32;
-//         let dh = (dialog.get_preferred_h() * scale) as i32;
-//         let x = mp.x + (ms.width as i32 - dw) / 2;
-//         let y = mp.y + (ms.height as i32 - dh) / 2;
-//         dialog.window().set_position(WindowPosition::Physical(PhysicalPosition { x, y }));
-//     }
-// }
-
-// fn show_new_version_window(new_version_window: Rc<RefCell<Option<NewVersionWindow>>>,
-//                            main_window_weak: Weak<MainWindow>, new_version: &str,
-//                            auto_check_new_versions: bool) {
-//     let dialog = NewVersionWindow::new().unwrap();
-//     dialog.set_window_title(format!("{} - New Version Available", APP_TITLE).into());
-//     dialog.set_auto_check_new_versions(auto_check_new_versions);
-//     dialog.set_message(format!("Version {} of {} is available.", new_version, APP_TITLE).into());
-//     dialog.set_releases_link(RELEASES_LINK.into());
-//     dialog.on_open_releases_link(|| {
-//         open::that(RELEASES_LINK).unwrap();
-//     });
-//     dialog.on_ignore_this_version(|value: bool| {
-//         // TODO: Persist version to ignore
-//     });
-//     dialog.on_close_window({
-//         let dialog_weak = dialog.as_weak();
-//         move || { dialog_weak.unwrap().hide().unwrap(); }
-//     });
-//     show_dialog_in_centre_of_main_window(main_window_weak.clone(), &dialog);
-//     *new_version_window.borrow_mut() = Some(dialog);
-// }
 
 static IS_CLOSE_ERROR_SHOWN: AtomicBool = AtomicBool::new(false);

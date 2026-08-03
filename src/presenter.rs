@@ -42,7 +42,7 @@ use crate::version_checker::VersionChecker;
 /// `DeviceStrategy` contains both view and presenter methods: that seems acceptable, as it is an
 /// implementation of the strategy pattern.
 ///
-/// The Slint UI, main.rs and `UiMethods` are the remainder of the view.
+/// The Slint UI, main.rs, `CenteredDialog` and `UiMethods` are the remainder of the view.
 ///
 /// Everything else is the model.
 pub struct Presenter {
@@ -188,7 +188,6 @@ impl Presenter {
         let version_checker = VersionChecker::new(self.release_info.clone());
         if let Some(new_version) = version_checker.check_for_new_version(&ignore_version) {
             self.presentation.show_new_version_window(&new_version, auto_check_new_versions);
-            // self.presentation.open_new_version_dialog(&new_version, auto_check_new_versions);
         }
         trace!("init: Getting midi");
         let mut midi = self.midi_manager.lock().unwrap();

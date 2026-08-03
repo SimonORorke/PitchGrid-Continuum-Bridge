@@ -7,6 +7,7 @@ pub trait CenteredDialog {
     fn window(&self) -> &slint::Window;
     fn get_preferred_width(&self) -> f32;
     fn get_preferred_height(&self) -> f32;
+    fn should_force_size(&self) -> bool;
 }
 
 impl CenteredDialog for AboutWindow {
@@ -22,6 +23,9 @@ impl CenteredDialog for AboutWindow {
     fn get_preferred_height(&self) -> f32 {
         self.get_preferred_h()
     }
+    fn should_force_size(&self) -> bool {
+        false
+    }
 }
 
 impl CenteredDialog for NewVersionWindow {
@@ -36,5 +40,8 @@ impl CenteredDialog for NewVersionWindow {
     }
     fn get_preferred_height(&self) -> f32 {
         self.get_preferred_h()
+    }
+    fn should_force_size(&self) -> bool {
+        true
     }
 }

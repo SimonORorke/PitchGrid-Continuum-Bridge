@@ -88,9 +88,6 @@ impl Presentation {
         self.ui_methods.show_connected_device_name(device_name, MessageType::Info, device_strategy);
     }
 
-    // pub(crate) fn open_new_version_dialog(&self, new_version: &str, auto_check_new_versions: bool) {
-    //     self.ui_methods.open_new_version_dialog(new_version, auto_check_new_versions);
-    // }
 
     pub(crate) fn no_device_connected(&self, device_strategy: &dyn DeviceStrategy) {
         self.ui_methods.show_connected_device_name(
