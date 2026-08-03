@@ -32,9 +32,8 @@ impl UiMethods {
         if let Some(main_window) = self.main_window_weak.upgrade() {
             let position = main_window.window().position();
             let size = main_window.window().size();
-            let scale_factor = main_window.window().scale_factor();
-            let dialog_width = (dialog.get_preferred_width() * scale_factor) as i32;
-            let dialog_height = (dialog.get_preferred_height() * scale_factor) as i32;
+            let dialog_width = dialog.get_preferred_width() as i32;
+            let dialog_height = dialog.get_preferred_height() as i32;
             let x = position.x + (size.width as i32 - dialog_width) / 2;
             let y = position.y + (size.height as i32 - dialog_height) / 2;
             dialog.window().set_position(WindowPosition::Physical(PhysicalPosition { x, y }));
