@@ -1,23 +1,46 @@
 ﻿use std::rc::Rc;
-use slint::{ComponentHandle, Weak};
-use crate::{MainWindow, ComboBoxItem, SlintMessageType, ComboBoxModel as MainComboBoxModel};
+use log::trace;
+use slint::{ComponentHandle, PhysicalPosition, Weak, WindowPosition};
+use app_info::{APP_TITLE,};
+use crate::{ComboBoxItem, ComboBoxModel as MainComboBoxModel, MainWindow, NewVersionWindow,
+            SlintMessageType};
+use crate::centered_dialog::CenteredDialog;
+use crate::device_strategy::DeviceStrategy;
 use crate::global::{MessageType, DeviceType};
 use crate::i_ui_methods::IUiMethods;
-use crate::device_strategy::DeviceStrategy;
 use crate::tuning_params::FormattedTuningParams;
-use log::trace;
 
 /// This struct contains the methods called by `Presenter` to make changes to the UI.
 /// It is part of the view in the Model-View-Presenter (MVP) pattern.
 /// See `Presenter`'s doc comment for more information on how the project implements MVP.
+#[derive(Clone)]
 pub struct UiMethods {
     main_window_weak: Weak<MainWindow>,
+    new_version_window_weak: slint::Weak<NewVersionWindow>,
 }
 
 impl UiMethods {
-    pub fn new(main_window_weak: Weak<MainWindow>) -> Self {
-        Self { main_window_weak }
+    pub fn new(main_window_weak: Weak<MainWindow>,
+               new_version_window_weak: slint::Weak<NewVersionWindow>) -> Self {
+        Self { main_window_weak, new_version_window_weak }
     }
+
+    /// Shows the dialog in the centre of the main window.
+    pub fn show_dialog_in_centre_of_main_window(&self, dialog: &impl CenteredDialog) {
+        // We have to show the dialog first before we can position it.
+        dialog.show().unwrap();
+        if let Some(main_window) = self.main_window_weak.upgrade() {
+            let position = main_window.window().position();
+            let size = main_window.window().size();
+            let scale_factor = main_window.window().scale_factor();
+            let dialog_width = (dialog.get_preferred_width() * scale_factor) as i32;
+            let dialog_height = (dialog.get_preferred_height() * scale_factor) as i32;
+            let x = position.x + (size.width as i32 - dialog_width) / 2;
+            let y = position.y + (size.height as i32 - dialog_height) / 2;
+            dialog.window().set_position(WindowPosition::Physical(PhysicalPosition { x, y }));
+        }
+    }
+
 
     /// Provide the specified closure with a MainWindow instance without returning a result.
     /// This method supports invocation from both the UI event loop and non-UI threads.
@@ -53,6 +76,14 @@ impl UiMethods {
         }).unwrap();
         rx.recv().unwrap_or_default()
     }
+
+    /// Provide the specified closure for execution on the UI thread.
+    fn with_ui_thread<F>(&self, f: F)
+    where
+        F: FnOnce() + Send + 'static,
+    {
+        slint::invoke_from_event_loop(f).unwrap();
+    }
 }
 
 impl IUiMethods for UiMethods {
@@ -71,13 +102,6 @@ impl IUiMethods for UiMethods {
         });
         trace!("get_selected_device_index: returning selected device index {}", index);
         index
-    }
-
-    fn open_new_version_dialog(&self, new_version: &str, auto_check_new_versions: bool) {
-        let new_version = new_version.to_string();
-        self.with_main_window(move |main_window| {
-            main_window.invoke_open_new_version_dialog(new_version.into(), auto_check_new_versions);
-        });
     }
 
     fn set_selected_device_index(&self, index: usize, device_strategy: &dyn DeviceStrategy) {
@@ -136,6 +160,26 @@ impl IUiMethods for UiMethods {
         let message = message.to_string();
         self.with_main_window(move |main_window| {
             main_window.invoke_show_message(message.into(), slint_message_type(message_type));
+        });
+    }
+
+    fn show_new_version_window(&self, new_version: &str, auto_check_new_versions: bool) {
+        let new_version_string = new_version.to_string();
+        let new_version_window_weak = self.new_version_window_weak.clone();
+        let self_clone = self.clone();
+        self.with_ui_thread(move || {
+            if let Some(new_version_window) = new_version_window_weak.upgrade() {
+                new_version_window.set_auto_check_new_versions(auto_check_new_versions);
+                new_version_window.set_message(
+                    format!("Version {} of {} is available.", new_version_string, APP_TITLE).into());
+                new_version_window.on_auto_check_new_versions_changed(|_value: bool| {
+                    // TODO: Persist auto_check_new_versions
+                });
+                new_version_window.on_ignore_this_version(|_value: bool| {
+                    // TODO: Persist ignore_this_version
+                });
+                self_clone.show_dialog_in_centre_of_main_window(&new_version_window);
+            }
         });
     }
 

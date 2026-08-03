@@ -32,12 +32,13 @@ use crate::tuning_params::FormattedTuningParams;
 pub trait IUiMethods: Send + Sync {
     fn focus_device(&self, device_strategy: &dyn DeviceStrategy);
     fn get_selected_device_index(&self, device_strategy: &dyn DeviceStrategy) -> usize;
-    fn open_new_version_dialog(&self, new_version: &str, auto_check_new_versions: bool);
+    // fn open_new_version_dialog(&self, new_version: &str, auto_check_new_versions: bool);
     fn set_selected_device_index(&self, index: usize, device_strategy: &dyn DeviceStrategy);
     fn set_devices_model(&self, device_names: &[String], device_strategy: &dyn DeviceStrategy);
     fn show_connected_device_name(&self, name: &str, msg_type: MessageType,
                                   device_strategy: &dyn DeviceStrategy);
     fn show_message(&self, msg: &str, msg_type: MessageType);
+    fn show_new_version_window(&self, new_version: &str, auto_check_new_versions: bool);
     fn show_pitchgrid_status(&self, status: &str, msg_type: MessageType);
     fn show_tuning(&self, tuning: FormattedTuningParams, is_root_freq_overridden: bool);
     fn set_main_window_position(&self, x: i32, y: i32);

@@ -75,22 +75,22 @@ impl Presentation {
         self.ui_methods.set_rounding_rate(rate);
     }
 
-    // --- Tuning table display ---
+    pub(crate) fn show_new_version_window(&self, new_version: &str, auto_check_new_versions: bool) {
+        self.ui_methods.show_new_version_window(new_version, auto_check_new_versions);
+    }
 
     pub(crate) fn show_tuning(&self, tuning: FormattedTuningParams, is_root_freq_overridden: bool) {
         self.ui_methods.show_tuning(tuning, is_root_freq_overridden);
     }
-
-    // --- Connected-device name (Info for a real device, Warning for none) ---
 
     pub(crate) fn connected_device(&self, device_name: &str,
                                    device_strategy: &dyn DeviceStrategy) {
         self.ui_methods.show_connected_device_name(device_name, MessageType::Info, device_strategy);
     }
 
-    pub(crate) fn open_new_version_dialog(&self, new_version: &str, auto_check_new_versions: bool) {
-        self.ui_methods.open_new_version_dialog(new_version, auto_check_new_versions);
-    }
+    // pub(crate) fn open_new_version_dialog(&self, new_version: &str, auto_check_new_versions: bool) {
+    //     self.ui_methods.open_new_version_dialog(new_version, auto_check_new_versions);
+    // }
 
     pub(crate) fn no_device_connected(&self, device_strategy: &dyn DeviceStrategy) {
         self.ui_methods.show_connected_device_name(

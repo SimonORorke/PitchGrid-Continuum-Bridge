@@ -187,7 +187,8 @@ impl Presenter {
         trace!("init: Checking for new version");
         let version_checker = VersionChecker::new(self.release_info.clone());
         if let Some(new_version) = version_checker.check_for_new_version(&ignore_version) {
-            self.presentation.open_new_version_dialog(&new_version, auto_check_new_versions);
+            self.presentation.show_new_version_window(&new_version, auto_check_new_versions);
+            // self.presentation.open_new_version_dialog(&new_version, auto_check_new_versions);
         }
         trace!("init: Getting midi");
         let mut midi = self.midi_manager.lock().unwrap();

@@ -18,10 +18,6 @@ pub struct MockUiMethods {
     pub get_selected_device_index_count: u16,
     pub get_selected_device_index_device_strategy: Option<Box<dyn DeviceStrategy>>,
 
-    pub open_new_version_dialog_count: u16,
-    pub open_new_version_dialog_new_version: Option<String>,
-    pub open_new_version_dialog_auto_check_new_versions: bool,
-
     pub set_selected_device_index_count: u16,
     pub selected_device_index: Option<usize>,
     pub set_selected_device_index_device_strategy: Option<Box<dyn DeviceStrategy>>,
@@ -38,6 +34,10 @@ pub struct MockUiMethods {
     pub show_message_count: u16,
     pub show_message_msg: Option<String>,
     pub show_message_msg_type: Option<MessageType>,
+
+    pub show_new_version_window_count: u16,
+    pub show_new_version_window_new_version: Option<String>,
+    pub show_new_version_window_auto_check_new_versions: bool,
 
     pub show_pitchgrid_status_count: u16,
     pub show_pitchgrid_status_msg: Option<String>,
@@ -67,10 +67,6 @@ impl MockUiMethods {
             get_selected_device_index_count: 0,
             get_selected_device_index_device_strategy: None,
 
-            open_new_version_dialog_count: 0,
-            open_new_version_dialog_new_version: None,
-            open_new_version_dialog_auto_check_new_versions: false,
-            
             set_selected_device_index_count: 0,
             selected_device_index: None,
             set_selected_device_index_device_strategy: None,
@@ -87,6 +83,10 @@ impl MockUiMethods {
             show_message_count: 0,
             show_message_msg: None,
             show_message_msg_type: None,
+
+            show_new_version_window_count: 0,
+            show_new_version_window_new_version: None,
+            show_new_version_window_auto_check_new_versions: false,
 
             show_pitchgrid_status_count: 0,
             show_pitchgrid_status_msg: None,
@@ -132,13 +132,6 @@ impl IUiMethods for MockUiMethods {
         state.selected_device_index.unwrap_or(0)
     }
 
-    fn open_new_version_dialog(&self, new_version: &str, auto_check_new_versions: bool) {
-        let mut state = MOCK_UI_METHODS.lock().unwrap_or_else(|e| e.into_inner());
-        state.open_new_version_dialog_count += 1;
-        state.open_new_version_dialog_new_version = Some(new_version.to_string());
-        state.open_new_version_dialog_auto_check_new_versions = Some(auto_check_new_versions);
-    }
-
     fn set_selected_device_index(&self, index: usize, device_strategy: &dyn DeviceStrategy) {
         let mut state = MOCK_UI_METHODS.lock().unwrap_or_else(|e| e.into_inner());
         state.set_selected_device_index_count += 1;
@@ -167,6 +160,13 @@ impl IUiMethods for MockUiMethods {
         state.show_message_count += 1;
         state.show_message_msg = Some(msg.to_string());
         state.show_message_msg_type = Some(msg_type);
+    }
+
+    fn show_new_version_window(&self, new_version: &str, auto_check_new_versions: bool) {
+        let mut state = MOCK_UI_METHODS.lock().unwrap_or_else(|e| e.into_inner());
+        state.show_new_version_window_count += 1;
+        state.show_new_version_window_new_version = Some(new_version.to_string());
+        state.show_new_version_window_auto_check_new_versions = auto_check_new_versions;
     }
 
     fn show_pitchgrid_status(&self, status: &str, msg_type: MessageType) {
