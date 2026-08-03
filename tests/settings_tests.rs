@@ -8,6 +8,8 @@ use common::temp_path_finder::TempPathFinder;
 
 #[googletest::gtest]
 fn persist() {
+    const AUTO_CHECK_NEW_VERSIONS: bool = false; // as the default is true
+    const IGNORE_VERSION: &str = "1.2.3";
     const MAIN_WINDOW_X: i32 = 100;
     const MAIN_WINDOW_Y: i32 = 200;
     const MIDI_INPUT_DEVICE: &str = "Input Device 1";
@@ -19,6 +21,8 @@ fn persist() {
     const OVERRIDE_ROUNDING_RATE: bool = false; // as the default is true
     const ROUNDING_RATE: u8 = 100;
     let mut settings = Settings::new();
+    settings.set_auto_check_new_versions(AUTO_CHECK_NEW_VERSIONS);
+    settings.set_ignore_version(IGNORE_VERSION);
     settings.set_main_window_x(MAIN_WINDOW_X);
     settings.set_main_window_y(MAIN_WINDOW_Y);
     settings.set_midi_input_device(MIDI_INPUT_DEVICE);
@@ -35,6 +39,8 @@ fn persist() {
     settings = Settings::new();
     settings.set_system_path_finder(Box::new(temp_path_finder.clone()));
     assert_that!(settings.read_from_file(), ok(()));
+    assert_that!(settings.auto_check_new_versions(), eq(AUTO_CHECK_NEW_VERSIONS));
+    assert_that!(settings.ignore_version(), eq(IGNORE_VERSION));
     assert_that!(settings.main_window_x(), eq(MAIN_WINDOW_X));
     assert_that!(settings.main_window_y(), eq(MAIN_WINDOW_Y));
     assert_that!(settings.midi_input_device(), eq(MIDI_INPUT_DEVICE));

@@ -165,6 +165,7 @@ impl ISettings for Settings {
                 return Ok(());
             }
         };
+        self.auto_check_new_versions = settings.auto_check_new_versions;
         self.ignore_version = settings.ignore_version;
         self.main_window_x = settings.main_window_x;
         self.main_window_y = settings.main_window_y;

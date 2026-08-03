@@ -154,6 +154,7 @@ impl Presenter {
         match self.settings.read_from_file() {
             Ok(_) => {
                 auto_check_new_versions = self.settings.auto_check_new_versions();
+                debug!("auto_check_new_versions: {}", auto_check_new_versions);
                 ignore_version = self.settings.ignore_version().to_string();
                 main_window_x = self.settings.main_window_x();
                 main_window_y = self.settings.main_window_y();
@@ -184,14 +185,18 @@ impl Presenter {
             }
         }
         self.presentation.set_main_window_position(main_window_x, main_window_y);
-        trace!("init: Checking for new version");
-        let version_checker = VersionChecker::new(self.release_info.clone());
-        if let Some(new_version) = version_checker.check_for_new_version(&ignore_version) {
-            let callbacks =
-                Arc::new(Mutex::new(NewVersionCallbacksWrapper(self.presenter_weak.clone())));
-            self.presentation.show_new_version_window(&new_version, auto_check_new_versions, callbacks);
+        if auto_check_new_versions {
+            trace!("init: Checking for new version");
+            let version_checker = VersionChecker::new(self.release_info.clone());
+            if let Some(new_version) = version_checker.check_for_new_version(
+                &ignore_version) {
+                let callbacks =
+                    Arc::new(Mutex::new(NewVersionCallbacksWrapper(self.presenter_weak.clone())));
+                self.presentation.show_new_version_window(
+                    &new_version, auto_check_new_versions, callbacks);
+            }
+            trace!("init: Getting midi");
         }
-        trace!("init: Getting midi");
         let mut midi = self.midi_manager.lock().unwrap();
         midi.init(&input_device_name, &output_device_name);
         drop(midi); // Release MIDI lock before calling device_names which needs to acquire it

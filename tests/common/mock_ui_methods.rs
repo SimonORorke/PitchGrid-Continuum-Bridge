@@ -164,7 +164,7 @@ impl IUiMethods for MockUiMethods {
     }
 
     fn show_new_version_window(&self, new_version: &str, auto_check_new_versions: bool,
-                               callbacks: Arc<Mutex<dyn NewVersionCallbacks>>) {
+                               _callbacks: Arc<Mutex<dyn NewVersionCallbacks>>) {
         let mut state = MOCK_UI_METHODS.lock().unwrap_or_else(|e| e.into_inner());
         state.show_new_version_window_count += 1;
         state.show_new_version_window_new_version = Some(new_version.to_string());

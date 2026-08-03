@@ -186,8 +186,6 @@ impl IUiMethods for UiMethods {
         let new_version_string = new_version.to_string();
         let new_version_window_weak = self.new_version_window_weak.clone();
         let self_clone = self.clone();
-        // let callbacks_clone = callbacks.clone();
-        let new_version_string_clone = new_version_string.clone();
         self.with_ui_thread(move || {
             let dialog_borrow = new_version_window_weak.upgrade().unwrap();
             // Re-setup callbacks each time as the window might be reused
@@ -201,10 +199,9 @@ impl IUiMethods for UiMethods {
                     auto_check_new_versions);
             });
             let callbacks_clone_2 = callbacks.clone();
-            let new_version_string_clone_2 = new_version_string_clone.clone();
             dialog_borrow.on_ignore_this_version(move || {
                 callbacks_clone_2.lock().unwrap().on_ignore_this_version(
-                    new_version_string_clone_2.clone());
+                    new_version_string.clone());
             });
             dialog_borrow.on_close_window({
                 let dialog_weak = dialog_borrow.as_weak();
