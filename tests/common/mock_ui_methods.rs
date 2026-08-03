@@ -1,7 +1,8 @@
-use std::sync::{LazyLock, Mutex, MutexGuard};
+use std::sync::{Arc, LazyLock, Mutex, MutexGuard};
+use pitchgrid_continuum::device_strategy::DeviceStrategy;
 use pitchgrid_continuum::global::MessageType;
 use pitchgrid_continuum::i_ui_methods::IUiMethods;
-use pitchgrid_continuum::device_strategy::DeviceStrategy;
+use pitchgrid_continuum::presenter::NewVersionCallbacks;
 use pitchgrid_continuum::tuning_params::FormattedTuningParams;
 
 pub fn mock_ui_methods() -> MutexGuard<'static, MockUiMethods> {
@@ -162,7 +163,8 @@ impl IUiMethods for MockUiMethods {
         state.show_message_msg_type = Some(msg_type);
     }
 
-    fn show_new_version_window(&self, new_version: &str, auto_check_new_versions: bool) {
+    fn show_new_version_window(&self, new_version: &str, auto_check_new_versions: bool,
+                               callbacks: Arc<Mutex<dyn NewVersionCallbacks>>) {
         let mut state = MOCK_UI_METHODS.lock().unwrap_or_else(|e| e.into_inner());
         state.show_new_version_window_count += 1;
         state.show_new_version_window_new_version = Some(new_version.to_string());

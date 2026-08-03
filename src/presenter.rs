@@ -187,7 +187,9 @@ impl Presenter {
         trace!("init: Checking for new version");
         let version_checker = VersionChecker::new(self.release_info.clone());
         if let Some(new_version) = version_checker.check_for_new_version(&ignore_version) {
-            self.presentation.show_new_version_window(&new_version, auto_check_new_versions);
+            let callbacks =
+                Arc::new(Mutex::new(NewVersionCallbacksWrapper(self.presenter_weak.clone())));
+            self.presentation.show_new_version_window(&new_version, auto_check_new_versions, callbacks);
         }
         trace!("init: Getting midi");
         let mut midi = self.midi_manager.lock().unwrap();
@@ -564,6 +566,35 @@ impl ContinuumProtocolListener for Mutex<Presenter> {
 
     fn on_updating_tuning(&self) {
         self.lock().unwrap().on_updating_tuning();
+    }
+}
+
+pub trait NewVersionCallbacks : Send + Sync {
+    fn on_auto_check_new_versions_changed(&mut self, auto_check_new_versions: bool);
+    fn on_ignore_this_version(&mut self, new_version: String);
+}
+
+impl NewVersionCallbacks for Presenter {
+    fn on_auto_check_new_versions_changed(&mut self, auto_check_new_versions: bool) {
+        self.settings.set_auto_check_new_versions(auto_check_new_versions);
+    }
+    fn on_ignore_this_version(&mut self, new_version: String) {
+        self.settings.set_ignore_version(&new_version);
+    }
+}
+
+struct NewVersionCallbacksWrapper(Weak<Mutex<Presenter>>);
+
+impl NewVersionCallbacks for NewVersionCallbacksWrapper {
+    fn on_auto_check_new_versions_changed(&mut self, auto_check_new_versions: bool) {
+        if let Some(presenter) = self.0.upgrade() {
+            presenter.lock().unwrap().on_auto_check_new_versions_changed(auto_check_new_versions);
+        }
+    }
+    fn on_ignore_this_version(&mut self, new_version: String) {
+        if let Some(presenter) = self.0.upgrade() {
+            presenter.lock().unwrap().on_ignore_this_version(new_version);
+        }
     }
 }
 

@@ -1,4 +1,5 @@
 ﻿use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 use log::trace;
 use slint::{ComponentHandle, PhysicalPosition, Weak, WindowPosition};
 use app_info::{APP_TITLE,};
@@ -8,6 +9,7 @@ use crate::centered_dialog::CenteredDialog;
 use crate::device_strategy::DeviceStrategy;
 use crate::global::{MessageType, DeviceType};
 use crate::i_ui_methods::IUiMethods;
+use crate::presenter::NewVersionCallbacks;
 use crate::tuning_params::FormattedTuningParams;
 
 /// This struct contains the methods called by `Presenter` to make changes to the UI.
@@ -179,22 +181,30 @@ impl IUiMethods for UiMethods {
     }
 
 
-    fn show_new_version_window(&self, new_version: &str, auto_check_new_versions: bool) {
+    fn show_new_version_window(&self, new_version: &str, auto_check_new_versions: bool,
+                               callbacks: Arc<Mutex<dyn NewVersionCallbacks>>) {
         let new_version_string = new_version.to_string();
         let new_version_window_weak = self.new_version_window_weak.clone();
         let self_clone = self.clone();
+        // let callbacks_clone = callbacks.clone();
+        let new_version_string_clone = new_version_string.clone();
         self.with_ui_thread(move || {
             let dialog_borrow = new_version_window_weak.upgrade().unwrap();
-            
             // Re-setup callbacks each time as the window might be reused
             dialog_borrow.set_auto_check_new_versions(auto_check_new_versions);
             dialog_borrow.set_message(
                 format!("Version {} of {} is available.", new_version_string, APP_TITLE).into());
-            dialog_borrow.on_auto_check_new_versions_changed(|_value: bool| {
-                // TODO: Persist auto_check_new_versions
+
+            let callbacks_clone_1 = callbacks.clone();
+            dialog_borrow.on_auto_check_new_versions_changed(move |auto_check_new_versions: bool| {
+                callbacks_clone_1.lock().unwrap().on_auto_check_new_versions_changed(
+                    auto_check_new_versions);
             });
-            dialog_borrow.on_ignore_this_version(|_value: bool| {
-                // TODO: Persist ignore_this_version
+            let callbacks_clone_2 = callbacks.clone();
+            let new_version_string_clone_2 = new_version_string_clone.clone();
+            dialog_borrow.on_ignore_this_version(move || {
+                callbacks_clone_2.lock().unwrap().on_ignore_this_version(
+                    new_version_string_clone_2.clone());
             });
             dialog_borrow.on_close_window({
                 let dialog_weak = dialog_borrow.as_weak();

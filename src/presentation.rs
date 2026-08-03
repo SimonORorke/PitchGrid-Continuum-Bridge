@@ -1,8 +1,9 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use log::{debug, trace};
-use crate::global::MessageType;
 use crate::device_strategy::DeviceStrategy;
+use crate::global::MessageType;
 use crate::i_ui_methods::IUiMethods;
+use crate::presenter::NewVersionCallbacks;
 use crate::tuning_params::FormattedTuningParams;
 
 /// The view-facing facade the `Presenter` speaks through.
@@ -75,8 +76,9 @@ impl Presentation {
         self.ui_methods.set_rounding_rate(rate);
     }
 
-    pub(crate) fn show_new_version_window(&self, new_version: &str, auto_check_new_versions: bool) {
-        self.ui_methods.show_new_version_window(new_version, auto_check_new_versions);
+    pub(crate) fn show_new_version_window(&self, new_version: &str, auto_check_new_versions: bool,
+                                          callbacks: Arc<Mutex<dyn NewVersionCallbacks>>) {
+        self.ui_methods.show_new_version_window(new_version, auto_check_new_versions, callbacks);
     }
 
     pub(crate) fn show_tuning(&self, tuning: FormattedTuningParams, is_root_freq_overridden: bool) {

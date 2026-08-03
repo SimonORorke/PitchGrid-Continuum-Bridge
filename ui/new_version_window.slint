@@ -22,8 +22,8 @@ export component NewVersionWindow inherits MagicWindow {
     out property <length> preferred_w: root.preferred-width;
     out property <length> preferred_h: root.preferred-height;
 
-    callback auto_check_new_versions_changed(value: bool);
-    callback ignore_this_version(value: bool);
+    callback auto_check_new_versions_changed(auto_check_new_versions: bool);
+    callback ignore_this_version();
     callback open_releases_link();
     callback close_window();
 
@@ -80,7 +80,9 @@ export component NewVersionWindow inherits MagicWindow {
                     text: "Ignore This Version";
                     checked: false;
                     toggled => {
-                        root.ignore_this_version(self.checked);
+                        if self.checked {
+                            root.ignore_this_version();
+                        }
                     }
                     height: Globals.control_height;
                 }
