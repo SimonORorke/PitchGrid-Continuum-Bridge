@@ -353,7 +353,7 @@ impl Presenter {
         let version_checker = VersionChecker::new(self.release_info.clone());
         if let Some(new_version) = version_checker.check_for_new_version(ignore_version) {
             let callbacks =
-                Arc::new(Mutex::new(NewVersionCallbacksWrapper(self.presenter_weak.clone())));
+                Arc::new(Mutex::new(NewVersionCallbacksWrapper::new(self.presenter_weak.clone())));
             self.presentation.show_new_version_window(
                 &new_version, auto_check_new_versions, callbacks);
             return true;

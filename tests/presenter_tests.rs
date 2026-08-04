@@ -155,7 +155,7 @@ fn on_auto_check_new_versions_changed() {
     let presenter = create_presenter(settings, true);
     let presenter_weak = Arc::downgrade(&presenter);
     let callbacks =
-        Arc::new(Mutex::new(NewVersionCallbacksWrapper(presenter_weak.clone())));
+        Arc::new(Mutex::new(NewVersionCallbacksWrapper::new(presenter_weak.clone())));
     callbacks.lock().unwrap().on_auto_check_new_versions_changed(false);
     assert_that!(mock_settings().auto_check_new_versions, eq(false));
 }
