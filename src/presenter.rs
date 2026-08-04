@@ -154,7 +154,6 @@ impl Presenter {
         match self.settings.read_from_file() {
             Ok(_) => {
                 auto_check_new_versions = self.settings.auto_check_new_versions();
-                debug!("auto_check_new_versions: {}", auto_check_new_versions);
                 ignore_version = self.settings.ignore_version().to_string();
                 main_window_x = self.settings.main_window_x();
                 main_window_y = self.settings.main_window_y();
@@ -187,16 +186,9 @@ impl Presenter {
         self.presentation.set_main_window_position(main_window_x, main_window_y);
         if auto_check_new_versions {
             trace!("init: Checking for new version");
-            let version_checker = VersionChecker::new(self.release_info.clone());
-            if let Some(new_version) = version_checker.check_for_new_version(
-                &ignore_version) {
-                let callbacks =
-                    Arc::new(Mutex::new(NewVersionCallbacksWrapper(self.presenter_weak.clone())));
-                self.presentation.show_new_version_window(
-                    &new_version, auto_check_new_versions, callbacks);
-            }
-            trace!("init: Getting midi");
+            self.find_new_version(true, &ignore_version);
         }
+        trace!("init: Getting midi");
         let mut midi = self.midi_manager.lock().unwrap();
         midi.init(&input_device_name, &output_device_name);
         drop(midi); // Release MIDI lock before calling device_names which needs to acquire it
@@ -242,6 +234,16 @@ impl Presenter {
         self.presentation.checking_instrument_connection();
         self.midi_manager.lock().unwrap().start_instrument_connection_monitor();
         trace!("start_instrument_connection_monitor: Instrument connection monitor started");
+    }
+
+    pub fn check_for_updates(&mut self) {
+        trace!("check_for_updates");
+        let auto_check_new_versions = self.settings.auto_check_new_versions();
+        let ignore_version = self.settings.ignore_version().to_string();
+        if !self.find_new_version(auto_check_new_versions, &ignore_version) {
+            self.presentation.already_running_latest_version();
+        }
+        trace!("check_for_updates: Done");
     }
 
     pub fn close(&mut self, main_window_x: i32, main_window_y: i32) -> Result<(), Box<dyn Error>> {
@@ -345,6 +347,18 @@ impl Presenter {
 
     fn device_names(&self, device_strategy: &dyn DeviceStrategy) -> Vec<String> {
         self.midi_manager.lock().unwrap().io(device_strategy).device_names()
+    }
+
+    fn find_new_version(&mut self, auto_check_new_versions: bool, ignore_version: &str) -> bool {
+        let version_checker = VersionChecker::new(self.release_info.clone());
+        if let Some(new_version) = version_checker.check_for_new_version(ignore_version) {
+            let callbacks =
+                Arc::new(Mutex::new(NewVersionCallbacksWrapper(self.presenter_weak.clone())));
+            self.presentation.show_new_version_window(
+                &new_version, auto_check_new_versions, callbacks);
+            return true;
+        }
+        false
     }
 
     pub fn refresh_devices(&mut self, device_strategy: &dyn DeviceStrategy) {

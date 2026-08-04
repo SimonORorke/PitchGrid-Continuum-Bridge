@@ -61,6 +61,7 @@ export component MainWindow inherits MagicWindow {
     in property pitch_tables_model <=> pitch_tables_combo.model;
     in property <string> window_title;
 
+    callback check_for_updates();
     callback connect_device(device_type: SlintDeviceType);
     callback refresh_devices(device_type: SlintDeviceType);
     callback override_rounding_initial_changed(override_rounding_initial: bool);
@@ -335,10 +336,12 @@ export component MainWindow inherits MagicWindow {
         items: [
             { title: "Documentation..." },
             { title: "About..." },
+            { title: "Check for updates..." },
         ];
         item_activated(i) => {
             if (i == 0) { root.open_documentation(); }
             if (i == 1) { root.show_about_window(); }
+            if (i == 2) { root.check_for_updates(); }
         }
     }
 }

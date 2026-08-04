@@ -30,6 +30,10 @@ impl Presentation {
 
     // --- Structural view setup (thin passthroughs to the view) ---
 
+    pub(crate) fn already_running_latest_version(&self) {
+        self.show_info(ALREADY_RUNNING_LATEST_VERSION);
+    }
+
     pub(crate) fn set_main_window_position(&self, x: i32, y: i32) {
         self.ui_methods.set_main_window_position(x, y);
     }
@@ -203,6 +207,7 @@ impl Presentation {
 
 // User-facing message strings. Owned here so every string the player sees lives in one module.
 // `DEVICE_NONE` is the sentinel shown (and recorded by tests) when no MIDI device is connected.
+pub const ALREADY_RUNNING_LATEST_VERSION: &str = "You are already running the latest version.";
 pub const AWAITING_DATA_DOWNLOAD_COMPLETION: &str = "Awaiting completion of data download from instrument...";
 pub const AWAITING_PITCHGRID_CONNECTION: &str = "Awaiting PitchGrid connection...";
 pub const CANNOT_UPDATE_TUNING_CONNECT: &str = "Cannot update tuning. Connect instrument input/output.";

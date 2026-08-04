@@ -77,6 +77,12 @@ fn init_ui_handlers(main_window: &MainWindow, new_version_window: &NewVersionWin
     // See the UiMethods.with_main_window_result doc comment for more information.
     {
         let presenter: SharedPresenter = Arc::clone(&presenter);
+        main_window.on_check_for_updates(move || {
+            spawn_presenter_action(&presenter, move |c| c.check_for_updates());
+        });
+    }
+    {
+        let presenter: SharedPresenter = Arc::clone(&presenter);
         main_window.on_connect_device(move |device_type: SlintDeviceType| {
             let device_strategy = create_device_strategy(device_type);
             spawn_presenter_action(&presenter, move |c| c.connect_device(&*device_strategy));
