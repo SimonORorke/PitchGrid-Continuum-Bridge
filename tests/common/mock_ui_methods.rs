@@ -157,7 +157,8 @@ impl IUiMethods for MockUiMethods {
     }
 
     fn show_message(&self, msg: &str, msg_type: MessageType) {
-        let mut state = MOCK_UI_METHODS.lock().unwrap_or_else(|e| e.into_inner());
+        let mut state = MOCK_UI_METHODS.lock().unwrap_or_else(
+            |e| e.into_inner());
         state.show_message_count += 1;
         state.show_message_msg = Some(msg.to_string());
         state.show_message_msg_type = Some(msg_type);
@@ -165,14 +166,16 @@ impl IUiMethods for MockUiMethods {
 
     fn show_new_version_window(&self, new_version: &str, auto_check_new_versions: bool,
                                _callbacks: Arc<Mutex<dyn NewVersionCallbacks>>) {
-        let mut state = MOCK_UI_METHODS.lock().unwrap_or_else(|e| e.into_inner());
+        let mut state = MOCK_UI_METHODS.lock().unwrap_or_else(
+            |e| e.into_inner());
         state.show_new_version_window_count += 1;
         state.show_new_version_window_new_version = Some(new_version.to_string());
         state.show_new_version_window_auto_check_new_versions = auto_check_new_versions;
     }
 
     fn show_pitchgrid_status(&self, status: &str, msg_type: MessageType) {
-        let mut state = MOCK_UI_METHODS.lock().unwrap_or_else(|e| e.into_inner());
+        let mut state = MOCK_UI_METHODS.lock().unwrap_or_else(
+            |e| e.into_inner());
         state.show_pitchgrid_status_count += 1;
         state.show_pitchgrid_status_msg = Some(status.to_string());
         state.show_pitchgrid_status_msg_type = Some(msg_type);

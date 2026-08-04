@@ -23,7 +23,7 @@ pub struct UiMethods {
 
 impl UiMethods {
     pub fn new(main_window_weak: Weak<MainWindow>,
-               new_version_window_weak: slint::Weak<NewVersionWindow>) -> Self {
+               new_version_window_weak: Weak<NewVersionWindow>) -> Self {
         Self { main_window_weak, new_version_window_weak }
     }
 

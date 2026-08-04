@@ -8,7 +8,7 @@ use pitchgrid_continuum::device_strategy::DeviceStrategy;
 use mock_io::MockIo;
 use pitchgrid_continuum::global::DeviceType;
 
-pub fn mock_midi() -> MutexGuard<'static, MockMidiManager> {
+pub fn mock_midi_manager() -> MutexGuard<'static, MockMidiManager> {
     MOCK_MIDI.lock().unwrap_or_else(|e| e.into_inner())
 }
 

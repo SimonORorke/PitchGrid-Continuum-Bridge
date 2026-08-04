@@ -30,10 +30,6 @@ impl Presentation {
 
     // --- Structural view setup (thin passthroughs to the view) ---
 
-    pub(crate) fn already_running_latest_version(&self) {
-        self.show_info(ALREADY_RUNNING_LATEST_VERSION);
-    }
-
     pub(crate) fn set_main_window_position(&self, x: i32, y: i32) {
         self.ui_methods.set_main_window_position(x, y);
     }
@@ -116,6 +112,10 @@ impl Presentation {
     }
 
     // --- Intention-named status messages (string + severity owned here) ---
+
+    pub(crate) fn already_running_latest_version(&self) {
+        self.show_info(ALREADY_RUNNING_LATEST_VERSION);
+    }
 
     pub(crate) fn checking_instrument_connection(&self) {
         self.show_info(CHECKING_INSTRUMENT_CONNECTION);

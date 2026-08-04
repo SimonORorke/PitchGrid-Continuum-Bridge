@@ -9,23 +9,25 @@ use googletest::matchers::{
     contains_substring, displays_as, eq, err, len, ok, not, some, starts_with};
 use log::{debug};
 use slint::ComponentHandle;
-use pitchgrid_continuum::{MainWindow};
-use pitchgrid_continuum::presenter::Presenter;
-use pitchgrid_continuum::presentation::{AWAITING_DATA_DOWNLOAD_COMPLETION, AWAITING_PITCHGRID_CONNECTION, CANNOT_UPDATE_TUNING_LOST, CHECKING_INSTRUMENT_CONNECTION, DEVICE_NONE, DISCONNECTED_FROM_PITCHGRID, INSTRUMENT_DISCONNECTED, INSTRUMENT_NOT_CONNECTED, INSTRUMENT_TUNING_UPDATE_NOT_CONFIRMED, INSTRUMENT_TUNING_UPDATED, MIDI_SEND_ERROR, OPENING_PITCHGRID_CONNECTION, PITCHGRID_CONNECTION_CLOSED, PITCHGRID_NOT_CONNECTED, PRESET_TUNING_LOADED, UPDATING_INSTRUMENT_TUNING, UPDATING_ROOT_FREQ_OVERRIDE, WAITING_FOR_DATA_DOWNLOAD};
+use app_info::VERSION;
+use pitchgrid_continuum::{MainWindow, NewVersionWindow};
+use pitchgrid_continuum::device_strategy::{InputStrategy, OutputStrategy};
 use pitchgrid_continuum::global::{MessageType, DeviceType};
 use pitchgrid_continuum::i_settings::ISettings;
-use pitchgrid_continuum::osc::Osc;
-use pitchgrid_continuum::device_strategy::{InputStrategy, OutputStrategy};
-use pitchgrid_continuum::tuner::Tuner;
-use common::mock_midi_manager::{MockMidiManager, mock_midi};
-use common::mock_midi_manager::mock_io::{input_state, output_state};
-use common::mock_continuum_protocol::MockContinuumProtocol;
-use common::mock_osc::{MockOsc, mock_osc};
-use common::mock_settings::{MockSettings, mock_settings};
-use common::mock_midi_sender::MockMidiSender;
-use common::mock_ui_methods::{MockUiMethods, mock_ui_methods};
 use pitchgrid_continuum::midi_sender::{SharedMidiSender};
+use pitchgrid_continuum::presentation::{ALREADY_RUNNING_LATEST_VERSION, AWAITING_DATA_DOWNLOAD_COMPLETION, AWAITING_PITCHGRID_CONNECTION, CANNOT_UPDATE_TUNING_LOST, CHECKING_INSTRUMENT_CONNECTION, DEVICE_NONE, DISCONNECTED_FROM_PITCHGRID, INSTRUMENT_DISCONNECTED, INSTRUMENT_NOT_CONNECTED, INSTRUMENT_TUNING_UPDATE_NOT_CONFIRMED, INSTRUMENT_TUNING_UPDATED, MIDI_SEND_ERROR, OPENING_PITCHGRID_CONNECTION, PITCHGRID_CONNECTION_CLOSED, PITCHGRID_NOT_CONNECTED, PRESET_TUNING_LOADED, UPDATING_INSTRUMENT_TUNING, UPDATING_ROOT_FREQ_OVERRIDE, WAITING_FOR_DATA_DOWNLOAD};
+use pitchgrid_continuum::presenter::Presenter;
+use pitchgrid_continuum::osc::Osc;
+use pitchgrid_continuum::tuner::Tuner;
 use pitchgrid_continuum::ui_methods::UiMethods;
+use common::mock_continuum_protocol::MockContinuumProtocol;
+use common::mock_midi_manager::{MockMidiManager, mock_midi_manager};
+use common::mock_midi_manager::mock_io::{input_state, output_state};
+use common::mock_midi_sender::MockMidiSender;
+use common::mock_osc::{MockOsc, mock_osc};
+use common::mock_release_info::MockReleaseInfo;
+use common::mock_settings::{MockSettings, mock_settings};
+use common::mock_ui_methods::{MockUiMethods, mock_ui_methods};
 use common::test_tunings::TestTunings;
 
 #[googletest::gtest]
@@ -47,10 +49,10 @@ fn init_from_settings() {
     settings.set_rounding_rate(ROUNDING_RATE);
     let presenter = create_presenter(settings, true);
     presenter.lock().unwrap().init(&presenter);
-    assert_that!(mock_midi().init_input_device_name, some(eq(&INPUT_DEVICE_NAMES[0])));
+    assert_that!(mock_midi_manager().init_input_device_name, some(eq(&INPUT_DEVICE_NAMES[0])));
     assert_that!(input_state().device_name(), some(eq(&INPUT_DEVICE_NAMES[0])));
     assert_that!(input_state().device_index(), some(eq(0)));
-    assert_that!(mock_midi().init_output_device_name, some(eq(&OUTPUT_DEVICE_NAMES[0])));
+    assert_that!(mock_midi_manager().init_output_device_name, some(eq(&OUTPUT_DEVICE_NAMES[0])));
     assert_that!(output_state().device_name(), some(eq(&OUTPUT_DEVICE_NAMES[0])));
     assert_that!(output_state().device_index(), some(eq(0)));
     assert_that!(mock_ui_methods().root_freq_override_index, some(eq(ROOT_FREQ_OVERRIDE_INDEX)));
@@ -60,10 +62,10 @@ fn init_from_settings() {
     assert_that!(mock_ui_methods().show_message_count, eq(1));
     assert_that!(mock_ui_methods().show_message_msg, some(eq(CHECKING_INSTRUMENT_CONNECTION)));
     assert_that!(mock_ui_methods().show_message_msg_type, some(eq(MessageType::Info)));
-    assert_that!(mock_midi().start_instrument_connection_monitor_count, eq(1));
+    assert_that!(mock_midi_manager().start_instrument_connection_monitor_count, eq(1));
     assert_that!(mock_osc().listening_port, some(eq(LISTENING_PORT)));
     assert_that!(Tuner::pitch_table(), eq(PITCH_TABLE));
-    assert_that!(mock_midi().start_instrument_connection_monitor_count, eq(1));
+    assert_that!(mock_midi_manager().start_instrument_connection_monitor_count, eq(1));
 }
 
 #[googletest::gtest]
@@ -100,7 +102,7 @@ fn init_no_settings() {
     assert_that!(mock_ui_methods().override_rounding_rate, some(eq(true)));
     assert_that!(mock_ui_methods().root_freq_override_index, some(eq(0)));
     assert_that!(mock_ui_methods().rounding_rate, some(eq(127)));
-    assert_that!(mock_midi().start_instrument_connection_monitor_count, eq(0));
+    assert_that!(mock_midi_manager().start_instrument_connection_monitor_count, eq(0));
 }
 
 #[googletest::gtest]
@@ -115,7 +117,100 @@ fn init_read_settings_err() {
     assert_that!(mock_ui_methods().show_message_count, eq(1));
     assert_that!(mock_ui_methods().show_message_msg, some(eq(ERR_MSG)));
     assert_that!(mock_ui_methods().show_message_msg_type, some(eq(MessageType::Error)));
-    assert_that!(mock_midi().start_instrument_connection_monitor_count, eq(0));
+    assert_that!(mock_midi_manager().start_instrument_connection_monitor_count, eq(0));
+}
+
+#[googletest::gtest]
+fn init_check_for_new_version_already_up_to_date() {
+    let _guard = test_mutex_guard();
+    let mut settings = MockSettings::new();
+    settings.set_auto_check_new_versions(true);
+    let presenter = create_presenter(settings, true);
+    MockReleaseInfo::simulate_latest_version(Some(VERSION.into()));
+    presenter.lock().unwrap().init(&presenter);
+    assert_that!(mock_ui_methods().show_new_version_window_count, eq(0));
+}
+
+#[googletest::gtest]
+fn init_check_for_new_version_found() {
+    let _guard = test_mutex_guard();
+    const IGNORED_VERSION: &str = "98.0.0";
+    const LATEST_VERSION: &str = "99.0.0";
+    let mut settings = MockSettings::new();
+    settings.set_auto_check_new_versions(true);
+    settings.set_ignore_version(IGNORED_VERSION);
+    let presenter = create_presenter(settings, true);
+    MockReleaseInfo::simulate_latest_version(Some(LATEST_VERSION.into()));
+    presenter.lock().unwrap().init(&presenter);
+    assert_that!(mock_ui_methods().show_new_version_window_count, eq(1));
+    assert_that!(mock_ui_methods().show_new_version_window_new_version, some(eq(LATEST_VERSION)));
+    assert_that!(mock_ui_methods().show_new_version_window_auto_check_new_versions, eq(true));
+}
+
+#[googletest::gtest]
+fn init_check_for_new_version_ignoring() {
+    let _guard = test_mutex_guard();
+    const LATEST_VERSION: &str = "99.0.0";
+    let mut settings = MockSettings::new();
+    settings.set_auto_check_new_versions(true);
+    settings.set_ignore_version(LATEST_VERSION);
+    let presenter = create_presenter(settings, true);
+    MockReleaseInfo::simulate_latest_version(Some(LATEST_VERSION.into()));
+    presenter.lock().unwrap().init(&presenter);
+    assert_that!(mock_ui_methods().show_new_version_window_count, eq(0));
+}
+
+#[googletest::gtest]
+fn init_check_for_new_version_none_found() {
+    let _guard = test_mutex_guard();
+    let mut settings = MockSettings::new();
+    settings.set_auto_check_new_versions(true);
+    let presenter = create_presenter(settings, true);
+    MockReleaseInfo::simulate_latest_version(None);
+    presenter.lock().unwrap().init(&presenter);
+    assert_that!(mock_ui_methods().show_new_version_window_count, eq(0));
+}
+
+#[googletest::gtest]
+fn init_check_for_new_version_skipped() {
+    let _guard = test_mutex_guard();
+    let mut settings = MockSettings::new();
+    settings.set_auto_check_new_versions(false);
+    let presenter = create_presenter(settings, true);
+    presenter.lock().unwrap().init(&presenter);
+    assert_that!(mock_ui_methods().show_new_version_window_count, eq(0));
+}
+
+#[googletest::gtest]
+fn check_for_updates_already_up_to_date() {
+    let _guard = test_mutex_guard();
+    let mut settings = MockSettings::new();
+    settings.set_auto_check_new_versions(false);
+    let presenter = create_presenter(settings, true);
+    MockReleaseInfo::simulate_latest_version(Some(VERSION.into()));
+    presenter.lock().unwrap().init(&presenter);
+    presenter.lock().unwrap().check_for_updates();
+    assert_that!(mock_ui_methods().show_new_version_window_count, eq(0));
+    assert_that!(mock_ui_methods().show_message_msg, some(eq(ALREADY_RUNNING_LATEST_VERSION)));
+    assert_that!(mock_ui_methods().show_message_msg_type, some(eq(MessageType::Info)));
+}
+
+#[googletest::gtest]
+fn check_for_updates_found() {
+    let _guard = test_mutex_guard();
+    const IGNORED_VERSION: &str = "98.0.0";
+    const LATEST_VERSION: &str = "99.0.0";
+    let mut settings = MockSettings::new();
+    settings.set_auto_check_new_versions(false);
+    settings.set_ignore_version(IGNORED_VERSION);
+    let presenter = create_presenter(settings, true);
+    MockReleaseInfo::simulate_latest_version(Some(LATEST_VERSION.into()));
+    presenter.lock().unwrap().init(&presenter);
+    assert_that!(mock_ui_methods().show_new_version_window_count, eq(0));
+    presenter.lock().unwrap().check_for_updates();
+    assert_that!(mock_ui_methods().show_new_version_window_count, eq(1));
+    assert_that!(mock_ui_methods().show_new_version_window_new_version, some(eq(LATEST_VERSION)));
+    assert_that!(mock_ui_methods().show_new_version_window_auto_check_new_versions, eq(false));
 }
 
 #[googletest::gtest]
@@ -124,7 +219,7 @@ fn connect_device() {
     debug!("connect_device");
     let presenter = create_presenter(MockSettings::new(), true);
     presenter.lock().unwrap().init(&presenter);
-    assert_that!(mock_midi().start_instrument_connection_monitor_count, eq(1));
+    assert_that!(mock_midi_manager().start_instrument_connection_monitor_count, eq(1));
     MockMidiManager::set_is_receiving_data(true);
     MockMidiManager::set_are_devices_connected(true);
     MockContinuumProtocol::simulate_download_completed();
@@ -136,7 +231,7 @@ fn connect_device() {
     let device_strategy = InputStrategy::new();
     MockUiMethods::set_selected_device_index(1);
     presenter.lock().unwrap().connect_device(&device_strategy);
-    assert_that!(mock_midi().stop_instrument_connection_monitor_count, eq(1));
+    assert_that!(mock_midi_manager().stop_instrument_connection_monitor_count, eq(1));
     assert_that!(mock_osc().stop_count, eq(1));
     assert_that!(tuner().has_data(), eq(false));
     assert_that!(tuner().formatted_tuning_params().root_freq, eq(""));
@@ -145,9 +240,9 @@ fn connect_device() {
     assert_that!(mock_ui_methods().show_pitchgrid_status_msg_type, some(eq(MessageType::Warning)));
     assert_that!(mock_ui_methods().show_connected_device_name_name, some(eq(&INPUT_DEVICE_NAMES[1])));
     assert_that!(mock_ui_methods().show_connected_device_name_msg_type, some(eq(MessageType::Info)));
-    assert_that!(mock_ui_methods().show_message_msg, some(eq("Checking instrument connection...")));
+    assert_that!(mock_ui_methods().show_message_msg, some(eq(CHECKING_INSTRUMENT_CONNECTION)));
     assert_that!(mock_ui_methods().show_message_msg_type, some(eq(MessageType::Info)));
-    assert_that!(mock_midi().start_instrument_connection_monitor_count, eq(2));
+    assert_that!(mock_midi_manager().start_instrument_connection_monitor_count, eq(2));
 }
 
 #[googletest::gtest]
@@ -156,7 +251,7 @@ fn connect_device_after_refreshing_other_device_list() {
     debug!("connect_device_after_refreshing_other_device_list");
     let presenter = create_presenter(MockSettings::new(), true);
     presenter.lock().unwrap().init(&presenter);
-    assert_that!(mock_midi().start_instrument_connection_monitor_count, eq(1));
+    assert_that!(mock_midi_manager().start_instrument_connection_monitor_count, eq(1));
     MockMidiManager::set_is_receiving_data(true);
     MockMidiManager::set_are_devices_connected(true);
     MockContinuumProtocol::simulate_download_completed();
@@ -170,7 +265,7 @@ fn connect_device_after_refreshing_other_device_list() {
     presenter.lock().unwrap().connect_device(&input_strategy);
     assert_that!(mock_ui_methods().show_message_msg, some(eq("Connect MIDI output device")));
     assert_that!(mock_ui_methods().show_message_msg_type, some(eq(MessageType::Warning)));
-    assert_that!(mock_midi().start_instrument_connection_monitor_count, eq(1));
+    assert_that!(mock_midi_manager().start_instrument_connection_monitor_count, eq(1));
 }
 
 #[googletest::gtest]
@@ -180,7 +275,7 @@ fn connect_device_err() {
     const ERR_MSG: &str = "Test error";
     let presenter = create_presenter(MockSettings::new(), false);
     presenter.lock().unwrap().init(&presenter);
-    assert_that!(mock_midi().start_instrument_connection_monitor_count, eq(0));
+    assert_that!(mock_midi_manager().start_instrument_connection_monitor_count, eq(0));
     let device_strategy = OutputStrategy::new();
     MockUiMethods::set_selected_device_index(1);
     MockMidiManager::simulate_connect_device_err(ERR_MSG);
@@ -200,11 +295,11 @@ fn connect_device_with_no_selection_is_silent_no_op() {
     presenter.lock().unwrap().init(&presenter);
     let device_strategy = InputStrategy::new();
     MockUiMethods::set_selected_device_index(usize::MAX);
-    let connect_before = mock_midi().connect_device_count;
+    let connect_before = mock_midi_manager().connect_device_count;
     let show_connected_before = mock_ui_methods().show_connected_device_name_count;
     presenter.lock().unwrap().connect_device(&device_strategy);
     // The MIDI layer was never asked to connect, and no device-connected name was shown.
-    assert_that!(mock_midi().connect_device_count, eq(connect_before));
+    assert_that!(mock_midi_manager().connect_device_count, eq(connect_before));
     assert_that!(mock_ui_methods().show_connected_device_name_count, eq(show_connected_before));
 }
 
@@ -224,7 +319,7 @@ fn refresh_devices() {
     assert_that!(mock_ui_methods().show_tuning_count, eq(1));
     let input_strategy = InputStrategy::new();
     presenter.lock().unwrap().refresh_devices(&input_strategy);
-    assert_that!(mock_midi().stop_instrument_connection_monitor_count, eq(1));
+    assert_that!(mock_midi_manager().stop_instrument_connection_monitor_count, eq(1));
     assert_that!(mock_osc().stop_count, eq(1));
     assert_that!(tuner().has_data(), eq(false));
     assert_that!(tuner().formatted_tuning_params().root_freq, eq(""));
@@ -296,10 +391,10 @@ fn close() {
     settings.set_main_window_y(OLD_MAIN_WINDOW_Y);
     let presenter = create_presenter(settings, true);
     presenter.lock().unwrap().init(&presenter);
-    assert_that!(mock_midi().start_instrument_connection_monitor_count, eq(1));
+    assert_that!(mock_midi_manager().start_instrument_connection_monitor_count, eq(1));
     let result = presenter.lock().unwrap().close(NEW_MAIN_WINDOW_X, NEW_MAIN_WINDOW_Y);
     assert_that!(result, ok(()));
-    assert_that!(mock_midi().close_count, eq(1));
+    assert_that!(mock_midi_manager().close_count, eq(1));
     assert_that!(mock_osc().stop_count, eq(1));
     assert_that!(mock_settings().main_window_x, eq(NEW_MAIN_WINDOW_X));
     assert_that!(mock_settings().main_window_y, eq(NEW_MAIN_WINDOW_Y));
@@ -320,10 +415,10 @@ fn close_err() {
     MockSettings::simulate_write_to_file_err(ERR_MSG);
     let presenter = create_presenter(settings, true);
     presenter.lock().unwrap().init(&presenter);
-    assert_that!(mock_midi().start_instrument_connection_monitor_count, eq(1));
+    assert_that!(mock_midi_manager().start_instrument_connection_monitor_count, eq(1));
     let result = presenter.lock().unwrap().close(NEW_MAIN_WINDOW_X, NEW_MAIN_WINDOW_Y);
     assert_that!(result, err(displays_as(eq(ERR_MSG))));
-    assert_that!(mock_midi().close_count, eq(1));
+    assert_that!(mock_midi_manager().close_count, eq(1));
     assert_that!(mock_osc().stop_count, eq(1));
     assert_that!(mock_settings().main_window_x, eq(NEW_MAIN_WINDOW_X));
     assert_that!(mock_settings().main_window_y, eq(NEW_MAIN_WINDOW_Y));
@@ -686,7 +781,8 @@ fn production_new() {
     // test the production `Presenter::new`, which does not allow us to inject all the mocks.
     // (Other tests call `Presenter::new2` to specify the mocks: see `create_presenter`.)
     let main_window = MainWindow::new().unwrap();
-    let ui_methods = UiMethods::new(main_window.as_weak());
+    let new_version_window = NewVersionWindow::new().unwrap();
+    let ui_methods = UiMethods::new(main_window.as_weak(), new_version_window.as_weak());
     let presenter = Presenter::new(Arc::new(ui_methods));
     // There's no application code we can check. So I've added this banale assertion.
     assert_that!(type_name_of_val(&presenter), contains_substring("Presenter"));
@@ -724,6 +820,7 @@ fn create_presenter(mut mock_settings: MockSettings, default_midi_devices: bool)
             mock_continuum_protocol.clone(),
             Arc::new(Mutex::new(mock_midi_manager)),
             Box::new(MockOsc::new()),
+            Arc::new(Mutex::new(Box::new(MockReleaseInfo::new()))),
             Box::new(mock_settings),
             tuner,
             watchdog_notifier,

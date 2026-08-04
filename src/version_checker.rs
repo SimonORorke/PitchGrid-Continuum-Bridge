@@ -27,11 +27,9 @@ impl VersionChecker {
         if latest_version <= current_version {
             return None; // Current version is the latest.
         }
-        if let Some(ignore_version) = Version::from(ignore_version) {
-            // A version to be ignored has been specified.
-            if latest_version <= ignore_version {
-                return None; // Ignoring this version.
-            }
+        if let Some(ignore_version) = Version::from(ignore_version)
+            && latest_version <= ignore_version {
+            return None; // Ignoring this version.
         }
         Some(latest_version_string)
     }
