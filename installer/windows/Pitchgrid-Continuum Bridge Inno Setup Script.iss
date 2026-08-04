@@ -2,7 +2,7 @@
 ; SEE THE DOCUMENTATION FOR DETAILS ON CREATING INNO SETUP SCRIPT FILES!
 
 #define MyAppName "Pitchgrid-Continuum Bridge"
-#define MyAppVersion "0.14.0"
+#define MyAppVersion "0.15.0"
 #define MyAppPublisher "Simon O'Rorke"
 #define MyAppURL "https://github.com/SimonORorke/PitchGrid-Continuum-Bridge"
 #define MyAppExeName "pitchgrid_continuum.exe"
