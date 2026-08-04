@@ -148,19 +148,6 @@ fn init_check_for_new_version_found() {
 }
 
 #[googletest::gtest]
-fn on_auto_check_new_versions_changed() {
-    let _guard = test_mutex_guard();
-    let mut settings = MockSettings::new();
-    settings.set_auto_check_new_versions(true);
-    let presenter = create_presenter(settings, true);
-    let presenter_weak = Arc::downgrade(&presenter);
-    let callbacks =
-        Arc::new(Mutex::new(NewVersionCallbacksWrapper::new(presenter_weak.clone())));
-    callbacks.lock().unwrap().on_auto_check_new_versions_changed(false);
-    assert_that!(mock_settings().auto_check_new_versions, eq(false));
-}
-
-#[googletest::gtest]
 fn init_check_for_new_version_ignoring() {
     let _guard = test_mutex_guard();
     const LATEST_VERSION: &str = "99.0.0";
@@ -352,46 +339,6 @@ fn refresh_devices() {
 }
 
 #[googletest::gtest]
-fn on_devices_connected_changed_to_connected() {
-    let _guard = test_mutex_guard();
-    debug!("on_devices_connected_changed_to_connected");
-    let presenter = create_presenter(MockSettings::new(), true);
-    presenter.lock().unwrap().init(&presenter);
-    MockMidiManager::set_are_devices_connected(true);
-    MockOsc::set_is_running_result(true);
-    MockContinuumProtocol::simulate_devices_connected_changed();
-    assert_that!(mock_osc().stop_count, eq(0));
-}
-
-#[googletest::gtest]
-fn on_devices_connected_changed_to_not_connected() {
-    let _guard = test_mutex_guard();
-    debug!("on_devices_connected_changed_to_not_connected");
-    let presenter = create_presenter(MockSettings::new(), true);
-    presenter.lock().unwrap().init(&presenter);
-    MockMidiManager::set_are_devices_connected(false);
-    MockOsc::set_is_running_result(true);
-    MockContinuumProtocol::simulate_devices_connected_changed();
-    assert_that!(mock_osc().stop_count, eq(1));
-    assert_that!(mock_ui_methods().show_message_msg, some(eq(INSTRUMENT_DISCONNECTED)));
-    assert_that!(mock_ui_methods().show_message_msg_type, some(eq(MessageType::Warning)));
-    assert_that!(mock_ui_methods().show_pitchgrid_status_msg, some(eq(PITCHGRID_CONNECTION_CLOSED)));
-    assert_that!(mock_ui_methods().show_pitchgrid_status_msg_type, some(eq(MessageType::Warning)));
-}
-
-#[googletest::gtest]
-fn on_devices_connected_changed_to_not_connected_osc_not_running() {
-    let _guard = test_mutex_guard();
-    debug!("on_devices_connected_changed_to_not_connected");
-    let presenter = create_presenter(MockSettings::new(), true);
-    presenter.lock().unwrap().init(&presenter);
-    MockMidiManager::set_are_devices_connected(false);
-    MockOsc::set_is_running_result(false);
-    MockContinuumProtocol::simulate_devices_connected_changed();
-    assert_that!(mock_osc().stop_count, eq(0));
-}
-
-#[googletest::gtest]
 fn close() {
     let _guard = test_mutex_guard();
     debug!("close");
@@ -437,6 +384,71 @@ fn close_err() {
     assert_that!(mock_settings().main_window_y, eq(NEW_MAIN_WINDOW_Y));
     assert_that!(mock_ui_methods().show_message_msg, some(eq(ERR_MSG)));
     assert_that!(mock_ui_methods().show_message_msg_type, some(eq(MessageType::Error)));
+}
+
+#[googletest::gtest]
+fn on_auto_check_new_versions_changed() {
+    let _guard = test_mutex_guard();
+    let mut settings = MockSettings::new();
+    settings.set_auto_check_new_versions(true);
+    let presenter = create_presenter(settings, true);
+    let presenter_weak = Arc::downgrade(&presenter);
+    let callbacks =
+        Arc::new(Mutex::new(NewVersionCallbacksWrapper::new(presenter_weak)));
+    callbacks.lock().unwrap().on_auto_check_new_versions_changed(false);
+    assert_that!(mock_settings().auto_check_new_versions, eq(false));
+}
+
+#[googletest::gtest]
+fn on_devices_connected_changed_to_connected() {
+    let _guard = test_mutex_guard();
+    debug!("on_devices_connected_changed_to_connected");
+    let presenter = create_presenter(MockSettings::new(), true);
+    presenter.lock().unwrap().init(&presenter);
+    MockMidiManager::set_are_devices_connected(true);
+    MockOsc::set_is_running_result(true);
+    MockContinuumProtocol::simulate_devices_connected_changed();
+    assert_that!(mock_osc().stop_count, eq(0));
+}
+
+#[googletest::gtest]
+fn on_devices_connected_changed_to_not_connected() {
+    let _guard = test_mutex_guard();
+    debug!("on_devices_connected_changed_to_not_connected");
+    let presenter = create_presenter(MockSettings::new(), true);
+    presenter.lock().unwrap().init(&presenter);
+    MockMidiManager::set_are_devices_connected(false);
+    MockOsc::set_is_running_result(true);
+    MockContinuumProtocol::simulate_devices_connected_changed();
+    assert_that!(mock_osc().stop_count, eq(1));
+    assert_that!(mock_ui_methods().show_message_msg, some(eq(INSTRUMENT_DISCONNECTED)));
+    assert_that!(mock_ui_methods().show_message_msg_type, some(eq(MessageType::Warning)));
+    assert_that!(mock_ui_methods().show_pitchgrid_status_msg, some(eq(PITCHGRID_CONNECTION_CLOSED)));
+    assert_that!(mock_ui_methods().show_pitchgrid_status_msg_type, some(eq(MessageType::Warning)));
+}
+
+#[googletest::gtest]
+fn on_devices_connected_changed_to_not_connected_osc_not_running() {
+    let _guard = test_mutex_guard();
+    debug!("on_devices_connected_changed_to_not_connected");
+    let presenter = create_presenter(MockSettings::new(), true);
+    presenter.lock().unwrap().init(&presenter);
+    MockMidiManager::set_are_devices_connected(false);
+    MockOsc::set_is_running_result(false);
+    MockContinuumProtocol::simulate_devices_connected_changed();
+    assert_that!(mock_osc().stop_count, eq(0));
+}
+
+#[googletest::gtest]
+fn on_ignore_this_version() {
+    let _guard = test_mutex_guard();
+    const IGNORED_VERSION: &str = "98.0.0";
+    let presenter = create_presenter(MockSettings::new(), true);
+    let presenter_weak = Arc::downgrade(&presenter);
+    let callbacks =
+        Arc::new(Mutex::new(NewVersionCallbacksWrapper::new(presenter_weak)));
+    callbacks.lock().unwrap().on_ignore_this_version(IGNORED_VERSION.into());
+    assert_that!(mock_settings().ignore_version, eq(IGNORED_VERSION));
 }
 
 #[googletest::gtest]

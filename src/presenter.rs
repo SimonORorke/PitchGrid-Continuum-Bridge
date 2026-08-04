@@ -602,7 +602,14 @@ impl NewVersionCallbacks for Presenter {
     }
 }
 
+// pub struct NewVersionCallbacksWrapper(Weak<Mutex<Presenter>>);
 pub struct NewVersionCallbacksWrapper(Weak<Mutex<Presenter>>);
+
+impl NewVersionCallbacksWrapper {
+    pub fn new(presenter_weak: Weak<Mutex<Presenter>>) -> Self {
+        Self(presenter_weak)
+    }
+}
 
 impl NewVersionCallbacks for NewVersionCallbacksWrapper {
     fn on_auto_check_new_versions_changed(&mut self, auto_check_new_versions: bool) {
