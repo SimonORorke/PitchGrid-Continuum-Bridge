@@ -16,7 +16,7 @@ use pitchgrid_continuum::global::{MessageType, DeviceType};
 use pitchgrid_continuum::i_settings::ISettings;
 use pitchgrid_continuum::midi_sender::{SharedMidiSender};
 use pitchgrid_continuum::presentation::{ALREADY_RUNNING_LATEST_VERSION, AWAITING_DATA_DOWNLOAD_COMPLETION, AWAITING_PITCHGRID_CONNECTION, CANNOT_UPDATE_TUNING_LOST, CHECKING_INSTRUMENT_CONNECTION, DEVICE_NONE, DISCONNECTED_FROM_PITCHGRID, INSTRUMENT_DISCONNECTED, INSTRUMENT_NOT_CONNECTED, INSTRUMENT_TUNING_UPDATE_NOT_CONFIRMED, INSTRUMENT_TUNING_UPDATED, MIDI_SEND_ERROR, OPENING_PITCHGRID_CONNECTION, PITCHGRID_CONNECTION_CLOSED, PITCHGRID_NOT_CONNECTED, PRESET_TUNING_LOADED, UPDATING_INSTRUMENT_TUNING, UPDATING_ROOT_FREQ_OVERRIDE, WAITING_FOR_DATA_DOWNLOAD};
-use pitchgrid_continuum::presenter::Presenter;
+use pitchgrid_continuum::presenter::{NewVersionCallbacks, NewVersionCallbacksWrapper, Presenter};
 use pitchgrid_continuum::osc::Osc;
 use pitchgrid_continuum::tuner::Tuner;
 use pitchgrid_continuum::ui_methods::UiMethods;
@@ -145,6 +145,19 @@ fn init_check_for_new_version_found() {
     assert_that!(mock_ui_methods().show_new_version_window_count, eq(1));
     assert_that!(mock_ui_methods().show_new_version_window_new_version, some(eq(LATEST_VERSION)));
     assert_that!(mock_ui_methods().show_new_version_window_auto_check_new_versions, eq(true));
+}
+
+#[googletest::gtest]
+fn on_auto_check_new_versions_changed() {
+    let _guard = test_mutex_guard();
+    let mut settings = MockSettings::new();
+    settings.set_auto_check_new_versions(true);
+    let presenter = create_presenter(settings, true);
+    let presenter_weak = Arc::downgrade(&presenter);
+    let callbacks =
+        Arc::new(Mutex::new(NewVersionCallbacksWrapper(presenter_weak.clone())));
+    callbacks.lock().unwrap().on_auto_check_new_versions_changed(false);
+    assert_that!(mock_settings().auto_check_new_versions, eq(false));
 }
 
 #[googletest::gtest]
