@@ -1,6 +1,6 @@
 # PitchGrid-Continuum Bridge
 
-PitchGrid-Continuum Bridge is a bridging application that allows tunings specified in [PitchGrid](https://pitchgrid.io/) to tune a [Haken Continuum fingerboard](https://www.hakenaudio.com/).
+PitchGrid-Continuum Bridge is a bridging application that allows tunings specified in the microtuning application/plugin [PitchGrid](https://pitchgrid.io/) to tune a [Haken Continuum fingerboard](https://www.hakenaudio.com/).
 
 <img src="docs\images\PitchGrid-Continuum Bridge.png" alt="PitchGrid-Continuum Bridge" style="zoom: 80%;" />
 
