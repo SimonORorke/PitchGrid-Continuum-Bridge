@@ -1,15 +1,17 @@
 ﻿use std::sync::{Arc, Mutex};
 use serde::Deserialize;
 
+/// Model for information on releases of this application.
 pub trait IReleaseInfo {
     /// Returns the version string of the latest release of the application available on GitHub for
     /// the current platform.
     fn get_latest_version_for_platform(&self) -> Option<String>;
 }
 
+/// Information on releases of this application.
 pub struct ReleaseInfo {}
 
-// Info on an application release held on GitHub.
+/// Info on an application release held on GitHub.
 #[derive(Deserialize)]
 struct GitHubRelease {
     tag_name: String,
