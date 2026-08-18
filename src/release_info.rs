@@ -15,7 +15,12 @@ pub struct ReleaseInfo {}
 #[derive(Deserialize)]
 struct GitHubRelease {
     tag_name: String,
-    name: Option<String>,
+    assets: Vec<GitHubAsset>,
+}
+
+#[derive(Deserialize)]
+struct GitHubAsset {
+    name: String,
 }
 
 impl ReleaseInfo {
@@ -23,13 +28,13 @@ impl ReleaseInfo {
         ReleaseInfo {}
     }
 
-    /// Returns the release name suffix from which the release's target platform may be determined.
+    /// Returns the required file extension for assets of a release supporting the current platform.
     /// Platforms to be supported: 64-bit Windows, macOS.
-    fn current_platform_release_name_suffix() -> Option<&'static str> {
+    fn current_platform_asset_extension() -> Option<&'static str> {
         if cfg!(all(target_os = "windows", target_pointer_width = "64")) {
-            Some(" (64-bit Windows)")
+            Some(".exe")
         } else if cfg!(target_os = "macos") {
-            Some(" (macOS)")
+            Some(".pkg")
         } else {
             None
         }
@@ -45,7 +50,7 @@ impl ReleaseInfo {
 
 impl IReleaseInfo for ReleaseInfo {
     fn get_latest_version_for_platform(&self) -> Option<String> {
-        let platform_suffix = Self::current_platform_release_name_suffix()?;
+        let asset_extension = Self::current_platform_asset_extension()?;
         // Get the list of the application's releases, latest first, from GitHub.
         let releases_api_url = Self::github_releases_api_url()?;
         let response_body = ureq::get(&releases_api_url)
@@ -58,8 +63,11 @@ impl IReleaseInfo for ReleaseInfo {
         let releases: Vec<GitHubRelease> = serde_json::from_str(&response_body).ok()?;
         // Find the latest release for the current platform.
         for release in releases {
-            let release_name = release.name.as_deref()?;
-            if !release_name.ends_with(platform_suffix) {
+            let has_platform_asset = release
+                .assets
+                .iter()
+                .any(|asset| asset.name.ends_with(asset_extension));
+            if !has_platform_asset {
                 continue;
             }
             // The version string from which the returned `Version` is to be constructed
@@ -69,6 +77,30 @@ impl IReleaseInfo for ReleaseInfo {
         }
         // No release for the current platform was found.
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_github_release_deserialization() {
+        let json = r#"[
+            {
+                "tag_name": "v1.2.3",
+                "assets": [
+                    { "name": "pitchgrid_continuum-1.2.3-macOS.pkg" },
+                    { "name": "pitchgrid_continuum-1.2.3-windows-x64.exe" }
+                ]
+            }
+        ]"#;
+        let releases: Vec<GitHubRelease> = serde_json::from_str(json).unwrap();
+        assert_eq!(releases.len(), 1);
+        assert_eq!(releases[0].tag_name, "v1.2.3");
+        assert_eq!(releases[0].assets.len(), 2);
+        assert_eq!(releases[0].assets[0].name, "pitchgrid_continuum-1.2.3-macOS.pkg");
+        assert_eq!(releases[0].assets[1].name, "pitchgrid_continuum-1.2.3-windows-x64.exe");
     }
 }
 
