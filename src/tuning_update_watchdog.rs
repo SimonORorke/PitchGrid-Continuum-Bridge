@@ -61,53 +61,10 @@ impl TuningUpdateWatchdog {
     /// The watchdog thread body: wait for the confirmation signal, or report a timeout to the view.
     fn run(stopper_receiver: mpsc::Receiver<()>, presentation: Presentation, timeout_millis: u64,
            midi_send_error_notifier: SharedErrorNotifier) {
-        // There's one scenario where this check is known not to behave as expected.
-        // Editor MIDI:
-        //     Input  LB1 (A)
-        //     Output LB2 (A)
-        // As we are using loopback endpoints, the following are the correct MIDI connections in
-        // this application:
-        //     Input  LB2 (B)
-        //     Output LB1 (B)
-        // But try the following MIDI connections in this application:
-        //     Input  LB2 (B)
-        //     Output LB2 (A)
-        // In this scenario, this application's MIDI input is correct, but the incorrect output is
-        // the same as the editor's output.
-        // Expected behaviour:
-        //     As our output is incorrect, the instrument tuning and the tuning shown in the
-        //     editor should not be updated.
-        //     We should not receive confirmation that the tuning has been updated.
-        // Actual behavour:
-        //     As with the expected behaviour, the instrument tuning and the tuning shown in the
-        //     editor are not updated.
-        //     However, we receive Grid message ch16 cc51 g, where g is our seleted pitch table
-        //     number. We interpret this as confirmation that the tuning has been updated.
-        //
-        // Explanation
-        //
-        // Something like the following must be happening.
-        // As Windows MIDI devices are currently shared with no way to make them exclusive,
-        // there's nothing to stop us sending MIDI direct to the instrument, bypassing the editor.
-        // But from the instrument's perspective, our tuning data looks like invalid data from
-        // the editor, rather than a valid request from an external software component.
-        // So the firmware does not implement the request.
-        // As we request the current preset to be updated with the tuning with the same cc51 Grid
-        // message, what we currently interpret as update confirmation is just our
-        // request echoed back, which is expected. There is currently a firmware bug where,
-        // for some presets, the confirmation message is not sent when the preset's tuning has been
-        // updated. Our temporary workaround is to treat the echoed back request as confirmation.
-        //
-        // Pending fix
-        //
-        // Once the firmware bug is fixed, in MidiManager.on_message_received we can remove the workaround
-        // and revert to interpreting not the first cc51 Grid message received, our request, but
-        // the second as confirmation.
-        // That should make the problem go away. I've tested it with a preset that still sends
-        // the confirmation message even with the firmware bug.
         // To test that INSTRUMENT_TUNING_UPDATE_NOT_CONFIRMED is shown on timeout,
-        // uncomment the following line and comment out the next one.
+        // uncomment the following two lines and comment out the next one.
         // if let Ok(_) = stopper_receiver.recv_timeout(Duration::from_millis(50)) {
+        //     trace!("timeout_millis = {}", timeout_millis); // To prevent compiler warning unused timeout_millis
         if stopper_receiver.recv_timeout(Duration::from_millis(timeout_millis)).is_ok() {
             // Sleep was interrupted: tuning has been updated.
             debug!("Tuning updated");

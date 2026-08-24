@@ -23,7 +23,7 @@ enum DownloadStatus {
 enum TuningStatus {
     None,
     Tuning,
-    // RequestedPresetUpdate,
+    RequestedPresetUpdate,
 }
 
 /// Interprets the Continuum MIDI protocol. It consumes the raw messages and connection-lifecycle
@@ -150,59 +150,37 @@ impl MidiInputListener for ContinuumProtocol {
                         // and when a pitch table update sent to the instrument has been
                         // completed and loaded.
                         let status = *self.tuning_status.lock().unwrap();
-                        // Workaround for firmware 10.73 Beta not sending update confirmation
-                        // for some presets.
-                        if status == TuningStatus::Tuning {
-                            // Check that the value is the correct pitch table index
-                            // for the tuning this application sent to the instrument:
-                            // when a preset is loaded, there will be a Grid message
-                            // for the preset's initial tuning table, which will be zero.
-                            if pitch_table == Tuner::pitch_table() {
-                                debug!("on_message: Preset's pitch table \
-                                            update requested, pitch table no: {}", pitch_table);
+                        // This will fix the problem described below.
+                        match status {
+                            TuningStatus::None => {}
+                            TuningStatus::Tuning => {
+                                // Check that the value is the correct pitch table index
+                                // for the tuning this application sent to the instrument.
+                                // When there have been problems at the instrument end,
+                                // it has sent back a ch16 cc51 message, but with value 0.
+                                if pitch_table == Tuner::pitch_table() {
+                                    // The editor sends us back what we send to the instrument,
+                                    // as well as what the instrument sends back to us.
+                                    // So we have just requested that the current preset be updated
+                                    // with the new pitch table.
+                                    trace!(
+                                        "Preset's pitch table update requested, pitch table no: {}",
+                                        pitch_table);
+                                    *self.tuning_status.lock().unwrap() =
+                                        TuningStatus::RequestedPresetUpdate;
+                                }
+                            }
+                            TuningStatus::RequestedPresetUpdate => {
+                                // The instrument has confirmed that the current preset has been
+                                // updated with the new pitch table.
+                                trace!("Preset's pitch table update confirmed, pitch table no: {}",
+                                    pitch_table);
                                 *self.tuning_status.lock().unwrap() = TuningStatus::None;
                                 if let Some(listener) = self.listener() {
                                     rayon::spawn(move || listener.on_tuning_updated());
                                 }
                             }
                         }
-                        // When the firmware bug is fixed, remove the above workaround
-                        // and restore the tuning update confirmation check below.
-                        // This will fix the problem described in a comment in
-                        // Presenter.await_tuning_updated.
-                        // match status {
-                        //     TuningStatus::None => {}
-                        //     TuningStatus::Tuning => {
-                        //         // Check that the value is the correct pitch table index
-                        //         // for the tuning this application sent to the instrument.
-                        //         // When there have been problems at the instrument end,
-                        //         // it has sent back a ch16 cc51 message, but with value 0.
-                        //         if pitch_table == Tuner::pitch_table() {
-                        //             // The editor sends us back what we send to the instrument,
-                        //             // as well as what the instrument sends back to us.
-                        //             // So we have just requested that the current preset be updated
-                        //             // with the new pitch table.
-                        //             println!("midi.on_message_received: Preset's pitch table \
-                        //                 update requested, pitch table no: {}", pitch_table);
-                        //             *tuning_status().lock().unwrap() =
-                        //                 TuningStatus::RequestedPresetUpdate;
-                        //         }
-                        //     }
-                        //     TuningStatus::RequestedPresetUpdate => {
-                        //         // The instrument has confirmed that the current preset has been
-                        //         // updated with the new pitch table.
-                        //         // As at firmware 10.73, there is a firmware bug where, for
-                        //         // specific presets, the instrument will send back a cc51 message
-                        //         // with value 0 instead of the pitch table no we requested.
-                        //         // Haken Audio Incident 2335
-                        //         // https://github.com/SimonORorke/PitchGrid-Continuum-Bridge/issues/5
-                        //         // So we can omit checking the pitch table no here.
-                        //         println!("midi.on_message_received: Preset's pitch table \
-                        //                 update confirmed, pitch table no: {}", pitch_table);
-                        //         *tuning_status().lock().unwrap() = TuningStatus::None;
-                        //         Self::call_back(tuning_updated_callbacks().clone());
-                        //     }
-                        // }
                         return;
                     }
                     if controller == 109 {

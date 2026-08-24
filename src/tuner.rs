@@ -237,8 +237,8 @@ impl Tuner {
     /// updated with any rounding parameters that have been specified.
     fn send_tuning_update(&self, generate: bool) {
         debug!("send_tuning_update: generate = {}", generate);
-        self.tuning_signaller.lock().unwrap().on_updating_tuning();
         if generate {
+            self.tuning_signaller.lock().unwrap().on_updating_tuning();
             let mut keys = self.keys.lock().unwrap().clone();
             self.set_to_key_numbers(&mut keys);
             self.calculate_offsets(&mut keys);
