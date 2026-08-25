@@ -18,11 +18,13 @@ PCB does not support the Expressive E Osmose:  although the Osmose has the Eagan
 
 ### Supported Haken Audio Firmware Versions
 
-*To be determined. Awaiting firmware bug fixes.* Custom tuning is broken in Haken Audio Firmware v10.52, the latest production version.  Version *???* Beta or later is required.  The most recent Beta version is currently available for anyone to download.
+Version 10.77 Beta or later is required.
+
+Firmware 10.77 has a bug that affects PCB.  When PitchGrid-Continuum Bridge sends Rounding Mode Normal to Haken Editor (see [Rounding Overrides](#rounding-overrides)), the corresponding parameter is not updated, either in Haken Editor or on the instrument.  See [Issue #9](https://github.com/SimonORorke/PitchGrid-Continuum-Bridge/issues/9).  This is minor for PCB, as most or all EaganMatrix system presets already have Rounding Mode set to Normal, which is the default.
 
 ### Supported Operating Systems
 
-Windows and macOS. PitchGrid-Continuum Bridge has so far only been tested with Windows.  MacOS use should be straightforward; but please [raise an Issue](https://github.com/SimonORorke/PitchGrid-Continuum-Bridge/issues) if you find a bug.
+Windows 64-bit and macOS.
 
 ### Required Software
 
