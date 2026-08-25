@@ -465,6 +465,7 @@ impl Presenter {
         self.is_preset_reselect.store(true, Ordering::Relaxed);
         self.tuner.send_current_preset_update();
         debug!("on_new_preset_selected: Updated");
+        self.presentation.preset_tuning_loaded();
     }
 
     /// Started receiving data from the instrument.
