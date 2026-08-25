@@ -2,7 +2,7 @@
 ; SEE THE DOCUMENTATION FOR DETAILS ON CREATING INNO SETUP SCRIPT FILES!
 
 #define MyAppName "Pitchgrid-Continuum Bridge"
-#define MyAppVersion "0.15.0"
+#define MyAppVersion "0.16.0"
 #define MyAppPublisher "Simon O'Rorke"
 #define MyAppURL "https://github.com/SimonORorke/PitchGrid-Continuum-Bridge"
 #define MyAppExeName "pitchgrid_continuum.exe"
@@ -34,7 +34,7 @@ LicenseFile={#MyLicenseFile}
 ;PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
 OutputDir=.\
-OutputBaseFilename=pitchgrid_continuum{#MyAppVersion}
+OutputBaseFilename=pitchgrid_continuum{#MyAppVersion}x64
 VersionInfoVersion={#MyAppVersion}
 SetupIconFile=..\..\ui\images\Midi port black on red 512.ico
 Compression=lzma
