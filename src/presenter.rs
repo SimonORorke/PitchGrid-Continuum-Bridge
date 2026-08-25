@@ -1,6 +1,5 @@
 ﻿use std::error::Error;
 use std::sync::{Arc, Mutex, Weak};
-use std::sync::atomic::{AtomicBool, Ordering};
 use log::{debug, trace};
 use crate::continuum_protocol::ContinuumProtocol;
 use crate::device_strategy::{
@@ -50,10 +49,6 @@ pub struct Presenter {
     /// the same instance is the MidiManager's `MidiInputListener` and the Tuner's
     /// `TuningUpdateSignaller` (all wired in `new`).
     continuum_protocol: Arc<dyn IContinuumProtocol>,
-    /// True while the in-flight tuning send was triggered by a new instrument preset being
-    /// selected (rather than a fresh tuning), so on_tuning_updated can show a tailored
-    /// confirmation. An AtomicBool because it is set from the `&self` callback methods.
-    is_preset_reselect: AtomicBool,
     /// The MIDI manager, injected (like osc/settings/tuner) rather than reached through a global
     /// singleton. Shared because callback methods clone the `Arc` to pass it around.
     midi_manager: SharedMidiManager,
@@ -118,7 +113,6 @@ impl Presenter {
                                       watchdog_notifier);
         Self {
             continuum_protocol,
-            is_preset_reselect: AtomicBool::new(false),
             midi_manager,
             osc,
             presentation,
@@ -456,15 +450,10 @@ impl Presenter {
         if !self.tuner.has_data() {
             return;
         }
-        // No progress message is shown here, deliberately. Unlike a fresh tuning
-        // (on_tuning_received), this resend uses send_tuning_update(false): it does NOT upload the
-        // 128-key table, so it completes almost instantly. A progress message would be overwritten
-        // by the confirmation before the UI could paint it, so it would never be seen. Instead we
-        // flag the resend so that its confirmation (on_tuning_updated) shows PRESET_TUNING_LOADED
-        // rather than the generic INSTRUMENT_TUNING_UPDATED.
-        self.is_preset_reselect.store(true, Ordering::Relaxed);
         self.tuner.send_current_preset_update();
         debug!("on_new_preset_selected: Updated");
+        // The instrument returns no confirmation, and its processing is very quick.
+        // So show what has been done immediately.
         self.presentation.preset_tuning_loaded();
     }
 
@@ -506,13 +495,7 @@ impl Presenter {
             // while PitchGrid is not connected.
             return;
         }
-        // A resend triggered by a new preset selection gets its own confirmation; a fresh tuning
-        // gets the generic one. swap() reads and clears the flag in one step.
-        if self.is_preset_reselect.swap(false, Ordering::Relaxed) {
-            self.presentation.preset_tuning_loaded();
-        } else {
-            self.presentation.instrument_tuning_updated();
-        }
+        self.presentation.instrument_tuning_updated();
     }
 
     fn on_updating_tuning(&mut self) {
@@ -661,7 +644,6 @@ impl OscCallbacks for Presenter {
         trace!("on_tuning_received");
         // A fresh tuning is not a preset reselect. Clear any flag left set by a preset reselect
         // whose confirmation never arrived, so this tuning's confirmation isn't mislabelled.
-        self.is_preset_reselect.store(false, Ordering::Relaxed);
         trace!("on_tuning_received: {tuning_params:?}");
         if self.midi_manager.lock().unwrap().is_connected_and_receiving() {
             debug!("on_tuning_received: Showing Updating instrument tuning");

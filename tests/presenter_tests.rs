@@ -638,9 +638,6 @@ fn on_new_preset_selected() {
     MockContinuumProtocol::simulate_updating_tuning();
     MockContinuumProtocol::simulate_tuning_updated();
     MockContinuumProtocol::simulate_new_preset_selected();
-    // The instrument's confirmation echo for the resend. With the preset-reselect flag set,
-    // on_tuning_updated shows the preset-specific confirmation rather than the generic one.
-    MockContinuumProtocol::simulate_tuning_updated();
     assert_that!(tuner().has_data(), eq(true));
     assert_that!(mock_ui_methods().show_pitchgrid_status_msg, some(eq(PRESET_TUNING_LOADED)));
     assert_that!(mock_ui_methods().show_pitchgrid_status_msg_type, some(eq(MessageType::Info)));
