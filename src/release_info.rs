@@ -34,7 +34,7 @@ impl ReleaseInfo {
         if cfg!(all(target_os = "windows", target_pointer_width = "64")) {
             Some(".exe")
         } else if cfg!(target_os = "macos") {
-            Some(".pkg")
+            Some(".dmg")
         } else {
             None
         }

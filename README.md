@@ -24,7 +24,7 @@ Firmware 10.77 has a bug that affects PCB.  When PitchGrid-Continuum Bridge send
 
 ### Supported Operating Systems
 
-Windows 64-bit and macOS.
+Windows 64-bit and macOS. MacOS availability estimate: October 2026.
 
 ### Required Software
 
