@@ -52,7 +52,8 @@
       "Bash(grep -vE \"^\\\\s*\\\\d+ \\\\|.*//\")",
       "WebSearch",
       "WebFetch(domain:microsoft.github.io)",
-      "WebFetch(domain:docs.rs)"
+      "WebFetch(domain:docs.rs)",
+      "Bash(reg export *)"
     ]
   }
 }

@@ -4,12 +4,14 @@
 /// be sent to the Continuum instrument.
 pub struct ContinuumMidiBatch {
     message_batch: MidiMessageBatch,
+    pub print_messages_on_adding : bool,
 }
 
 impl ContinuumMidiBatch {
-    pub fn new() -> Self {
+    pub fn new(print_messages_on_adding: bool) -> Self {
         Self {
-            message_batch: MidiMessageBatch::new(),
+            message_batch: MidiMessageBatch::new(print_messages_on_adding),
+            print_messages_on_adding,
         }
     }
 

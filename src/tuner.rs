@@ -33,7 +33,11 @@ impl Tuner {
             rounding_rate: AtomicU8::new(127),
             root_freq_override_note_no: AtomicUsize::new(0),
             keys: Mutex::new(vec![]),
-            midi_batch: Mutex::new(ContinuumMidiBatch::new()),
+            // midi_batch: Mutex::new(ContinuumMidiBatch::new(false)),
+            // To print each MIDI message to be sent when it is added to the batch,
+            // by setting midi_batch.print_messages_on_adding,
+            // comment out the line above and uncomment the line below.
+            midi_batch: Mutex::new(ContinuumMidiBatch::new(true)),
             midi_sender,
             tuning_signaller: Mutex::new(tuning_signaller),
             params: Arc::new(Mutex::new(TuningParams::default())),
@@ -198,7 +202,8 @@ impl Tuner {
                 .map(|(i, pitch)| Key {
                     number: i as u8,
                     required_pitch: *pitch,
-                    to_number: 0,
+                    to_key_number: 0,
+                    to_key_default_pitch: 0.0,
                     offset_ratio: 0.0,
                     offset_msb: 0,
                     offset_lsb: 0,
@@ -243,16 +248,15 @@ impl Tuner {
             self.set_to_key_numbers(&mut keys);
             self.calculate_offsets(&mut keys);
             self.generate_pitch_table(Self::pitch_table(), &keys);
-            // Uncomment this to list the pitches to be assigned to each key.
-            // for key in keys.iter() {
-            //     println!("{},{}", key.number, key.required_pitch);
-            // }
         }
         // The following commands update the instrument's current preset.
         self.generate_rounding_params();
         // Set active pitch table for performance.
         debug!("send_tuning_update: Setting active pitch table to {}", Self::pitch_table());
         let mut midi_batch = self.midi_batch.lock().unwrap();
+        if midi_batch.print_messages_on_adding {
+            println!("Setting active pitch table to {}", Self::pitch_table());
+        }
         midi_batch.add_control_change(
             16, 51, Self::pitch_table());
         // We have now generated the complete batch of MIDI messages, so send them.
@@ -264,7 +268,7 @@ impl Tuner {
     /// that matches the Key's pitch.
     fn set_to_key_numbers(&self, keys: &mut [Key]) {
         for key_being_matched in keys.iter_mut() {
-            key_being_matched.to_number = TuningParams::default_pitch_keys()
+            key_being_matched.to_key_number = TuningParams::default_pitch_keys()
                 .binary_search_by(|&x| x.partial_cmp(&key_being_matched.required_pitch).unwrap())
                 .unwrap_or_else(|i| {
                     if i == 0 { 0 } else { i - 1 }
@@ -275,9 +279,10 @@ impl Tuner {
     /// Calculates the offset ratio and 14-bit offset values for each note.
     fn calculate_offsets(&self, keys: &mut [Key]) {
         for key in keys.iter_mut() {
-            let note_pitch = key.required_pitch;
-            let to_note_pitch = TuningParams::default_pitch_keys()[key.to_number as usize];
-            let offset_ratio = (12.0 * (note_pitch / to_note_pitch).log2()).clamp(0.0, 1.0);
+            key.to_key_default_pitch =
+                TuningParams::default_pitch_keys()[key.to_key_number as usize];
+            let offset_ratio =
+                (12.0 * (key.required_pitch / key.to_key_default_pitch).log2()).clamp(0.0, 1.0);
             key.offset_ratio = offset_ratio;
             let offset_14bit = (offset_ratio * 16383.0).round() as u16;
             key.offset_msb = ((offset_14bit >> 7) & 0x7F) as u8;
@@ -289,9 +294,24 @@ impl Tuner {
     fn generate_pitch_table(&self, pitch_table: u8, keys: &Vec<Key>) {
         let mut midi_batch = self.midi_batch.lock().unwrap();
         // Select pitch table to update.
+        if midi_batch.print_messages_on_adding {
+            println!("Setting pitch table to be updated to {}", pitch_table);
+        }
         midi_batch.add_control_change(16, 109, pitch_table);
         // Tuning for each MIDI key
         for key in keys {
+            // if key.number > 126 {
+            // if key.number < 1 || key.number > 126 {
+            // if key.number < 48 || key.number > 79 {
+            // if key.number < 60 || key.number > 79 {
+            //     continue;
+            // }
+            if midi_batch.print_messages_on_adding {
+                println!("Setting key {}'s pitch to {}, to_key_number = {}, \
+                    to_key_default_pitch = {}, offset_ratio = {}",
+                    key.number, key.required_pitch, key.to_key_number, key.to_key_default_pitch,
+                    key.offset_ratio);
+            }
             // Base/From MIDI key
             midi_batch.add_control_change(16, 38, key.number);
             // Base/From MIDI key tuning MSB
@@ -299,13 +319,16 @@ impl Tuner {
             // Base/From MIDI key tuning LSB
             midi_batch.add_control_change(16, 38, 0);
             // Re-tuned/To MIDI key
-            midi_batch.add_control_change(16, 38, key.to_number);
+            midi_batch.add_control_change(16, 38, key.to_key_number);
             // Re-tuned/To MIDI key tuning MSB
             midi_batch.add_control_change(16, 38, key.offset_msb);
             // Re-tuned/To MIDI key tuning LSB
             midi_batch.add_control_change(16, 38, key.offset_lsb);
         }
         // Save pitch table on instrument.
+        if midi_batch.print_messages_on_adding {
+            println!("Saving pitch table");
+        }
         midi_batch.add_control_change(16, 109, 101);
     }
 
@@ -316,14 +339,23 @@ impl Tuner {
         if self.override_rounding_initial.load(Ordering::Relaxed) {
             // Turn on Rounding Initial
             debug!("send_rounding_params: Sending Rounding Initial");
+            if midi_batch.print_messages_on_adding {
+                println!("Sending Rounding Initial");
+            }
             midi_batch.add_control_change(1, 28, 127); // RndIni
         }
         if self.override_rounding_rate.load(Ordering::Relaxed) {
             // Rounding Mode Normal
             debug!("send_rounding_params: Sending Rounding Mode Normal");
+            if midi_batch.print_messages_on_adding {
+                println!("Sending Rounding Mode Normal");
+            }
             midi_batch.add_matrix_poke(10, 0); // RoundMode
             // Rounding Rate
             debug!("send_rounding_params: Sending Rounding Rate");
+            if midi_batch.print_messages_on_adding {
+                println!("Sending Rounding Rate");
+            }
             midi_batch.add_control_change(
                 1, 25, self.rounding_rate.load(Ordering::Relaxed)); // RoundRate
         }
@@ -338,7 +370,8 @@ struct Key {
     required_pitch: f32,
     /// The MIDI note number of the key with the closest standard tuning pitch
     /// that is less than or equal to the required pitch.
-    to_number: u8,
+    to_key_number: u8,
+    to_key_default_pitch: f32,
     /// The offset ratio (0.0 to 1.0) as a fraction of a semitone, between the required pitch
     /// and the closest standard tuning pitch that is less than or equal to it.
     offset_ratio: f32,

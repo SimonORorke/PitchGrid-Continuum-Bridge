@@ -7,7 +7,6 @@ use crate::i_midi_manager::{SharedOutput};
 ///
 /// For the `I` prefix, see `IUiMethods`s doc comment.
 pub trait IMidiSender: Send {
-// pub trait IMidiSender: std::fmt::Debug + Send + Sync {
 
     /// Returns a notifier of any MIDI send error.
     fn error_notifier(&self) -> SharedErrorNotifier;
@@ -33,13 +32,6 @@ impl MidiSender {
         }
     }
 }
-
-// // `MidiOutputConnection` is not `Debug`, so the trait's `Debug` bound is satisfied by hand.
-// impl fmt::Debug for MidiSender {
-//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//         f.write_str("MidiSender")
-//     }
-// }
 
 impl IMidiSender for MidiSender {
     /// Returns a notifier of any MIDI send error.

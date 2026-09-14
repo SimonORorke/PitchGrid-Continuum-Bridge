@@ -3,12 +3,14 @@ use midly::{MidiMessage, live::LiveEvent};
 /// A batch of MIDI messages that can be accumulated and then released to be sent.
 pub struct MidiMessageBatch {
     messages: Vec<Box<[u8]>>,
+    pub print_messages_on_adding : bool,
 }
 
 impl MidiMessageBatch {
-    pub fn new() -> Self {
+    pub fn new(print_messages_on_adding: bool) -> Self {
         MidiMessageBatch {
             messages: vec!(),
+            print_messages_on_adding,
         }
     }
 
@@ -22,6 +24,9 @@ impl MidiMessageBatch {
                 value: value.into(),
             },
         );
+        if self.print_messages_on_adding {
+            println!("tx ch{} cc{} {}", channel, cc_no, value);
+        }
     }
 
     /// Adds a MIDI note aftertouch (pressure) message to the batch.
@@ -34,6 +39,9 @@ impl MidiMessageBatch {
                 vel: pressure.into(),
             },
         );
+        if self.print_messages_on_adding {
+            println!("tx ch{} pPres{} {}", channel, key, pressure);
+        }
     }
 
     /// Returns all messages and clears the batch.

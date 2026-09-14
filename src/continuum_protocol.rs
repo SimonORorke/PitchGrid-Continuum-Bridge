@@ -97,7 +97,7 @@ impl TuningUpdateSignaller for ContinuumProtocol {
 
 impl MidiInputListener for ContinuumProtocol {
     fn on_message(&self, message: &[u8]) {
-        // Download-monitor timing (formerly the tail of `MidiState::log_message_received_time`),
+        // Download-monitor timing,
         // keyed off this layer's own message clock. The first-message setup that used to live here
         // now happens in `on_receiving_data_started`.
         let now = Instant::now();
