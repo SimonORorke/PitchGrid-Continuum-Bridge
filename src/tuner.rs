@@ -12,6 +12,7 @@ pub struct Tuner {
     is_another_update_pending: AtomicBool,
     override_rounding_initial: AtomicBool,
     override_rounding_rate: AtomicBool,
+    print_csv: AtomicBool,
     rounding_rate: AtomicU8,
     root_freq_override_note_no: AtomicUsize,
     keys: Mutex<Vec<Key>>,
@@ -30,14 +31,16 @@ impl Tuner {
             is_another_update_pending: AtomicBool::new(false),
             override_rounding_initial: AtomicBool::new(false),
             override_rounding_rate: AtomicBool::new(false),
+            // print_csv: AtomicBool::new(false),
+            print_csv: AtomicBool::new(true),
             rounding_rate: AtomicU8::new(127),
             root_freq_override_note_no: AtomicUsize::new(0),
             keys: Mutex::new(vec![]),
-            // midi_batch: Mutex::new(ContinuumMidiBatch::new(false)),
+            midi_batch: Mutex::new(ContinuumMidiBatch::new(false)),
             // To print each MIDI message to be sent when it is added to the batch,
             // by setting midi_batch.print_messages_on_adding,
             // comment out the line above and uncomment the line below.
-            midi_batch: Mutex::new(ContinuumMidiBatch::new(true)),
+            // midi_batch: Mutex::new(ContinuumMidiBatch::new(true)),
             midi_sender,
             tuning_signaller: Mutex::new(tuning_signaller),
             params: Arc::new(Mutex::new(TuningParams::default())),
@@ -294,6 +297,9 @@ impl Tuner {
     fn generate_pitch_table(&self, pitch_table: u8, keys: &Vec<Key>) {
         let mut midi_batch = self.midi_batch.lock().unwrap();
         // Select pitch table to update.
+        if self.print_csv.load(Ordering::Relaxed) {
+            println!("From Note,Required Hz,To Note,To Note Default Hz,Offset Ratio,Offset MSB,Offset LSB");
+        }
         if midi_batch.print_messages_on_adding {
             println!("Setting pitch table to be updated to {}", pitch_table);
         }
@@ -306,6 +312,11 @@ impl Tuner {
             // if key.number < 60 || key.number > 79 {
             //     continue;
             // }
+            if self.print_csv.load(Ordering::Relaxed) {
+                println!("{},{},{},{},{},{},{}", key.number, key.required_pitch, key.to_key_number,
+                         key.to_key_default_pitch, key.offset_ratio, key.offset_msb,
+                         key.offset_lsb);
+            }
             if midi_batch.print_messages_on_adding {
                 println!("Setting key {}'s pitch to {}, to_key_number = {}, \
                     to_key_default_pitch = {}, offset_ratio = {}",
