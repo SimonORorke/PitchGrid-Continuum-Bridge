@@ -4,9 +4,8 @@ use crate::midi_ports::IIo;
 use crate::device_strategy::DeviceStrategy;
 
 /// The raw seam by which the generic `MidiManager` reports inbound MIDI and connection-lifecycle
-/// events to whatever interprets them — here, the `ContinuumProtocol`. The manager raises raw
-/// messages and generic lifecycle events and has no knowledge of the Continuum protocol; this is
-/// the library boundary, where a different application would supply a different listener.
+/// events to whatever interprets them. The manager raises raw
+/// messages and generic lifecycle events and has no knowledge of the listener.
 pub trait MidiInputListener: Send + Sync {
     /// A raw inbound MIDI message.
     fn on_message(&self, message: &[u8]);

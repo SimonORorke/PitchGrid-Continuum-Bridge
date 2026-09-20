@@ -264,7 +264,7 @@ impl Tuner {
             16, 51, Self::pitch_table());
         // We have now generated the complete batch of MIDI messages, so send them.
         // If the problem where some pitches were repeated on consecutive keys on the Continuum
-        // recurs, try sending the tuning more slowly by setting send_batch's
+        // recurs (Haken ticket #7429), try sending the tuning more slowly by setting send_batch's
         // delay_after_each_send_ms argument to a non-zero value.
         // There are 771 messages to send (6*128+3). So hopefully 1 ms will be enough!
         self.midi_sender.lock().unwrap().send_batch(

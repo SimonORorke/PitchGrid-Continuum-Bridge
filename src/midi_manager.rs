@@ -15,8 +15,7 @@ use log::trace;
 
 /// The generic MIDI reception state: whether data is arriving and when the last message arrived.
 /// Held behind an `Arc` so the input callback and the monitor / watchdog threads can each own a
-/// clone — a `'static + Send` closure cannot borrow `&self`. The Continuum-specific state now lives
-/// in `ContinuumProtocol`.
+/// clone — a `'static + Send` closure cannot borrow `&self`.
 struct MidiInputState {
     is_receiving_data: AtomicBool,
     last_message_received_time: Mutex<Option<Instant>>,
@@ -44,7 +43,7 @@ impl MidiInputState {
 
 /// A manager for MIDI devices and messages. It owns the device connections and the generic
 /// reception state, and raises raw messages and connection-lifecycle events to its
-/// `MidiInputListener` (the `ContinuumProtocol`). It knows nothing of the Continuum protocol itself.
+/// `MidiInputListener`.
 pub struct MidiManager {
     connection_monitor_stopper_sender: Option<mpsc::Sender<()>>,
     input: Io<MidiInputPort>,
@@ -57,7 +56,7 @@ pub struct MidiManager {
     /// The generic reception state, shared with the input callback and the spawned monitor /
     /// watchdog threads.
     input_state: Arc<MidiInputState>,
-    /// The interpreter of inbound MIDI (the `ContinuumProtocol`), injected by `Presenter::new`.
+    /// The interpreter of inbound MIDI, injected by `Presenter::new`.
     /// `MidiManager` raises raw events to it synchronously; it does any thread hand-off before
     /// re-entering the `Presenter`.
     listener: Arc<dyn MidiInputListener>,
