@@ -1,4 +1,5 @@
 use std::sync::{Arc, Mutex};
+use std::thread::sleep;
 use log::{error};
 use crate::error_notifier::{ErrorNotifier, SharedErrorNotifier};
 use crate::i_midi_manager::{SharedOutput};
@@ -12,10 +13,10 @@ pub trait IMidiSender: Send {
     fn error_notifier(&self) -> SharedErrorNotifier;
 
     /// Sends a batch of MIDI messages.
-    fn send_batch(&mut self, batch: Vec<Box<[u8]>>);
+    fn send_batch(&mut self, batch: Vec<Box<[u8]>>, delay_after_each_send_ms: u8);
 
     /// Sends a single MIDI message.
-    fn send_message(&mut self, message: &[u8]);
+    fn send_message(&mut self, message: &[u8], delay_after_send_ms: u8);
 }
 
 /// A service for sending MIDI messages to the instrument via the shared output connection.
@@ -40,14 +41,14 @@ impl IMidiSender for MidiSender {
     }
 
     /// Sends a batch of MIDI messages.
-    fn send_batch(&mut self, batch: Vec<Box<[u8]>>) {
+    fn send_batch(&mut self, batch: Vec<Box<[u8]>>, delay_after_each_send_ms: u8) {
         for message in batch {
-            self.send_message(&message);
+            self.send_message(&message, delay_after_each_send_ms);
         }
     }
 
     /// Sends a single MIDI message.
-    fn send_message(&mut self, message: &[u8]) {
+    fn send_message(&mut self, message: &[u8], delay_after_send_ms: u8) {
         let mut connection_option =
             self.output.lock().unwrap();
         if let Some(connection) = connection_option.as_mut() {
@@ -63,6 +64,9 @@ impl IMidiSender for MidiSender {
                 // Panic for stack trace diagnostics.
                 // panic!("Error when sending MIDI message: {:?}", message);
             });
+            if delay_after_send_ms > 0 {
+                sleep(std::time::Duration::from_millis(delay_after_send_ms as u64));
+            }
         }
     }
 }

@@ -57,13 +57,13 @@ impl IMidiSender for MockMidiSenderImpl {
         MOCK_MIDI_SENDER.lock().unwrap().error_notifier.clone()
     }
 
-    fn send_batch(&mut self, batch: Vec<Box<[u8]>>) {
+    fn send_batch(&mut self, batch: Vec<Box<[u8]>>, delay_after_each_send_ms: u8) {
         for message in batch {
-            self.send_message(&message);
+            self.send_message(&message, delay_after_each_send_ms);
         }
     }
 
-    fn send_message(&mut self, message: &[u8]) {
+    fn send_message(&mut self, message: &[u8], _delay_after_send_ms: u8) {
         let mut s = MOCK_MIDI_SENDER.lock().unwrap();
         // Parse + interpret
         let event = LiveEvent::parse(message).unwrap();
