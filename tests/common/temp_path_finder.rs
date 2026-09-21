@@ -24,4 +24,3 @@ impl PathFinder for TempPathFinder {
         Ok(self.config_folder.path().to_path_buf())
     }
 }
-

@@ -1,7 +1,7 @@
 use std::sync::{Arc, Mutex, LazyLock};
 use midly::{MidiMessage, live::LiveEvent};
 use pitchgrid_continuum::error_notifier::{ErrorNotifier, SharedErrorNotifier};
-use pitchgrid_continuum::midi_sender::IMidiSender;
+use pitchgrid_continuum::midi_sender::{IMidiSender, MidiSender};
 
 /// Returns a snapshot of the MIDI send stats since the last `MockMidiSender::new()`.
 pub fn mock_midi_sender() -> MockMidiSender {
@@ -61,6 +61,11 @@ impl IMidiSender for MockMidiSenderImpl {
         for message in batch {
             self.send_message(&message, delay_after_each_send_ms);
         }
+    }
+
+    fn send_control_change(&mut self, channel: u8, cc_no: u8, value: u8, delay_after_send_ms: u8) {
+        self.send_message(&MidiSender::create_control_change(channel, cc_no, value),
+                          delay_after_send_ms);
     }
 
     fn send_message(&mut self, message: &[u8], _delay_after_send_ms: u8) {

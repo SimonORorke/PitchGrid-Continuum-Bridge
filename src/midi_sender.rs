@@ -1,6 +1,8 @@
 use std::sync::{Arc, Mutex};
 use std::thread::sleep;
 use log::{error};
+use midly::live::LiveEvent;
+use midly::MidiMessage;
 use crate::error_notifier::{ErrorNotifier, SharedErrorNotifier};
 use crate::i_midi_manager::{SharedOutput};
 
@@ -14,6 +16,10 @@ pub trait IMidiSender: Send {
 
     /// Sends a batch of MIDI messages.
     fn send_batch(&mut self, batch: Vec<Box<[u8]>>, delay_after_each_send_ms: u8);
+
+    /// Sends a MIDI Control Change message.
+    /// Parameter `channel` is 1-based.
+    fn send_control_change(&mut self, channel: u8, cc_no: u8, value: u8, delay_after_send_ms: u8);
 
     /// Sends a single MIDI message.
     fn send_message(&mut self, message: &[u8], delay_after_send_ms: u8);
@@ -32,6 +38,42 @@ impl MidiSender {
             error_notifier: Arc::new(Mutex::new(ErrorNotifier::new())),
         }
     }
+
+    /// Creates a MIDI control change message.
+    /// Parameter `channel` is 1-based.
+    pub fn create_control_change(channel: u8, cc_no: u8, value: u8) -> Vec<u8> {
+        Self::create_channel_message(
+            channel,
+            MidiMessage::Controller {
+                controller: cc_no.into(),
+                value: value.into(),
+            },
+        )
+   }
+
+    /// Creates a MIDI note (polyphonic) aftertouch (pressure) message.
+    /// Parameter `channel` is 1-based.
+    pub fn create_note_aftertouch(channel: u8, key: u8, pressure: u8) -> Vec<u8> {
+        Self::create_channel_message(
+            channel,
+            MidiMessage::Aftertouch {
+                key: key.into(),
+                vel: pressure.into(),
+            },
+        )
+    }
+
+    /// Creates a MIDI channel message.
+    /// Parameter `channel` is 1-based.
+    fn create_channel_message(channel: u8, message: MidiMessage) -> Vec<u8> {
+        let live_event = LiveEvent::Midi {
+            channel: (channel - 1).into(), // 0-based channel number.
+            message,
+        };
+        let mut buf = Vec::new();
+        live_event.write(&mut buf).unwrap();
+        buf
+    }
 }
 
 impl IMidiSender for MidiSender {
@@ -45,6 +87,11 @@ impl IMidiSender for MidiSender {
         for message in batch {
             self.send_message(&message, delay_after_each_send_ms);
         }
+    }
+
+    fn send_control_change(&mut self, channel: u8, cc_no: u8, value: u8, delay_after_send_ms: u8) {
+        self.send_message(&Self::create_control_change(channel, cc_no, value),
+                          delay_after_send_ms);
     }
 
     /// Sends a single MIDI message.

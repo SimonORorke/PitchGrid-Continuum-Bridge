@@ -255,13 +255,21 @@ impl Tuner {
         // The following commands update the instrument's current preset.
         self.generate_rounding_params();
         // Set active pitch table for performance.
+        // From the instrument's perspective, this is only necessary if we are assigning the
+        // existing tuning to a new current preset: when a tuning table has been updated, it is
+        // automatically assigned to the current preset.
+        // However, when a new tuning has been generated,
+        // it will make the instrument send a Grid message back, which is a useful indication that
+        // the tuning has been updated.
+        // Once we know the tuning has been updated, if another tuning is pending, we will send it,
+        // otherwise we will show a confirmation message that the tuning has been updated.
         debug!("send_tuning_update: Setting active pitch table to {}", Self::pitch_table());
         let mut midi_batch = self.midi_batch.lock().unwrap();
         if midi_batch.print_messages_on_adding {
             println!("Setting active pitch table to {}", Self::pitch_table());
         }
         midi_batch.add_control_change(
-            16, 51, Self::pitch_table());
+            16, 51, Self::pitch_table()); // Grid
         // We have now generated the complete batch of MIDI messages, so send them.
         // If the problem where some pitches were repeated on consecutive keys on the Continuum
         // recurs (Haken ticket #7429), try sending the tuning more slowly by setting send_batch's
@@ -340,7 +348,8 @@ impl Tuner {
             // Re-tuned/To MIDI key tuning LSB
             midi_batch.add_control_change(16, 38, key.offset_lsb);
         }
-        // Save pitch table on instrument.
+        // Save pitch table on instrument. This will automatically assign the pitch table to the
+        // current preset.
         if midi_batch.print_messages_on_adding {
             println!("Saving pitch table");
         }
