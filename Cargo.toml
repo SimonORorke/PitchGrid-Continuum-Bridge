@@ -23,8 +23,6 @@ new_without_default = "allow"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-# ... existing code ...
-
 [dependencies]
 app_info = { path = "app_info" }
 cxx = "1.0.202"
