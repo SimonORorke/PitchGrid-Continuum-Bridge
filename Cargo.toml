@@ -61,6 +61,7 @@ embed-resource = "3.0.8"
 googletest = "0.14.3"
 tempfile = "3.27.0"
 
+
 [package.metadata.bundle]
 name = "PitchGrid Continuum Bridge"
 identifier = "com.pitchgrid.continuum"
