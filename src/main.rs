@@ -29,8 +29,6 @@ fn main() {
     env_logger::Builder::from_env(
         env_logger::Env::default().default_filter_or("info"))
             .format_timestamp_millis().init();
-    #[cfg(target_os = "macos")]
-    set_macos_app_icon();
     let main_window = MainWindow::new().unwrap();
     main_window.set_window_title(APP_TITLE.into());
     let new_version_window = create_new_version_window();
@@ -190,30 +188,6 @@ fn create_new_version_window() -> NewVersionWindow  {
     new_version_window
 }
 
-/// Sets the macOS application icon at runtime.
-///
-/// When launched directly as a standalone binary (e.g. during `cargo run` or development workflows)
-/// rather than from a packaged `.app` bundle, macOS does not automatically associate the application
-/// metadata and icon from an `Info.plist`. This function dynamically loads the embedded `.icns` asset
-/// into memory and sets it on the shared `NSApplication` instance so the dock and application switcher
-/// display the proper icon.
-#[cfg(target_os = "macos")]
-fn set_macos_app_icon() {
-    use objc2::ClassType;
-    use objc2_app_kit::{NSApplication, NSImage};
-    use objc2_foundation::{MainThreadMarker, NSData};
-
-    if let Some(mtm) = MainThreadMarker::new() {
-        let icon_data = include_bytes!("../ui/images/Midi port black on red 512.icns");
-        let data = NSData::with_bytes(icon_data);
-        if let Some(image) = NSImage::initWithData(NSImage::alloc(), &data) {
-            let app = NSApplication::sharedApplication(mtm);
-            unsafe {
-                app.setApplicationIconImage(Some(&image));
-            }
-        }
-    }
-}
 
 fn set_root_notes_model(main_window: &MainWindow) {
     let override_items: Vec<ComboBoxItem> = global::override_note_names()

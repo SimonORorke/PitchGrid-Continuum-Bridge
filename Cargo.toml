@@ -61,7 +61,8 @@ embed-resource = "3.0.8"
 googletest = "0.14.3"
 tempfile = "3.27.0"
 
-[target.'cfg(target_os = "macos")'.dependencies]
-objc2 = "0.5"
-objc2-foundation = { version = "0.2", features = ["NSData"] }
-objc2-app-kit = { version = "0.2", features = ["NSApplication", "NSImage"] }
+[package.metadata.bundle]
+name = "PitchGrid Continuum Bridge"
+identifier = "com.pitchgrid.continuum"
+icon = ["ui/images/Midi port black on red 512.icns"]
+category = "Music"
