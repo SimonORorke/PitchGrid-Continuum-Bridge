@@ -190,21 +190,28 @@ fn create_new_version_window() -> NewVersionWindow  {
     new_version_window
 }
 
+/// Sets the macOS application icon at runtime.
+///
+/// When launched directly as a standalone binary (e.g. during `cargo run` or development workflows)
+/// rather than from a packaged `.app` bundle, macOS does not automatically associate the application
+/// metadata and icon from an `Info.plist`. This function dynamically loads the embedded `.icns` asset
+/// into memory and sets it on the shared `NSApplication` instance so the dock and application switcher
+/// display the proper icon.
 #[cfg(target_os = "macos")]
 fn set_macos_app_icon() {
-    let icon_data = include_bytes!("../ui/images/Midi port black on red 512.icns");
-    unsafe {
-        use objc::runtime::Object;
-        use objc::{class, msg_send, sel, sel_impl};
-        let data: *mut Object = msg_send![
-            class!(NSData),
-            dataWithBytes: icon_data.as_ptr() as *const std::ffi::c_void
-            length: icon_data.len()
-        ];
-        let image: *mut Object = msg_send![class!(NSImage), alloc];
-        let image: *mut Object = msg_send![image, initWithData: data];
-        let app: *mut Object = msg_send![class!(NSApplication), sharedApplication];
-        let _: () = msg_send![app, setApplicationIconImage: image];
+    use objc2::ClassType;
+    use objc2_app_kit::{NSApplication, NSImage};
+    use objc2_foundation::{MainThreadMarker, NSData};
+
+    if let Some(mtm) = MainThreadMarker::new() {
+        let icon_data = include_bytes!("../ui/images/Midi port black on red 512.icns");
+        let data = NSData::with_bytes(icon_data);
+        if let Some(image) = NSImage::initWithData(NSImage::alloc(), &data) {
+            let app = NSApplication::sharedApplication(mtm);
+            unsafe {
+                app.setApplicationIconImage(Some(&image));
+            }
+        }
     }
 }
 

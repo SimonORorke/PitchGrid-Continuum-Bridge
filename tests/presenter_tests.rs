@@ -798,6 +798,7 @@ fn on_receiving_data_stopped_osc_not_running_devices_not_connected() {
 }
 
 #[googletest::gtest]
+#[cfg_attr(target_os = "macos", ignore = "Slint/winit EventLoop requires OS main thread on macOS")]
 fn production_new() {
     // Just so we can get 100% test coverage of `Presenter`,
     // test the production `Presenter::new`, which does not allow us to inject all the mocks.
