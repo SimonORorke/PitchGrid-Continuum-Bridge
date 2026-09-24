@@ -50,6 +50,11 @@ cxx-build = "1.0.202"
 slint-build = "=1.17.1"
 vivi_ui = "0.2.0"
 
+[target.'cfg(target_os = "macos")'.dependencies]
+# Used to disable Slint's transparent-titlebar window attribute on macOS, which otherwise
+# lets the desktop wallpaper show through the title bar. Must track the slint version exactly.
+i-slint-backend-winit = "=1.17.1"
+
 [target.'cfg(windows)'.build-dependencies]
 # Using embed-resource instead of the more popular winres
 # for application icon and exe file propertieds because
