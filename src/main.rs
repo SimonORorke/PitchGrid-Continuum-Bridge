@@ -29,7 +29,7 @@ fn main() {
     env_logger::Builder::from_env(
         env_logger::Env::default().default_filter_or("info"))
             .format_timestamp_millis().init();
-    install_solid_titlebar_platform();
+    install_solid_title_bar_platform();
     let main_window = MainWindow::new().unwrap();
     main_window.set_window_title(APP_TITLE.into());
     let new_version_window = create_new_version_window();
@@ -57,7 +57,7 @@ fn main() {
 /// a solid, opaque background again, matching the behaviour of other native macOS apps. Must run
 /// before any Slint window is created.
 #[cfg(target_os = "macos")]
-fn install_solid_titlebar_platform() {
+fn install_solid_title_bar_platform() {
     use i_slint_backend_winit::winit::platform::macos::WindowAttributesExtMacOS;
 
     let backend = i_slint_backend_winit::Backend::builder()
@@ -70,7 +70,7 @@ fn install_solid_titlebar_platform() {
 }
 
 #[cfg(not(target_os = "macos"))]
-fn install_solid_titlebar_platform() {}
+fn install_solid_title_bar_platform() {}
 
 fn init_ui_handlers(main_window: &MainWindow, new_version_window: &NewVersionWindow,
                     presenter: SharedPresenter, ui_methods: Arc<UiMethods>) {
