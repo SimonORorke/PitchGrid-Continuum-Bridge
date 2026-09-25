@@ -2,7 +2,7 @@
 use std::sync::{Arc, Mutex};
 use log::trace;
 use i_slint_backend_winit::WinitWindowAccessor;
-use slint::{ComponentHandle, PhysicalPosition, Weak, WindowPosition};
+use slint::{ComponentHandle, LogicalPosition, PhysicalPosition, Weak, WindowPosition};
 use app_info::{APP_TITLE,};
 use crate::{ComboBoxItem, ComboBoxModel as MainComboBoxModel, MainWindow, NewVersionWindow,
             SlintMessageType};
@@ -248,16 +248,33 @@ impl IUiMethods for UiMethods {
             // working area of an available monitor.
             let is_in_working_area = main_window.window().with_winit_window(|winit_window| {
                 winit_window.available_monitors().any(|monitor| {
-                    let pos = monitor.position();
-                    let size = monitor.size();
-                    let x_min = pos.x;
-                    let x_max = pos.x + size.width as i32;
-                    let y_min = pos.y;
-                    let y_max = pos.y + size.height as i32;
-                    x >= x_min && x < x_max && y >= y_min && y < y_max
+                    #[cfg(target_os = "macos")]
+                    {
+                        let scale = monitor.scale_factor();
+                        let pos = monitor.position().to_logical::<f64>(scale);
+                        let size = monitor.size().to_logical::<f64>(scale);
+                        let x_min = pos.x.round() as i32;
+                        let x_max = (pos.x + size.width).round() as i32;
+                        let y_min = pos.y.round() as i32;
+                        let y_max = (pos.y + size.height).round() as i32;
+                        x >= x_min && x < x_max && y >= y_min && y < y_max
+                    }
+                    #[cfg(not(target_os = "macos"))]
+                    {
+                        let pos = monitor.position();
+                        let size = monitor.size();
+                        let x_min = pos.x;
+                        let x_max = pos.x + size.width as i32;
+                        let y_min = pos.y;
+                        let y_max = pos.y + size.height as i32;
+                        x >= x_min && x < x_max && y >= y_min && y < y_max
+                    }
                 })
             }).unwrap_or(false);
             if is_in_working_area {
+                #[cfg(target_os = "macos")]
+                main_window.window().set_position(LogicalPosition::new(x as f32, y as f32));
+                #[cfg(not(target_os = "macos"))]
                 main_window.window().set_position(PhysicalPosition { x, y });
             }
         });

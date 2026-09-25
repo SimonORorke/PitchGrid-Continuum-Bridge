@@ -178,7 +178,17 @@ fn handle_close_request(main_window_weak: &Weak<MainWindow>, presenter: &SharedP
     // and cannot use invoke_from_event_loop without deadlocking.
     let (x, y) = if let Some(main_window) = main_window_weak.upgrade() {
         let pos = main_window.window().position();
-        (pos.x, pos.y)
+        #[cfg(target_os = "macos")]
+        {
+            let scale_factor = main_window.window().scale_factor();
+            let logical_x = (pos.x as f32 / scale_factor).round() as i32;
+            let logical_y = (pos.y as f32 / scale_factor).round() as i32;
+            (logical_x, logical_y)
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            (pos.x, pos.y)
+        }
     } else {
         (0, 0)
     };
