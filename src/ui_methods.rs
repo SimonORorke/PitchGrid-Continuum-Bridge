@@ -2,7 +2,9 @@
 use std::sync::{Arc, Mutex};
 use log::trace;
 use i_slint_backend_winit::WinitWindowAccessor;
-use slint::{ComponentHandle, LogicalPosition, PhysicalPosition, Weak, WindowPosition};
+use slint::{ComponentHandle, PhysicalPosition, Weak, WindowPosition};
+#[cfg(target_os = "macos")]
+use slint::LogicalPosition;
 use app_info::{APP_TITLE,};
 use crate::{ComboBoxItem, ComboBoxModel as MainComboBoxModel, MainWindow, NewVersionWindow,
             SlintMessageType};
