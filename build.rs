@@ -4,9 +4,10 @@ fn main() {
         slint_build::CompilerConfiguration::new().with_library_paths(vivi_ui::import_paths()),
     )
     .unwrap();
-    cxx_build::bridge("src/tuning_params.rs")  // returns a cc::Build
-        // If you add, remove, or rename cpp files in the scalatrix/src directory,
-        // you must also update this, in order for the C++ code to be compiled.
+    let mut builder = cxx_build::bridge("src/tuning_params.rs"); // returns a cc::Build
+    // If you add, remove, or rename cpp files in the scalatrix/src directory,
+    // you must also update this, in order for the C++ code to be compiled.
+    builder
         .file("scalatrix/src/affine_transform.cpp")
         .file("scalatrix/src/consonance.cpp")
         .file("scalatrix/src/label_calculator.cpp")
@@ -21,8 +22,16 @@ fn main() {
         .file("scalatrix/src/scale.cpp")
         .file("scalatrix/src/spectrum.cpp")
         .include("scalatrix/include")
-        .std("c++17")
-        .compile("scalatrix");
+        .std("c++17");
+
+    let is_macos = std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("macos");
+    if is_macos {
+        builder.file("src/mac_lifecycle.mm");
+        println!("cargo:rustc-link-lib=framework=Cocoa");
+        println!("cargo:rerun-if-changed=src/mac_lifecycle.mm");
+    }
+
+    builder.compile("scalatrix");
     println!("cargo:rerun-if-changed=scalatrix");
     #[cfg(windows)]
     {

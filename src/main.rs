@@ -36,7 +36,9 @@ fn main() {
     let ui_methods =
         Arc::new(UiMethods::new(main_window.as_weak(), new_version_window.as_weak()));
     let presenter: SharedPresenter = Arc::new(Mutex::new(Presenter::new(ui_methods.clone())));
-    init_ui_handlers(&main_window, &new_version_window, presenter.clone(), ui_methods.clone());
+    let about_window: Rc<RefCell<Option<AboutWindow>>> = Rc::new(RefCell::new(None));
+    init_ui_handlers(&main_window, &new_version_window, presenter.clone(), ui_methods.clone(),
+                     about_window.clone());
     set_root_notes_model(&main_window);
     set_osc_listening_ports_model(&main_window);
     set_pitch_tables_model(&main_window);
@@ -47,6 +49,8 @@ fn main() {
     spawn_presenter_action(&presenter, move |c| c.init(&self_arc));
 
     main_window.run().unwrap();
+    let _ = perform_close(&main_window.as_weak(), &presenter, &about_window,
+                          &new_version_window.as_weak());
 }
 
 /// Slint's winit backend requests a transparent NSWindow on macOS by default (`with_transparent(true)`,
@@ -72,12 +76,31 @@ fn install_solid_title_bar_platform() {
 #[cfg(not(target_os = "macos"))]
 fn install_solid_title_bar_platform() {}
 
+#[cfg(target_os = "macos")]
+unsafe extern "C" {
+    fn register_app_will_terminate_handler(callback: extern "C" fn());
+}
+
+#[cfg(target_os = "macos")]
+thread_local! {
+    static MAC_TERMINATION_CLOSURE: RefCell<Option<Box<dyn FnOnce()>>> = const { RefCell::new(None) };
+}
+
+#[cfg(target_os = "macos")]
+extern "C" fn on_mac_app_will_terminate() {
+    MAC_TERMINATION_CLOSURE.with(|closure| {
+        if let Some(f) = closure.borrow_mut().take() {
+            f();
+        }
+    });
+}
+
 fn init_ui_handlers(main_window: &MainWindow, new_version_window: &NewVersionWindow,
-                    presenter: SharedPresenter, ui_methods: Arc<UiMethods>) {
+                    presenter: SharedPresenter, ui_methods: Arc<UiMethods>,
+                    about_window: Rc<RefCell<Option<AboutWindow>>>) {
     main_window.on_open_documentation(move || {
         open::that(DOCUMENTATION_LINK).unwrap();
     });
-    let about_window: Rc<RefCell<Option<AboutWindow>>> = Rc::new(RefCell::new(None));
     {
         let about_window = Rc::clone(&about_window);
         let ui_methods_clone = ui_methods.clone();
@@ -94,6 +117,22 @@ fn init_ui_handlers(main_window: &MainWindow, new_version_window: &NewVersionWin
             handle_close_request(&main_window_weak, &presenter, &about_window,
                                  new_version_window_weak.clone())
         });
+    }
+    #[cfg(target_os = "macos")]
+    {
+        // Handle Cmd+Q to call perform_close, the same method as the close button.
+        let main_window_weak = main_window.as_weak();
+        let presenter = Arc::clone(&presenter);
+        let about_window = Rc::clone(&about_window);
+        let new_version_window_weak = new_version_window.as_weak();
+        MAC_TERMINATION_CLOSURE.with(|closure| {
+            *closure.borrow_mut() = Some(Box::new(move || {
+                let _ = perform_close(&main_window_weak, &presenter, &about_window, &new_version_window_weak);
+            }));
+        });
+        unsafe {
+            register_app_will_terminate_handler(on_mac_app_will_terminate);
+        }
     }
     // All Presenter methods must be called from non-UI threads to avoid deadlock.
     // See the UiMethods.with_main_window_result doc comment for more information.
@@ -155,27 +194,24 @@ fn init_ui_handlers(main_window: &MainWindow, new_version_window: &NewVersionWin
     }
 }
 
-fn handle_close_request(main_window_weak: &Weak<MainWindow>, presenter: &SharedPresenter,
-                        about_window: &Rc<RefCell<Option<AboutWindow>>>,
-                        new_version_window_weak: Weak<NewVersionWindow>) -> CloseRequestResponse {
-    trace!("main.handle_close_request");
+fn perform_close(
+    main_window_weak: &Weak<MainWindow>,
+    presenter: &SharedPresenter,
+    about_window: &Rc<RefCell<Option<AboutWindow>>>,
+    new_version_window_weak: &Weak<NewVersionWindow>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    if IS_CLOSED.swap(true, Ordering::SeqCst) {
+        return Ok(());
+    }
+    trace!("main.perform_close");
     if let Some(dialog) = about_window.borrow().as_ref()
         && ComponentHandle::window(dialog).is_visible() {
-        dialog.hide().unwrap();
+        dialog.hide().ok();
     }
-    if let Some(new_version_window) = new_version_window_weak.upgrade() {
-        if ComponentHandle::window(&new_version_window).is_visible() {
-            new_version_window.hide().unwrap();
-        }
+    if let Some(new_version_window) = new_version_window_weak.upgrade()
+        && ComponentHandle::window(&new_version_window).is_visible() {
+        new_version_window.hide().ok();
     }
-    let response =
-        Arc::new(Mutex::new(CloseRequestResponse::HideWindow));
-    if IS_CLOSE_ERROR_SHOWN.load(Ordering::Relaxed) {
-        // If a close error message is already shown, allow the window to be closed.
-        return *response.lock().unwrap()
-    }
-    // Read position on the UI thread before calling close(), which runs on the UI thread
-    // and cannot use invoke_from_event_loop without deadlocking.
     let (x, y) = if let Some(main_window) = main_window_weak.upgrade() {
         let pos = main_window.window().position();
         #[cfg(target_os = "macos")]
@@ -192,12 +228,23 @@ fn handle_close_request(main_window_weak: &Weak<MainWindow>, presenter: &SharedP
     } else {
         (0, 0)
     };
-    let response_clone = Arc::clone(&response);
-    if presenter.lock().unwrap().close(x, y).is_err() {
-        *response_clone.lock().unwrap() = CloseRequestResponse::KeepWindowShown;
+    presenter.lock().unwrap().close(x, y)
+}
+
+fn handle_close_request(main_window_weak: &Weak<MainWindow>, presenter: &SharedPresenter,
+                        about_window: &Rc<RefCell<Option<AboutWindow>>>,
+                        new_version_window_weak: Weak<NewVersionWindow>) -> CloseRequestResponse {
+    trace!("main.handle_close_request");
+    if IS_CLOSE_ERROR_SHOWN.load(Ordering::Relaxed) {
+        // If a close error message is already shown, allow the window to be closed.
+        return CloseRequestResponse::HideWindow;
+    }
+    if perform_close(main_window_weak, presenter, about_window, &new_version_window_weak).is_err() {
         IS_CLOSE_ERROR_SHOWN.store(true, Ordering::Relaxed);
-    };
-    *response.lock().unwrap()
+        IS_CLOSED.store(false, Ordering::SeqCst);
+        return CloseRequestResponse::KeepWindowShown;
+    }
+    CloseRequestResponse::HideWindow
 }
 
 fn create_device_strategy(device_type: SlintDeviceType)
@@ -293,4 +340,5 @@ fn show_about_window(about_window: Rc<RefCell<Option<AboutWindow>>>, ui_methods:
     *about_window.borrow_mut() = Some(dialog);
 }
 
+static IS_CLOSED: AtomicBool = AtomicBool::new(false);
 static IS_CLOSE_ERROR_SHOWN: AtomicBool = AtomicBool::new(false);
