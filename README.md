@@ -57,6 +57,8 @@ As PitchGrid-Continuum Bridge and Haken Editor are both software, you (obviously
 
 - MIDI loopback endpoints, which in Windows are provided by Microsoft's recently introduced Windows MIDI Services.
 
+- IAC Driver Buses (macOS)
+
 - Virtual MIDI ports.
 
 - A USB MIDI router, such as [IConnectivity's mioXL and mioXM](https://www.iconnectivity.com/midi-interfaces-1).
