@@ -1,6 +1,7 @@
 ﻿use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use log::trace;
+use i_slint_backend_winit::WinitWindowAccessor;
 use slint::{ComponentHandle, PhysicalPosition, Weak, WindowPosition};
 use app_info::{APP_TITLE,};
 use crate::{ComboBoxItem, ComboBoxModel as MainComboBoxModel, MainWindow, NewVersionWindow,
@@ -243,7 +244,22 @@ impl IUiMethods for UiMethods {
 
     fn set_main_window_position(&self, x: i32, y: i32) {
         self.with_main_window(move |main_window| {
-            main_window.window().set_position(slint::PhysicalPosition { x, y });
+            // Refrain from setting the window's position if the saved position is not in the
+            // working area of an available monitor.
+            let is_in_working_area = main_window.window().with_winit_window(|winit_window| {
+                winit_window.available_monitors().any(|monitor| {
+                    let pos = monitor.position();
+                    let size = monitor.size();
+                    let x_min = pos.x;
+                    let x_max = pos.x + size.width as i32;
+                    let y_min = pos.y;
+                    let y_max = pos.y + size.height as i32;
+                    x >= x_min && x < x_max && y >= y_min && y < y_max
+                })
+            }).unwrap_or(false);
+            if is_in_working_area {
+                main_window.window().set_position(PhysicalPosition { x, y });
+            }
         });
     }
 
