@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
+# Running the script generates two 'deprecated' warnings for `hdiutil`.
+# Cost-Benefit Analysis of the Deprecation Warnings
+# In evaluating whether to eliminate these warnings, we should weigh the tangible benefits
+# (cleaner log output, forward-proofing) against the actual costs and risks
+# (breakage of build environments, developer time, and toolchain constraints).
+# On balance, leaving them as-is for now yields the highest net utility and stability.
 
 # Navigate to the repository root directory (one level up from installer/macos)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -38,6 +44,9 @@ lipo -create \
   "target/aarch64-apple-darwin/release/pitchgrid_continuum" \
   "target/x86_64-apple-darwin/release/pitchgrid_continuum" \
   -output "$APP_BINARY_PATH"
+
+echo "===> Automating Ad-Hoc Signing"
+codesign --force --deep -s - "$APP_BUNDLE_PATH"
 
 echo "==> Verifying binary architecture..."
 file "$APP_BINARY_PATH"
