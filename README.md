@@ -34,10 +34,21 @@ Haken Editor version matching the Haken Audio Firmware version
 
 ## macOS First-Time Launch Instructions
 
-1. Drag **PitchGrid-Continuum Bridge** into /Applications.
-2. Open the app. When a security prompt headed **''“PitchGrid-Continuum Bridge” Not Opened'**  appears, click **Done**. *Do not click Move to Bin*.
-3. Go to **System Settings** → **Privacy & Security**, scroll down to **Security**, and click **Open Anyway**.
-4. Click **Open Anyway** on the confirmation prompt. *(This is only required on the very first launch).*
+In the DMG, drag **PitchGrid-Continuum Bridge** into /Applications. Then take one of the following approaches.
+
+#### Approach A
+
+1. Open the app. When a security prompt headed **''“PitchGrid-Continuum Bridge” Not Opened'**  appears, click **Done**. *Do not click Move to Bin*.
+2. Go to **System Settings** → **Privacy & Security**, scroll down to **Security**, and click **Open Anyway**.
+3. On the confirmation prompt, click **Open Anyway**. *(This is only required on the very first launch).*
+
+#### Approach B
+
+Run this in a terminal:
+```bash
+xattr -cr "/Applications/PitchGrid-Continuum Bridge.app"
+```
+Once executed, the application will open directly upon double-clicking.
 
 ## Connections
 
