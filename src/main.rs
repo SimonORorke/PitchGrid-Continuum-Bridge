@@ -194,12 +194,12 @@ fn init_ui_handlers(main_window: &MainWindow, new_version_window: &NewVersionWin
     }
 }
 
-fn perform_close(
-    main_window_weak: &Weak<MainWindow>,
-    presenter: &SharedPresenter,
-    about_window: &Rc<RefCell<Option<AboutWindow>>>,
-    new_version_window_weak: &Weak<NewVersionWindow>,
-) -> Result<(), Box<dyn std::error::Error>> {
+fn perform_close<'a>(
+    main_window_weak: &'a Weak<MainWindow>,
+    presenter: &'a SharedPresenter,
+    about_window: &'a Rc<RefCell<Option<AboutWindow>>>,
+    new_version_window_weak: &'a Weak<NewVersionWindow>,
+) -> Result<(), Box<dyn std::error::Error + 'a>> {
     if IS_CLOSED.swap(true, Ordering::SeqCst) {
         return Ok(());
     }
@@ -228,7 +228,7 @@ fn perform_close(
     } else {
         (0, 0)
     };
-    presenter.lock().unwrap().close(x, y)
+    presenter.lock()?.close(x, y)
 }
 
 fn handle_close_request(main_window_weak: &Weak<MainWindow>, presenter: &SharedPresenter,
