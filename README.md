@@ -24,7 +24,7 @@ Firmware 10.77 has a bug that affects PCB.  When PitchGrid-Continuum Bridge send
 
 ### Supported Operating Systems
 
-Windows 64-bit and macOS. MacOS availability estimate: October 2026.
+Windows 64-bit and macOS Universal (Apple Silicon + Intel).
 
 ### Required Software
 
@@ -57,7 +57,7 @@ As PitchGrid-Continuum Bridge and Haken Editor are both software, you (obviously
 
 - MIDI loopback endpoints, which in Windows are provided by Microsoft's recently introduced Windows MIDI Services.
 
-- IAC Driver Buses (macOS)
+- IAC Driver Buses (macOS).
 
 - Virtual MIDI ports.
 
