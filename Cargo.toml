@@ -40,6 +40,10 @@ rosc = "0.11.4"
 round = "0.1.2"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
+simonor = { path = "../simonor" }
+# Once simonor is stable and pushed to remote Git, update the dependency to point
+# to its Git repo:
+# simonor = { git = "https://github.com/SimonORorke/simonor.git", branch = "main" }
 toml = "1.1.6"
 # With vivi_ui 0.2.0, slint 1.17.1 is the latest version with which there are no
 # build errors or warnings.

@@ -4193,6 +4193,7 @@ dependencies = [
  "round",
  "serde",
  "serde_json",
+ "simonor",
  "slint",
  "slint-build",
  "tempfile",
@@ -5027,6 +5028,29 @@ name = "simdutf8"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e3a9fe34e3e7a50316060351f37187a3f546bce95496156754b601a5fa71b76e"
+
+[[package]]
+name = "simonor"
+version = "0.1.0"
+dependencies = [
+ "simonor-core",
+ "simonor-testing",
+]
+
+[[package]]
+name = "simonor-core"
+version = "0.1.0"
+dependencies = [
+ "directories",
+]
+
+[[package]]
+name = "simonor-testing"
+version = "0.1.0"
+dependencies = [
+ "simonor-core",
+ "tempfile",
+]
 
 [[package]]
 name = "simplecss"
