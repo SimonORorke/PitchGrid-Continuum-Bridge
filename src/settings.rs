@@ -1,7 +1,7 @@
 use std::error::Error;
 use std::fs;
 use std::path::PathBuf;
-use simonor::{PathFinder, SystemPathFinder};
+use simonor::{PathFinder, SettingsIo, SettingsReaderWriter, SystemPathFinder};
 use serde::{Serialize, Deserialize};
 use app_info::APP_TITLE;
 use crate::i_settings::ISettings;
@@ -22,10 +22,10 @@ pub struct Settings {
     override_rounding_rate: bool,
     root_freq_override_index: u8,
     rounding_rate: u8,
-    #[serde(skip, default = "default_path_finder")]
-    system_path_finder: Box<dyn PathFinder>,
+    #[serde(skip, default = "create_settings_reader_writer")]
+    settings_io: Box<dyn SettingsIo>,
 }
-/// For public functions, see `impl ISettings for Settings`.
+
 impl Settings {
     pub fn new() -> Self {
         Self {
@@ -41,16 +41,8 @@ impl Settings {
             override_rounding_rate: true,
             root_freq_override_index: 0,
             rounding_rate: 127,
-            system_path_finder: default_path_finder(),
+            settings_io: create_settings_reader_writer(),
         }
-    }
-
-    fn get_app_config_folder_path(&self) -> Result<PathBuf, Box<dyn Error>> {
-        Ok(self.system_path_finder.config_folder_path()?.join(APP_TITLE))
-    }
-
-    fn get_path(&self) -> Result<PathBuf, Box<dyn Error>> {
-        Ok(self.get_app_config_folder_path()?.join(SETTINGS_FILE_NAME))
     }
 }
 
@@ -204,12 +196,12 @@ impl ISettings for Settings {
 
     /// Replaces the default system path finder for testing.
     fn set_system_path_finder(&mut self, path_finder: Box<dyn PathFinder>) {
-        self.system_path_finder = path_finder;
+        self.settings_io.set_system_path_finder(path_finder);
     }
 }
 
-fn default_path_finder() -> Box<dyn PathFinder> {
-    Box::new(SystemPathFinder::new())
+fn create_settings_reader_writer() -> Box<dyn SettingsIo> {
+    Box::new(SettingsReaderWriter::new(APP_TITLE.to_string(), SETTINGS_FILE_NAME.to_string()))
 }
 
 const SETTINGS_FILE_NAME: &str = "Settings.toml";
