@@ -1,5 +1,7 @@
 [workspace]
-members = ["app_info"]
+members = [
+    "app_info",
+]
 resolver = "2"
 
 [workspace.package]

@@ -8,6 +8,13 @@
       <excludeFolder url="file://$MODULE_DIR$/target" />
       <excludeFolder url="file://$MODULE_DIR$/tests/target" />
     </content>
+    <content url="file://$MODULE_DIR$/../simonor">
+      <sourceFolder url="file://$MODULE_DIR$/../simonor/crates/simonor-core/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/../simonor/crates/simonor-testing/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/../simonor/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/../simonor/tests" isTestSource="true" />
+      <excludeFolder url="file://$MODULE_DIR$/../simonor/target" />
+    </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
