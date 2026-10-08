@@ -14,7 +14,6 @@ pub mod midi_message_batch;
 pub mod midi_ports;
 pub mod midi_sender;
 pub mod osc;
-pub mod path_finder;
 pub mod presenter;
 pub mod presentation;
 pub mod release_info;

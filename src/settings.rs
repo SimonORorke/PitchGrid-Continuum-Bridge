@@ -1,10 +1,10 @@
 use std::error::Error;
 use std::fs;
 use std::path::PathBuf;
+use simonor::{PathFinder, SystemPathFinder};
 use serde::{Serialize, Deserialize};
 use app_info::APP_TITLE;
 use crate::i_settings::ISettings;
-use crate::path_finder::{PathFinder, SystemPathFinder};
 use log::trace;
 
 // Application settings, serialised to file.

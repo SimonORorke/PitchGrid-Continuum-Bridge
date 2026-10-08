@@ -1,5 +1,5 @@
 use std::error::Error;
-use crate::path_finder::PathFinder;
+use simonor::PathFinder;
 
 /// A trait that defines the interface for application settings.
 ///

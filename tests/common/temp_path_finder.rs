@@ -2,7 +2,7 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 use tempfile::TempDir;
-use pitchgrid_continuum::path_finder::PathFinder;
+use simonor::PathFinder;
 
 #[derive(Clone, Debug)]
 pub struct TempPathFinder {

@@ -1,7 +1,7 @@
 use std::error::Error;
 use std::sync::{LazyLock, Mutex, MutexGuard};
 use pitchgrid_continuum::i_settings::ISettings;
-use pitchgrid_continuum::path_finder::PathFinder;
+use simonor::PathFinder;
 
 pub fn mock_settings() -> MutexGuard<'static, MockSettings> {
     MOCK_SETTINGS.lock().unwrap_or_else(|e| e.into_inner())
