@@ -16,13 +16,11 @@ pub mod midi_sender;
 pub mod osc;
 pub mod presenter;
 pub mod presentation;
-pub mod release_info;
 pub mod settings;
 pub mod tuner;
 pub mod tuning_params;
 pub mod tuning_update_watchdog;
 pub mod ui_methods;
-pub mod version_checker;
 
 use std::sync::{Arc, Mutex};
 use presenter::Presenter;

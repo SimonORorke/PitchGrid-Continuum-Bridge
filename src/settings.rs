@@ -1,9 +1,9 @@
 use std::error::Error;
-use simonor::{PathFinder, SettingsReaderWriter};
 use serde::{Serialize, Deserialize};
 use app_info::APP_TITLE;
 use crate::i_settings::ISettings;
 use log::trace;
+use simonor::{PathFinder, SettingsReaderWriter};
 
 // Application settings, serialised to file.
 #[derive(Serialize, Deserialize, Debug)]

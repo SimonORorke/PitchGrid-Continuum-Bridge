@@ -1,6 +1,8 @@
 ﻿use std::error::Error;
 use std::sync::{Arc, Mutex, Weak};
 use log::{debug, trace};
+use simonor::{ReleaseInfo, SharedReleaseInfo, VersionChecker};
+use app_info::{APP_TITLE, RELEASES_LINK, VERSION};
 use crate::continuum_protocol::ContinuumProtocol;
 use crate::device_strategy::{
     InputStrategy, OutputStrategy, DeviceStrategy};
@@ -14,12 +16,10 @@ use crate::midi_manager::MidiManager;
 use crate::midi_sender::{IMidiSender, MidiSender, SharedMidiSender};
 use crate::osc::Osc;
 use crate::presentation::Presentation;
-use crate::release_info::{ReleaseInfo, SharedReleaseInfo};
 use crate::settings::Settings;
 use crate::tuner::{Tuner};
 use crate::tuning_params::TuningParams;
 use crate::tuning_update_watchdog::TuningUpdateWatchdog;
-use crate::version_checker::VersionChecker;
 
 /// This type plays the **Presenter** in the Model-View-Presenter (MVP) pattern — specifically the
 /// Passive View / Humble Object variant: `IUiMethods` reduces the View to dumb setters, and the
@@ -90,7 +90,8 @@ impl Presenter {
                        output.clone(), continuum_protocol.clone()))
                        as Box<dyn IMidiManager + Send>)),
                    Box::new(Osc::new()),
-                   Arc::new(Mutex::new(Box::new(ReleaseInfo::new()))),
+                   Arc::new(Mutex::new(Box::new(ReleaseInfo::new(
+                       APP_TITLE.into(), RELEASES_LINK.into())))),
                    Box::new(Settings::new()),
                    Arc::new(Tuner::new(continuum_protocol.clone(), midi_sender.clone())),
                    watchdog_notifier)
@@ -344,7 +345,8 @@ impl Presenter {
     }
 
     fn find_new_version(&mut self, auto_check_new_versions: bool, ignore_version: &str) -> bool {
-        let version_checker = VersionChecker::new(self.release_info.clone());
+        let version_checker = VersionChecker::new(
+            self.release_info.clone(), VERSION.into());
         if let Some(new_version) = version_checker.check_for_new_version(ignore_version) {
             let callbacks =
                 Arc::new(Mutex::new(NewVersionCallbacksWrapper::new(self.presenter_weak.clone())));
