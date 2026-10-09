@@ -4179,7 +4179,6 @@ dependencies = [
  "app_info",
  "cxx",
  "cxx-build",
- "directories",
  "embed-resource",
  "env_logger",
  "googletest",
@@ -4192,13 +4191,9 @@ dependencies = [
  "rosc",
  "round",
  "serde",
- "serde_json",
  "simonor",
  "slint",
  "slint-build",
- "tempfile",
- "ureq",
- "version-compare",
  "vivi_ui",
 ]
 

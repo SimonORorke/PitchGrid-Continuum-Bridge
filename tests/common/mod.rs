@@ -6,7 +6,6 @@
 #[allow(dead_code)] pub mod mock_midi_manager;
 #[allow(dead_code)] pub mod mock_midi_sender;
 #[allow(dead_code)] pub mod mock_osc;
-#[allow(dead_code)] pub mod mock_release_info;
 #[allow(dead_code)] pub mod mock_settings;
 #[allow(dead_code)] pub mod mock_ui_methods;
 #[allow(dead_code)] pub mod test_tunings;

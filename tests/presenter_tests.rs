@@ -9,6 +9,7 @@ use googletest::matchers::{
     contains_substring, displays_as, eq, err, len, ok, not, some, starts_with};
 use log::{debug};
 use slint::ComponentHandle;
+use simonor::testing::MockReleaseInfo;
 use app_info::VERSION;
 use pitchgrid_continuum::{MainWindow, NewVersionWindow};
 use pitchgrid_continuum::device_strategy::{InputStrategy, OutputStrategy};
@@ -25,7 +26,6 @@ use common::mock_midi_manager::{MockMidiManager, mock_midi_manager};
 use common::mock_midi_manager::mock_io::{input_state, output_state};
 use common::mock_midi_sender::MockMidiSender;
 use common::mock_osc::{MockOsc, mock_osc};
-use common::mock_release_info::MockReleaseInfo;
 use common::mock_settings::{MockSettings, mock_settings};
 use common::mock_ui_methods::{MockUiMethods, mock_ui_methods};
 use common::test_tunings::TestTunings;

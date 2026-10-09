@@ -32,7 +32,6 @@ simonor = { path = "../simonor" }
 # simonor = { git = "https://github.com/SimonORorke/simonor.git", branch = "main" }
 app_info = { path = "app_info" }
 cxx = "1.0.202"
-directories = "6.0.0"
 env_logger = "0.11.11"
 # Used for window attributes hook and winit monitor access across platforms.
 # Must track the slint version exactly.
@@ -44,8 +43,7 @@ open = "5.4.4"
 rayon = "1.12.0"
 rosc = "0.11.4"
 round = "0.1.2"
-serde = { version = "1.0.229", features = ["derive"] }
-serde_json = "1.0.151"
+serde = "1.0.229"
 # With vivi_ui 0.2.0, slint 1.17.1 is the latest version with which there are no
 # build errors or warnings.
 # With vivi_ui 0.2.0 and slint 1.18.0, there are many build errors and a few build warnings.
@@ -57,8 +55,6 @@ serde_json = "1.0.151"
 # warning: The property 'viewport-width' has been deprecated. Please use 'content-width' instead
 # I've raised an issue with vivi: https://codeberg.org/vivi-ui/vivi/issues/7.
 slint = "=1.17.1"
-ureq = "3.4.2"
-version-compare = "0.2.1"
 
 [build-dependencies]
 app_info = { path = "app_info" }
@@ -76,7 +72,6 @@ embed-resource = "3.0.8"
 
 [dev-dependencies]
 googletest = "0.14.3"
-tempfile = "3.27.0"
 
 # macOS Bundle
 [package.metadata.bundle]
