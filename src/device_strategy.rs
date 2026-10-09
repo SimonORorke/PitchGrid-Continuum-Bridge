@@ -1,9 +1,9 @@
-﻿use crate::i_midi_manager::IMidiManager;
-use crate::i_settings::ISettings;
+﻿use log::trace;
+use slint::ModelRc;
+use simonor::MidiDesktopSettings;
+use crate::i_midi_manager::IMidiManager;
 use crate::midi_ports::IIo;
 use crate::{ComboBoxItem, MainWindow, SlintMessageType};
-use log::trace;
-use slint::ModelRc;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum DeviceType {
@@ -25,8 +25,8 @@ pub trait DeviceStrategy: Send + Sync {
     fn clone_box(&self) -> Box<dyn DeviceStrategy>;
 
     fn focus_device(&self, main_window: &MainWindow);
-    fn device_setting<'a>(&self, settings: &'a dyn ISettings) -> &'a str;
-    fn set_device_setting(&self, settings: &mut dyn ISettings, device_name: &str);
+    fn device_setting<'a>(&self, settings: &'a dyn MidiDesktopSettings) -> &'a str;
+    fn set_device_setting(&self, settings: &mut dyn MidiDesktopSettings, device_name: &str);
     fn show_connected_device_name(
         &self, main_window: &MainWindow, device_name: &str, message_type: SlintMessageType);
     fn set_devices_model(&self, main_window: &MainWindow, model: ModelRc<ComboBoxItem>);
@@ -66,11 +66,11 @@ impl DeviceStrategy for InputStrategy {
         main_window.invoke_input_focus();
     }
 
-    fn device_setting<'a>(&self, settings: &'a dyn ISettings) -> &'a str {
+    fn device_setting<'a>(&self, settings: &'a dyn MidiDesktopSettings) -> &'a str {
         settings.midi_input_device()
     }
 
-    fn set_device_setting(&self, settings: &mut dyn ISettings, device_name: &str) {
+    fn set_device_setting(&self, settings: &mut dyn MidiDesktopSettings, device_name: &str) {
         settings.set_midi_input_device(device_name);
     }
 
@@ -143,11 +143,11 @@ impl DeviceStrategy for OutputStrategy {
         main_window.invoke_output_focus();
     }
 
-    fn device_setting<'a>(&self, settings: &'a dyn ISettings) -> &'a str {
+    fn device_setting<'a>(&self, settings: &'a dyn MidiDesktopSettings) -> &'a str {
         settings.midi_output_device()
     }
 
-    fn set_device_setting(&self, settings: &mut dyn ISettings, device_name: &str) {
+    fn set_device_setting(&self, settings: &mut dyn MidiDesktopSettings, device_name: &str) {
         settings.set_midi_output_device(device_name);
     }
 

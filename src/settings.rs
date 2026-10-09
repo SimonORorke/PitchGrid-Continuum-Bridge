@@ -3,7 +3,7 @@ use serde::{Serialize, Deserialize};
 use app_info::APP_TITLE;
 use crate::i_settings::ISettings;
 use log::trace;
-use simonor::{PathFinder, SettingsReaderWriter};
+use simonor::{MidiDesktopSettings, PathFinder, SettingsReaderWriter};
 
 // Application settings, serialised to file.
 #[derive(Serialize, Deserialize, Debug)]
@@ -44,7 +44,7 @@ impl Settings {
     }
 }
 
-impl ISettings for Settings {
+impl MidiDesktopSettings for Settings {
     fn auto_check_new_versions(&self) -> bool { self.auto_check_new_versions }
 
     fn set_auto_check_new_versions(&mut self, value: bool) {
@@ -87,6 +87,40 @@ impl ISettings for Settings {
         self.midi_output_device = value.into();
     }
 
+    fn read_from_file(&mut self) -> Result<(), Box<dyn Error>> {
+        if let Some(settings) = self.settings_io.read_from_file::<Settings>()? {
+            self.auto_check_new_versions = settings.auto_check_new_versions;
+            self.ignore_version = settings.ignore_version;
+            self.main_window_x = settings.main_window_x;
+            self.main_window_y = settings.main_window_y;
+            self.midi_input_device = settings.midi_input_device;
+            self.midi_output_device = settings.midi_output_device;
+            self.osc_listening_port = settings.osc_listening_port;
+            self.pitch_table = settings.pitch_table;
+            self.override_rounding_initial = settings.override_rounding_initial;
+            self.override_rounding_rate = settings.override_rounding_rate;
+            self.root_freq_override_index = settings.root_freq_override_index;
+            self.rounding_rate = settings.rounding_rate;
+        }
+        trace!("read_from_file: self.midi_input_device = {}; self.midi_output_device = {}; \
+            self.pitch_table = {:?};", self.midi_input_device, self.midi_output_device, self.pitch_table);
+        Ok(())
+    }
+
+    fn write_to_file(&mut self) -> Result<(), Box<dyn Error>> {
+        self.settings_io.write_to_file(&self)?;
+        trace!("write_to_file: self.midi_input_device = {}; self.midi_output_device = {}; \
+            self.pitch_table = {:?};", self.midi_input_device, self.midi_output_device, self.pitch_table);
+        Ok(())
+    }
+
+    /// Replaces the default system path finder for testing.
+    fn set_system_path_finder(&mut self, path_finder: Box<dyn PathFinder>) {
+        self.settings_io.set_system_path_finder(path_finder);
+    }
+}
+
+impl ISettings for Settings {
     fn osc_listening_port(&self) -> u16 {
         self.osc_listening_port
     }
@@ -133,38 +167,6 @@ impl ISettings for Settings {
 
     fn set_rounding_rate(&mut self, value: u8) {
         self.rounding_rate = value;
-    }
-
-    fn read_from_file(&mut self) -> Result<(), Box<dyn Error>> {
-        if let Some(settings) = self.settings_io.read_from_file::<Settings>()? {
-            self.auto_check_new_versions = settings.auto_check_new_versions;
-            self.ignore_version = settings.ignore_version;
-            self.main_window_x = settings.main_window_x;
-            self.main_window_y = settings.main_window_y;
-            self.midi_input_device = settings.midi_input_device;
-            self.midi_output_device = settings.midi_output_device;
-            self.osc_listening_port = settings.osc_listening_port;
-            self.pitch_table = settings.pitch_table;
-            self.override_rounding_initial = settings.override_rounding_initial;
-            self.override_rounding_rate = settings.override_rounding_rate;
-            self.root_freq_override_index = settings.root_freq_override_index;
-            self.rounding_rate = settings.rounding_rate;
-        }
-        trace!("read_from_file: self.midi_input_device = {}; self.midi_output_device = {}; \
-            self.pitch_table = {:?};", self.midi_input_device, self.midi_output_device, self.pitch_table);
-        Ok(())
-    }
-
-    fn write_to_file(&mut self) -> Result<(), Box<dyn Error>> {
-        self.settings_io.write_to_file(&self)?;
-        trace!("write_to_file: self.midi_input_device = {}; self.midi_output_device = {}; \
-            self.pitch_table = {:?};", self.midi_input_device, self.midi_output_device, self.pitch_table);
-        Ok(())
-    }
-
-    /// Replaces the default system path finder for testing.
-    fn set_system_path_finder(&mut self, path_finder: Box<dyn PathFinder>) {
-        self.settings_io.set_system_path_finder(path_finder);
     }
 }
 
