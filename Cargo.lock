@@ -4197,7 +4197,6 @@ dependencies = [
  "slint",
  "slint-build",
  "tempfile",
- "toml",
  "ureq",
  "version-compare",
  "vivi_ui",
@@ -5042,6 +5041,8 @@ name = "simonor-core"
 version = "0.1.0"
 dependencies = [
  "directories",
+ "serde",
+ "toml",
 ]
 
 [[package]]

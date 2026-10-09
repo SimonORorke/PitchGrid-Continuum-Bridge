@@ -1,7 +1,5 @@
 use std::error::Error;
-use std::fs;
-use std::path::PathBuf;
-use simonor::{PathFinder, SettingsIo, SettingsReaderWriter, SystemPathFinder};
+use simonor::{PathFinder, SettingsReaderWriter};
 use serde::{Serialize, Deserialize};
 use app_info::APP_TITLE;
 use crate::i_settings::ISettings;
@@ -23,7 +21,7 @@ pub struct Settings {
     root_freq_override_index: u8,
     rounding_rate: u8,
     #[serde(skip, default = "create_settings_reader_writer")]
-    settings_io: Box<dyn SettingsIo>,
+    settings_io: SettingsReaderWriter,
 }
 
 impl Settings {
@@ -138,57 +136,27 @@ impl ISettings for Settings {
     }
 
     fn read_from_file(&mut self) -> Result<(), Box<dyn Error>> {
-        let path = self.get_path()?;
-        trace!("read_from_file: path = {:?}", &path);
-        let toml_str = match fs::read_to_string(&path) {
-            Ok(s) => s,
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(()),
-            Err(e) => {
-                let msg = format!("Error reading settings file '{:?}': {}", path, e);
-                return Err(Box::new(std::io::Error::new(e.kind(), msg)));
-            }
-        };
-        // Deserialise settings.
-        let settings = match toml::from_str::<Settings>(&toml_str) {
-            Ok(s) => s,
-            Err(_) => {
-                // A parsing error will happen if there are new settings.
-                // So, instead of returning an error, just return without restoring any settings.
-                return Ok(());
-            }
-        };
-        self.auto_check_new_versions = settings.auto_check_new_versions;
-        self.ignore_version = settings.ignore_version;
-        self.main_window_x = settings.main_window_x;
-        self.main_window_y = settings.main_window_y;
-        self.midi_input_device = settings.midi_input_device;
-        self.midi_output_device = settings.midi_output_device;
-        self.osc_listening_port = settings.osc_listening_port;
-        self.pitch_table = settings.pitch_table;
-        self.override_rounding_initial = settings.override_rounding_initial;
-        self.override_rounding_rate = settings.override_rounding_rate;
-        self.root_freq_override_index = settings.root_freq_override_index;
-        self.rounding_rate = settings.rounding_rate;
+        if let Some(settings) = self.settings_io.read_from_file::<Settings>()? {
+            self.auto_check_new_versions = settings.auto_check_new_versions;
+            self.ignore_version = settings.ignore_version;
+            self.main_window_x = settings.main_window_x;
+            self.main_window_y = settings.main_window_y;
+            self.midi_input_device = settings.midi_input_device;
+            self.midi_output_device = settings.midi_output_device;
+            self.osc_listening_port = settings.osc_listening_port;
+            self.pitch_table = settings.pitch_table;
+            self.override_rounding_initial = settings.override_rounding_initial;
+            self.override_rounding_rate = settings.override_rounding_rate;
+            self.root_freq_override_index = settings.root_freq_override_index;
+            self.rounding_rate = settings.rounding_rate;
+        }
         trace!("read_from_file: self.midi_input_device = {}; self.midi_output_device = {}; \
             self.pitch_table = {:?};", self.midi_input_device, self.midi_output_device, self.pitch_table);
         Ok(())
     }
 
     fn write_to_file(&mut self) -> Result<(), Box<dyn Error>> {
-        let path = self.get_path()?;
-        // It is safe to unwrap, as get_path() would have thrown an error if a parent folder
-        // could not be specified.
-        let parent_folder_path = path.parent().unwrap();
-        if !parent_folder_path.try_exists()? {
-            fs::create_dir(parent_folder_path)?;
-        }
-        // Serialise settings.
-        let toml = toml::to_string(&self)?;
-        if let Err(e) = fs::write(&path, toml) {
-            return Err(
-                Box::new(std::io::Error::new(e.kind(),
-                format!("Error writing settings file '{:?}': {e}", path))));
-        }
+        self.settings_io.write_to_file(&self)?;
         trace!("write_to_file: self.midi_input_device = {}; self.midi_output_device = {}; \
             self.pitch_table = {:?};", self.midi_input_device, self.midi_output_device, self.pitch_table);
         Ok(())
@@ -200,8 +168,8 @@ impl ISettings for Settings {
     }
 }
 
-fn create_settings_reader_writer() -> Box<dyn SettingsIo> {
-    Box::new(SettingsReaderWriter::new(APP_TITLE.to_string(), SETTINGS_FILE_NAME.to_string()))
+fn create_settings_reader_writer() -> SettingsReaderWriter {
+    SettingsReaderWriter::new(APP_TITLE.to_string(), SETTINGS_FILE_NAME.to_string())
 }
 
 const SETTINGS_FILE_NAME: &str = "Settings.toml";
