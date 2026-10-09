@@ -5036,6 +5036,8 @@ name = "simonor-core"
 version = "0.1.0"
 dependencies = [
  "directories",
+ "midir",
+ "midly",
  "serde",
  "serde_json",
  "toml",

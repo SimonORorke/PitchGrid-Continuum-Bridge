@@ -1,17 +1,16 @@
+use crate::device_strategy::{DeviceStrategy, DeviceType};
 use crate::i_midi_manager::{IMidiManager, MidiInputListener, SharedOutput};
+use crate::midi_ports::{IIo, Io};
+use log::trace;
 use midir::{
     MidiInput, MidiInputConnection, MidiInputPort, MidiOutput, MidiOutputPort,
 };
 use std::error::Error;
-use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
-use std::time::{Duration, Instant};
+use std::sync::{Arc, Mutex};
 use std::thread::sleep;
-use crate::global::{DeviceType};
-use crate::midi_ports::{Io, IIo};
-use crate::device_strategy::DeviceStrategy;
-use log::trace;
+use std::time::{Duration, Instant};
 
 /// The generic MIDI reception state: whether data is arriving and when the last message arrived.
 /// Held behind an `Arc` so the input callback and the monitor / watchdog threads can each own a

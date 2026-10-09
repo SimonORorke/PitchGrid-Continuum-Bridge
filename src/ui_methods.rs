@@ -1,19 +1,19 @@
-﻿use std::rc::Rc;
-use std::sync::{Arc, Mutex};
+﻿use i_slint_backend_winit::WinitWindowAccessor;
 use log::trace;
-use i_slint_backend_winit::WinitWindowAccessor;
 use slint::{ComponentHandle, PhysicalPosition, Weak, WindowPosition};
+use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 #[cfg(target_os = "macos")]
 use slint::LogicalPosition;
-use app_info::{APP_TITLE,};
-use crate::{ComboBoxItem, ComboBoxModel as MainComboBoxModel, MainWindow, NewVersionWindow,
-            SlintMessageType};
 use crate::centered_dialog::CenteredDialog;
-use crate::device_strategy::DeviceStrategy;
-use crate::global::{MessageType, DeviceType};
+use crate::device_strategy::{DeviceStrategy, DeviceType};
+use crate::global::MessageType;
 use crate::i_ui_methods::IUiMethods;
 use crate::presenter::NewVersionCallbacks;
 use crate::tuning_params::FormattedTuningParams;
+use crate::{ComboBoxItem, ComboBoxModel as MainComboBoxModel, MainWindow, NewVersionWindow,
+            SlintMessageType};
+use app_info::APP_TITLE;
 
 /// This struct contains the methods called by `Presenter` to make changes to the UI.
 /// It is part of the view in the Model-View-Presenter (MVP) pattern.

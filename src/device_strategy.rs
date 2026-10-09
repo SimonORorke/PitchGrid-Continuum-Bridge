@@ -1,10 +1,15 @@
-﻿use slint::ModelRc;
-use crate::{MainWindow, ComboBoxItem, SlintMessageType};
-use crate::global::DeviceType;
-use crate::i_midi_manager::IMidiManager;
-use crate::midi_ports::IIo;
+﻿use crate::i_midi_manager::IMidiManager;
 use crate::i_settings::ISettings;
+use crate::midi_ports::IIo;
+use crate::{ComboBoxItem, MainWindow, SlintMessageType};
 use log::trace;
+use slint::ModelRc;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum DeviceType {
+    Input,
+    Output,
+}
 
 /// This trait is used to implement strategies that depend on whether a MIDI device is input or
 /// output.

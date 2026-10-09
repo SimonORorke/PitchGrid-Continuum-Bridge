@@ -1,6 +1,6 @@
-use std::cell::RefCell;
-use pitchgrid_continuum::global::DeviceType;
+use pitchgrid_continuum::device_strategy::DeviceType;
 use pitchgrid_continuum::midi_ports::{IIo, IoDevice};
+use std::cell::RefCell;
 
 pub fn input_state() -> IoState {
     INPUT_STATE.with(|s| s.borrow().clone())

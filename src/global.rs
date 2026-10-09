@@ -5,12 +5,6 @@ pub enum MessageType {
     Warning
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum DeviceType {
-    Input,
-    Output,
-}
-
 pub fn override_note_names() -> Vec<String> {
     vec!["".to_string(),
          "F#".to_string(), "G".to_string(), "G#".to_string(),

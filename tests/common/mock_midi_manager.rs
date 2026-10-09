@@ -1,12 +1,12 @@
 #[path = "mock_io.rs"] pub mod mock_io;
 
-use std::error::Error;
-use std::sync::{LazyLock, Mutex, MutexGuard};
+use mock_io::MockIo;
+use pitchgrid_continuum::device_strategy::DeviceStrategy;
+use pitchgrid_continuum::device_strategy::DeviceType;
 use pitchgrid_continuum::i_midi_manager::IMidiManager;
 use pitchgrid_continuum::midi_ports::IIo;
-use pitchgrid_continuum::device_strategy::DeviceStrategy;
-use mock_io::MockIo;
-use pitchgrid_continuum::global::DeviceType;
+use std::error::Error;
+use std::sync::{LazyLock, Mutex, MutexGuard};
 
 pub fn mock_midi_manager() -> MutexGuard<'static, MockMidiManager> {
     MOCK_MIDI.lock().unwrap_or_else(|e| e.into_inner())
