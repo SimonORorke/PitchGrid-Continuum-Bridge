@@ -4,7 +4,7 @@ use mock_io::MockIo;
 use pitchgrid_continuum::device_strategy::DeviceStrategy;
 use pitchgrid_continuum::device_strategy::DeviceType;
 use pitchgrid_continuum::i_midi_manager::IMidiManager;
-use pitchgrid_continuum::midi_ports::IIo;
+use simonor::IIo;
 use std::error::Error;
 use std::sync::{LazyLock, Mutex, MutexGuard};
 

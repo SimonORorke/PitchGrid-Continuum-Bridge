@@ -1,5 +1,5 @@
 use pitchgrid_continuum::device_strategy::DeviceType;
-use pitchgrid_continuum::midi_ports::{IIo, IoDevice};
+use simonor::{IIo, IoDevice};
 use std::cell::RefCell;
 
 pub fn input_state() -> IoState {

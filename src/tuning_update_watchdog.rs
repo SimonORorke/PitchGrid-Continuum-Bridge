@@ -1,7 +1,7 @@
 use std::sync::mpsc;
 use std::time::Duration;
 use log::{debug, trace, warn};
-use crate::error_notifier::SharedErrorNotifier;
+use simonor::SharedErrorNotifier;
 use crate::presentation::Presentation;
 
 /// Watches for the instrument's confirmation that a tuning update has been applied.

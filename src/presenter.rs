@@ -6,7 +6,7 @@ use app_info::{APP_TITLE, RELEASES_LINK, VERSION};
 use crate::continuum_protocol::ContinuumProtocol;
 use crate::device_strategy::{
     InputStrategy, OutputStrategy, DeviceStrategy};
-use crate::error_notifier::SharedErrorNotifier;
+use simonor::SharedErrorNotifier;
 use crate::i_continuum_protocol::{ContinuumProtocolListener, IContinuumProtocol};
 use crate::i_midi_manager::{IMidiManager, SharedMidiManager, SharedOutput};
 use crate::i_osc::{IOsc, OscCallbacks};

@@ -1,6 +1,6 @@
 use std::error::Error;
 use std::sync::{Arc, Mutex};
-use crate::midi_ports::IIo;
+use simonor::IIo;
 use crate::device_strategy::DeviceStrategy;
 
 /// The raw seam by which the generic `MidiManager` reports inbound MIDI and connection-lifecycle

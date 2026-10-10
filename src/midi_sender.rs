@@ -3,7 +3,7 @@ use std::thread::sleep;
 use log::{error};
 use midly::live::LiveEvent;
 use midly::MidiMessage;
-use crate::error_notifier::{ErrorNotifier, SharedErrorNotifier};
+use simonor::{ErrorNotifier, SharedErrorNotifier};
 use crate::i_midi_manager::{SharedOutput};
 
 /// A trait that defines the interface for sending MIDI messages.

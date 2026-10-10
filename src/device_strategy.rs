@@ -2,7 +2,7 @@
 use slint::ModelRc;
 use simonor::MidiDesktopSettings;
 use crate::i_midi_manager::IMidiManager;
-use crate::midi_ports::IIo;
+use simonor::IIo;
 use crate::{ComboBoxItem, MainWindow, SlintMessageType};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

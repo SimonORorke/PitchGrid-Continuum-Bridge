@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex, LazyLock};
 use midly::{MidiMessage, live::LiveEvent};
-use pitchgrid_continuum::error_notifier::{ErrorNotifier, SharedErrorNotifier};
+use simonor::{ErrorNotifier, SharedErrorNotifier};
 use pitchgrid_continuum::midi_sender::{IMidiSender, MidiSender};
 
 /// Returns a snapshot of the MIDI send stats since the last `MockMidiSender::new()`.
