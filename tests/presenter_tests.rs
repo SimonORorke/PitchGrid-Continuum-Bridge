@@ -1,5 +1,16 @@
 mod common;
 
+use std::any::type_name_of_val;
+use std::sync::{Arc, LazyLock, Mutex, MutexGuard};
+use std::thread::sleep;
+use std::time::Duration;
+use googletest::assert_that;
+use googletest::matchers::{
+    contains_substring, displays_as, eq, err, len, not, ok, some, starts_with};
+use log::debug;
+use slint::ComponentHandle;
+use simonor::MidiDesktopSettings;
+use simonor::testing::MockReleaseInfo;
 use app_info::VERSION;
 use common::mock_continuum_protocol::MockContinuumProtocol;
 use common::mock_midi_manager::mock_io::{input_state, output_state};
@@ -9,10 +20,6 @@ use common::mock_osc::{MockOsc, mock_osc};
 use common::mock_settings::{MockSettings, mock_settings};
 use common::mock_ui_methods::{MockUiMethods, mock_ui_methods};
 use common::test_tunings::TestTunings;
-use googletest::assert_that;
-use googletest::matchers::{
-    contains_substring, displays_as, eq, err, len, not, ok, some, starts_with};
-use log::debug;
 use pitchgrid_continuum::device_strategy::{DeviceType, InputStrategy, OutputStrategy};
 use pitchgrid_continuum::global::MessageType;
 use pitchgrid_continuum::i_settings::ISettings;
@@ -23,12 +30,6 @@ use pitchgrid_continuum::presenter::{NewVersionCallbacks, NewVersionCallbacksWra
 use pitchgrid_continuum::tuner::Tuner;
 use pitchgrid_continuum::ui_methods::UiMethods;
 use pitchgrid_continuum::{MainWindow, NewVersionWindow};
-use simonor::testing::MockReleaseInfo;
-use slint::ComponentHandle;
-use std::any::type_name_of_val;
-use std::sync::{Arc, LazyLock, Mutex, MutexGuard};
-use std::thread::sleep;
-use std::time::Duration;
 
 #[googletest::gtest]
 fn init_from_settings() {

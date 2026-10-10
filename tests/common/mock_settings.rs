@@ -1,7 +1,7 @@
 use std::error::Error;
 use std::sync::{LazyLock, Mutex, MutexGuard};
 use pitchgrid_continuum::i_settings::ISettings;
-use simonor::PathFinder;
+use simonor::{MidiDesktopSettings, PathFinder};
 
 pub fn mock_settings() -> MutexGuard<'static, MockSettings> {
     MOCK_SETTINGS.lock().unwrap_or_else(|e| e.into_inner())
@@ -65,7 +65,7 @@ impl MockSettings {
     }
 }
 
-impl ISettings for MockSettings {
+impl MidiDesktopSettings for MockSettings {
     fn auto_check_new_versions(&self) -> bool {
         MOCK_SETTINGS.lock().unwrap_or_else(
             |e| e.into_inner()).auto_check_new_versions
@@ -123,6 +123,24 @@ impl ISettings for MockSettings {
             value.to_string();
     }
 
+    fn read_from_file(&mut self) -> Result<(), Box<dyn Error>> {
+        match MOCK_SETTINGS.lock().unwrap_or_else(|e| e.into_inner()).read_from_file_err.clone() {
+            None => Ok(()),
+            Some(msg) => Err(msg.into()),
+        }
+    }
+
+    fn write_to_file(&mut self) -> Result<(), Box<dyn Error>> {
+        match MOCK_SETTINGS.lock().unwrap_or_else(|e| e.into_inner()).write_to_file_err.clone() {
+            None => Ok(()),
+            Some(msg) => Err(msg.into()),
+        }
+    }
+
+    fn set_system_path_finder(&mut self, _path_finder: Box<dyn PathFinder>) {}
+}
+
+impl ISettings for MockSettings {
     fn osc_listening_port(&self) -> u16 {
         MOCK_SETTINGS.lock().unwrap_or_else(|e| e.into_inner()).osc_listening_port
     }
@@ -172,20 +190,4 @@ impl ISettings for MockSettings {
     fn set_rounding_rate(&mut self, value: u8) {
         MOCK_SETTINGS.lock().unwrap_or_else(|e| e.into_inner()).rounding_rate = value;
     }
-
-    fn read_from_file(&mut self) -> Result<(), Box<dyn Error>> {
-        match MOCK_SETTINGS.lock().unwrap_or_else(|e| e.into_inner()).read_from_file_err.clone() {
-            None => Ok(()),
-            Some(msg) => Err(msg.into()),
-        }
-    }
-
-    fn write_to_file(&mut self) -> Result<(), Box<dyn Error>> {
-        match MOCK_SETTINGS.lock().unwrap_or_else(|e| e.into_inner()).write_to_file_err.clone() {
-            None => Ok(()),
-            Some(msg) => Err(msg.into()),
-        }
-    }
-
-    fn set_system_path_finder(&mut self, _path_finder: Box<dyn PathFinder>) {}
 }
