@@ -32,9 +32,9 @@ pub trait DeviceStrategy: Send + Sync {
     fn set_devices_model(&self, main_window: &MainWindow, model: ModelRc<ComboBoxItem>);
     fn get_selected_device_index(&self, main_window: &MainWindow) -> i32;
     fn set_selected_device_index(&self, main_window: &MainWindow, index: i32);
-    fn msg_cannot_connect(&self, device_name: &str) -> &str;
+    fn msg_cannot_connect(&self, device_name: &str) -> String;
     fn msg_connect(&self) -> &str;
-    fn msg_connected(&self, device_name: &str) -> &str;
+    fn msg_connected(&self, device_name: &str) -> String;
     fn msg_refreshed_reconnect(&self) -> &str;
     fn other_device_strategy(&self) -> Box<dyn DeviceStrategy>;
 }
@@ -94,17 +94,17 @@ impl DeviceStrategy for InputStrategy {
         main_window.set_input_selected_device_index(index);
     }
 
-    fn msg_cannot_connect(&self, device_name: &str) -> &str {
-        Box::leak(format!("Cannot connect MIDI input device {}. The device may be in use.",
-                          device_name).into_boxed_str())
+    fn msg_cannot_connect(&self, device_name: &str) -> String {
+        format!("Cannot connect MIDI input device {}. The device may be in use.",
+                device_name)
     }
 
     fn msg_connect(&self) -> &str {
         "Connect MIDI input device"
     }
 
-    fn msg_connected(&self, device_name: &str) -> &str {
-        Box::leak(format!("Connected MIDI input device {}", device_name).into_boxed_str())
+    fn msg_connected(&self, device_name: &str) -> String {
+        format!("Connected MIDI input device {}", device_name)
     }
 
     fn msg_refreshed_reconnect(&self) -> &str {
@@ -171,17 +171,17 @@ impl DeviceStrategy for OutputStrategy {
         main_window.set_output_selected_device_index(index);
     }
 
-    fn msg_cannot_connect(&self, device_name: &str) -> &str {
-        Box::leak(format!("Cannot connect MIDI output device {}. The device may be in use.",
-                          device_name).into_boxed_str())
+    fn msg_cannot_connect(&self, device_name: &str) -> String {
+        format!("Cannot connect MIDI output device {}. The device may be in use.",
+                device_name)
     }
 
     fn msg_connect(&self) -> &str {
         "Connect MIDI output device"
     }
 
-    fn msg_connected(&self, device_name: &str) -> &str {
-        Box::leak(format!("Connected MIDI output device {}", device_name).into_boxed_str())
+    fn msg_connected(&self, device_name: &str) -> String {
+        format!("Connected MIDI output device {}", device_name)
     }
 
     fn msg_refreshed_reconnect(&self) -> &str {

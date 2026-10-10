@@ -102,8 +102,8 @@ impl Presentation {
         self.ui_methods.show_message(message, MessageType::Error);
     }
 
-    pub(crate) fn show_info(&self, message: &str) {
-        self.ui_methods.show_message(message, MessageType::Info);
+    pub(crate) fn show_info(&self, message: impl AsRef<str>) {
+        self.ui_methods.show_message(message.as_ref(), MessageType::Info);
     }
 
     pub(crate) fn show_warning(&self, message: &str) {
