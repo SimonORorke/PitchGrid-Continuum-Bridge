@@ -3,7 +3,7 @@ use serde::{Serialize, Deserialize};
 use app_info::APP_TITLE;
 use crate::i_settings::ISettings;
 use log::trace;
-use simonor::{MidiDesktopSettings, PathFinder, SettingsReaderWriter};
+use simonor::{MidiDesktopSettings, PathFinder, SettingsFileIo};
 
 // Application settings, serialised to file.
 #[derive(Serialize, Deserialize, Debug)]
@@ -21,7 +21,7 @@ pub struct Settings {
     root_freq_override_index: u8,
     rounding_rate: u8,
     #[serde(skip, default = "create_settings_reader_writer")]
-    settings_io: SettingsReaderWriter,
+    io: SettingsFileIo,
 }
 
 impl Settings {
@@ -39,7 +39,7 @@ impl Settings {
             override_rounding_rate: true,
             root_freq_override_index: 0,
             rounding_rate: 127,
-            settings_io: create_settings_reader_writer(),
+            io: create_settings_reader_writer(),
         }
     }
 }
@@ -88,7 +88,7 @@ impl MidiDesktopSettings for Settings {
     }
 
     fn read_from_file(&mut self) -> Result<(), Box<dyn Error>> {
-        if let Some(settings) = self.settings_io.read_from_file::<Settings>()? {
+        if let Some(settings) = self.io.read_from_file::<Settings>()? {
             self.auto_check_new_versions = settings.auto_check_new_versions;
             self.ignore_version = settings.ignore_version;
             self.main_window_x = settings.main_window_x;
@@ -108,7 +108,7 @@ impl MidiDesktopSettings for Settings {
     }
 
     fn write_to_file(&mut self) -> Result<(), Box<dyn Error>> {
-        self.settings_io.write_to_file(&self)?;
+        self.io.write_to_file(&self)?;
         trace!("write_to_file: self.midi_input_device = {}; self.midi_output_device = {}; \
             self.pitch_table = {:?};", self.midi_input_device, self.midi_output_device, self.pitch_table);
         Ok(())
@@ -116,7 +116,7 @@ impl MidiDesktopSettings for Settings {
 
     /// Replaces the default system path finder for testing.
     fn set_system_path_finder(&mut self, path_finder: Box<dyn PathFinder>) {
-        self.settings_io.set_system_path_finder(path_finder);
+        self.io.set_system_path_finder(path_finder);
     }
 }
 
@@ -170,8 +170,8 @@ impl ISettings for Settings {
     }
 }
 
-fn create_settings_reader_writer() -> SettingsReaderWriter {
-    SettingsReaderWriter::new(APP_TITLE.to_string(), SETTINGS_FILE_NAME.to_string())
+fn create_settings_reader_writer() -> SettingsFileIo {
+    SettingsFileIo::new(APP_TITLE.to_string(), SETTINGS_FILE_NAME.to_string())
 }
 
 const SETTINGS_FILE_NAME: &str = "Settings.toml";
