@@ -2,18 +2,18 @@
 use std::sync::{Arc, Mutex, Weak};
 use log::{debug, trace};
 use simonor::{ReleaseInfo, SharedReleaseInfo, VersionChecker};
+use simonor::SharedErrorNotifier;
+use simonor::{IMidiManager, SharedMidiManager, SharedOutput};
+use simonor::MidiManager;
+use simonor::{IMidiSender, MidiSender, SharedMidiSender};
 use app_info::{APP_TITLE, RELEASES_LINK, VERSION};
 use crate::continuum_protocol::ContinuumProtocol;
-use crate::device_strategy::{
-    InputStrategy, OutputStrategy, DeviceStrategy};
-use simonor::SharedErrorNotifier;
+use crate::ui_device_strategy::{
+    UiInputStrategy, UiOutputStrategy, UiDeviceStrategy};
 use crate::i_continuum_protocol::{ContinuumProtocolListener, IContinuumProtocol};
-use crate::i_midi_manager::{IMidiManager, SharedMidiManager, SharedOutput};
 use crate::i_osc::{IOsc, OscCallbacks};
 use crate::i_settings::ISettings;
 use crate::i_ui_methods::IUiMethods;
-use crate::midi_manager::MidiManager;
-use crate::midi_sender::{IMidiSender, MidiSender, SharedMidiSender};
 use crate::osc::Osc;
 use crate::presentation::Presentation;
 use crate::settings::Settings;
@@ -35,13 +35,10 @@ use crate::tuning_update_watchdog::TuningUpdateWatchdog;
 ///
 /// `Presentation` provides the model with a conduit for sending messages to the view to be shown:
 /// see `TuningUpdateWatchdog` for the only current example. It allows the model not to need to
-/// know about view or the `Preseter` itself. In that respect, I'd say it conforms with MVP:
+/// know about view or the `Presenter` itself. In that respect, I'd say it conforms with MVP:
 /// messaging facilities in MVVM are similar.
 ///
-/// `DeviceStrategy` contains both view and presenter methods: that seems acceptable, as it is an
-/// implementation of the strategy pattern.
-///
-/// The Slint UI, main.rs, `CenteredDialog` and `UiMethods` are the remainder of the view.
+/// The Slint UI, main.rs, `CenteredDialog`, `UiDeviceStrategy`, and `UiMethods` are the view.
 ///
 /// Everything else is the model.
 pub struct Presenter {
@@ -187,8 +184,8 @@ impl Presenter {
         let mut midi = self.midi_manager.lock().unwrap();
         midi.init(&input_device_name, &output_device_name);
         drop(midi); // Release MIDI lock before calling device_names which needs to acquire it
-        let input_strategy = InputStrategy::new();
-        let output_strategy = OutputStrategy::new();
+        let input_strategy = UiInputStrategy::new();
+        let output_strategy = UiOutputStrategy::new();
         trace!("init: Getting input device names");
         let input_device_names = self.device_names(&input_strategy);
         trace!("init: Got {} input device names", input_device_names.len());
@@ -253,12 +250,12 @@ impl Presenter {
         Ok(())
     }
 
-    fn connect_initial_device(&mut self, device_strategy: &dyn DeviceStrategy) {
+    fn connect_initial_device(&mut self, device_strategy: &dyn UiDeviceStrategy) {
         trace!("connect_initial_port: {:?}", device_strategy.device_type());
         let shared_midi = self.midi_manager.clone();
         let maybe_index = {
             let midi = shared_midi.lock().unwrap();
-            midi.io(device_strategy).device().as_ref()
+            midi.io(device_strategy.midi_strategy()).device().as_ref()
                 .map(|device| device.index())
         };
         if let Some(index) = maybe_index {
@@ -272,7 +269,7 @@ impl Presenter {
         }
     }
 
-    pub fn connect_device(&mut self, device_strategy: &dyn DeviceStrategy) {
+    pub fn connect_device(&mut self, device_strategy: &dyn UiDeviceStrategy) {
         trace!("connect_device");
         let shared_midi = self.midi_manager.clone();
         let device_strategy = device_strategy.clone_box();
@@ -284,7 +281,7 @@ impl Presenter {
         self.connect_selected_device(&shared_midi, &*device_strategy);
         trace!("connect_device: Getting port");
         let device_name_opt: Option<String> = shared_midi.lock().unwrap()
-            .io(&*device_strategy)
+            .io(device_strategy.midi_strategy())
             .device()
             .map(|p| p.name().to_string());
         trace!("connect_device: Got port");
@@ -303,7 +300,7 @@ impl Presenter {
     }
 
     fn connect_selected_device(&mut self, shared_midi: &SharedMidiManager,
-                               device_strategy: &dyn DeviceStrategy) {
+                               device_strategy: &dyn UiDeviceStrategy) {
         trace!("connect_selected_device: {:?}", device_strategy.device_type());
         let index = self.presentation.get_selected_device_index(device_strategy);
         // No selection (e.g. an empty device list) leaves the combobox at -1, which `UiMethods`
@@ -314,11 +311,11 @@ impl Presenter {
             trace!("connect_selected_device: Getting midi.");
             let mut midi = shared_midi.lock().unwrap();
             trace!("connect_selected_device: Got midi.");
-            let Some(name) = midi.io(device_strategy).device_names().get(index).cloned()
+            let Some(name) = midi.io(device_strategy.midi_strategy()).device_names().get(index).cloned()
             else {
                 return;
             };
-            match midi.connect_device(index, device_strategy) {
+            match midi.connect_device(index, device_strategy.midi_strategy()) {
                 Ok(()) => Ok(name),
                 Err(err) => Err(err.to_string()),
             }
@@ -340,8 +337,8 @@ impl Presenter {
         }
     }
 
-    fn device_names(&self, device_strategy: &dyn DeviceStrategy) -> Vec<String> {
-        self.midi_manager.lock().unwrap().io(device_strategy).device_names()
+    fn device_names(&self, device_strategy: &dyn UiDeviceStrategy) -> Vec<String> {
+        self.midi_manager.lock().unwrap().io(device_strategy.midi_strategy()).device_names()
     }
 
     fn find_new_version(&mut self, auto_check_new_versions: bool, ignore_version: &str) -> bool {
@@ -357,11 +354,11 @@ impl Presenter {
         false
     }
 
-    pub fn refresh_devices(&mut self, device_strategy: &dyn DeviceStrategy) {
+    pub fn refresh_devices(&mut self, device_strategy: &dyn UiDeviceStrategy) {
         let device_strategy = device_strategy.clone_box();
         self.stop_osc_and_instrument_connection_monitor();
         let device_name = device_strategy.device_setting(&*self.settings).to_string();
-        self.midi_manager.lock().unwrap().refresh_devices(&device_name, &*device_strategy);
+        self.midi_manager.lock().unwrap().refresh_devices(&device_name, device_strategy.midi_strategy());
         self.presentation.disconnected_from_pitchgrid();
         self.presentation.set_devices_model(&self.device_names(&*device_strategy), &*device_strategy);
         self.presentation.no_device_connected(&*device_strategy);

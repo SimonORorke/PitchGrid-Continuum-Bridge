@@ -5,15 +5,16 @@ use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 #[cfg(target_os = "macos")]
 use slint::LogicalPosition;
+use simonor::{DeviceType};
+use app_info::APP_TITLE;
 use crate::centered_dialog::CenteredDialog;
-use crate::device_strategy::{DeviceStrategy, DeviceType};
 use crate::global::MessageType;
 use crate::i_ui_methods::IUiMethods;
 use crate::presenter::NewVersionCallbacks;
 use crate::tuning_params::FormattedTuningParams;
+use crate::ui_device_strategy::{UiDeviceStrategy};
 use crate::{ComboBoxItem, ComboBoxModel as MainComboBoxModel, MainWindow, NewVersionWindow,
             SlintMessageType};
-use app_info::APP_TITLE;
 
 /// This struct contains the methods called by `Presenter` to make changes to the UI.
 /// It is part of the view in the Model-View-Presenter (MVP) pattern.
@@ -107,14 +108,14 @@ impl UiMethods {
 }
 
 impl IUiMethods for UiMethods {
-    fn focus_device(&self, device_strategy: &dyn DeviceStrategy) {
+    fn focus_device(&self, device_strategy: &dyn UiDeviceStrategy) {
         let device_strategy = device_strategy.clone_box();
         self.with_main_window(move |main_window| {
             device_strategy.focus_device(main_window);
         });
     }
 
-    fn get_selected_device_index(&self, device_strategy: &dyn DeviceStrategy) -> usize {
+    fn get_selected_device_index(&self, device_strategy: &dyn UiDeviceStrategy) -> usize {
         trace!("get_selected_device_index: {:?}", device_strategy.device_type());
         let device_strategy = device_strategy.clone_box();
         let index = self.with_main_window_result(move |main_window| {
@@ -124,7 +125,7 @@ impl IUiMethods for UiMethods {
         index
     }
 
-    fn set_selected_device_index(&self, index: usize, device_strategy: &dyn DeviceStrategy) {
+    fn set_selected_device_index(&self, index: usize, device_strategy: &dyn UiDeviceStrategy) {
         trace!("set_selected_device_index: index = {}, device_strategy = {:?}", index, device_strategy.device_type());
         let device_strategy = device_strategy.clone_box();
         self.with_main_window(move |main_window| {
@@ -133,7 +134,7 @@ impl IUiMethods for UiMethods {
         });
     }
 
-    fn set_devices_model(&self, device_names: &[String], device_strategy: &dyn DeviceStrategy) {
+    fn set_devices_model(&self, device_names: &[String], device_strategy: &dyn UiDeviceStrategy) {
         trace!("set_devices_model: START");
         trace!("set_devices_model: Creating device items from port names");
         let device_items: Vec<ComboBoxItem> =
@@ -166,7 +167,7 @@ impl IUiMethods for UiMethods {
     }
 
     fn show_connected_device_name(&self, name: &str, message_type: MessageType,
-                                device_strategy: &dyn DeviceStrategy) {
+                                device_strategy: &dyn UiDeviceStrategy) {
         let device_strategy = device_strategy.clone_box();
         let device_name = name.to_string();
         self.with_main_window(move |main_window| {

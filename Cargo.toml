@@ -37,11 +37,12 @@ env_logger = "0.11.11"
 # Must track the slint version exactly.
 i-slint-backend-winit = "=1.17.1"
 log = "0.4.34"
-midir = "0.11.0"
 midly = "0.5.3"
 open = "5.4.4"
 rayon = "1.12.0"
 rosc = "0.11.4"
+# round really is used, in tuning_params.rs, even though, for unknown reason, it is
+# itermittently shown greyed out.
 round = "0.1.2"
 serde = "1.0.229"
 # With vivi_ui 0.2.0, slint 1.17.1 is the latest version with which there are no
@@ -72,6 +73,10 @@ embed-resource = "3.0.8"
 
 [dev-dependencies]
 googletest = "0.14.3"
+simonor = { path = "../simonor", features = ["testing"] }
+# Once simonor is stable and pushed to remote Git, update the dependency to point
+# to its Git repo:
+# simonor = { git = "https://github.com/SimonORorke/simonor.git", branch = "main", features = ["testing"] }
 
 # macOS Bundle
 [package.metadata.bundle]

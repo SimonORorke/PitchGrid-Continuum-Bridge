@@ -1,16 +1,12 @@
 pub mod centered_dialog;
 pub mod continuum_midi_batch;
 pub mod continuum_protocol;
-pub mod device_strategy;
+pub mod ui_device_strategy;
 pub mod global;
 pub mod i_continuum_protocol;
-pub mod i_midi_manager;
 pub mod i_osc;
 pub mod i_settings;
 pub mod i_ui_methods;
-pub mod midi_manager;
-pub mod midi_message_batch;
-pub mod midi_sender;
 pub mod osc;
 pub mod presenter;
 pub mod presentation;

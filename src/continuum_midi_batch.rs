@@ -1,4 +1,4 @@
-﻿use crate::midi_message_batch::MidiMessageBatch;
+﻿use simonor::MidiMessageBatch;
 
 /// A batch of Continuum configuration MIDI messages that can be accumulated and then released to
 /// be sent to the Continuum instrument.

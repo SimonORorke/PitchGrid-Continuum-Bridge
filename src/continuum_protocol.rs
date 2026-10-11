@@ -1,6 +1,6 @@
 use crate::i_continuum_protocol::{
     ContinuumProtocolListener, IContinuumProtocol, TuningUpdateSignaller};
-use crate::i_midi_manager::MidiInputListener;
+use simonor::MidiInputListener;
 use crate::tuner::Tuner;
 use log::{debug, trace};
 use midly::{MidiMessage, live::LiveEvent};

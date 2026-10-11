@@ -3,12 +3,11 @@ mod common;
 use std::sync::{Arc, Mutex, MutexGuard};
 use googletest::assert_that;
 use googletest::matchers::{eq, gt};
+use simonor::SharedMidiSender;
+use simonor::testing::{mock_midi_sender, MockMidiSender};
 use pitchgrid_continuum::tuner::Tuner;
-use pitchgrid_continuum::midi_sender::{SharedMidiSender};
-use common::mock_midi_sender::{mock_midi_sender};
 use common::mock_continuum_protocol::MockContinuumProtocol;
 use common::test_tunings::TestTunings;
-use common::mock_midi_sender::MockMidiSender;
 
 /// PITCH_TABLE is a shared static written by tuner.init() and tuner.set_pitch_table().
 /// Tests must run sequentially to avoid data races on it.

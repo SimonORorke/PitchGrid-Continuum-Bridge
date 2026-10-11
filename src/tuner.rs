@@ -1,9 +1,9 @@
 use std::sync::atomic::{AtomicBool, AtomicU8, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use log::{debug, trace};
+use simonor::{SharedMidiSender};
 use crate::i_continuum_protocol::{TuningUpdateSignaller};
 use crate::continuum_midi_batch::{ContinuumMidiBatch};
-use crate::midi_sender::{SharedMidiSender};
 use crate::tuning_params::{FormattedTuningParams, TuningParams};
 
 /// A facility for tuning a Continuum from PitchGrid parameters.

@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 use log::{debug, trace};
-use crate::device_strategy::DeviceStrategy;
+use crate::ui_device_strategy::UiDeviceStrategy;
 use crate::global::MessageType;
 use crate::i_ui_methods::IUiMethods;
 use crate::presenter::NewVersionCallbacks;
@@ -35,20 +35,20 @@ impl Presentation {
     }
 
     pub(crate) fn set_devices_model(&self, device_names: &[String],
-                                    device_strategy: &dyn DeviceStrategy) {
+                                    device_strategy: &dyn UiDeviceStrategy) {
         self.ui_methods.set_devices_model(device_names, device_strategy);
     }
 
-    pub(crate) fn get_selected_device_index(&self, device_strategy: &dyn DeviceStrategy) -> usize {
+    pub(crate) fn get_selected_device_index(&self, device_strategy: &dyn UiDeviceStrategy) -> usize {
         self.ui_methods.get_selected_device_index(device_strategy)
     }
 
     pub(crate) fn set_selected_device_index(&self, index: usize,
-                                            device_strategy: &dyn DeviceStrategy) {
+                                            device_strategy: &dyn UiDeviceStrategy) {
         self.ui_methods.set_selected_device_index(index, device_strategy);
     }
 
-    pub(crate) fn focus_device(&self, device_strategy: &dyn DeviceStrategy) {
+    pub(crate) fn focus_device(&self, device_strategy: &dyn UiDeviceStrategy) {
         self.ui_methods.focus_device(device_strategy);
     }
 
@@ -86,12 +86,12 @@ impl Presentation {
     }
 
     pub(crate) fn connected_device(&self, device_name: &str,
-                                   device_strategy: &dyn DeviceStrategy) {
+                                   device_strategy: &dyn UiDeviceStrategy) {
         self.ui_methods.show_connected_device_name(device_name, MessageType::Info, device_strategy);
     }
 
 
-    pub(crate) fn no_device_connected(&self, device_strategy: &dyn DeviceStrategy) {
+    pub(crate) fn no_device_connected(&self, device_strategy: &dyn UiDeviceStrategy) {
         self.ui_methods.show_connected_device_name(
             DEVICE_NONE, MessageType::Warning, device_strategy);
     }

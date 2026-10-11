@@ -1,5 +1,5 @@
 use std::sync::{Arc, LazyLock, Mutex, MutexGuard};
-use pitchgrid_continuum::device_strategy::DeviceStrategy;
+use pitchgrid_continuum::ui_device_strategy::UiDeviceStrategy;
 use pitchgrid_continuum::global::MessageType;
 use pitchgrid_continuum::i_ui_methods::IUiMethods;
 use pitchgrid_continuum::presenter::NewVersionCallbacks;
@@ -14,23 +14,23 @@ pub static MOCK_UI_METHODS: LazyLock<Mutex<MockUiMethods>> =
 
 pub struct MockUiMethods {
     pub focus_device_count: u16,
-    pub focus_device_strategy: Option<Box<dyn DeviceStrategy>>,
+    pub focus_device_strategy: Option<Box<dyn UiDeviceStrategy>>,
 
     pub get_selected_device_index_count: u16,
-    pub get_selected_device_index_device_strategy: Option<Box<dyn DeviceStrategy>>,
+    pub get_selected_device_index_device_strategy: Option<Box<dyn UiDeviceStrategy>>,
 
     pub set_selected_device_index_count: u16,
     pub selected_device_index: Option<usize>,
-    pub set_selected_device_index_device_strategy: Option<Box<dyn DeviceStrategy>>,
+    pub set_selected_device_index_device_strategy: Option<Box<dyn UiDeviceStrategy>>,
 
     pub set_devices_model_count: u16,
     pub set_devices_model_device_names: Option<Vec<String>>,
-    pub set_devices_model_device_strategy: Option<Box<dyn DeviceStrategy>>,
+    pub set_devices_model_device_strategy: Option<Box<dyn UiDeviceStrategy>>,
 
     pub show_connected_device_name_count: u16,
     pub show_connected_device_name_name: Option<String>,
     pub show_connected_device_name_msg_type: Option<MessageType>,
-    pub show_connected_device_name_device_strategy: Option<Box<dyn DeviceStrategy>>,
+    pub show_connected_device_name_device_strategy: Option<Box<dyn UiDeviceStrategy>>,
 
     pub show_message_count: u16,
     pub show_message_msg: Option<String>,
@@ -120,27 +120,27 @@ impl MockUiMethods {
 }
 
 impl IUiMethods for MockUiMethods {
-    fn focus_device(&self, device_strategy: &dyn DeviceStrategy) {
+    fn focus_device(&self, device_strategy: &dyn UiDeviceStrategy) {
         let mut state = MOCK_UI_METHODS.lock().unwrap_or_else(|e| e.into_inner());
         state.focus_device_count += 1;
         state.focus_device_strategy = Some(device_strategy.clone_box());
     }
 
-    fn get_selected_device_index(&self, device_strategy: &dyn DeviceStrategy) -> usize {
+    fn get_selected_device_index(&self, device_strategy: &dyn UiDeviceStrategy) -> usize {
         let mut state = MOCK_UI_METHODS.lock().unwrap_or_else(|e| e.into_inner());
         state.get_selected_device_index_count += 1;
         state.get_selected_device_index_device_strategy = Some(device_strategy.clone_box());
         state.selected_device_index.unwrap_or(0)
     }
 
-    fn set_selected_device_index(&self, index: usize, device_strategy: &dyn DeviceStrategy) {
+    fn set_selected_device_index(&self, index: usize, device_strategy: &dyn UiDeviceStrategy) {
         let mut state = MOCK_UI_METHODS.lock().unwrap_or_else(|e| e.into_inner());
         state.set_selected_device_index_count += 1;
         state.selected_device_index = Some(index);
         state.set_selected_device_index_device_strategy = Some(device_strategy.clone_box());
     }
 
-    fn set_devices_model(&self, device_names: &[String], device_strategy: &dyn DeviceStrategy) {
+    fn set_devices_model(&self, device_names: &[String], device_strategy: &dyn UiDeviceStrategy) {
         let mut state = MOCK_UI_METHODS.lock().unwrap_or_else(|e| e.into_inner());
         state.set_devices_model_count += 1;
         state.set_devices_model_device_names = Some(device_names.to_vec());
@@ -148,7 +148,7 @@ impl IUiMethods for MockUiMethods {
     }
 
     fn show_connected_device_name(&self, name: &str, msg_type: MessageType,
-                                  device_strategy: &dyn DeviceStrategy) {
+                                  device_strategy: &dyn UiDeviceStrategy) {
         let mut state = MOCK_UI_METHODS.lock().unwrap_or_else(|e| e.into_inner());
         state.show_connected_device_name_count += 1;
         state.show_connected_device_name_name = Some(name.to_string());

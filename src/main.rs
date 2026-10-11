@@ -11,7 +11,7 @@ use app_info::{APP_TITLE, COPYRIGHT, DOCUMENTATION_LINK, LICENSE, PROJECT_LINK, 
                VERSION};
 use pitchgrid_continuum::{ComboBoxModel, ComboBoxItem, MainWindow, AboutWindow, NewVersionWindow,
                           SharedPresenter, SlintDeviceType};
-use pitchgrid_continuum::device_strategy::{InputStrategy, OutputStrategy, DeviceStrategy};
+use pitchgrid_continuum::ui_device_strategy::{UiInputStrategy, UiOutputStrategy, UiDeviceStrategy};
 use pitchgrid_continuum::global;
 use pitchgrid_continuum::osc::Osc;
 use pitchgrid_continuum::presenter::Presenter;
@@ -248,10 +248,10 @@ fn handle_close_request(main_window_weak: &Weak<MainWindow>, presenter: &SharedP
 }
 
 fn create_device_strategy(device_type: SlintDeviceType)
-                        -> Box<dyn DeviceStrategy> {
+                        -> Box<dyn UiDeviceStrategy> {
     match device_type {
-        SlintDeviceType::Input => InputStrategy::new().clone_box(),
-        SlintDeviceType::Output => OutputStrategy::new().clone_box(),
+        SlintDeviceType::Input => UiInputStrategy::new().clone_box(),
+        SlintDeviceType::Output => UiOutputStrategy::new().clone_box(),
     }
 }
 

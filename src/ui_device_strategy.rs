@@ -1,28 +1,20 @@
 ﻿use log::trace;
 use slint::ModelRc;
-use simonor::MidiDesktopSettings;
-use crate::i_midi_manager::IMidiManager;
-use simonor::IIo;
+use simonor::{DeviceType, IMidiManager, MidiDeviceStrategy, MidiInputStrategy, MidiOutputStrategy};
+use simonor::{IIo, MidiDesktopSettings};
 use crate::{ComboBoxItem, MainWindow, SlintMessageType};
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum DeviceType {
-    Input,
-    Output,
-}
-
-/// This trait is used to implement strategies that depend on whether a MIDI device is input or
+/// This trait is used to implement UI strategies that depend on whether a MIDI device is input or
 /// output.
-/// In the Model-View-Presenter (MVP) pattern, it contains both view and presenter methods.
-/// See `Presenter`'s doc comment for more information on how the project implements MVP.
-pub trait DeviceStrategy: Send + Sync {
+pub trait UiDeviceStrategy: Send + Sync {
     fn device_type(&self) -> &DeviceType;
+    fn midi_strategy(&self) -> &dyn MidiDeviceStrategy;
     fn io<'a>(&self, midi: &'a dyn IMidiManager) -> &'a dyn IIo;
 
     /// Makes a clone of the current strategy that needs to be used when cross-threading.
     /// The code is the same for all strategies. But the compiler does not allow it to be
     /// implemented here as a default method.
-    fn clone_box(&self) -> Box<dyn DeviceStrategy>;
+    fn clone_box(&self) -> Box<dyn UiDeviceStrategy>;
 
     fn focus_device(&self, main_window: &MainWindow);
     fn device_setting<'a>(&self, settings: &'a dyn MidiDesktopSettings) -> &'a str;
@@ -36,29 +28,34 @@ pub trait DeviceStrategy: Send + Sync {
     fn msg_connect(&self) -> &str;
     fn msg_connected(&self, device_name: &str) -> String;
     fn msg_refreshed_reconnect(&self) -> &str;
-    fn other_device_strategy(&self) -> Box<dyn DeviceStrategy>;
+    fn other_device_strategy(&self) -> Box<dyn UiDeviceStrategy>;
 }
 
 #[derive(Clone)]
-pub struct InputStrategy {
+pub struct UiInputStrategy {
+    midi_strategy: Box<dyn MidiDeviceStrategy>,
 }
 
-impl InputStrategy {
+impl UiInputStrategy {
     pub fn new() -> Self {
-        Self {}
+        Self { midi_strategy: Box::new(MidiInputStrategy::new()) }
     }
 }
 
-impl DeviceStrategy for InputStrategy {
+impl UiDeviceStrategy for UiInputStrategy {
     fn device_type(&self) -> &DeviceType {
-        &DeviceType::Input
+        self.midi_strategy.device_type()
+    }
+
+    fn midi_strategy(&self) -> &dyn MidiDeviceStrategy {
+        &*self.midi_strategy
     }
 
     fn io<'a>(&self, midi: &'a dyn IMidiManager) -> &'a dyn IIo {
-        midi.input()
+        self.midi_strategy.io(midi)
     }
 
-    fn clone_box(&self) -> Box<dyn DeviceStrategy> {
+    fn clone_box(&self) -> Box<dyn UiDeviceStrategy> {
         Box::new(self.clone())
     }
 
@@ -67,11 +64,11 @@ impl DeviceStrategy for InputStrategy {
     }
 
     fn device_setting<'a>(&self, settings: &'a dyn MidiDesktopSettings) -> &'a str {
-        settings.midi_input_device()
+        self.midi_strategy.device_setting(settings)
     }
 
     fn set_device_setting(&self, settings: &mut dyn MidiDesktopSettings, device_name: &str) {
-        settings.set_midi_input_device(device_name);
+        self.midi_strategy.set_device_setting(settings, device_name);
     }
 
     fn show_connected_device_name(&self, main_window: &MainWindow, device_name: &str,
@@ -95,47 +92,51 @@ impl DeviceStrategy for InputStrategy {
     }
 
     fn msg_cannot_connect(&self, device_name: &str) -> String {
-        format!("Cannot connect MIDI input device {}. The device may be in use.",
-                device_name)
+        self.midi_strategy.msg_cannot_connect(device_name)
     }
 
     fn msg_connect(&self) -> &str {
-        "Connect MIDI input device"
+        self.midi_strategy.msg_connect()
     }
 
     fn msg_connected(&self, device_name: &str) -> String {
-        format!("Connected MIDI input device {}", device_name)
+        self.midi_strategy.msg_connected(device_name)
     }
 
     fn msg_refreshed_reconnect(&self) -> &str {
-        "Refreshed MIDI input devices. You must (re)connect."
+        self.midi_strategy.msg_refreshed_reconnect()
     }
 
-    fn other_device_strategy(&self) -> Box<dyn DeviceStrategy> {
-        Box::new(OutputStrategy::new())
+    fn other_device_strategy(&self) -> Box<dyn UiDeviceStrategy> {
+        Box::new(UiOutputStrategy::new())
     }
 }
 
 #[derive(Clone)]
-pub struct OutputStrategy {
+pub struct UiOutputStrategy {
+    midi_strategy: Box<dyn MidiDeviceStrategy>,
 }
 
-impl OutputStrategy {
+impl UiOutputStrategy {
     pub fn new() -> Self {
-        Self {}
+        Self { midi_strategy: Box::new(MidiOutputStrategy::new()) }
     }
 }
 
-impl DeviceStrategy for OutputStrategy {
+impl UiDeviceStrategy for UiOutputStrategy {
     fn device_type(&self) -> &DeviceType {
-        &DeviceType::Output
+        self.midi_strategy.device_type()
+    }
+
+    fn midi_strategy(&self) -> &dyn MidiDeviceStrategy {
+        &*self.midi_strategy
     }
 
     fn io<'a>(&self, midi: &'a dyn IMidiManager) -> &'a dyn IIo {
-        midi.output()
+        self.midi_strategy.io(midi)
     }
 
-    fn clone_box(&self) -> Box<dyn DeviceStrategy> {
+    fn clone_box(&self) -> Box<dyn UiDeviceStrategy> {
         Box::new(self.clone())
     }
 
@@ -144,11 +145,11 @@ impl DeviceStrategy for OutputStrategy {
     }
 
     fn device_setting<'a>(&self, settings: &'a dyn MidiDesktopSettings) -> &'a str {
-        settings.midi_output_device()
+        self.midi_strategy.device_setting(settings)
     }
 
     fn set_device_setting(&self, settings: &mut dyn MidiDesktopSettings, device_name: &str) {
-        settings.set_midi_output_device(device_name);
+        self.midi_strategy.set_device_setting(settings, device_name);
     }
 
     fn show_connected_device_name(&self, main_window: &MainWindow, device_name: &str,
@@ -172,23 +173,28 @@ impl DeviceStrategy for OutputStrategy {
     }
 
     fn msg_cannot_connect(&self, device_name: &str) -> String {
-        format!("Cannot connect MIDI output device {}. The device may be in use.",
-                device_name)
+        self.midi_strategy.msg_cannot_connect(device_name)
     }
 
     fn msg_connect(&self) -> &str {
-        "Connect MIDI output device"
+        self.midi_strategy.msg_connect()
     }
 
     fn msg_connected(&self, device_name: &str) -> String {
-        format!("Connected MIDI output device {}", device_name)
+        self.midi_strategy.msg_connected(device_name)
     }
 
     fn msg_refreshed_reconnect(&self) -> &str {
-        "Refreshed MIDI output devices. You must (re)connect."
+        self.midi_strategy.msg_refreshed_reconnect()
     }
 
-    fn other_device_strategy(&self) -> Box<dyn DeviceStrategy> {
-        Box::new(InputStrategy::new())
+    fn other_device_strategy(&self) -> Box<dyn UiDeviceStrategy> {
+        Box::new(UiInputStrategy::new())
+    }
+}
+
+impl Clone for Box<dyn UiDeviceStrategy> {
+    fn clone(&self) -> Self {
+        self.clone_box()
     }
 }
