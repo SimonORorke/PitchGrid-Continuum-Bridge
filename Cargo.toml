@@ -58,17 +58,19 @@ serde = "1.0.229"
 slint = "=1.17.1"
 
 [build-dependencies]
-app_info = { path = "app_info" }
 cxx-build = "1.0.202"
 slint-build = "=1.17.1"
 vivi_ui = "0.2.0"
-
-[target.'cfg(windows)'.build-dependencies]
 simonor = { path = "../simonor" }
+app_info = { path = "app_info" }
 # Using embed-resource instead of the more popular winres
 # for application icon and exe file properties because
 # winres puts an oblique before the apostrophe in my name.
 # It's a known shortcoming of winres to always 'escape' an apostrophe.
+# Not restricted to a Windows build-dependency target because build.rs decides,
+# at run time (via CARGO_CFG_TARGET_OS), whether to actually use it, in order to
+# correctly reflect the target platform rather than the host building it; the
+# crate itself supports being compiled on, and cross-compiling from, any host.
 embed-resource = "3.0.8"
 
 [dev-dependencies]
