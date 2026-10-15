@@ -41,9 +41,9 @@ fn main() {
     let is_windows = std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows");
     if is_windows {
         // Generate a manifest to specify the application icon and the exe file properties.
-        let manifest_dir = std::path::PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
-        let out_dir = std::path::PathBuf::from(std::env::var("OUT_DIR").unwrap());
-        let icon_path = std::path::PathBuf::from("ui/images/Midi port black on red 512.ico");
+        let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
+        let out_dir = std::env::var("OUT_DIR").unwrap();
+        let icon_path = "ui/images/Midi port black on red 512.ico";
         let version = app_info::VERSION;
         let product_name = app_info::APP_TITLE;
         let copyright = app_info::COPYRIGHT;
