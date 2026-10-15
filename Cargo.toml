@@ -55,6 +55,7 @@ serde = "1.0.229"
 # warning: The property 'viewport-height' has been deprecated. Please use 'content-height' instead
 # warning: The property 'viewport-width' has been deprecated. Please use 'content-width' instead
 # I've raised an issue with vivi: https://codeberg.org/vivi-ui/vivi/issues/7.
+# It should be fixed now, but I'm not seeing viv_ui 0.2.1 yet.
 slint = "=1.17.1"
 
 [build-dependencies]
