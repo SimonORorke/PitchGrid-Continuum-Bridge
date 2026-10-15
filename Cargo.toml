@@ -63,10 +63,10 @@ cxx-build = "1.0.202"
 slint-build = "=1.17.1"
 vivi_ui = "0.2.0"
 
-
 [target.'cfg(windows)'.build-dependencies]
+simonor = { path = "../simonor" }
 # Using embed-resource instead of the more popular winres
-# for application icon and exe file propertieds because
+# for application icon and exe file properties because
 # winres puts an oblique before the apostrophe in my name.
 # It's a known shortcoming of winres to always 'escape' an apostrophe.
 embed-resource = "3.0.8"
