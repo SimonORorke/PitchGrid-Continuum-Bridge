@@ -29,8 +29,7 @@ enum TuningStatus {
 /// Interprets the Continuum MIDI protocol. It consumes the raw messages and connection-lifecycle
 /// events raised by the generic `MidiManager` (it is the manager's `MidiInputListener`) and raises
 /// the resulting semantic events to the `Presenter` (it holds the `Presenter` as a
-/// `ContinuumProtocolListener`). It owns the protocol state formerly held in the `midi_refs`
-/// statics (and, in 3b, in `MidiState`).
+/// `ContinuumProtocolListener`).
 ///
 /// One instance is shared three ways, all wired in `Presenter::new`: the `MidiManager` holds it as
 /// its raw listener, the `Tuner` holds it as its `TuningUpdateSignaller`, and the `Presenter`

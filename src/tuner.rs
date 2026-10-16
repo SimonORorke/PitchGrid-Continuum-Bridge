@@ -375,6 +375,12 @@ impl Tuner {
                 println!("Sending Rounding Mode Normal");
             }
             midi_batch.add_matrix_poke(10, 0); // RoundMode
+            // Diagnostic test for failure of firmware to update Rounding Mode.
+            // let mut midi_sender = self.midi_sender.lock().unwrap();
+            // midi_sender.send_control_change(
+            //     16, 56, 20, 0); // Matrix Poke command
+            // midi_sender.send_note_aftertouch(
+            //     16, 10, 0, 0); // Perform the Poke
             // Rounding Rate
             debug!("send_rounding_params: Sending Rounding Rate");
             if midi_batch.print_messages_on_adding {
