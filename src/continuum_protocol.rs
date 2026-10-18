@@ -1,6 +1,6 @@
 use crate::i_continuum_protocol::{
     ContinuumProtocolListener, IContinuumProtocol, TuningUpdateSignaller};
-use simonor::MidiInputListener;
+use simonor::{MidiInputListener, MidiReceiver};
 use crate::tuner::Tuner;
 use log::{debug, trace};
 use midly::{MidiMessage, live::LiveEvent};
@@ -94,7 +94,7 @@ impl TuningUpdateSignaller for ContinuumProtocol {
     }
 }
 
-impl MidiInputListener for ContinuumProtocol {
+impl MidiReceiver for ContinuumProtocol {
     fn on_message(&self, message: &[u8]) {
         // Download-monitor timing,
         // keyed off this layer's own message clock. The first-message setup that used to live here
@@ -248,7 +248,9 @@ impl MidiInputListener for ContinuumProtocol {
             }
         }
     }
+}
 
+impl MidiInputListener for ContinuumProtocol {
     fn on_receiving_data_started(&self) {
         // The first message has arrived since monitoring started. We need to wait for the initial
         // data download to the editor to complete, if it did not already happen before we started
