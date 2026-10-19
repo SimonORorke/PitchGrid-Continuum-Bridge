@@ -5,7 +5,7 @@ use crate::i_settings::ISettings;
 use log::trace;
 use simonor::{MidiDesktopSettings, PathFinder, SettingsFileIo};
 
-// Application settings, serialised to file.
+/// Application settings, serialised to file.
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Settings {
     auto_check_new_versions: bool,
