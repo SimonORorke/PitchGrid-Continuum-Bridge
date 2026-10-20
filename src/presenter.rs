@@ -1,25 +1,16 @@
 ﻿use std::error::Error;
 use std::sync::{Arc, Mutex, Weak};
 use log::{debug, trace};
-use simonor::{ReleaseInfo, SharedReleaseInfo, VersionChecker};
-use simonor::SharedErrorNotifier;
-use simonor::{IMidiManager, SharedMidiManager, SharedOutput};
-use simonor::MidiManager;
-use simonor::{IMidiSender, MidiSender, SharedMidiSender};
+use simonor::{
+    IMidiManager, IMidiSender, MidiManager, MidiSender, ReleaseInfo, SharedErrorNotifier,
+    SharedMidiManager, SharedMidiSender, SharedOutput, SharedReleaseInfo, VersionChecker,
+};
 use app_info::{APP_TITLE, RELEASES_LINK, VERSION};
-use crate::continuum_protocol::ContinuumProtocol;
-use crate::ui_device_strategy::{
-    UiInputStrategy, UiOutputStrategy, UiDeviceStrategy};
-use crate::i_continuum_protocol::{ContinuumProtocolListener, IContinuumProtocol};
-use crate::i_osc::{IOsc, OscCallbacks};
-use crate::i_settings::ISettings;
-use crate::i_ui_methods::IUiMethods;
-use crate::osc::Osc;
-use crate::presentation::Presentation;
-use crate::settings::Settings;
-use crate::tuner::{Tuner};
-use crate::tuning_params::TuningParams;
-use crate::tuning_update_watchdog::TuningUpdateWatchdog;
+use crate::{
+    ContinuumProtocol, ContinuumProtocolListener, IContinuumProtocol, IOsc, ISettings, IUiMethods,
+    Osc, OscCallbacks, Presentation, Settings, Tuner, TuningParams, TuningUpdateWatchdog,
+    UiDeviceStrategy, UiInputStrategy, UiOutputStrategy,
+};
 
 /// This type plays the **Presenter** in the Model-View-Presenter (MVP) pattern — specifically the
 /// Passive View / Humble Object variant: `IUiMethods` reduces the View to dumb setters, and the

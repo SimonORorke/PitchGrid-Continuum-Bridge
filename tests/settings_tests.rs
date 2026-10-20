@@ -4,8 +4,7 @@ use googletest::assert_that;
 use googletest::matchers::{eq, ok};
 use simonor::MidiDesktopSettings;
 use simonor::testing::TempPathFinder;
-use pitchgrid_continuum::i_settings::ISettings;
-use pitchgrid_continuum::settings::Settings;
+use pitchgrid_continuum::{ISettings, Settings};
 
 #[googletest::gtest]
 fn persist() {

@@ -26,9 +26,16 @@ new_without_default = "allow"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+# simonor is a path dependency to a sibling folder that is itself a separate, nested Cargo
+# workspace. `cargo check` and `cargo build` keep separate incremental/fingerprint caches,
+# and `cargo check`'s cache can go stale relative to the sibling crate's actual files,
+# causing RustRover (which drives its "unresolved import" diagnostics off `cargo check`)
+# to show false-positive red underlines for recently added simonor items, even though
+# `cargo build` compiles fine. Fix: `cargo clean -p simonor -p simonor-core -p simonor-testing`,
+# then close and reopen RustRover so it re-runs `cargo check` from scratch.
 simonor = { path = "../simonor" }
-# Once simonor is stable and pushed to remote Git, update the dependency to point
-# to its Git repo:
+# Once simonor is stable, its dependency can be updated to point to its GitHub repo.
+# (Point to a tag rather than a branch in due course):
 # simonor = { git = "https://github.com/SimonORorke/simonor.git", branch = "main" }
 app_info = { path = "app_info" }
 cxx = "1.0.202"

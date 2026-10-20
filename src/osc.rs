@@ -6,8 +6,7 @@ use std::sync::atomic::{AtomicBool, AtomicU16, Ordering};
 use std::time::{Duration, Instant};
 use log::{debug, error, trace, warn};
 use rosc::{decoder, encoder, OscMessage, OscPacket, OscType};
-use crate::tuning_params::TuningParams;
-use crate::i_osc::{IOsc, OscCallbacks};
+use crate::{IOsc, OscCallbacks, TuningParams};
 
 /// A facility for communicating with PitchGrid via OSC.
 ///

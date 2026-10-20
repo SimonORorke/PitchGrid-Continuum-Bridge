@@ -1,5 +1,5 @@
 use std::sync::{Arc, LazyLock, Mutex, Weak};
-use pitchgrid_continuum::i_continuum_protocol::{ContinuumProtocolListener, IContinuumProtocol, TuningUpdateSignaller};
+use pitchgrid_continuum::{ContinuumProtocolListener, IContinuumProtocol, TuningUpdateSignaller};
 
 pub static MOCK_CONTINUUM_PROTOCOL: LazyLock<Mutex<MockContinuumProtocol>> =
     LazyLock::new(|| Mutex::new(MockContinuumProtocol::new_state()));

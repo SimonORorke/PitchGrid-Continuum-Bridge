@@ -9,14 +9,12 @@ use log::trace;
 use slint::{CloseRequestResponse, ComponentHandle, Weak};
 use app_info::{APP_TITLE, COPYRIGHT, DOCUMENTATION_LINK, LICENSE, PROJECT_LINK, RELEASES_LINK,
                VERSION};
-use pitchgrid_continuum::{ComboBoxModel, ComboBoxItem, MainWindow, AboutWindow, NewVersionWindow,
-                          SharedPresenter, SlintDeviceType};
-use pitchgrid_continuum::ui_device_strategy::{UiInputStrategy, UiOutputStrategy, UiDeviceStrategy};
+use pitchgrid_continuum::{
+    AboutWindow, ComboBoxItem, ComboBoxModel, MainWindow, NewVersionWindow, Osc, Presenter,
+    SharedPresenter, SlintDeviceType, Tuner, UiDeviceStrategy, UiInputStrategy, UiMethods,
+    UiOutputStrategy,
+};
 use pitchgrid_continuum::global;
-use pitchgrid_continuum::osc::Osc;
-use pitchgrid_continuum::presenter::Presenter;
-use pitchgrid_continuum::tuner::Tuner;
-use pitchgrid_continuum::ui_methods::UiMethods;
 
 /// main.rs is part of the view in the Model-View-Presenter (MVP) pattern.
 /// See `Presenter`'s doc comment for more information on how the project implements MVP.

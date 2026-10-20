@@ -1,9 +1,7 @@
 use std::sync::{Arc, LazyLock, Mutex, MutexGuard};
-use pitchgrid_continuum::ui_device_strategy::UiDeviceStrategy;
-use pitchgrid_continuum::global::MessageType;
-use pitchgrid_continuum::i_ui_methods::IUiMethods;
-use pitchgrid_continuum::presenter::NewVersionCallbacks;
-use pitchgrid_continuum::tuning_params::FormattedTuningParams;
+use pitchgrid_continuum::{
+    FormattedTuningParams, IUiMethods, MessageType, NewVersionCallbacks, UiDeviceStrategy,
+};
 
 pub fn mock_ui_methods() -> MutexGuard<'static, MockUiMethods> {
     MOCK_UI_METHODS.lock().unwrap_or_else(|e| e.into_inner())

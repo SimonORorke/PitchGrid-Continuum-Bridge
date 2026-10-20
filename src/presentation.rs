@@ -1,10 +1,8 @@
 use std::sync::{Arc, Mutex};
 use log::{debug, trace};
-use crate::ui_device_strategy::UiDeviceStrategy;
-use crate::global::MessageType;
-use crate::i_ui_methods::IUiMethods;
-use crate::presenter::NewVersionCallbacks;
-use crate::tuning_params::FormattedTuningParams;
+use crate::{
+    FormattedTuningParams, IUiMethods, MessageType, NewVersionCallbacks, UiDeviceStrategy,
+};
 
 /// The view-facing facade the `Presenter` speaks through.
 ///

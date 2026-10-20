@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use crate::tuning_params::TuningParams;
+use crate::TuningParams;
 
 pub trait OscCallbacks: Send + Sync {
     fn on_pitchgrid_connected_changed(&self);

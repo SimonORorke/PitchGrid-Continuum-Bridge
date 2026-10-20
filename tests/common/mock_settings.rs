@@ -1,6 +1,6 @@
 use std::error::Error;
 use std::sync::{LazyLock, Mutex, MutexGuard};
-use pitchgrid_continuum::i_settings::ISettings;
+use pitchgrid_continuum::ISettings;
 use simonor::{MidiDesktopSettings, PathFinder};
 
 pub fn mock_settings() -> MutexGuard<'static, MockSettings> {

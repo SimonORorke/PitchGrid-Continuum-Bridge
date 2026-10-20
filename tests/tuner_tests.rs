@@ -5,7 +5,7 @@ use googletest::assert_that;
 use googletest::matchers::{eq, gt};
 use simonor::SharedMidiSender;
 use simonor::testing::{mock_midi_sender, MockMidiSender};
-use pitchgrid_continuum::tuner::Tuner;
+use pitchgrid_continuum::Tuner;
 use common::mock_continuum_protocol::MockContinuumProtocol;
 use common::test_tunings::TestTunings;
 

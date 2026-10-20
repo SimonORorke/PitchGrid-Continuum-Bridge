@@ -1,6 +1,5 @@
 use std::sync::{Arc, LazyLock, Mutex, MutexGuard};
-use pitchgrid_continuum::i_osc::{IOsc, OscCallbacks};
-use pitchgrid_continuum::tuning_params::TuningParams;
+use pitchgrid_continuum::{IOsc, OscCallbacks, TuningParams};
 
 pub fn mock_osc() -> MutexGuard<'static, MockOsc> {
     MOCK_OSC.lock().unwrap_or_else(|e| e.into_inner())

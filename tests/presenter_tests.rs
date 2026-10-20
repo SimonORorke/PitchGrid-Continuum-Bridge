@@ -20,15 +20,19 @@ use common::mock_osc::{MockOsc, mock_osc};
 use common::mock_settings::{MockSettings, mock_settings};
 use common::mock_ui_methods::{MockUiMethods, mock_ui_methods};
 use common::test_tunings::TestTunings;
-use pitchgrid_continuum::ui_device_strategy::{UiInputStrategy, UiOutputStrategy};
-use pitchgrid_continuum::global::MessageType;
-use pitchgrid_continuum::i_settings::ISettings;
-use pitchgrid_continuum::osc::Osc;
-use pitchgrid_continuum::presentation::{ALREADY_RUNNING_LATEST_VERSION, AWAITING_DATA_DOWNLOAD_COMPLETION, AWAITING_PITCHGRID_CONNECTION, CANNOT_UPDATE_TUNING_LOST, CHECKING_INSTRUMENT_CONNECTION, DEVICE_NONE, DISCONNECTED_FROM_PITCHGRID, INSTRUMENT_DISCONNECTED, INSTRUMENT_NOT_CONNECTED, INSTRUMENT_TUNING_UPDATED, INSTRUMENT_TUNING_UPDATE_NOT_CONFIRMED, MIDI_SEND_ERROR, OPENING_PITCHGRID_CONNECTION, PITCHGRID_CONNECTION_CLOSED, PITCHGRID_NOT_CONNECTED, PRESET_TUNING_LOADED, UPDATING_INSTRUMENT_TUNING, UPDATING_ROOT_FREQ_OVERRIDE, WAITING_FOR_DATA_DOWNLOAD};
-use pitchgrid_continuum::presenter::{NewVersionCallbacks, NewVersionCallbacksWrapper, Presenter};
-use pitchgrid_continuum::tuner::Tuner;
-use pitchgrid_continuum::ui_methods::UiMethods;
-use pitchgrid_continuum::{MainWindow, NewVersionWindow};
+use pitchgrid_continuum::presentation::{
+    ALREADY_RUNNING_LATEST_VERSION, AWAITING_DATA_DOWNLOAD_COMPLETION,
+    AWAITING_PITCHGRID_CONNECTION, CANNOT_UPDATE_TUNING_LOST, CHECKING_INSTRUMENT_CONNECTION,
+    DEVICE_NONE, DISCONNECTED_FROM_PITCHGRID, INSTRUMENT_DISCONNECTED,
+    INSTRUMENT_NOT_CONNECTED, INSTRUMENT_TUNING_UPDATED, INSTRUMENT_TUNING_UPDATE_NOT_CONFIRMED,
+    MIDI_SEND_ERROR, OPENING_PITCHGRID_CONNECTION, PITCHGRID_CONNECTION_CLOSED,
+    PITCHGRID_NOT_CONNECTED, PRESET_TUNING_LOADED, UPDATING_INSTRUMENT_TUNING,
+    UPDATING_ROOT_FREQ_OVERRIDE, WAITING_FOR_DATA_DOWNLOAD,
+};
+use pitchgrid_continuum::{
+    ISettings, MainWindow, MessageType, NewVersionCallbacks, NewVersionCallbacksWrapper,
+    NewVersionWindow, Osc, Presenter, Tuner, UiInputStrategy, UiMethods, UiOutputStrategy,
+};
 
 #[googletest::gtest]
 fn init_from_settings() {

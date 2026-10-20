@@ -1,8 +1,5 @@
 ﻿use std::sync::{Arc, Mutex};
-use crate::global::MessageType;
-use crate::ui_device_strategy::UiDeviceStrategy;
-use crate::presenter::NewVersionCallbacks;
-use crate::tuning_params::FormattedTuningParams;
+use crate::{FormattedTuningParams, MessageType, NewVersionCallbacks, UiDeviceStrategy};
 
 /// A trait that defines the interface for methods called by `Presenter`
 /// to make changes to the UI.

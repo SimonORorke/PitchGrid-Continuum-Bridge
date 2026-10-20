@@ -1,7 +1,7 @@
 use std::error::Error;
 use serde::{Serialize, Deserialize};
 use app_info::APP_TITLE;
-use crate::i_settings::ISettings;
+use crate::ISettings;
 use log::trace;
 use simonor::{MidiDesktopSettings, PathFinder, SettingsFileIo};
 

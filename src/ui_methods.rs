@@ -7,14 +7,11 @@ use std::sync::{Arc, Mutex};
 use slint::LogicalPosition;
 use simonor::{DeviceType};
 use app_info::APP_TITLE;
-use crate::centered_dialog::CenteredDialog;
-use crate::global::MessageType;
-use crate::i_ui_methods::IUiMethods;
-use crate::presenter::NewVersionCallbacks;
-use crate::tuning_params::FormattedTuningParams;
-use crate::ui_device_strategy::{UiDeviceStrategy};
-use crate::{ComboBoxItem, ComboBoxModel as MainComboBoxModel, MainWindow, NewVersionWindow,
-            SlintMessageType};
+use crate::{
+    CenteredDialog, ComboBoxItem, ComboBoxModel as MainComboBoxModel, FormattedTuningParams,
+    IUiMethods, MainWindow, MessageType, NewVersionCallbacks, NewVersionWindow, SlintMessageType,
+    UiDeviceStrategy,
+};
 
 /// This struct contains the methods called by `Presenter` to make changes to the UI.
 /// It is part of the view in the Model-View-Presenter (MVP) pattern.

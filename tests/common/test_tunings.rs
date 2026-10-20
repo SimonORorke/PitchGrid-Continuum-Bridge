@@ -1,4 +1,4 @@
-use pitchgrid_continuum::tuning_params::TuningParams;
+use pitchgrid_continuum::TuningParams;
 
 pub struct TestTunings;
 

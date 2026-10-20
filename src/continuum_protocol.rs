@@ -1,7 +1,5 @@
-use crate::i_continuum_protocol::{
-    ContinuumProtocolListener, IContinuumProtocol, TuningUpdateSignaller};
+use crate::{ContinuumProtocolListener, IContinuumProtocol, Tuner, TuningUpdateSignaller};
 use simonor::{MidiInputListener, MidiReceiver};
-use crate::tuner::Tuner;
 use log::{debug, trace};
 use midly::{MidiMessage, live::LiveEvent};
 use std::sync::{Arc, Mutex, Weak};
