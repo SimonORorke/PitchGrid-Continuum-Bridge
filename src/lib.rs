@@ -18,7 +18,7 @@ pub mod ui_methods;
 
 pub use centered_dialog::CenteredDialog;
 pub use continuum_midi_batch::ContinuumMidiBatch;
-pub use continuum_protocol::ContinuumProtocol;
+pub use continuum_protocol::{ContinuumProtocol, ContinuumProtocolReceiver};
 pub use ui_device_strategy::{UiDeviceStrategy, UiInputStrategy, UiOutputStrategy};
 pub use global::{MessageType, override_note_names};
 pub use i_continuum_protocol::{

@@ -92,8 +92,14 @@ impl TuningUpdateSignaller for ContinuumProtocol {
     }
 }
 
-impl MidiReceiver for ContinuumProtocol {
-    fn on_message(&self, message: &[u8]) {
+impl ContinuumProtocol {
+    /// The raw inbound MIDI message handler. Kept as an inherent `&self` method (rather than a
+    /// direct `MidiReceiver` impl) because `ContinuumProtocol` is shared via a plain `Arc` across
+    /// the `Presenter`, the `Tuner`, and the `MidiManager`; all of its state is already
+    /// interior-mutable (`Mutex`/`Atomic` fields), so no real exclusive access is needed here. See
+    /// `ContinuumProtocolReceiver`, which adapts this to the `MidiReceiver`/`MidiInputListener`
+    /// traits' `&mut self` requirement for the `MidiManager`.
+    pub fn on_message(&self, raw_message: &[u8]) {
         // Download-monitor timing,
         // keyed off this layer's own message clock. The first-message setup that used to live here
         // now happens in `on_receiving_data_started`.
@@ -125,7 +131,7 @@ impl MidiReceiver for ContinuumProtocol {
             }
         }
         // Parse + interpret
-        let event = LiveEvent::parse(message).unwrap();
+        let event = LiveEvent::parse(raw_message).unwrap();
         if let LiveEvent::Midi { channel, message } = event {
             match message {
                 MidiMessage::Controller { controller, value } => {
@@ -248,7 +254,7 @@ impl MidiReceiver for ContinuumProtocol {
     }
 }
 
-impl MidiInputListener for ContinuumProtocol {
+impl ContinuumProtocol {
     fn on_receiving_data_started(&self) {
         // The first message has arrived since monitoring started. We need to wait for the initial
         // data download to the editor to complete, if it did not already happen before we started
@@ -274,5 +280,33 @@ impl MidiInputListener for ContinuumProtocol {
         if let Some(listener) = self.listener() {
             rayon::spawn(move || listener.on_devices_connected_changed());
         }
+    }
+}
+
+/// Adapts a shared `Arc<ContinuumProtocol>` to the `MidiReceiver`/`MidiInputListener` traits for
+/// the `MidiManager`. `on_message` now takes `&mut self`, but `ContinuumProtocol` is also held
+/// directly (via a plain `Arc`) as the `Presenter`'s `IContinuumProtocol` and the `Tuner`'s
+/// `TuningUpdateSignaller`, so it cannot itself implement a `&mut self` trait method. This adapter
+/// owns no state beyond the shared `Arc`; its own `&mut self` is nominal and satisfied by wrapping
+/// it in a `Mutex` at the point `MidiManager` requires one.
+pub struct ContinuumProtocolReceiver(pub Arc<ContinuumProtocol>);
+
+impl MidiReceiver for ContinuumProtocolReceiver {
+    fn on_message(&mut self, raw_message: &[u8]) {
+        self.0.on_message(raw_message);
+    }
+}
+
+impl MidiInputListener for ContinuumProtocolReceiver {
+    fn on_receiving_data_started(&self) {
+        self.0.on_receiving_data_started();
+    }
+
+    fn on_receiving_data_stopped(&self) {
+        self.0.on_receiving_data_stopped();
+    }
+
+    fn on_devices_connected_changed(&self) {
+        self.0.on_devices_connected_changed();
     }
 }

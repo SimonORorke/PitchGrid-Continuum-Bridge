@@ -7,9 +7,9 @@ use simonor::{
 };
 use app_info::{APP_TITLE, RELEASES_LINK, VERSION};
 use crate::{
-    ContinuumProtocol, ContinuumProtocolListener, IContinuumProtocol, IOsc, ISettings, IUiMethods,
-    Osc, OscCallbacks, Presentation, Settings, Tuner, TuningParams, TuningUpdateWatchdog,
-    UiDeviceStrategy, UiInputStrategy, UiOutputStrategy,
+    ContinuumProtocol, ContinuumProtocolListener, ContinuumProtocolReceiver, IContinuumProtocol,
+    IOsc, ISettings, IUiMethods, Osc, OscCallbacks, Presentation, Settings, Tuner, TuningParams,
+    TuningUpdateWatchdog, UiDeviceStrategy, UiInputStrategy, UiOutputStrategy,
 };
 
 /// This type plays the **Presenter** in the Model-View-Presenter (MVP) pattern — specifically the
@@ -72,10 +72,12 @@ impl Presenter {
         // Presenter (as its IContinuumProtocol). One shared Arc keeps the Tuner's tuning_status
         // write visible to the protocol's confirmation logic.
         let continuum_protocol = Arc::new(ContinuumProtocol::new());
+        let midi_listener =
+            Arc::new(Mutex::new(ContinuumProtocolReceiver(continuum_protocol.clone())));
         Self::new2(callbacks.clone(), 2000,
                    continuum_protocol.clone(),
                    Arc::new(Mutex::new(Box::new(MidiManager::new(
-                       output.clone(), continuum_protocol.clone()))
+                       output.clone(), midi_listener))
                        as Box<dyn IMidiManager + Send>)),
                    Box::new(Osc::new()),
                    Arc::new(Mutex::new(Box::new(ReleaseInfo::new(
