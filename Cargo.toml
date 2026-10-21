@@ -79,7 +79,7 @@ app_info = { path = "app_info" }
 # at run time (via CARGO_CFG_TARGET_OS), whether to actually use it, in order to
 # correctly reflect the target platform rather than the host building it; the
 # crate itself supports being compiled on, and cross-compiling from, any host.
-embed-resource = "3.0.8"
+embed-resource = "3.0.12"
 
 [dev-dependencies]
 googletest = "0.14.3"
