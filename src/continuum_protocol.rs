@@ -57,7 +57,7 @@ impl ContinuumProtocol {
         }
     }
 
-    /// The semantic listener, if it is still alive. Mirrors the former `callbacks()` accessor.
+    /// The semantic listener, if it is still alive.
     fn listener(&self) -> Option<Arc<dyn ContinuumProtocolListener>> {
         self.listener.lock().unwrap().as_ref().and_then(|weak| weak.upgrade())
     }

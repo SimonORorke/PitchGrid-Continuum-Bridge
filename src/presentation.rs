@@ -204,13 +204,15 @@ impl Presentation {
 }
 
 // User-facing message strings. Owned here so every string the player sees lives in one module.
-// `DEVICE_NONE` is the sentinel shown (and recorded by tests) when no MIDI device is connected.
+
 pub const ALREADY_RUNNING_LATEST_VERSION: &str = "You are already running the latest version.";
 pub const AWAITING_DATA_DOWNLOAD_COMPLETION: &str = "Awaiting completion of data download from instrument...";
 pub const AWAITING_PITCHGRID_CONNECTION: &str = "Awaiting PitchGrid connection...";
 pub const CANNOT_UPDATE_TUNING_CONNECT: &str = "Cannot update tuning. Connect instrument input/output.";
 pub const CANNOT_UPDATE_TUNING_LOST: &str = "Cannot update tuning. Instrument connection lost.";
 pub const CHECKING_INSTRUMENT_CONNECTION: &str = "Checking instrument connection...";
+
+// `DEVICE_NONE` is the sentinel shown (and recorded by tests) when no MIDI device is connected.
 pub const DEVICE_NONE: &str = "[None]";
 pub const DISCONNECTED_FROM_PITCHGRID: &str = "Disconnected from PitchGrid because MIDI is not connected";
 pub const INSTRUMENT_DISCONNECTED: &str = "Instrument is disconnected; closed PitchGrid connection.";
