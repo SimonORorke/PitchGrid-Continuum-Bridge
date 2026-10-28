@@ -8,7 +8,7 @@ use slint::LogicalPosition;
 use simonor::{DeviceType};
 use app_info::APP_TITLE;
 use crate::{
-    CenteredDialog, ComboBoxItem, ComboBoxModel as MainComboBoxModel, FormattedTuningParams,
+    CenteredDialog, ComboBoxItem, ComboBoxModel, FormattedTuningParams,
     IUiMethods, MainWindow, MessageType, NewVersionCallbacks, NewVersionWindow, SlintMessageType,
     UiDeviceStrategy,
 };
@@ -148,11 +148,11 @@ impl IUiMethods for UiMethods {
             trace!("set_devices_model: Inside with_main_window closure");
             let model = match device_type {
                 DeviceType::Input => {
-                    let input_model = Rc::new(MainComboBoxModel(device_items.clone()));
+                    let input_model = Rc::new(ComboBoxModel(device_items.clone()));
                     slint::ModelRc::from(input_model)
                 },
                 DeviceType::Output => {
-                    let output_model = Rc::new(MainComboBoxModel(device_items.clone()));
+                    let output_model = Rc::new(ComboBoxModel(device_items.clone()));
                     slint::ModelRc::from(output_model)
                 },
             };
