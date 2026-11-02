@@ -530,39 +530,16 @@ impl Presenter {
     }
 }
 
-impl ContinuumProtocolListener for Mutex<Presenter> {
-    fn on_download_completed(&self) {
-        self.lock().unwrap().on_data_download_completed();
-    }
-
-    fn on_download_started(&self) {
-        self.lock().unwrap().on_data_download_started();
-    }
-
-    fn on_new_preset_selected(&self) {
-        self.lock().unwrap().on_new_preset_selected();
-    }
-
-    fn on_devices_connected_changed(&self) {
-        self.lock().unwrap().on_devices_connected_changed();
-    }
-
-    fn on_receiving_data_started(&self) {
-        self.lock().unwrap().on_receiving_data_started();
-    }
-
-    fn on_receiving_data_stopped(&self) {
-        self.lock().unwrap().on_receiving_data_stopped();
-    }
-
-    fn on_tuning_updated(&self) {
-        self.lock().unwrap().on_tuning_updated();
-    }
-
-    fn on_updating_tuning(&self) {
-        self.lock().unwrap().on_updating_tuning();
-    }
-}
+simonor::impl_mutex_listener!(ContinuumProtocolListener for Presenter {
+    fn on_download_completed(&self) => on_data_download_completed;
+    fn on_download_started(&self) => on_data_download_started;
+    fn on_new_preset_selected(&self);
+    fn on_devices_connected_changed(&self);
+    fn on_receiving_data_started(&self);
+    fn on_receiving_data_stopped(&self);
+    fn on_tuning_updated(&self);
+    fn on_updating_tuning(&self);
+});
 
 pub trait NewVersionCallbacks : Send + Sync {
     fn on_auto_check_new_versions_changed(&mut self, auto_check_new_versions: bool);

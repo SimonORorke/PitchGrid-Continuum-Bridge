@@ -1,5 +1,5 @@
 use crate::{ContinuumProtocolListener, IContinuumProtocol, Tuner, TuningUpdateSignaller};
-use simonor::{MidiInputListener, MidiReceiver};
+use simonor::{ListenerSlot, MidiInputListener, MidiReceiver};
 use log::{debug, trace};
 use midly::{MidiMessage, live::LiveEvent};
 use std::sync::{Arc, Mutex, Weak};
@@ -35,7 +35,7 @@ enum TuningStatus {
 pub struct ContinuumProtocol {
     /// The semantic listener (the `Presenter`). Weak to avoid a reference cycle; set by
     /// `Presenter::init`.
-    listener: Mutex<Option<Weak<dyn ContinuumProtocolListener>>>,
+    listener: ListenerSlot<dyn ContinuumProtocolListener>,
     download_status: Mutex<DownloadStatus>,
     download_wait_start_time: Mutex<Option<Instant>>,
     is_monitoring_download: AtomicBool,
@@ -48,7 +48,7 @@ pub struct ContinuumProtocol {
 impl ContinuumProtocol {
     pub fn new() -> Self {
         Self {
-            listener: Mutex::new(None),
+            listener: ListenerSlot::new(),
             download_status: Mutex::new(DownloadStatus::NotChecked),
             download_wait_start_time: Mutex::new(None),
             is_monitoring_download: AtomicBool::new(false),
@@ -57,18 +57,11 @@ impl ContinuumProtocol {
         }
     }
 
-    /// The semantic listener, if it is still alive.
-    fn listener(&self) -> Option<Arc<dyn ContinuumProtocolListener>> {
-        self.listener.lock().unwrap().as_ref().and_then(|weak| weak.upgrade())
-    }
-
     fn on_init_data_download_completed(&self) {
         trace!("on_init_data_download_completed: Stopping download monitor");
         self.is_monitoring_download.store(false, Ordering::Relaxed);
         *self.download_status.lock().unwrap() = DownloadStatus::Complete;
-        if let Some(listener) = self.listener() {
-            rayon::spawn(move || listener.on_download_completed());
-        }
+        self.listener.notify(move |listener| listener.on_download_completed());
     }
 }
 
@@ -78,7 +71,7 @@ impl IContinuumProtocol for ContinuumProtocol {
     }
 
     fn set_listener(&self, listener: Weak<dyn ContinuumProtocolListener>) {
-        *self.listener.lock().unwrap() = Some(listener);
+        self.listener.set(listener);
     }
 }
 
@@ -86,9 +79,7 @@ impl TuningUpdateSignaller for ContinuumProtocol {
     fn on_updating_tuning(&self) {
         debug!("on_updating_tuning");
         *self.tuning_status.lock().unwrap() = TuningStatus::Tuning;
-        if let Some(listener) = self.listener() {
-            rayon::spawn(move || listener.on_updating_tuning());
-        }
+        self.listener.notify(move |listener| listener.on_updating_tuning());
     }
 }
 
@@ -179,9 +170,7 @@ impl ContinuumProtocol {
                                 trace!("Preset's pitch table update confirmed, pitch table no: {}",
                                     pitch_table);
                                 *self.tuning_status.lock().unwrap() = TuningStatus::None;
-                                if let Some(listener) = self.listener() {
-                                    rayon::spawn(move || listener.on_tuning_updated());
-                                }
+                                self.listener.notify(move |listener| listener.on_tuning_updated());
                             }
                         }
                         return;
@@ -195,9 +184,7 @@ impl ContinuumProtocol {
                         if value == 49 {
                             trace!("on_message_received: BeginSysNames");
                             *self.download_status.lock().unwrap() = DownloadStatus::BeginSysNames;
-                            if let Some(listener) = self.listener() {
-                                rayon::spawn(move || listener.on_download_started());
-                            }
+                            self.listener.notify(move |listener| listener.on_download_started());
                             return;
                         }
                         if value == 54 {
@@ -208,9 +195,7 @@ impl ContinuumProtocol {
                             // `on_download_started` will have been called already.
                             // However, doing it again will do no harm,
                             // as it will only result in the same status message being redisplayed.
-                            if let Some(listener) = self.listener() {
-                                rayon::spawn(move || listener.on_download_started());
-                            }
+                            self.listener.notify(move |listener| listener.on_download_started());
                             return;
                         }
                         if value == 55 {
@@ -242,9 +227,7 @@ impl ContinuumProtocol {
                             // For unknown reason, this happens twice when a preset is loaded
                             // from disc.
                             trace!("on_message_received: Program, preset selected");
-                            if let Some(listener) = self.listener() {
-                                rayon::spawn(move || listener.on_new_preset_selected());
-                            }
+                            self.listener.notify(move |listener| listener.on_new_preset_selected());
                         }
                     }
                 }
@@ -265,21 +248,15 @@ impl ContinuumProtocol {
         // completion (see `on_message`).
         *self.download_status.lock().unwrap() = DownloadStatus::Waiting;
         *self.download_wait_start_time.lock().unwrap() = Some(Instant::now());
-        if let Some(listener) = self.listener() {
-            rayon::spawn(move || listener.on_receiving_data_started());
-        }
+        self.listener.notify(move |listener| listener.on_receiving_data_started());
     }
 
     fn on_receiving_data_stopped(&self) {
-        if let Some(listener) = self.listener() {
-            rayon::spawn(move || listener.on_receiving_data_stopped());
-        }
+        self.listener.notify(move |listener| listener.on_receiving_data_stopped());
     }
 
     fn on_devices_connected_changed(&self) {
-        if let Some(listener) = self.listener() {
-            rayon::spawn(move || listener.on_devices_connected_changed());
-        }
+        self.listener.notify(move |listener| listener.on_devices_connected_changed());
     }
 }
 
